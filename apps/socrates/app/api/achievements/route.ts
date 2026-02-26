@@ -1,18 +1,14 @@
 // =====================================================
 // Project Socrates - Achievements API
-// 成就系统 API 端点
+// 成就系统 API 端点（数据库持久化版本）
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // 成就定义
 import { ACHIEVEMENTS, LEVELS, getLevelFromXP, getNextLevelXP } from '@/lib/achievements/definitions';
 import type { AchievementDefinition, UserAchievement, AchievementStats, UserLevel } from '@/lib/achievements/types';
-
-// 模拟用户成就数据存储（实际应使用数据库）
-const userAchievements: Map<string, UserAchievement[]> = new Map();
-const userLevels: Map<string, UserLevel> = new Map();
-const userStats: Map<string, AchievementStats> = new Map();
 
 // GET - 获取用户成就信息
 export async function GET(req: NextRequest) {
@@ -24,39 +20,71 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
+    const supabase = await createClient();
+
     // 获取用户已解锁的成就
-    const unlocked = userAchievements.get(user_id) || [];
+    const { data: unlockedData, error: unlockedError } = await supabase
+      .from('user_achievements')
+      .select('*')
+      .eq('user_id', user_id);
+
+    if (unlockedError) {
+      console.error('Error fetching achievements:', unlockedError);
+    }
+
+    const unlocked = (unlockedData || []) as UserAchievement[];
     const unlockedIds = new Set(unlocked.map(a => a.achievement_id));
 
     // 获取用户等级
-    let level = userLevels.get(user_id);
-    if (!level) {
-      level = {
-        user_id,
-        level: 1,
-        xp: 0,
-        total_xp: 0,
-        title: '初学者',
-      };
-      userLevels.set(user_id, level);
+    const { data: levelData, error: levelError } = await supabase
+      .from('user_levels')
+      .select('*')
+      .eq('user_id', user_id)
+      .single();
+
+    let level = levelData as UserLevel | null;
+    if (!level || levelError) {
+      // 创建默认等级记录
+      const { data: newLevel, error: createError } = await supabase
+        .from('user_levels')
+        .insert({
+          user_id,
+          level: 1,
+          xp: 0,
+          total_xp: 0,
+          current_streak: 0,
+          longest_streak: 0,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating level:', createError);
+        level = {
+          user_id,
+          level: 1,
+          xp: 0,
+          total_xp: 0,
+          current_streak: 0,
+          longest_streak: 0,
+        } as UserLevel;
+      } else {
+        level = newLevel as UserLevel;
+      }
     }
 
-    // 获取统计信息
-    let stats = userStats.get(user_id);
-    if (!stats) {
-      stats = {
-        total_achievements: ACHIEVEMENTS.length,
-        unlocked_achievements: unlocked.length,
-        total_points: ACHIEVEMENTS.reduce((sum, a) => sum + a.points, 0),
-        earned_points: unlocked.reduce((sum, a) => {
-          const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
-          return sum + (def?.points || 0);
-        }, 0),
-        current_streak: 0,
-        longest_streak: 0,
-      };
-      userStats.set(user_id, stats);
-    }
+    // 计算统计信息
+    const stats: AchievementStats = {
+      total_achievements: ACHIEVEMENTS.length,
+      unlocked_achievements: unlocked.length,
+      total_points: ACHIEVEMENTS.reduce((sum, a) => sum + a.points, 0),
+      earned_points: unlocked.reduce((sum, a) => {
+        const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
+        return sum + (def?.points || 0);
+      }, 0),
+      current_streak: level?.current_streak || 0,
+      longest_streak: level?.longest_streak || 0,
+    };
 
     // 构建成就列表（包含进度）
     const achievements = ACHIEVEMENTS.map(def => {
@@ -69,13 +97,19 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    const levelConfig = getLevelFromXP(level?.total_xp || 0);
+    const nextLevel = getNextLevelXP(level?.total_xp || 0);
+
     return NextResponse.json({
       data: {
         achievements,
         level: {
           ...level,
-          ...getNextLevelXP(level.total_xp),
-          config: getLevelFromXP(level.total_xp),
+          level: levelConfig.level,
+          title: levelConfig.title,
+          current: nextLevel.current,
+          next: nextLevel.next,
+          progress: nextLevel.progress,
         },
         stats,
       },
@@ -96,42 +130,88 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const supabase = await createClient();
+
+    // 获取用户当前等级
+    const { data: levelData } = await supabase
+      .from('user_levels')
+      .select('*')
+      .eq('user_id', user_id)
+      .single();
+
+    const currentLevel = levelData as UserLevel | null;
+
+    // 获取已解锁成就
+    const { data: unlockedData } = await supabase
+      .from('user_achievements')
+      .select('*')
+      .eq('user_id', user_id);
+
+    const unlocked = (unlockedData || []) as UserAchievement[];
+    const unlockedIds = new Set(unlocked.map(a => a.achievement_id));
+
     let newlyUnlocked: AchievementDefinition[] = [];
     let xpGained = 0;
 
-    // 根据动作类型处理
-    switch (action) {
-      case 'error_uploaded':
-        newlyUnlocked = checkAchievements(user_id, 'error_count', data.count || 1);
-        break;
-      case 'error_mastered':
-        newlyUnlocked = checkAchievements(user_id, 'mastery_count', data.count || 1);
-        break;
-      case 'review_completed':
-        newlyUnlocked = checkAchievements(user_id, 'review_count', data.count || 1);
-        break;
-      case 'streak_updated':
-        newlyUnlocked = checkAchievements(user_id, 'streak', data.streak || 1);
-        updateStreak(user_id, data.streak);
-        break;
-      case 'special_event':
-        newlyUnlocked = checkAchievements(user_id, data.event_type, 1);
-        break;
+    // 根据动作类型检查成就
+    const achievementsToCheck = getAchievementsForAction(action, data);
+    const achievementsToInsert: Array<{ user_id: string; achievement_id: string; progress: number }> = [];
+
+    for (const achievement of achievementsToCheck) {
+      if (unlockedIds.has(achievement.id)) continue;
+
+      if (shouldUnlockAchievement(achievement, action, data)) {
+        achievementsToInsert.push({
+          user_id,
+          achievement_id: achievement.id,
+          progress: 100,
+        });
+        newlyUnlocked.push(achievement);
+        xpGained += achievement.points;
+      }
     }
 
-    // 计算获得的 XP
-    xpGained = newlyUnlocked.reduce((sum, a) => sum + a.points, 0);
+    // 批量插入新解锁的成就
+    if (achievementsToInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('user_achievements')
+        .insert(achievementsToInsert);
 
-    // 更新用户等级
-    if (xpGained > 0) {
-      updateXP(user_id, xpGained);
+      if (insertError) {
+        console.error('Error inserting achievements:', insertError);
+      }
+    }
+
+    // 更新 XP 和连续学习
+    if (xpGained > 0 || action === 'streak_updated') {
+      const newTotalXp = (currentLevel?.total_xp || 0) + xpGained;
+      const newLevelConfig = getLevelFromXP(newTotalXp);
+
+      const updateData: Record<string, number | string> = {
+        total_xp: newTotalXp,
+        level: newLevelConfig.level,
+        xp: newTotalXp - newLevelConfig.xp_required,
+      };
+
+      if (action === 'streak_updated' && data?.streak) {
+        updateData.current_streak = data.streak;
+        updateData.longest_streak = Math.max(currentLevel?.longest_streak || 0, data.streak);
+        updateData.last_activity_date = new Date().toISOString().split('T')[0];
+      }
+
+      await supabase
+        .from('user_levels')
+        .upsert({
+          user_id,
+          ...updateData,
+        });
     }
 
     return NextResponse.json({
       data: {
         unlocked: newlyUnlocked,
         xp_gained: xpGained,
-        total_xp: userLevels.get(user_id)?.total_xp || 0,
+        total_xp: (currentLevel?.total_xp || 0) + xpGained,
       },
     });
   } catch (error: any) {
@@ -140,135 +220,39 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 检查成就解锁
-function checkAchievements(user_id: string, type: string, value: number): AchievementDefinition[] {
-  const unlocked = userAchievements.get(user_id) || [];
-  const unlockedIds = new Set(unlocked.map(a => a.achievement_id));
-  const newlyUnlocked: AchievementDefinition[] = [];
-
-  for (const achievement of ACHIEVEMENTS) {
-    if (unlockedIds.has(achievement.id)) continue;
-
-    let shouldUnlock = false;
-
-    switch (type) {
-      case 'error_count':
-        if (achievement.requirement.type === 'count' &&
-            ['first_error', 'error_collector_10', 'error_collector_50', 'error_collector_100'].includes(achievement.id)) {
-          shouldUnlock = value >= achievement.requirement.target;
-        }
-        break;
-      case 'mastery_count':
-        if (achievement.requirement.type === 'count' &&
-            ['first_mastery', 'mastery_10', 'mastery_50', 'mastery_100'].includes(achievement.id)) {
-          shouldUnlock = value >= achievement.requirement.target;
-        }
-        break;
-      case 'review_count':
-        if (achievement.requirement.type === 'count' &&
-            ['review_10', 'review_50'].includes(achievement.id)) {
-          shouldUnlock = value >= achievement.requirement.target;
-        }
-        break;
-      case 'streak':
-        if (achievement.requirement.type === 'streak') {
-          shouldUnlock = value >= achievement.requirement.target;
-        }
-        break;
-      case 'early_bird':
-        if (achievement.id === 'early_bird') shouldUnlock = true;
-        break;
-      case 'night_owl':
-        if (achievement.id === 'night_owl') shouldUnlock = true;
-        break;
-      case 'weekend_warrior':
-        if (achievement.id === 'weekend_warrior') shouldUnlock = true;
-        break;
-    }
-
-    if (shouldUnlock) {
-      const newAchievement: UserAchievement = {
-        id: `ua_${Date.now()}_${achievement.id}`,
-        user_id,
-        achievement_id: achievement.id,
-        unlocked_at: new Date().toISOString(),
-        progress: 100,
-      };
-      unlocked.push(newAchievement);
-      newlyUnlocked.push(achievement);
-    }
+// 获取与动作相关的成就
+function getAchievementsForAction(action: string, data: any): AchievementDefinition[] {
+  switch (action) {
+    case 'error_uploaded':
+      return ACHIEVEMENTS.filter(a =>
+        ['first_error', 'error_collector_10', 'error_collector_50', 'error_collector_100'].includes(a.id)
+      );
+    case 'error_mastered':
+      return ACHIEVEMENTS.filter(a =>
+        ['first_mastery', 'mastery_10', 'mastery_50', 'mastery_100'].includes(a.id)
+      );
+    case 'review_completed':
+      return ACHIEVEMENTS.filter(a =>
+        ['review_10', 'review_50'].includes(a.id)
+      );
+    case 'streak_updated':
+      return ACHIEVEMENTS.filter(a => a.requirement.type === 'streak');
+    case 'special_event':
+      return ACHIEVEMENTS.filter(a => a.id === data?.event_type);
+    default:
+      return [];
   }
-
-  if (newlyUnlocked.length > 0) {
-    userAchievements.set(user_id, unlocked);
-    updateStats(user_id);
-  }
-
-  return newlyUnlocked;
 }
 
-// 更新用户 XP
-function updateXP(user_id: string, xp: number) {
-  let level = userLevels.get(user_id);
-  if (!level) {
-    level = {
-      user_id,
-      level: 1,
-      xp: 0,
-      total_xp: 0,
-      title: '初学者',
-    };
+// 检查是否应该解锁成就
+function shouldUnlockAchievement(achievement: AchievementDefinition, action: string, data: any): boolean {
+  if (achievement.requirement.type === 'count') {
+    const count = data?.count || 1;
+    return count >= achievement.requirement.target;
   }
-
-  level.total_xp += xp;
-  const newLevelConfig = getLevelFromXP(level.total_xp);
-  level.level = newLevelConfig.level;
-  level.title = newLevelConfig.title;
-  level.xp = level.total_xp - newLevelConfig.xp_required;
-
-  userLevels.set(user_id, level);
-}
-
-// 更新连续学习天数
-function updateStreak(user_id: string, streak: number) {
-  let stats = userStats.get(user_id);
-  if (!stats) {
-    stats = {
-      total_achievements: ACHIEVEMENTS.length,
-      unlocked_achievements: 0,
-      total_points: ACHIEVEMENTS.reduce((sum, a) => sum + a.points, 0),
-      earned_points: 0,
-      current_streak: 0,
-      longest_streak: 0,
-    };
+  if (achievement.requirement.type === 'streak') {
+    const streak = data?.streak || 1;
+    return streak >= achievement.requirement.target;
   }
-
-  stats.current_streak = streak;
-  stats.longest_streak = Math.max(stats.longest_streak, streak);
-  userStats.set(user_id, stats);
-}
-
-// 更新统计信息
-function updateStats(user_id: string) {
-  const unlocked = userAchievements.get(user_id) || [];
-  let stats = userStats.get(user_id);
-
-  if (!stats) {
-    stats = {
-      total_achievements: ACHIEVEMENTS.length,
-      unlocked_achievements: 0,
-      total_points: ACHIEVEMENTS.reduce((sum, a) => sum + a.points, 0),
-      earned_points: 0,
-      current_streak: 0,
-      longest_streak: 0,
-    };
-  }
-
-  stats.unlocked_achievements = unlocked.length;
-  stats.earned_points = unlocked.reduce((sum, a) => {
-    const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
-    return sum + (def?.points || 0);
-  }, 0);
-
-  userStats.set(user_id, stats);
+  return false;
 }

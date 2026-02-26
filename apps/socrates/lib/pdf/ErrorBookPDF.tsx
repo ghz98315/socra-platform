@@ -405,6 +405,6 @@ export async function downloadErrorBookPDF(data: ErrorBookData, filename?: strin
   link.download = filename || `错题本_${new Date().toISOString().split('T')[0]}.pdf`;
   document.body.appendChild(link);
   link.click();
-  document.body.appendChild(link);
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
