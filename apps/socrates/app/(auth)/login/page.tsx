@@ -11,7 +11,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Trophy, Sparkles, Brain, Target } from 'lucide-react';
+import { Loader2, Sparkles, Brain, Target } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
@@ -70,9 +71,13 @@ export default function LoginPage() {
           >
             {/* Logo */}
             <div className="flex items-center gap-4 mb-12">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
-                <Trophy className="w-8 h-8 text-white" />
-              </div>
+              <Image
+                src="/logo.png"
+                alt="Socrates"
+                width={64}
+                height={64}
+                className="rounded-2xl shadow-lg"
+              />
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">Socrates</h1>
                 <p className="text-muted-foreground">AI 学习助手</p>
@@ -125,9 +130,13 @@ export default function LoginPage() {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
-              <Trophy className="w-6 h-6 text-white" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Socrates"
+              width={48}
+              height={48}
+              className="rounded-xl shadow-lg"
+            />
             <span className="text-2xl font-bold">Socrates</span>
           </div>
 
