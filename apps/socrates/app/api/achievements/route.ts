@@ -4,11 +4,17 @@
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 // 成就定义
 import { ACHIEVEMENTS, LEVELS, getLevelFromXP, getNextLevelXP } from '@/lib/achievements/definitions';
 import type { AchievementDefinition, UserAchievement, AchievementStats, UserLevel } from '@/lib/achievements/types';
+
+// 创建 Supabase 客户端
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // GET - 获取用户成就信息
 export async function GET(req: NextRequest) {
@@ -19,8 +25,6 @@ export async function GET(req: NextRequest) {
     if (!user_id) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
-
-    const supabase = await createClient();
 
     // 获取用户已解锁的成就
     const { data: unlockedData, error: unlockedError } = await supabase
@@ -129,8 +133,6 @@ export async function POST(req: NextRequest) {
     if (!user_id || !action) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-
-    const supabase = await createClient();
 
     // 获取用户当前等级
     const { data: levelData } = await supabase
