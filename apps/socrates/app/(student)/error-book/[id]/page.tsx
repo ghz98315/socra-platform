@@ -20,7 +20,8 @@ import {
   Clock,
   AlertCircle,
   Bot,
-  User
+  User,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
+import { AnalysisDialog } from '@/components/AnalysisDialog';
 
 interface Message {
   id: string;
@@ -69,6 +71,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [exporting, setExporting] = useState(false);
   const [mastering, setMastering] = useState(false);
   const [masterMessage, setMasterMessage] = useState<string | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   useEffect(() => {
     loadErrorDetail();
@@ -269,6 +272,16 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   </>
                 )}
               </Button>
+              {messages.length >= 3 && profile?.role === 'parent' && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowAnalysis(true)}
+                  className="gap-2 bg-purple-500 hover:bg-purple-600 text-white"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  AI分析对话
+                </Button>
+              )}
               {errorSession.status === 'guided_learning' && (
                 <Button
                   size="sm"
@@ -434,13 +447,32 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               <Calendar className="w-4 h-4" />
               创建于 {formatDate(errorSession.created_at)}
             </div>
-            <Button onClick={handleContinueLearning} className="gap-2">
-              <Play className="w-4 h-4" />
-              继续学习
-            </Button>
+            <div className="flex items-center gap-2">
+              {messages.length >= 3 && profile?.role === 'parent' && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAnalysis(true)}
+                  className="gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  AI分析
+                </Button>
+              )}
+              <Button onClick={handleContinueLearning} className="gap-2">
+                <Play className="w-4 h-4" />
+                继续学习
+              </Button>
+            </div>
           </div>
         </div>
       </main>
+
+      {/* AI分析弹窗 */}
+      <AnalysisDialog
+        open={showAnalysis}
+        onOpenChange={setShowAnalysis}
+        sessionId={resolvedParams.id}
+      />
     </div>
   );
 }

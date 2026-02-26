@@ -23,7 +23,8 @@ import {
   UserPlus,
   Sparkles,
   BookOpen,
-  Lock
+  Lock,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,6 +35,7 @@ import { TodayStats, WeeklyStats } from '@/components/StudyTimeCards';
 import { Input } from '@/components/ui/input';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
+import { AnalysisDialog } from '@/components/AnalysisDialog';
 
 interface StudyTimeStats {
   total_sessions: number;
@@ -93,6 +95,8 @@ export default function DashboardPage() {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisDateRange, setAnalysisDateRange] = useState<'7d' | '30d' | 'all'>('7d');
 
   // 滚动动画 refs
   const statsAnimation = useScrollAnimation();
@@ -267,6 +271,15 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               {selectedStudent && (
                 <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAnalysis(true)}
+                    className="gap-2 bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    AI分析
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -746,6 +759,15 @@ export default function DashboardPage() {
           </Card>
         </div>
       )}
+
+      {/* AI综合分析弹窗 */}
+      <AnalysisDialog
+        open={showAnalysis}
+        onOpenChange={setShowAnalysis}
+        studentId={selectedStudent || undefined}
+        dateRange={analysisDateRange}
+        subjects="all"
+      />
     </div>
   );
 }
