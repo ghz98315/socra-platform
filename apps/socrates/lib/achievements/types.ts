@@ -43,7 +43,10 @@ export interface UserLevel {
   level: number;
   xp: number;             // 当前经验值
   total_xp: number;       // 总经验值
-  title: string;          // 等级称号
+  title?: string;         // 等级称号
+  current_streak?: number;
+  longest_streak?: number;
+  last_activity_date?: string;
 }
 
 // 等级配置
