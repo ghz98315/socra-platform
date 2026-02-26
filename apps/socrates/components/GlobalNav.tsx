@@ -109,7 +109,7 @@ export function GlobalNav() {
           >
             <div className="relative">
               <Image
-                src="/logo.png"
+                src="/logo.png?v=1.0.0"
                 alt="Socrates"
                 width={36}
                 height={36}
