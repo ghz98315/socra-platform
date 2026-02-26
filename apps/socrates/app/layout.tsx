@@ -19,6 +19,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Socrates - AI Learning Companion",
   description: "An AI-powered Socratic learning companion for students",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +32,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+      </head>
       <body className="antialiased" suppressHydrationWarning>
         <AuthProvider>
           <OfflineProvider>
