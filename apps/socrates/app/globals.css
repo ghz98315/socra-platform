@@ -1,0 +1,689 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* =====================================================
+   Project Socrates - Apple Style Design Tokens
+   ===================================================== */
+
+@theme inline {
+  /* Apple Color System */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", Monaco, "Cascadia Code", monospace;
+
+  /* Radius System */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-full: 9999px;
+
+  /* Shadcn defaults */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+}
+
+/* =====================================================
+   Light Mode (Default)
+   ===================================================== */
+:root {
+  /* Apple Colors */
+  --background: 245 245 247; /* #F5F5F7 */
+  --foreground: 29 29 31;    /* #1D1D1F */
+  --card: 255 255 255;       /* #FFFFFF */
+  --card-foreground: 29 29 31;
+  --popover: 255 255 255;
+  --popover-foreground: 29 29 31;
+  --primary: 29 29 31;       /* Apple Black */
+  --primary-foreground: 255 255 255;
+  --secondary: 245 245 247;
+  --secondary-foreground: 29 29 31;
+  --muted: 245 245 247;
+  --muted-foreground: 134 134 139; /* #86868B */
+  --accent: 245 245 247;
+  --accent-foreground: 29 29 31;
+  --destructive: 239 68 68;
+  --border: 0 0 0 / 0.08;    /* rgba(0,0,0,0.08) */
+  --input: 0 0 0 / 0.08;
+  --ring: 29 29 31;
+
+  /* Junior Theme Accent (Orange) */
+  --junior-accent: 255 149 0;      /* #FF9500 */
+  --junior-accent-light: 255 243 224; /* #FFF3E0 */
+
+  /* Senior Theme Accent (Blue) */
+  --senior-accent: 0 122 255;      /* #007AFF */
+  --senior-accent-light: 229 241 255; /* #E5F1FF */
+
+  /* Chart Colors */
+  --chart-1: 255 149 0;
+  --chart-2: 0 122 255;
+  --chart-3: 52 199 89;
+  --chart-4: 175 82 222;
+  --chart-5: 255 59 48;
+}
+
+/* =====================================================
+   Dark Mode (Senior Only)
+   ===================================================== */
+.dark {
+  --background: 0 0 0;        /* #000000 */
+  --foreground: 255 255 255;
+  --card: 28 28 30;          /* #1C1C1E */
+  --card-foreground: 255 255 255;
+  --popover: 28 28 30;
+  --popover-foreground: 255 255 255;
+  --primary: 255 255 255;
+  --primary-foreground: 0 0 0;
+  --secondary: 28 28 30;
+  --secondary-foreground: 255 255 255;
+  --muted: 28 28 30;
+  --muted-foreground: 152 152 157;
+  --accent: 28 28 30;
+  --accent-foreground: 255 255 255;
+  --destructive: 239 68 68;
+  --border: 255 255 255 / 0.1;
+  --input: 255 255 255 / 0.15;
+  --ring: 255 255 255;
+
+  /* Senior Dark Mode Accent */
+  --senior-accent: 10 132 255; /* #0A84FF */
+  --senior-accent-light: 28 28 30;
+}
+
+/* =====================================================
+   Theme-specific Classes
+   ===================================================== */
+.theme-junior {
+  --primary: var(--junior-accent);
+  --primary-foreground: 255 255 255;
+  --accent: var(--junior-accent-light);
+  --accent-foreground: 230 81 0;
+}
+
+.theme-junior.dark {
+  --junior-accent: 255 179 64; /* Slightly lighter orange for dark mode */
+  --junior-accent-light: 62 39 35;
+}
+
+.theme-senior {
+  --primary: var(--senior-accent);
+  --primary-foreground: 255 255 255;
+  --accent: var(--senior-accent-light);
+  --accent-foreground: 0 51 204;
+}
+
+.theme-senior.dark {
+  --senior-accent: 10 132 255;
+  --senior-accent-light: 28 28 30;
+}
+
+/* =====================================================
+   Apple Style Utilities
+   ===================================================== */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Apple-style scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+/* Apple-style shadows */
+.shadow-apple {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-apple-hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* Apple-style transitions */
+.transition-apple {
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dark .glass {
+  background: rgba(28, 28, 30, 0.7);
+}
+
+/* Button press effect */
+.btn-press:active {
+  transform: scale(0.96);
+}
+
+/* =====================================================
+   Apple-style Animations
+   ===================================================== */
+
+/* Keyframes */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradient-rotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.6);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes flame {
+  0%, 100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(1.2);
+    opacity: 0.8;
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s ease-out forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.6s ease-out forwards;
+}
+
+.animate-slide-left {
+  animation: slideLeft 0.6s ease-out forwards;
+}
+
+.animate-slide-right {
+  animation: slideRight 0.6s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Stagger Animation Delays */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+/* =====================================================
+   Apple-style Card Hover Effects
+   ===================================================== */
+
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.card-hover:hover {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.dark .card-hover:hover {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* =====================================================
+   Apple-style Button Effects
+   ===================================================== */
+
+.btn-apple {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.btn-apple::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.btn-apple:hover::before {
+  transform: translateX(100%);
+}
+
+/* =====================================================
+   Apple-style Navigation Effects
+   ===================================================== */
+
+.nav-blur {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.dark .nav-blur {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.nav-link {
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: currentColor;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transform: translateX(-50%);
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+}
+
+/* =====================================================
+   Page Transition Effects
+   ===================================================== */
+
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-exit-active {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.3s ease-in;
+}
+
+/* =====================================================
+   Image Hover Effects (Apple Product Style)
+   ===================================================== */
+
+.img-hover-zoom {
+  overflow: hidden;
+}
+
+.img-hover-zoom img {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.img-hover-zoom:hover img {
+  transform: scale(1.05);
+}
+
+/* =====================================================
+   Gradient Text Effect
+   ===================================================== */
+
+.gradient-text {
+  background: linear-gradient(135deg, #1D1D1F 0%, #86868B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .gradient-text {
+  background: linear-gradient(135deg, #FFFFFF 0%, #86868B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Primary gradient */
+.gradient-text-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* =====================================================
+   Shimmer Loading Effect
+   ===================================================== */
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 25%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.dark .shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* =====================================================
+   Focus Ring (Apple-style)
+   ===================================================== */
+
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.25);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.25);
+}
+
+/* =====================================================
+   Smooth Scroll
+   ===================================================== */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* =====================================================
+   Selection Style
+   ===================================================== */
+
+::selection {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+.dark ::selection {
+  background: rgba(10, 132, 255, 0.3);
+}
+
+/* =====================================================
+   Mobile Optimizations
+   ===================================================== */
+
+/* Ensure touch targets are at least 44px */
+@media (max-width: 640px) {
+  button,
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Reduce padding on mobile */
+  .page-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Safe area insets for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Prevent text size adjustment */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Improve touch scrolling */
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Hide scrollbars on mobile but keep functionality */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Bottom spacing for mobile bottom nav */
+  body {
+    padding-bottom: 80px;
+  }
+
+  /* Adjust main content areas */
+  main {
+    padding-bottom: 80px;
+  }
+}
+
+/* Tap highlight color */
+@media (hover: none) {
+  button:active,
+  [role="button"]:active,
+  a:active {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .dark button:active,
+  .dark [role="button"]:active,
+  .dark a:active {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+}
