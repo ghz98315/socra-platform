@@ -442,7 +442,7 @@ export default function ReviewPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => window.location.href = `/workbench?review=${review.sessionId}`}
+                      onClick={() => window.location.href = `/review/session/${review.id}`}
                       className="flex-1 transition-all duration-200"
                     >
                       开始复习

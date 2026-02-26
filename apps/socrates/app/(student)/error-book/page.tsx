@@ -522,12 +522,12 @@ export default function ErrorBookPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/workbench?session=${error.id}`);
+                            router.push(`/error-book/${error.id}`);
                           }}
                           className="gap-1"
                         >
                           <Eye className="w-4 h-4" />
-                          查看
+                          查看详情
                         </Button>
                       </div>
                     </div>

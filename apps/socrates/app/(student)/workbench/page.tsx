@@ -274,10 +274,18 @@ function WorkbenchPage() {
   };
 
   // Export current error question as PDF
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [pdfExportStatus, setPdfExportStatus] = useState<string | null>(null);
+
   const handleExportPDF = async () => {
     if (!ocrText && messages.length === 0) {
+      setPdfExportStatus('请先上传错题并进行学习对话');
+      setTimeout(() => setPdfExportStatus(null), 3000);
       return;
     }
+
+    setPdfExporting(true);
+    setPdfExportStatus('正在生成PDF...');
 
     try {
       await downloadErrorQuestionPDF({
@@ -291,8 +299,13 @@ function WorkbenchPage() {
           content: m.content,
         })),
       });
+      setPdfExportStatus('PDF下载成功！');
     } catch (error) {
       console.error('Failed to export PDF:', error);
+      setPdfExportStatus('导出失败，请重试');
+    } finally {
+      setPdfExporting(false);
+      setTimeout(() => setPdfExportStatus(null), 3000);
     }
   };
 
@@ -686,15 +699,35 @@ function WorkbenchPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {currentStep === 'chat' && messages.length > 0 && (
+                        {pdfExportStatus && (
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded",
+                            pdfExportStatus.includes('成功') ? "text-green-600 bg-green-50" :
+                            pdfExportStatus.includes('失败') || pdfExportStatus.includes('请先') ? "text-red-600 bg-red-50" :
+                            "text-muted-foreground"
+                          )}>
+                            {pdfExportStatus}
+                          </span>
+                        )}
+                        {currentStep === 'chat' && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={handleExportPDF}
+                            disabled={pdfExporting}
                             className="gap-2"
                           >
-                            <Download className="w-4 h-4" />
-                            导出PDF
+                            {pdfExporting ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                导出中...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-4 h-4" />
+                                导出PDF
+                              </>
+                            )}
                           </Button>
                         )}
                         <Button
