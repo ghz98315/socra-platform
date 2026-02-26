@@ -116,7 +116,7 @@ export default function RegisterPage() {
             {/* Logo */}
             <div className="flex items-center gap-4 mb-12">
               <Image
-                src="/logo.png?v=1.0.0"
+                src="/logo.png"
                 alt="Socrates"
                 width={64}
                 height={64}
@@ -188,7 +188,7 @@ export default function RegisterPage() {
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <Image
-              src="/logo.png?v=1.0.0"
+              src="/logo.png"
               alt="Socrates"
               width={48}
               height={48}
