@@ -19,7 +19,8 @@ import {
   Download,
   FileText,
   Users,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -107,6 +108,11 @@ function WorkbenchPage() {
   const [studySessionId, setStudySessionId] = useState<string | null>(null);
   const [studyDuration, setStudyDuration] = useState(0);
   const studyTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Mastery state
+  const [isMastered, setIsMastered] = useState(false);
+  const [mastering, setMastering] = useState(false);
+  const [masterMessage, setMasterMessage] = useState<string | null>(null);
 
   // Load parent's students and check URL params
   useEffect(() => {
@@ -425,6 +431,44 @@ function WorkbenchPage() {
   const handleResetChat = () => {
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
+    setIsMastered(false);
+    setMasterMessage(null);
+  };
+
+  // 标记为已掌握
+  const handleMarkMastered = async () => {
+    if (!chatSessionRef.current || !effectiveStudentId) {
+      setMasterMessage('请先上传错题并开始学习');
+      return;
+    }
+
+    setMastering(true);
+    setMasterMessage(null);
+
+    try {
+      const response = await fetch('/api/error-session/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: chatSessionRef.current,
+          student_id: effectiveStudentId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setIsMastered(true);
+        setMasterMessage(data.message || '恭喜！已标记为掌握');
+      } else {
+        setMasterMessage(data.error || '操作失败，请重试');
+      }
+    } catch (error) {
+      console.error('Failed to mark as mastered:', error);
+      setMasterMessage('网络错误，请重试');
+    } finally {
+      setMastering(false);
+    }
   };
 
   // Auto-scroll to bottom of messages
@@ -709,26 +753,63 @@ function WorkbenchPage() {
                             {pdfExportStatus}
                           </span>
                         )}
+                        {masterMessage && (
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded",
+                            masterMessage.includes('恭喜') ? "text-green-600 bg-green-50" :
+                            masterMessage.includes('失败') || masterMessage.includes('错误') ? "text-red-600 bg-red-50" :
+                            "text-muted-foreground"
+                          )}>
+                            {masterMessage}
+                          </span>
+                        )}
                         {currentStep === 'chat' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleExportPDF}
-                            disabled={pdfExporting}
-                            className="gap-2"
-                          >
-                            {pdfExporting ? (
-                              <>
-                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                导出中...
-                              </>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleExportPDF}
+                              disabled={pdfExporting}
+                              className="gap-2"
+                            >
+                              {pdfExporting ? (
+                                <>
+                                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                  导出中...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4" />
+                                  导出PDF
+                                </>
+                              )}
+                            </Button>
+                            {!isMastered ? (
+                              <Button
+                                size="sm"
+                                onClick={handleMarkMastered}
+                                disabled={mastering || messages.length === 0}
+                                className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                              >
+                                {mastering ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    处理中...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    已掌握
+                                  </>
+                                )}
+                              </Button>
                             ) : (
-                              <>
-                                <Download className="w-4 h-4" />
-                                导出PDF
-                              </>
+                              <Badge className="bg-green-100 text-green-700 gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                已掌握
+                              </Badge>
                             )}
-                          </Button>
+                          </>
                         )}
                         <Button
                           size="sm"

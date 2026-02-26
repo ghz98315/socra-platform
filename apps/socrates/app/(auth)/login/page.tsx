@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Brain, Target } from 'lucide-react';
+import { Loader2, Sparkles, Brain, Target, ArrowLeft, Home } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +53,15 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
+      {/* 返回首页按钮 - 固定在左上角 */}
+      <a
+        href="https://socra.cn"
+        className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-border/50 shadow-sm hover:shadow-md transition-all text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="hidden sm:inline">返回首页</span>
+      </a>
+
       {/* Left Side - Branding (Desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 relative overflow-hidden">
         {/* Animated Background Elements */}

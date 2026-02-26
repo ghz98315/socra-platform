@@ -67,6 +67,8 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [mastering, setMastering] = useState(false);
+  const [masterMessage, setMasterMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadErrorDetail();
@@ -129,6 +131,43 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleContinueLearning = () => {
     router.push(`/workbench?session=${resolvedParams.id}`);
+  };
+
+  // 标记为已掌握
+  const handleMarkMastered = async () => {
+    if (!errorSession || !profile?.id) return;
+
+    setMastering(true);
+    setMasterMessage(null);
+
+    try {
+      const response = await fetch('/api/error-session/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: errorSession.id,
+          student_id: profile.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // 更新本地状态
+        setErrorSession({
+          ...errorSession,
+          status: 'mastered',
+        });
+        setMasterMessage(data.message || '恭喜！已标记为掌握');
+      } else {
+        setMasterMessage(data.error || '操作失败，请重试');
+      }
+    } catch (error) {
+      console.error('Failed to mark as mastered:', error);
+      setMasterMessage('网络错误，请重试');
+    } finally {
+      setMastering(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -201,6 +240,16 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {masterMessage && (
+                <span className={cn(
+                  "text-xs px-2 py-1 rounded",
+                  masterMessage.includes('恭喜') ? "text-green-600 bg-green-50" :
+                  masterMessage.includes('失败') || masterMessage.includes('错误') ? "text-red-600 bg-red-50" :
+                  "text-muted-foreground"
+                )}>
+                  {masterMessage}
+                </span>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -220,14 +269,37 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   </>
                 )}
               </Button>
-              <Button
-                size="sm"
-                onClick={handleContinueLearning}
-                className="gap-2"
-              >
-                <Play className="w-4 h-4" />
-                继续学习
-              </Button>
+              {errorSession.status === 'guided_learning' && (
+                <Button
+                  size="sm"
+                  onClick={handleMarkMastered}
+                  disabled={mastering}
+                  className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                >
+                  {mastering ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      处理中...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      已掌握
+                    </>
+                  )}
+                </Button>
+              )}
+              {errorSession.status !== 'mastered' && (
+                <Button
+                  size="sm"
+                  onClick={handleContinueLearning}
+                  variant="default"
+                  className="gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  继续学习
+                </Button>
+              )}
             </div>
           </div>
         </div>
