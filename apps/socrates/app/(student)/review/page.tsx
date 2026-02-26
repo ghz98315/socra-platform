@@ -464,15 +464,6 @@ export default function ReviewPage() {
           </div>
         )}
       </main>
-
-      {/* Development Notice */}
-      <div className="fixed bottom-4 left-0 right-0 p-4 pointer-events-none">
-        <div className="max-w-7xl mx-auto">
-          <div className="mx-auto bg-card/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-muted-foreground shadow-sm border border-border/50 w-fit">
-            复习系统开发中...艾宾浩斯算法即将上线
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

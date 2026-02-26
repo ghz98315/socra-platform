@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import {
   Settings,
@@ -17,7 +18,8 @@ import {
   Loader2,
   Sparkles,
   RefreshCw,
-  Info
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +30,7 @@ import { AVAILABLE_MODELS, PROVIDER_CONFIG, getModelsForPurpose } from '@/lib/ai
 import type { AIModelConfig, UserModelPreference, ModelPurpose } from '@/lib/ai-models/types';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { profile } = useAuth();
   const [preference, setPreference] = useState<UserModelPreference | null>(null);
   const [loading, setLoading] = useState(true);
@@ -219,18 +222,28 @@ export default function SettingsPage() {
           icon={Settings}
           iconColor="text-gray-500"
           actions={
-            <Button
-              onClick={saveSettings}
-              disabled={saving}
-              className="gap-2"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              保存设置
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => router.back()}
+                className="gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回
+              </Button>
+              <Button
+                onClick={saveSettings}
+                disabled={saving}
+                className="gap-2"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                保存设置
+              </Button>
+            </div>
           }
         />
       </div>

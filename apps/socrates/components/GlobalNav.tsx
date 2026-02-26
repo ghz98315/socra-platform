@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 const parentNavItems = [
   { href: '/dashboard', icon: Home, label: '仪表盘', shortLabel: '首页', color: 'text-blue-500' },
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
+  { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
   { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-orange-500' },
   { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '查看', color: 'text-purple-500' },
 ];
@@ -42,6 +43,7 @@ const studentNavItems = [
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
   { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
   { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-orange-500' },
+  { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '分析', color: 'text-purple-500' },
   { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-yellow-500' },
 ];
 
@@ -68,8 +70,8 @@ export function GlobalNav() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 认证页面不显示导航栏
-  const isAuthPage = pathname?.includes('/login') || pathname?.includes('/register');
+  // 认证页面和选择角色页面不显示导航栏
+  const isAuthPage = pathname?.includes('/login') || pathname?.includes('/register') || pathname?.includes('/select-profile');
   if (!user || isAuthPage) {
     return null;
   }
@@ -102,9 +104,9 @@ export function GlobalNav() {
       {/* 第一层：顶部栏 - Logo + 用户信息 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="h-14 flex items-center justify-between">
-          {/* Logo */}
+          {/* Logo - 根据角色跳转到对应首页 */}
           <Link
-            href="/"
+            href={isParent ? '/dashboard' : '/workbench'}
             className="flex items-center gap-3 group"
           >
             <div className="relative">
