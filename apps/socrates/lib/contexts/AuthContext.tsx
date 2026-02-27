@@ -15,6 +15,7 @@ type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 interface UserProfile {
   id: string;
   email?: string;
+  phone?: string;
   role: 'admin' | 'student' | 'parent';
   theme_preference?: 'junior' | 'senior';
   grade_level?: number;
