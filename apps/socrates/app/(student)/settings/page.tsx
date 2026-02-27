@@ -19,7 +19,8 @@ import {
   Sparkles,
   RefreshCw,
   Info,
-  ArrowLeft
+  ArrowLeft,
+  Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { AVAILABLE_MODELS, PROVIDER_CONFIG, getModelsForPurpose } from '@/lib/ai-models/config';
 import type { AIModelConfig, UserModelPreference, ModelPurpose } from '@/lib/ai-models/types';
+import { LinkRequestsPanel } from '@/components/LinkRequestsPanel';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -269,6 +271,28 @@ export default function SettingsPage() {
           </div>
 
           {(['chat', 'vision', 'reasoning'] as ModelPurpose[]).map(renderModelSelector)}
+        </div>
+
+        {/* 家长关联 */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold">家长关联</h2>
+          </div>
+
+          <div className="p-4 bg-muted/30 rounded-xl flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-muted-foreground">
+              <p>家长可以请求与您关联，关联后家长可以：</p>
+              <ul className="mt-2 space-y-1 list-disc list-inside">
+                <li>查看您的学习数据和进度报告</li>
+                <li>接收学习提醒和周报</li>
+                <li>为您提供更好的学习支持</li>
+              </ul>
+            </div>
+          </div>
+
+          <LinkRequestsPanel />
         </div>
 
         {/* 当前配置摘要 */}

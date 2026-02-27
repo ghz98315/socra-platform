@@ -137,6 +137,35 @@ export interface Database {
           duration_seconds?: number | null;
         };
       };
+      link_requests: {
+        Row: {
+          id: string;
+          parent_id: string;
+          student_id: string;
+          status: 'pending' | 'accepted' | 'rejected';
+          message: string | null;
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          parent_id: string;
+          student_id: string;
+          status?: 'pending' | 'accepted' | 'rejected';
+          message?: string | null;
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          parent_id?: string;
+          student_id?: string;
+          status?: 'pending' | 'accepted' | 'rejected';
+          message?: string | null;
+          created_at?: string;
+          responded_at?: string | null;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

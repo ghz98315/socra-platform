@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { AnalysisDialog } from '@/components/AnalysisDialog';
+import { LinkStudentForm } from '@/components/LinkStudentForm';
 
 interface StudyTimeStats {
   total_sessions: number;
@@ -97,6 +98,7 @@ export default function DashboardPage() {
   const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisDateRange, setAnalysisDateRange] = useState<'7d' | '30d' | 'all'>('7d');
+  const [addStudentTab, setAddStudentTab] = useState<'create' | 'link'>('create');
 
   // 滚动动画 refs
   const statsAnimation = useScrollAnimation();
@@ -598,85 +600,123 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>添加学生</CardTitle>
-                <CardDescription>创建新的学生账户</CardDescription>
+                <CardDescription>创建新账户或关联已有学生</CardDescription>
               </div>
               <button
-                onClick={() => setShowAddStudentModal(false)}
+                onClick={() => {
+                  setShowAddStudentModal(false);
+                  setAddStudentTab('create');
+                }}
                 className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               >
                 ✕
               </button>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddStudent} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">学生姓名</label>
-                  <Input
-                    id="studentName"
-                    name="studentName"
-                    placeholder="请输入学生姓名"
-                    required
-                    className="transition-all duration-200 focus:ring-2"
-                  />
-                </div>
+              {/* Tab 切换 */}
+              <div className="flex gap-2 mb-4 p-1 bg-muted/30 rounded-lg">
+                <button
+                  onClick={() => setAddStudentTab('create')}
+                  className={cn(
+                    "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                    addStudentTab === 'create'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  创建新账号
+                </button>
+                <button
+                  onClick={() => setAddStudentTab('link')}
+                  className={cn(
+                    "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                    addStudentTab === 'link'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  关联已有账号
+                </button>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">手机号</label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    placeholder="请输入手机号"
-                    pattern="[0-9]{11}"
-                    required
-                    className="transition-all duration-200 focus:ring-2"
-                  />
-                </div>
+              {/* Tab 内容 */}
+              {addStudentTab === 'create' ? (
+                <form onSubmit={handleAddStudent} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">学生姓名</label>
+                    <Input
+                      id="studentName"
+                      name="studentName"
+                      placeholder="请输入学生姓名"
+                      required
+                      className="transition-all duration-200 focus:ring-2"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">密码</label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="至少6位"
-                    minLength={6}
-                    required
-                    className="transition-all duration-200 focus:ring-2"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">手机号</label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="请输入手机号"
+                      pattern="[0-9]{11}"
+                      required
+                      className="transition-all duration-200 focus:ring-2"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">年级</label>
-                  <select
-                    id="grade"
-                    name="grade"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <option value="">请选择</option>
-                    <option value="1">一年级</option>
-                    <option value="2">二年级</option>
-                    <option value="3">三年级</option>
-                    <option value="4">四年级</option>
-                    <option value="5">五年级</option>
-                    <option value="6">六年级</option>
-                  </select>
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">密码</label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="至少6位"
+                      minLength={6}
+                      required
+                      className="transition-all duration-200 focus:ring-2"
+                    />
+                  </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setShowAddStudentModal(false)}
-                  >
-                    取消
-                  </Button>
-                  <Button type="submit" className="flex-1">
-                    添加学生
-                  </Button>
-                </div>
-              </form>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">年级</label>
+                    <select
+                      id="grade"
+                      name="grade"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">请选择</option>
+                      <option value="1">一年级</option>
+                      <option value="2">二年级</option>
+                      <option value="3">三年级</option>
+                      <option value="4">四年级</option>
+                      <option value="5">五年级</option>
+                      <option value="6">六年级</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setShowAddStudentModal(false)}
+                    >
+                      取消
+                    </Button>
+                    <Button type="submit" className="flex-1">
+                      添加学生
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <LinkStudentForm
+                  onSuccess={() => {
+                    // 可选：关闭模态框或刷新列表
+                  }}
+                />
+              )}
             </CardContent>
           </Card>
         </div>
