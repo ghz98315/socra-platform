@@ -78,8 +78,9 @@ export async function POST(req: NextRequest) {
 
     if (alreadyExists) {
       return NextResponse.json({
-        error: '该手机号已注册，请让学生先自行登录或使用其他手机号',
-        code: 'PHONE_EXISTS'
+        error: '该手机号已注册！请切换到「关联已有学生」标签页，通过手机号关联学生。',
+        code: 'PHONE_EXISTS',
+        hint: 'switch_to_link_tab'
       }, { status: 400 });
     }
 

@@ -69,18 +69,30 @@ export async function POST(req: NextRequest) {
     }
 
     // profiles 记录会由触发器自动创建
-    // 但为了确保 phone 字段被正确存储，我们手动更新
-    const { error: updateError } = await (getSupabaseAdmin() as any)
+    // 等待触发器执行
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // 使用 UPSERT 确保 phone 和 display_name 被正确存储
+    const { error: upsertError } = await getSupabaseAdmin()
       .from('profiles')
-      .update({
+      .upsert({
+        id: authUser.id,
         phone,
         display_name,
-      })
-      .eq('id', authUser.id);
+        role,
+        theme_preference: 'junior',
+      }, {
+        onConflict: 'id',
+        ignoreDuplicates: false,
+      });
 
-    if (updateError) {
-      console.error('Error updating profile:', updateError);
-      // 不返回错误，因为用户已创建成功
+    if (upsertError) {
+      console.error('Error upserting profile:', upsertError);
+      // 尝试单独更新
+      await getSupabaseAdmin()
+        .from('profiles')
+        .update({ phone, display_name, theme_preference: 'junior' })
+        .eq('id', authUser.id);
     }
 
     return NextResponse.json({
