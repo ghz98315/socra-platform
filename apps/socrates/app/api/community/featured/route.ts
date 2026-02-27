@@ -47,22 +47,28 @@ export async function GET(req: NextRequest) {
     }
 
     // 格式化返回数据
-    const featuredPosts = (data || []).map(post => ({
-      id: post.id,
-      content: post.content,
-      type: post.post_type,
-      subject: post.subject,
-      grade: post.grade_level,
-      likes: post.likes_count,
-      comments: post.comments_count,
-      featuredAt: post.featured_at,
-      createdAt: post.created_at,
-      author: {
-        nickname: post.community_profiles?.nickname || '匿名小伙伴',
-        avatar: post.community_profiles?.avatar_emoji || '🐻',
-        isParent: post.community_profiles?.is_parent || false,
-      },
-    }));
+    const featuredPosts = (data || []).map((post: any) => {
+      const profile = Array.isArray(post.community_profiles)
+        ? post.community_profiles[0]
+        : post.community_profiles;
+
+      return {
+        id: post.id,
+        content: post.content,
+        type: post.post_type,
+        subject: post.subject,
+        grade: post.grade_level,
+        likes: post.likes_count,
+        comments: post.comments_count,
+        featuredAt: post.featured_at,
+        createdAt: post.created_at,
+        author: {
+          nickname: profile?.nickname || '匿名小伙伴',
+          avatar: profile?.avatar_emoji || '🐻',
+          isParent: profile?.is_parent || false,
+        },
+      };
+    });
 
     // 如果没有精华帖子，返回示例数据
     if (featuredPosts.length === 0) {

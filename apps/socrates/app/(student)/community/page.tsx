@@ -192,7 +192,7 @@ export default function CommunityPage() {
         {/* 页面标题 */}
         <PageHeader
           title="学习社区"
-          subtitle="分享你的学习故事，和小伙伴们一起进步"
+          description="分享你的学习故事，和小伙伴们一起进步"
         />
 
         {/* 发帖入口 */}

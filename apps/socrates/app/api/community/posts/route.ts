@@ -82,12 +82,18 @@ export async function GET(req: NextRequest) {
     }
 
     // 格式化返回数据
-    const posts = (data || []).map(post => ({
-      ...post,
-      profile: post.community_profiles,
-      community_profiles: undefined,
-      is_liked: likedPostIds.includes(post.id),
-    }));
+    const posts = (data || []).map((post: any) => {
+      const profile = Array.isArray(post.community_profiles)
+        ? post.community_profiles[0]
+        : post.community_profiles;
+
+      return {
+        ...post,
+        profile: profile,
+        community_profiles: undefined,
+        is_liked: likedPostIds.includes(post.id),
+      };
+    });
 
     return NextResponse.json({ data: posts });
   } catch (error: any) {
@@ -152,20 +158,27 @@ export async function POST(req: NextRequest) {
     }
 
     // 更新用户积分（发布分享 +5）
-    await supabase.rpc('update_user_points', {
-      p_user_id: user_id,
-      p_points: 5
-    }).catch(() => {
-      // 如果 RPC 不存在，直接更新
-      supabase.from('community_profiles')
-        .update({ points: supabase.rpc('increment_points', { amount: 5 }) })
+    const { data: currentProfile } = await supabase
+      .from('community_profiles')
+      .select('points')
+      .eq('user_id', user_id)
+      .single();
+
+    if (currentProfile) {
+      await supabase
+        .from('community_profiles')
+        .update({ points: (currentProfile.points || 0) + 5 })
         .eq('user_id', user_id);
-    });
+    }
+
+    const profile = Array.isArray(data.community_profiles)
+      ? data.community_profiles[0]
+      : data.community_profiles;
 
     return NextResponse.json({
       data: {
         ...data,
-        profile: data.community_profiles,
+        profile: profile,
         community_profiles: undefined,
       },
       message: '发布成功！感谢你的分享~'
