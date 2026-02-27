@@ -18,7 +18,8 @@ import {
   X,
   Trophy,
   ChevronRight,
-  Bookmark
+  Bookmark,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -35,7 +36,7 @@ const parentNavItems = [
   { href: '/dashboard', icon: Home, label: '仪表盘', shortLabel: '首页', color: 'text-blue-500' },
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
   { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
-  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-orange-500' },
+  { href: '/community', icon: Users, label: '社区', shortLabel: '分享', color: 'text-pink-500' },
   { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '查看', color: 'text-purple-500' },
 ];
 
@@ -43,7 +44,7 @@ const studentNavItems = [
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
   { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
   { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-orange-500' },
-  { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '分析', color: 'text-purple-500' },
+  { href: '/community', icon: Users, label: '社区', shortLabel: '分享', color: 'text-pink-500' },
   { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-yellow-500' },
 ];
 
