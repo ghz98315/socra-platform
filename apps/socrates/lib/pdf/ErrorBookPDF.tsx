@@ -12,12 +12,12 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// 注册中文字体 - 使用 jsDelivr CDN 托管的霞鹜文楷轻量版
+// 注册中文字体 - 使用 unpkg CDN 托管的霞鹜文楷
 Font.register({
   family: 'NotoSansSC',
   fonts: [
     {
-      src: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/lxgwwenkailite-regular.ttf',
+      src: 'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.ttf',
       fontWeight: 400,
     },
   ],

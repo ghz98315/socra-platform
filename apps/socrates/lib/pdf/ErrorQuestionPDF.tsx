@@ -13,14 +13,13 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// 注册中文字体 - 使用 jsDelivr CDN 托管的霞鹜文楷
-// jsDelivr 是更可靠的 CDN，在中国大陆有镜像
-// 文件路径: npm/lxgw-wenkai-webfont@版本/目录/文件名
+// 注册中文字体 - 使用 unpkg CDN 托管的霞鹜文楷
+// unpkg 是更可靠的 CDN，自动同步 npm 包
 Font.register({
   family: 'NotoSansSC',
   fonts: [
     {
-      src: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/lxgwwenkailite-regular.ttf',
+      src: 'https://unpkg.com/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.ttf',
       fontWeight: 400,
     },
   ],
