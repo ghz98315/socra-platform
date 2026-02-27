@@ -13,11 +13,17 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// 注册中文字体 - 使用 unpkg CDN 托管的 Noto Sans SC
-// 备用方案：使用多个 CDN 源以确保可用性
+// 注册中文字体 - 使用 jsDelivr CDN 托管的霞鹜文楷
+// jsDelivr 是更可靠的 CDN，在中国大陆有镜像
+// 文件路径: npm/lxgw-wenkai-webfont@版本/目录/文件名
 Font.register({
   family: 'NotoSansSC',
-  src: 'https://unpkg.com/lxgw-wenkai-webfont@1.6.0/lxgwwenkai-regular.ttf',
+  fonts: [
+    {
+      src: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.6.0/lxgwwenkailite-regular.ttf',
+      fontWeight: 400,
+    },
+  ],
 });
 
 // Create styles
@@ -367,23 +373,46 @@ export function ErrorQuestionPDF({ data }: ErrorQuestionPDFProps) {
   );
 }
 
-// Export function to generate PDF blob
+// Export function to generate PDF blob with timeout
 export async function generateErrorQuestionPDF(data: ErrorQuestionData): Promise<Blob> {
   const { pdf } = await import('@react-pdf/renderer');
   const doc = <ErrorQuestionPDF data={data} />;
-  const blob = await pdf(doc).toBlob();
-  return blob;
+
+  // Add timeout for PDF generation (30 seconds)
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('PDF生成超时，请检查网络连接后重试')), 30000)
+  );
+
+  const blobPromise = pdf(doc).toBlob();
+
+  try {
+    const blob = await Promise.race([blobPromise, timeoutPromise]);
+    return blob;
+  } catch (error: any) {
+    console.error('PDF generation error:', error);
+    throw new Error(error?.message || 'PDF生成失败');
+  }
 }
 
 // Export function to download PDF
 export async function downloadErrorQuestionPDF(data: ErrorQuestionData, filename?: string): Promise<void> {
-  const blob = await generateErrorQuestionPDF(data);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename || `错题_${data.subject}_${new Date().toISOString().split('T')[0]}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  try {
+    const blob = await generateErrorQuestionPDF(data);
+
+    if (!blob || blob.size === 0) {
+      throw new Error('生成的PDF文件为空');
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || `错题_${data.subject}_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error('PDF download error:', error);
+    throw error;
+  }
 }
