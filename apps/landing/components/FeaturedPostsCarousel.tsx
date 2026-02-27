@@ -115,13 +115,13 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
     fetchFeatured();
   }, []);
 
-  // 自动轮播
+  // 自动轮播 - 3秒切换一次
   useEffect(() => {
     if (isPaused || posts.length <= 1) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % posts.length);
-    }, 4000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [isPaused, posts.length]);
