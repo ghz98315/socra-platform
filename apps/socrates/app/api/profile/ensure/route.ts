@@ -66,11 +66,12 @@ export async function POST(req: NextRequest) {
     if (existingProfile) {
       // Profile 存在，检查是否需要更新
       const updates: Record<string, any> = {};
+      const profile = existingProfile as { phone?: string; display_name?: string };
 
-      if (phone && existingProfile.phone !== phone) {
+      if (phone && profile.phone !== phone) {
         updates.phone = phone;
       }
-      if (display_name && existingProfile.display_name !== display_name) {
+      if (display_name && profile.display_name !== display_name) {
         updates.display_name = display_name;
       }
 
