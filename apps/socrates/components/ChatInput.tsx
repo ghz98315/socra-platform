@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, Mic, MicOff } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff, Sigma } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { MathSymbolPicker } from '@/components/MathSymbolPicker';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -65,6 +66,7 @@ export function ChatInput({
   const [message, setMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [showMathPicker, setShowMathPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
@@ -114,6 +116,25 @@ export function ChatInput({
     }
   }, [isListening]);
 
+  // 处理数学符号插入
+  const handleSymbolInsert = useCallback((symbol: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newMessage = message.slice(0, start) + symbol + message.slice(end);
+      setMessage(newMessage);
+
+      // 恢复光标位置
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + symbol.length;
+        textarea.focus();
+      }, 0);
+    } else {
+      setMessage((prev) => prev + symbol);
+    }
+  }, [message]);
+
   const handleSubmit = () => {
     if (message.trim() && !disabled && !isLoading) {
       onSend(message.trim());
@@ -140,7 +161,33 @@ export function ChatInput({
   return (
     <Card className="shadow-apple">
       <CardContent className="p-3">
+        {/* 数学符号快捷栏 */}
+        {showMathPicker && (
+          <div className="mb-2 p-2 bg-muted/30 rounded-lg">
+            <MathSymbolPicker
+              onSymbolSelect={handleSymbolInsert}
+              variant="compact"
+            />
+          </div>
+        )}
+
         <div className="flex gap-2">
+          {/* Math Symbol Button */}
+          <Button
+            type="button"
+            size="icon"
+            variant={showMathPicker ? 'default' : 'outline'}
+            onClick={() => setShowMathPicker(!showMathPicker)}
+            disabled={disabled || isLoading}
+            className={cn(
+              "rounded-full h-11 w-11 flex-shrink-0 transition-all duration-200",
+              showMathPicker && "bg-primary"
+            )}
+            title="数学符号"
+          >
+            <Sigma className="w-4 h-4" />
+          </Button>
+
           {/* Voice Input Button */}
           {isSupported && (
             <Button
@@ -196,6 +243,8 @@ export function ChatInput({
           {isSupported ? (
             <>
               按 <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> 发送
+              {' · '}
+              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Σ</kbd> 数学符号
               {' · '}
               <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">麦克风</kbd> 语音输入
             </>
