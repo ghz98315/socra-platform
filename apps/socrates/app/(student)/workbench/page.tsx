@@ -140,22 +140,28 @@ function WorkbenchPage() {
     setLoadingStudents(true);
     const supabase = createClient();
 
-    const { data: relations } = await supabase
-      .from('parent_students')
-      .select('student_id, profiles!parent_students_student_id_fkey(display_name)')
+    // 使用 profiles 表的 parent_id 字段查询学生
+    // 与家长控制台的 /api/students 保持一致
+    const { data: students, error } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .eq('role', 'student')
       .eq('parent_id', profile.id);
 
-    if (relations) {
-      const students = relations.map((r: { student_id: string; profiles: { display_name: string } }) => ({
-        id: r.student_id,
-        display_name: r.profiles?.display_name || '未命名学生',
-      }));
-      setParentStudents(students);
+    if (error) {
+      console.error('Error loading students:', error);
+    }
+
+    if (students) {
+      setParentStudents(students.map((s: { id: string; display_name: string }) => ({
+        id: s.id,
+        display_name: s.display_name || '未命名学生',
+      })));
 
       // Auto-select first student if only one
       if (students.length === 1 && !selectedStudentId) {
         setSelectedStudentId(students[0].id);
-        setSelectedStudentName(students[0].display_name);
+        setSelectedStudentName(students[0].display_name || '未命名学生');
       }
     }
     setLoadingStudents(false);
