@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (Object.keys(updates).length > 0) {
-        const { error: updateError } = await admin
+        const { error: updateError } = await (admin as any)
           .from('profiles')
           .update(updates)
           .eq('id', user.id);
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Profile 不存在，创建新的
-      const { data: newProfile, error: insertError } = await admin
+      const { data: newProfile, error: insertError } = await (admin as any)
         .from('profiles')
         .insert({
           id: user.id,
