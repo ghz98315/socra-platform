@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    let requests = [];
+    let requests: any[] = [];
 
     if (profile.role === 'parent') {
       // 家长：获取发送的请求
