@@ -47,8 +47,8 @@ const getProfileOptions = (currentRole?: string): ProfileOption[] => [
     icon: <ChartBar className="w-12 h-12" />,
     theme: 'senior',
     role: 'parent',
-    // 只有已经是 parent 角色的用户才能选择 parent
-    locked: currentRole !== 'parent',
+    // 新用户(无角色)或已经是家长可以选择Parent，学生不能切换到家长
+    locked: currentRole === 'student',
   },
 ];
 
