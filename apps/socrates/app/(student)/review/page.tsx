@@ -78,12 +78,18 @@ export default function ReviewPage() {
   const listAnimation = useScrollAnimation();
 
   const loadReviews = useCallback(async () => {
+    // 如果 profile 还没加载完成，等待
+    if (!profile?.id) {
+      console.log('Review page: waiting for profile...');
+      return;
+    }
+
     setLoading(true);
 
     const { data: reviewData, error: reviewError } = await supabase
       .from('review_schedule')
       .select('*')
-      .eq('student_id', profile?.id || '')
+      .eq('student_id', profile.id)
       .eq('is_completed', false)
       .order('next_review_at', { ascending: true });
 

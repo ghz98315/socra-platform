@@ -44,12 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const supabase = createClient();
 
-  // Fetch user profile from database
-  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
+  // Track last fetched user ID to prevent duplicate fetches
+  const lastFetchedUserId = React.useRef<string | null>(null);
+
+  // Fetch user profile from database with retry logic
+  const fetchProfile = async (userId: string, retries = 2): Promise<UserProfile | null> => {
     try {
       console.log('[AuthContext] Fetching profile for user:', userId);
 
-      // 使用 Promise.race 添加超时机制
+      // 使用 Promise.race 添加超时机制 (增加到10秒)
       const queryPromise = supabase
         .from('profiles')
         .select('*')
@@ -57,21 +60,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Query timeout after 5s')), 5000)
+        setTimeout(() => reject(new Error('Query timeout after 10s')), 10000)
       );
 
       const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('[AuthContext] Error fetching profile:', JSON.stringify(error, null, 2));
+        // 如果还有重试次数，等待后重试
+        if (retries > 0) {
+          console.log(`[AuthContext] Retrying profile fetch (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchProfile(userId, retries - 1);
+        }
         return null;
       }
 
       console.log('[AuthContext] Profile fetched:', data);
+      lastFetchedUserId.current = userId;
       return (data as UserProfile | null);
     } catch (error: any) {
-      if (error?.message === 'Query timeout after 5s') {
-        console.error('[AuthContext] Profile fetch timeout - returning null');
+      if (error?.message?.includes('timeout')) {
+        console.error('[AuthContext] Profile fetch timeout');
+        // 如果还有重试次数，等待后重试
+        if (retries > 0) {
+          console.log(`[AuthContext] Retrying profile fetch after timeout (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchProfile(userId, retries - 1);
+        }
         return null;
       }
       console.error('[AuthContext] Exception fetching profile:', error?.message || error);
@@ -107,13 +123,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[AuthContext] onAuthStateChange:', event, !!session?.user);
+
+        // 跳过 TOKEN_REFRESHED 事件，避免不必要的 profile 刷新
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('[AuthContext] Token refreshed, keeping existing profile');
+          return;
+        }
+
         if (session?.user) {
           setUser(session.user);
-          const userProfile = await fetchProfile(session.user.id);
-          setProfile(userProfile);
+          // 只有当用户ID变化时才重新获取profile
+          if (lastFetchedUserId.current !== session.user.id) {
+            const userProfile = await fetchProfile(session.user.id);
+            setProfile(userProfile);
+          }
         } else {
           setUser(null);
           setProfile(null);
+          lastFetchedUserId.current = null;
         }
         setLoading(false);
       }

@@ -15,13 +15,21 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const student_id = body.student_id as string;
+    const student_id = body.student_id as string | undefined;
     const session_id = body.session_id as string | undefined;
     const session_type = body.session_type as 'error_analysis' | 'review' | undefined;
 
     // 从header获取action，默认为start
     const action = req.headers.get('x-action') || 'start';
     const now = new Date().toISOString();
+
+    // 如果 student_id 为空，返回优雅的错误而不是500
+    if (!student_id && (action === 'start' || action === 'end')) {
+      return NextResponse.json({
+        error: 'student_id is required',
+        message: '请先完成登录或等待页面加载完成'
+      }, { status: 400 });
+    }
 
     switch (action) {
       case 'start': {
