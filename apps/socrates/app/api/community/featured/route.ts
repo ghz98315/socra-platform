@@ -18,24 +18,9 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
 
     // 获取精华帖子
-    const { data, error } = await supabase
+    const { data: posts, error } = await supabase
       .from('community_posts')
-      .select(`
-        id,
-        content,
-        post_type,
-        subject,
-        grade_level,
-        likes_count,
-        comments_count,
-        featured_at,
-        created_at,
-        community_profiles!community_posts_user_id_fkey (
-          nickname,
-          avatar_emoji,
-          is_parent
-        )
-      `)
+      .select('id, content, post_type, subject, grade_level, likes_count, comments_count, featured_at, created_at, user_id')
       .eq('is_featured', true)
       .eq('is_hidden', false)
       .order('featured_at', { ascending: false })
@@ -46,11 +31,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 如果没有帖子，返回示例数据
+    if (!posts || posts.length === 0) {
+      return NextResponse.json({
+        data: getSampleFeaturedPosts(),
+        isSample: true,
+      });
+    }
+
+    // 获取用户ID列表
+    const userIds = [...new Set(posts.map(p => p.user_id))];
+
+    // 获取社区档案
+    const { data: profiles } = await supabase
+      .from('community_profiles')
+      .select('user_id, nickname, avatar_emoji, is_parent')
+      .in('user_id', userIds);
+
+    // 创建档案映射
+    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+
     // 格式化返回数据
-    const featuredPosts = (data || []).map((post: any) => {
-      const profile = Array.isArray(post.community_profiles)
-        ? post.community_profiles[0]
-        : post.community_profiles;
+    const featuredPosts = posts.map((post: any) => {
+      const profile = profileMap.get(post.user_id);
 
       return {
         id: post.id,

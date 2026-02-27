@@ -33,16 +33,10 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
+    // 先获取帖子
     let query = supabase
       .from('community_posts')
-      .select(`
-        *,
-        community_profiles!community_posts_user_id_fkey (
-          nickname,
-          avatar_emoji,
-          is_parent
-        )
-      `)
+      .select('*')
       .eq('is_hidden', false)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -60,19 +54,37 @@ export async function GET(req: NextRequest) {
       query = query.eq('is_featured', true);
     }
 
-    const { data, error } = await query;
+    const { data: posts, error } = await query;
 
     if (error) {
       console.error('Error fetching posts:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 获取所有帖子作者的用户ID
+    const userIds = [...new Set((posts || []).map(p => p.user_id))];
+
+    // 获取社区档案
+    const { data: profiles } = await supabase
+      .from('community_profiles')
+      .select('user_id, nickname, avatar_emoji, is_parent')
+      .in('user_id', userIds);
+
+    // 创建档案映射
+    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+
+    // 合并数据
+    const postsWithProfiles = (posts || []).map(post => ({
+      ...post,
+      community_profiles: profileMap.get(post.user_id) || null
+    }));
+
     // 获取当前用户的点赞状态
     const currentUserId = searchParams.get('current_user_id');
     let likedPostIds: string[] = [];
 
-    if (currentUserId && data && data.length > 0) {
-      const postIds = data.map(p => p.id);
+    if (currentUserId && postsWithProfiles && postsWithProfiles.length > 0) {
+      const postIds = postsWithProfiles.map(p => p.id);
       const { data: likes } = await supabase
         .from('community_likes')
         .select('post_id')
@@ -82,20 +94,16 @@ export async function GET(req: NextRequest) {
     }
 
     // 格式化返回数据
-    const posts = (data || []).map((post: any) => {
-      const profile = Array.isArray(post.community_profiles)
-        ? post.community_profiles[0]
-        : post.community_profiles;
-
+    const formattedPosts = postsWithProfiles.map((post: any) => {
       return {
         ...post,
-        profile: profile,
+        profile: post.community_profiles,
         community_profiles: undefined,
         is_liked: likedPostIds.includes(post.id),
       };
     });
 
-    return NextResponse.json({ data: posts });
+    return NextResponse.json({ data: formattedPosts });
   } catch (error: any) {
     console.error('Posts GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -142,20 +150,20 @@ export async function POST(req: NextRequest) {
         image_url: image_url || null,
         is_anonymous: is_anonymous || false,
       })
-      .select(`
-        *,
-        community_profiles!community_posts_user_id_fkey (
-          nickname,
-          avatar_emoji,
-          is_parent
-        )
-      `)
+      .select()
       .single();
 
     if (error) {
       console.error('Error creating post:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // 获取用户社区档案
+    const { data: profileData } = await supabase
+      .from('community_profiles')
+      .select('nickname, avatar_emoji, is_parent')
+      .eq('user_id', user_id)
+      .single();
 
     // 更新用户积分（发布分享 +5）
     const { data: currentProfile } = await supabase
@@ -171,15 +179,10 @@ export async function POST(req: NextRequest) {
         .eq('user_id', user_id);
     }
 
-    const profile = Array.isArray(data.community_profiles)
-      ? data.community_profiles[0]
-      : data.community_profiles;
-
     return NextResponse.json({
       data: {
         ...data,
-        profile: profile,
-        community_profiles: undefined,
+        profile: profileData || null,
       },
       message: '发布成功！感谢你的分享~'
     });

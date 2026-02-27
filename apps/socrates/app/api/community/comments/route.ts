@@ -29,16 +29,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: '缺少帖子ID' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // 获取评论
+    const { data: comments, error } = await supabase
       .from('community_comments')
-      .select(`
-        *,
-        community_profiles!community_comments_user_id_fkey (
-          nickname,
-          avatar_emoji,
-          is_parent
-        )
-      `)
+      .select('*')
       .eq('post_id', post_id)
       .eq('is_hidden', false)
       .order('created_at', { ascending: true })
@@ -49,22 +43,38 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 格式化评论数据，构建树形结构
-    const comments = (data || []).map(comment => ({
+    // 如果没有评论，返回空数组
+    if (!comments || comments.length === 0) {
+      return NextResponse.json({ data: [] });
+    }
+
+    // 获取用户ID列表
+    const userIds = [...new Set(comments.map(c => c.user_id))];
+
+    // 获取社区档案
+    const { data: profiles } = await supabase
+      .from('community_profiles')
+      .select('user_id, nickname, avatar_emoji, is_parent')
+      .in('user_id', userIds);
+
+    // 创建档案映射
+    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+
+    // 格式化评论数据
+    const formattedComments = comments.map(comment => ({
       ...comment,
-      profile: comment.community_profiles,
-      community_profiles: undefined,
+      profile: profileMap.get(comment.user_id) || null,
     }));
 
     // 构建评论树（支持回复）
     const commentMap = new Map();
     const rootComments: any[] = [];
 
-    comments.forEach(comment => {
+    formattedComments.forEach(comment => {
       commentMap.set(comment.id, { ...comment, replies: [] });
     });
 
-    comments.forEach(comment => {
+    formattedComments.forEach(comment => {
       const node = commentMap.get(comment.id);
       if (comment.parent_comment_id && commentMap.has(comment.parent_comment_id)) {
         commentMap.get(comment.parent_comment_id).replies.push(node);
@@ -110,14 +120,7 @@ export async function POST(req: NextRequest) {
         content,
         parent_comment_id: parent_comment_id || null,
       })
-      .select(`
-        *,
-        community_profiles!community_comments_user_id_fkey (
-          nickname,
-          avatar_emoji,
-          is_parent
-        )
-      `)
+      .select()
       .single();
 
     if (error) {
@@ -125,11 +128,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 获取用户社区档案
+    const { data: profileData } = await supabase
+      .from('community_profiles')
+      .select('nickname, avatar_emoji, is_parent')
+      .eq('user_id', user_id)
+      .single();
+
     return NextResponse.json({
       data: {
         ...data,
-        profile: data.community_profiles,
-        community_profiles: undefined,
+        profile: profileData || null,
         replies: [],
       },
       message: '评论成功！'
