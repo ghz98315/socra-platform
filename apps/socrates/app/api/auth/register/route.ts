@@ -72,27 +72,32 @@ export async function POST(req: NextRequest) {
     // 等待触发器执行
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // 使用 UPSERT 确保 phone 和 display_name 被正确存储
-    const { error: upsertError } = await getSupabaseAdmin()
+    // 更新 profile 的 phone 和 display_name
+    const { error: updateError } = await getSupabaseAdmin()
       .from('profiles')
-      .upsert({
-        id: authUser.id,
+      .update({
         phone,
         display_name,
-        role,
         theme_preference: 'junior',
-      }, {
-        onConflict: 'id',
-        ignoreDuplicates: false,
-      });
+      })
+      .eq('id', authUser.id);
 
-    if (upsertError) {
-      console.error('Error upserting profile:', upsertError);
-      // 尝试单独更新
-      await getSupabaseAdmin()
-        .from('profiles')
-        .update({ phone, display_name, theme_preference: 'junior' })
-        .eq('id', authUser.id);
+    if (updateError) {
+      console.error('Error updating profile:', updateError);
+      // 如果更新失败，尝试插入
+      try {
+        await getSupabaseAdmin()
+          .from('profiles')
+          .insert({
+            id: authUser.id,
+            phone,
+            display_name,
+            role,
+            theme_preference: 'junior',
+          });
+      } catch (insertError) {
+        console.error('Error inserting profile:', insertError);
+      }
     }
 
     return NextResponse.json({
