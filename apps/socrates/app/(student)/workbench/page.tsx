@@ -152,8 +152,11 @@ function WorkbenchPage() {
       console.error('Error loading students:', error);
     }
 
-    if (students && students.length > 0) {
-      const studentList = students.map((s) => ({
+    // 类型断言解决 TypeScript 推断问题
+    const typedStudents = students as { id: string; display_name: string }[] | null;
+
+    if (typedStudents && typedStudents.length > 0) {
+      const studentList = typedStudents.map((s) => ({
         id: s.id,
         display_name: s.display_name || '未命名学生',
       }));
