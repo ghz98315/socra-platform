@@ -256,12 +256,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('updateProfile called with:', updates);
 
     try {
-      // 使用 update() 方法直接更新
+      // 使用 upsert() 方法：如果 profile 存在则更新，不存在则创建
+      const profileData = {
+        id: user.id,
+        ...updates,
+        display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
+      };
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
+        .upsert(profileData, { onConflict: 'id' })
         .select()
         .single();
 

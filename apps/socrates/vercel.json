@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.vercel.com vercel.live static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' *.vercel.com fonts.googleapis.com at.alicdn.com; font-src 'self' *.vercel.com fonts.gstatic.com at.alicdn.com cdn.yiban.io data:; img-src 'self' data: blob: *.vercel.com vercel.live https:; connect-src 'self' *.vercel.com vercel.live *.supabase.co https://dashscope.aliyuncs.com https://api.deepseek.com https:; frame-src 'self' *.vercel.com vercel.live;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.vercel.com vercel.live static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' *.vercel.com fonts.googleapis.com at.alicdn.com; font-src 'self' *.vercel.com fonts.gstatic.com at.alicdn.com cdn.yiban.io data:; img-src 'self' data: blob: *.vercel.com vercel.live https:; connect-src 'self' *.vercel.com vercel.live https://*.supabase.co wss://*.supabase.co https://dashscope.aliyuncs.com https://api.deepseek.com https:; frame-src 'self' *.vercel.com vercel.live;"
         }
       ]
     }
