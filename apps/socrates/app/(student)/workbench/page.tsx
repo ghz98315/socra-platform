@@ -152,16 +152,17 @@ function WorkbenchPage() {
       console.error('Error loading students:', error);
     }
 
-    if (students) {
-      setParentStudents(students.map((s: { id: string; display_name: string }) => ({
+    if (students && students.length > 0) {
+      const studentList = students.map((s) => ({
         id: s.id,
         display_name: s.display_name || '未命名学生',
-      })));
+      }));
+      setParentStudents(studentList);
 
       // Auto-select first student if only one
-      if (students.length === 1 && !selectedStudentId) {
-        setSelectedStudentId(students[0].id);
-        setSelectedStudentName(students[0].display_name || '未命名学生');
+      if (studentList.length === 1 && !selectedStudentId) {
+        setSelectedStudentId(studentList[0].id);
+        setSelectedStudentName(studentList[0].display_name);
       }
     }
     setLoadingStudents(false);
