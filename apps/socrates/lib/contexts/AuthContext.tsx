@@ -255,24 +255,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } else {
-        // 如果触发器未创建 profile，手动创建
-        console.log('[AuthContext] Profile not found after retries, creating manually');
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            role: 'student',
-            display_name: name || phone || email.split('@')[0],
-            phone: phone,  // 存储手机号到 profiles 表
-          } as any)
-          .select()
-          .maybeSingle();
+        // 如果触发器未创建 profile，通过 API 创建（绕过 RLS）
+        console.log('[AuthContext] Profile not found after retries, creating via API');
+        try {
+          const response = await fetch('/api/profile/ensure', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone,
+              display_name: name || phone || email.split('@')[0],
+              role: 'student',
+            }),
+          });
 
-        if (insertError) {
-          console.error('[AuthContext] Error creating profile:', insertError);
-        } else {
-          console.log('[AuthContext] Profile created, fetching again');
-          userProfile = await fetchProfile(data.user.id);
+          if (response.ok) {
+            console.log('[AuthContext] Profile created via API, fetching again');
+            userProfile = await fetchProfile(data.user.id);
+          } else {
+            const error = await response.json();
+            console.error('[AuthContext] API error creating profile:', error);
+          }
+        } catch (apiError) {
+          console.error('[AuthContext] Failed to call profile ensure API:', apiError);
         }
       }
 
@@ -301,11 +305,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('updateProfile called with:', updates);
 
     try {
-      // 使用 upsert() 方法：如果 profile 存在则更新，不存在则创建
+      // 先检查 profile 是否存在
+      const existingProfile = await fetchProfile(user.id);
+
+      // 如果 profile 不存在，使用 API 创建（绕过 RLS）
+      if (!existingProfile) {
+        console.log('Profile not found, creating via API');
+        const response = await fetch('/api/profile/ensure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: user.user_metadata?.phone || null,
+            display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
+            role: updates.role || 'student',
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Profile created via API:', result);
+          setProfile(result.data as UserProfile);
+          return;
+        } else {
+          const error = await response.json();
+          console.error('API error creating profile:', error);
+          throw new Error('Failed to create profile');
+        }
+      }
+
+      // Profile 存在，使用 upsert 更新
       const profileData = {
         id: user.id,
         ...updates,
-        display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
+        // 确保 phone 从 user_metadata 同步
+        phone: updates.phone || existingProfile.phone || user.user_metadata?.phone || null,
+        display_name: updates.display_name || existingProfile.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
