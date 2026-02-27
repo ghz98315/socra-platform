@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // 更新 profile 的 phone 和 display_name
-    const { error: updateError } = await getSupabaseAdmin()
+    const { error: updateError } = await (getSupabaseAdmin() as any)
       .from('profiles')
       .update({
         phone,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       console.error('Error updating profile:', updateError);
       // 如果更新失败，尝试插入
       try {
-        await getSupabaseAdmin()
+        await (getSupabaseAdmin() as any)
           .from('profiles')
           .insert({
             id: authUser.id,
