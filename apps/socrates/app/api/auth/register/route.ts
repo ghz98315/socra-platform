@@ -72,8 +72,8 @@ export async function POST(req: NextRequest) {
     // 等待触发器执行
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // 更新 profile 的 phone 和 display_name
-    const { error: updateError } = await (getSupabaseAdmin() as any)
+    // 先尝试更新 profile
+    const { error: updateError, count } = await (getSupabaseAdmin() as any)
       .from('profiles')
       .update({
         phone,
@@ -82,21 +82,23 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', authUser.id);
 
-    if (updateError) {
-      console.error('Error updating profile:', updateError);
-      // 如果更新失败，尝试插入
-      try {
-        await (getSupabaseAdmin() as any)
-          .from('profiles')
-          .insert({
-            id: authUser.id,
-            phone,
-            display_name,
-            role,
-            theme_preference: 'junior',
-          });
-      } catch (insertError) {
-        console.error('Error inserting profile:', insertError);
+    // 如果更新失败或没有更新到任何记录，尝试插入
+    if (updateError || count === 0) {
+      console.log('Profile update failed or no rows updated, trying insert...');
+      const { error: insertError } = await (getSupabaseAdmin() as any)
+        .from('profiles')
+        .upsert({
+          id: authUser.id,
+          phone,
+          display_name,
+          role,
+          theme_preference: 'junior',
+        }, {
+          onConflict: 'id',
+        });
+
+      if (insertError) {
+        console.error('Error upserting profile:', insertError);
       }
     }
 
