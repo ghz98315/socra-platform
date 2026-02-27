@@ -1,14 +1,21 @@
 // =====================================================
 // Project Socrates - Variant Questions API
-// 变式题目生成 API
+// 变式题目生成 API (Supabase 版本)
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import type { VariantQuestion, GenerateVariantRequest, VariantDifficulty } from '@/lib/variant-questions/types';
 
-// 模拟存储（实际应使用数据库）
-const variantQuestions: Map<string, VariantQuestion[]> = new Map();
+// 创建 Supabase Admin 客户端
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  return createClient(url, key);
+}
 
 // GET - 获取变式题目列表
 export async function GET(req: NextRequest) {
@@ -22,21 +29,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
     }
 
-    let variants = variantQuestions.get(student_id) || [];
+    const admin = getSupabaseAdmin();
+    let query = (admin as any)
+      .from('variant_questions')
+      .select('*')
+      .eq('student_id', student_id)
+      .order('created_at', { ascending: false });
 
     // 按原错题筛选
     if (session_id) {
-      variants = variants.filter(v => v.original_session_id === session_id);
+      query = query.eq('original_session_id', session_id);
     }
 
     // 按状态筛选
     if (status) {
-      variants = variants.filter(v => v.status === status);
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching variants:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({
-      data: variants,
-      total: variants.length,
+      data: data || [],
+      total: data?.length || 0,
     });
   } catch (error: any) {
     console.error('Variant questions GET error:', error);
@@ -48,7 +67,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body: GenerateVariantRequest = await req.json();
-    const { session_id, student_id, subject, original_text, concept_tags, difficulty, count = 1 } = body;
+    const { session_id, student_id, subject, original_text, concept_tags, difficulty, count = 2 } = body;
 
     if (!session_id || !student_id || !original_text) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -65,13 +84,26 @@ export async function POST(req: NextRequest) {
       count,
     });
 
-    // 存储变式题目
-    const existingVariants = variantQuestions.get(student_id) || [];
-    variantQuestions.set(student_id, [...existingVariants, ...variants]);
+    // 存储到数据库
+    const admin = getSupabaseAdmin();
+    const { data, error } = await (admin as any)
+      .from('variant_questions')
+      .insert(variants)
+      .select();
+
+    if (error) {
+      console.error('Error saving variants:', error);
+      // 即使保存失败，也返回生成的变式题（降级方案）
+      return NextResponse.json({
+        success: true,
+        data: variants,
+        warning: 'Failed to save to database',
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      data: variants,
+      data: data || variants,
     });
   } catch (error: any) {
     console.error('Variant questions POST error:', error);
@@ -89,32 +121,35 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const variants = variantQuestions.get(student_id) || [];
-    const variantIndex = variants.findIndex(v => v.id === variant_id);
+    const admin = getSupabaseAdmin();
 
-    if (variantIndex === -1) {
-      return NextResponse.json({ error: 'Variant question not found' }, { status: 404 });
+    // 插入练习记录（触发器会自动更新变式题目状态）
+    const { error: logError } = await (admin as any)
+      .from('variant_practice_logs')
+      .insert({
+        variant_id,
+        student_id,
+        is_correct,
+        student_answer,
+        time_spent: time_spent || 0,
+        hints_used: hints_used || 0,
+      });
+
+    if (logError) {
+      console.error('Error saving practice log:', logError);
     }
 
-    const variant = variants[variantIndex];
+    // 获取更新后的变式题目
+    const { data: variant, error } = await (admin as any)
+      .from('variant_questions')
+      .select('*')
+      .eq('id', variant_id)
+      .single();
 
-    // 更新状态
-    variant.attempts += 1;
-    if (is_correct) {
-      variant.correct_attempts += 1;
+    if (error) {
+      console.error('Error fetching updated variant:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    variant.last_practiced_at = new Date().toISOString();
-
-    // 更新状态
-    if (variant.correct_attempts >= 2) {
-      variant.status = 'mastered';
-      variant.completed_at = new Date().toISOString();
-    } else if (variant.attempts >= 1) {
-      variant.status = 'practicing';
-    }
-
-    variants[variantIndex] = variant;
-    variantQuestions.set(student_id, variants);
 
     return NextResponse.json({
       success: true,
@@ -167,6 +202,7 @@ ${difficultyLabels[difficulty]}
 2. 改变数字、条件或情境
 3. 每道题提供2-3个递进提示
 4. 提供详细解析和答案
+5. 答案要简洁明了（如：42、x=5、30°等）
 
 请按以下JSON格式返回（仅返回JSON，不要其他内容）：
 {
@@ -182,15 +218,19 @@ ${difficultyLabels[difficulty]}
 }`;
 
   try {
-    // 调用 AI API
-    const response = await fetch(`${process.env.AI_BASE_URL_LOGIC || 'https://api.deepseek.com/v1'}/chat/completions`, {
+    // 优先使用 DeepSeek，降级到通义千问
+    const aiBaseUrl = process.env.AI_BASE_URL_LOGIC || process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    const aiApiKey = process.env.AI_API_KEY_LOGIC || process.env.DASHSCOPE_API_KEY;
+    const aiModel = process.env.AI_MODEL_LOGIC || 'qwen-plus';
+
+    const response = await fetch(`${aiBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.AI_API_KEY_LOGIC}`,
+        'Authorization': `Bearer ${aiApiKey}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: aiModel,
         messages: [
           {
             role: 'system',
@@ -207,7 +247,7 @@ ${difficultyLabels[difficulty]}
     });
 
     if (!response.ok) {
-      throw new Error('AI API call failed');
+      throw new Error(`AI API call failed: ${response.status}`);
     }
 
     const result = await response.json();
@@ -221,7 +261,7 @@ ${difficultyLabels[difficulty]}
 
     const parsed = JSON.parse(jsonMatch[0]);
     const variants: VariantQuestion[] = (parsed.variants || []).map((v: any, index: number) => ({
-      id: `variant_${Date.now()}_${index}`,
+      id: `temp_${Date.now()}_${index}`, // 临时ID，数据库会生成真实ID
       original_session_id: session_id,
       student_id,
       subject,
@@ -243,7 +283,7 @@ ${difficultyLabels[difficulty]}
 
     // 返回模拟数据作为降级方案
     return Array.from({ length: count }, (_, index) => ({
-      id: `variant_${Date.now()}_${index}`,
+      id: `temp_${Date.now()}_${index}`,
       original_session_id: session_id,
       student_id,
       subject,

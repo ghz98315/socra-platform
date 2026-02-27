@@ -21,7 +21,8 @@ import {
   AlertCircle,
   Bot,
   User,
-  MessageCircle
+  MessageCircle,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { AnalysisDialog } from '@/components/AnalysisDialog';
+import { VariantPractice } from '@/components/VariantPractice';
 
 interface Message {
   id: string;
@@ -72,6 +74,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [mastering, setMastering] = useState(false);
   const [masterMessage, setMasterMessage] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showVariants, setShowVariants] = useState(false);
 
   useEffect(() => {
     loadErrorDetail();
@@ -439,6 +442,44 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </CardContent>
         </Card>
+
+        {/* 变式练习入口 */}
+        {profile?.role === 'student' && errorSession.extracted_text && (
+          <Card className="border-border/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">变式练习</CardTitle>
+                    <CardDescription>AI 根据这道题生成相似练习题，举一反三</CardDescription>
+                  </div>
+                </div>
+                <Button
+                  variant={showVariants ? 'default' : 'outline'}
+                  onClick={() => setShowVariants(!showVariants)}
+                  className="gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {showVariants ? '收起' : '开始练习'}
+                </Button>
+              </div>
+            </CardHeader>
+            {showVariants && (
+              <CardContent>
+                <VariantPractice
+                  sessionId={errorSession.id}
+                  studentId={profile.id}
+                  subject={errorSession.subject}
+                  originalText={errorSession.extracted_text}
+                  conceptTags={errorSession.concept_tags || undefined}
+                />
+              </CardContent>
+            )}
+          </Card>
+        )}
 
         {/* 底部操作栏 */}
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-border/50 p-4">
