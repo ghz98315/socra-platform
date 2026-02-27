@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { MessageSquare, TrendingUp, HelpCircle, Lightbulb, Target, BookOpen } from 'lucide-react';
+import { MessageSquare, TrendingUp, HelpCircle, Lightbulb, Target, User } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { PostList, PostComposer, type CommunityPost } from '@/components/community';
 import { CommentSection, type Comment } from '@/components/community/CommentSection';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 // 帖子类型过滤器
 const TABS = [
   { id: 'all', label: '全部', icon: MessageSquare },
+  { id: 'mine', label: '我的', icon: User },
   { id: 'insight', label: '心得', icon: TrendingUp },
   { id: 'question', label: '求助', icon: HelpCircle },
   { id: 'tip', label: '技巧', icon: Lightbulb },
@@ -37,9 +38,14 @@ export default function CommunityPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (activeTab !== 'all') {
+
+      // "我的"筛选
+      if (activeTab === 'mine') {
+        params.append('user_id', profile?.id || '');
+      } else if (activeTab !== 'all') {
         params.append('type', activeTab);
       }
+
       if (profile?.id) {
         params.append('current_user_id', profile.id);
       }
