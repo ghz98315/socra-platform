@@ -7,13 +7,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Sigma, ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 // 数学符号分类
 const MATH_SYMBOLS = {
@@ -74,61 +68,62 @@ export function MathSymbolPicker({
   variant = 'compact',
 }: MathSymbolPickerProps) {
   const [activeCategory, setActiveCategory] = useState<keyof typeof MATH_SYMBOLS>('basic');
-  const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleSymbolClick = (symbol: string) => {
     onSymbolSelect(symbol);
-    // 在移动端，选择后自动关闭
-    if (window.innerWidth < 768) {
-      setIsOpen(false);
-    }
   };
 
   // 紧凑模式：只显示快捷符号栏
   if (variant === 'compact') {
     return (
-      <div className={cn('flex items-center gap-1 flex-wrap', className)}>
-        {QUICK_SYMBOLS.map((symbol) => (
-          <button
-            key={symbol}
-            onClick={() => onSymbolSelect(symbol)}
-            className={cn(
-              'w-8 h-8 flex items-center justify-center rounded-md',
-              'text-base font-medium text-foreground',
-              'bg-muted/50 hover:bg-muted transition-colors',
-              'active:scale-95'
-            )}
-            title={`插入 ${symbol}`}
-          >
-            {symbol}
-          </button>
-        ))}
-
-        {/* 更多符号按钮 */}
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
+      <div className={cn('space-y-2', className)}>
+        <div className="flex items-center gap-1 flex-wrap">
+          {QUICK_SYMBOLS.map((symbol) => (
             <button
+              key={symbol}
+              onClick={() => onSymbolSelect(symbol)}
               className={cn(
                 'w-8 h-8 flex items-center justify-center rounded-md',
-                'text-muted-foreground hover:text-foreground',
+                'text-base font-medium text-foreground',
                 'bg-muted/50 hover:bg-muted transition-colors',
                 'active:scale-95'
               )}
+              title={`插入 ${symbol}`}
             >
-              <ChevronDown className="w-4 h-4" />
+              {symbol}
             </button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-80 p-3"
-            align="start"
+          ))}
+
+          {/* 展开/收起按钮 */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              'w-8 h-8 flex items-center justify-center rounded-md',
+              'text-muted-foreground hover:text-foreground',
+              'bg-muted/50 hover:bg-muted transition-colors',
+              'active:scale-95'
+            )}
+            title={isExpanded ? '收起' : '更多符号'}
           >
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+
+        {/* 展开的完整面板 */}
+        {isExpanded && (
+          <div className="p-3 bg-card rounded-lg border">
             <MathSymbolPanel
               activeCategory={activeCategory}
               setActiveCategory={setActiveCategory}
               onSymbolClick={handleSymbolClick}
             />
-          </PopoverContent>
-        </Popover>
+          </div>
+        )}
       </div>
     );
   }

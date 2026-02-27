@@ -236,8 +236,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 如果触发器未创建 profile，手动创建
-      if (!userProfile) {
+      // 如果找到 profile，确保 phone 字段已设置
+      if (userProfile) {
+        // 如果 phone 字段为空，更新它
+        if (!userProfile.phone && phone) {
+          console.log('[AuthContext] Updating profile with phone:', phone);
+          const { error: updateError } = await (supabase as any)
+            .from('profiles')
+            .update({ phone, display_name: name || userProfile.display_name })
+            .eq('id', data.user.id);
+
+          if (updateError) {
+            console.error('[AuthContext] Error updating profile phone:', updateError);
+          } else {
+            // 重新获取更新后的 profile
+            userProfile = await fetchProfile(data.user.id);
+          }
+        }
+      } else {
+        // 如果触发器未创建 profile，手动创建
         console.log('[AuthContext] Profile not found after retries, creating manually');
         const { error: insertError } = await supabase
           .from('profiles')
