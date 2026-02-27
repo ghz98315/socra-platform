@@ -12,23 +12,10 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// 注册中文字体
+// 注册中文字体 - 使用 unpkg CDN 托管的霞鹜文楷
 Font.register({
   family: 'NotoSansSC',
-  fonts: [
-    {
-      src: 'https://fonts.gstatic.com/s/notosanssc/v35/k3kXo84MPvpLmixcA63OEALhLOCT-xWtmGJX.woff2',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/notosanssc/v35/k3kXo84MPvpLmixcA63OEALhLOCT-xWtmGJX.woff2',
-      fontWeight: 500,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/notosanssc/v35/k3kXo84MPvpLmixcA63OEALhLOCT-xWtmGJX.woff2',
-      fontWeight: 700,
-    },
-  ],
+  src: 'https://unpkg.com/lxgw-wenkai-webfont@1.6.0/lxgwwenkai-regular.ttf',
 });
 
 // Create styles for error book

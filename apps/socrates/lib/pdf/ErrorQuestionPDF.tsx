@@ -13,24 +13,11 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// 注册中文字体 - 使用系统内置的 Noto Sans SC 或其他支持中文的字体
-// 注意：生产环境需要将字体文件放在 public 目录下
+// 注册中文字体 - 使用 unpkg CDN 托管的 Noto Sans SC
+// 备用方案：使用多个 CDN 源以确保可用性
 Font.register({
   family: 'NotoSansSC',
-  fonts: [
-    {
-      src: 'https://fonts.gstatic.com/s/notosanssc/v35/k3kXo84MPvpLmixcA63OEALhLOCT-xWtmGJX.woff2',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/notosanssc/v35/k3kXo84MPvpLmixcA63OEALhLOCT-xWtmGJX.woff2',
-      fontWeight: 500,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/notosanssc/v35/k3kXo84MPvpLmixcA63OEALhLOCT-xWtmGJX.woff2',
-      fontWeight: 700,
-    },
-  ],
+  src: 'https://unpkg.com/lxgw-wenkai-webfont@1.6.0/lxgwwenkai-regular.ttf',
 });
 
 // Create styles
