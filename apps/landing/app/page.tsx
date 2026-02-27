@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import Image from 'next/image';
+import { FeaturedPostsCarousel } from '../components/FeaturedPostsCarousel';
 
 // 已上线产品
 const products = [
@@ -210,6 +211,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* 社区精选 */}
+      <FeaturedPostsCarousel />
 
       {/* About */}
       <section id="about" className="py-20 px-6 bg-white/50">
