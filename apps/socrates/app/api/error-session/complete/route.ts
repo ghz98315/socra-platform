@@ -1,6 +1,6 @@
 // =====================================================
 // Project Socrates - Complete Error Session API
-// 标记错题为已掌握，并自动创建复习计划
+// 标记错题为已掌握，并自动创建复习计划 + 通知家长
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -15,6 +15,15 @@ const supabase = createClient(
 // 艾宾浩斯复习间隔（天）
 const REVIEW_INTERVALS = [1, 3, 7, 30];
 
+// 学科名称映射
+const SUBJECT_NAMES: Record<string, string> = {
+  math: '数学',
+  physics: '物理',
+  chemistry: '化学',
+  chinese: '语文',
+  english: '英语',
+};
+
 // POST - 标记错题为已掌握，并创建复习计划
 export async function POST(req: NextRequest) {
   try {
@@ -24,6 +33,13 @@ export async function POST(req: NextRequest) {
     if (!session_id || !student_id) {
       return NextResponse.json({ error: '缺少必填字段: session_id, student_id' }, { status: 400 });
     }
+
+    // 获取错题信息（用于通知）
+    const { data: sessionInfo } = await supabase
+      .from('error_sessions')
+      .select('subject, extracted_text')
+      .eq('id', session_id)
+      .single();
 
     // 1. 更新错题状态为已掌握
     const { error: updateError } = await supabase
@@ -48,10 +64,14 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existingReview) {
+      // 发送通知给家长
+      await sendMasteryNotification(student_id, session_id, sessionInfo);
+
       return NextResponse.json({
         success: true,
         message: '错题已标记为已掌握',
         review_exists: true,
+        can_analyze: true, // 提示可以进行分析
       });
     }
 
@@ -78,10 +98,14 @@ export async function POST(req: NextRequest) {
         success: true,
         message: '错题已标记为已掌握，但复习计划创建失败',
         review_created: false,
+        can_analyze: true,
       });
     }
 
-    // 4. 更新成就（可选：记录掌握成就）
+    // 4. 发送通知给家长
+    await sendMasteryNotification(student_id, session_id, sessionInfo);
+
+    // 5. 更新成就（可选：记录掌握成就）
     try {
       await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`, {
         method: 'POST',
@@ -102,9 +126,55 @@ export async function POST(req: NextRequest) {
       review_created: true,
       review_id: reviewData?.id,
       next_review_at: firstReviewDate.toISOString(),
+      can_analyze: true, // 提示可以进行分析
     });
   } catch (error: any) {
     console.error('Complete error session API error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+  }
+}
+
+// 发送掌握通知给家长
+async function sendMasteryNotification(
+  studentId: string,
+  sessionId: string,
+  sessionInfo: any
+) {
+  try {
+    // 获取学生信息
+    const { data: student } = await supabase
+      .from('profiles')
+      .select('display_name, parent_id')
+      .eq('id', studentId)
+      .single();
+
+    if (!student?.parent_id) {
+      console.log('No parent found for student, skipping notification');
+      return;
+    }
+
+    const subjectName = SUBJECT_NAMES[sessionInfo?.subject] || '学习';
+    const studentName = student.display_name || '孩子';
+
+    // 创建通知
+    await supabase
+      .from('notifications')
+      .insert({
+        user_id: student.parent_id,
+        type: 'mastery_update',
+        title: `${studentName}完成了一道${subjectName}题！`,
+        message: `${studentName}刚刚完成了一道${subjectName}错题的学习，点击查看AI分析报告，了解孩子的学习状态和沟通建议。`,
+        data: {
+          session_id: sessionId,
+          student_id: studentId,
+          subject: sessionInfo?.subject,
+          can_analyze: true,
+        },
+        read: false,
+      });
+
+    console.log('Mastery notification sent to parent:', student.parent_id);
+  } catch (error) {
+    console.error('Error sending mastery notification:', error);
   }
 }

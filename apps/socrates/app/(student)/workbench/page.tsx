@@ -20,7 +20,8 @@ import {
   FileText,
   Users,
   ArrowLeft,
-  CheckCircle
+  CheckCircle,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,6 +31,7 @@ import { OCRResult } from '@/components/OCRResult';
 import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { PageHeader } from '@/components/PageHeader';
+import { AnalysisDialog } from '@/components/AnalysisDialog';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -113,6 +115,10 @@ function WorkbenchPage() {
   const [isMastered, setIsMastered] = useState(false);
   const [mastering, setMastering] = useState(false);
   const [masterMessage, setMasterMessage] = useState<string | null>(null);
+
+  // Analysis state (for parent)
+  const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
+  const [showAnalysisPrompt, setShowAnalysisPrompt] = useState(false);
 
   // Load parent's students and check URL params
   useEffect(() => {
@@ -460,6 +466,11 @@ function WorkbenchPage() {
       if (response.ok && data.success) {
         setIsMastered(true);
         setMasterMessage(data.message || '恭喜！已标记为掌握');
+
+        // 如果是家长，显示分析提示
+        if (isParent && data.can_analyze) {
+          setShowAnalysisPrompt(true);
+        }
       } else {
         setMasterMessage(data.error || '操作失败，请重试');
       }
@@ -862,6 +873,56 @@ function WorkbenchPage() {
           </div>
         </div>
       </main>
+
+      {/* AI Analysis Prompt for Parent (after mastery) */}
+      {showAnalysisPrompt && isParent && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom duration-300">
+          <Card className="shadow-xl border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 max-w-md">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-800 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm text-purple-900 dark:text-purple-100">
+                    孩子完成学习了！
+                  </p>
+                  <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+                    点击查看AI分析报告，了解孩子的学习状态和沟通建议
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3 justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowAnalysisPrompt(false)}
+                  className="text-purple-600 dark:text-purple-300"
+                >
+                  稍后再说
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setShowAnalysisPrompt(false);
+                    setShowAnalysisDialog(true);
+                  }}
+                  className="bg-purple-500 hover:bg-purple-600 text-white"
+                >
+                  查看分析
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* AI Analysis Dialog */}
+      <AnalysisDialog
+        open={showAnalysisDialog}
+        onOpenChange={setShowAnalysisDialog}
+        sessionId={chatSessionRef.current}
+      />
 
       {/* Development Notice */}
       <div className="fixed bottom-4 left-0 right-0 p-4 pointer-events-none">
