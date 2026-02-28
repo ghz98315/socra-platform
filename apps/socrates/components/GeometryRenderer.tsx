@@ -431,7 +431,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
         try {
           // 获取点击位置的数学坐标
-          let x, y;
+          let x: number | undefined, y: number | undefined;
 
           // 使用 board 的内部方法获取坐标
           // JSXGraph 在 'down' 事件中会更新 board.mouse 属性
@@ -444,7 +444,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             const container = document.getElementById('jxgbox');
             if (container && evt) {
               const rect = container.getBoundingClientRect();
-              let clientX, clientY;
+              let clientX: number | undefined, clientY: number | undefined;
 
               // 尝试多种方式获取客户端坐标
               if (evt.clientX !== undefined) {
