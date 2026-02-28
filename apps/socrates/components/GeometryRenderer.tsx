@@ -157,6 +157,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
   const [isAddingPoint, setIsAddingPoint] = useState(false);
   const [customPoints, setCustomPoints] = useState<Array<{ id: string; name: string; x: number; y: number; element: any }>>([]);
   const customPointCounterRef = useRef(0);
+  const isAddingPointRef = useRef(false); // 用于在useEffect中访问最新状态
 
   // 确保只在客户端渲染并动态加载 JSXGraph
   useEffect(() => {
@@ -172,6 +173,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       setError('图形库加载失败');
     });
   }, []);
+
+  // 同步 isAddingPoint 状态到 ref
+  useEffect(() => {
+    isAddingPointRef.current = isAddingPoint;
+  }, [isAddingPoint]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -418,6 +424,44 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         }
       });
 
+      // 添加画板点击事件处理（用于添加自定义点）
+      board.on('down', function(evt: any) {
+        if (!isAddingPointRef.current) return;
+
+        // 获取点击位置的数学坐标
+        const coords = board.getCoords(evt);
+        const x = coords.usrCoords[1];
+        const y = coords.usrCoords[2];
+
+        // 创建自定义点
+        customPointCounterRef.current += 1;
+        const pointId = `custom_${customPointCounterRef.current}`;
+        const pointName = `P${customPointCounterRef.current}`;
+
+        const pointElement = board.create('point', [x, y], {
+          name: pointName,
+          size: 4,
+          color: '#f97316',
+          fixed: false,
+          withLabel: true,
+          snapToGrid: true,
+          snapSizeX: 0.5,
+          snapSizeY: 0.5,
+        });
+
+        // 存储到elementsRef以便后续引用
+        elements[pointId] = pointElement;
+        elementsRef.current[pointId] = pointElement;
+
+        setCustomPoints(prev => [...prev, {
+          id: pointId,
+          name: pointName,
+          x,
+          y,
+          element: pointElement
+        }]);
+      });
+
     } catch (err: any) {
       console.error('Geometry render error:', err);
       setError(err.message || '图形渲染失败');
@@ -525,23 +569,6 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       y,
       element: pointElement
     }]);
-  };
-
-  // 处理画板点击（用于添加自定义点）
-  const handleBoardClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!isAddingPoint || !boardRef.current || !containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
-    const clickY = event.clientY - rect.top;
-
-    // 将像素坐标转换为数学坐标
-    const board = boardRef.current;
-    const coords = board.getCoords([clickX, clickY]);
-    const x = coords.usrCoords[1];
-    const y = coords.usrCoords[2];
-
-    handleAddCustomPoint(x, y);
   };
 
   // 删除最后一个自定义点
@@ -728,7 +755,6 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             )}
             style={{ height: isFullscreen ? 'calc(100vh - 2rem)' : height }}
             id="jxgbox"
-            onClick={handleBoardClick}
           />
         )}
 
