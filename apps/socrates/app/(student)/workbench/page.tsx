@@ -29,7 +29,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ImageUploader } from '@/components/ImageUploader';
-import { OCRResult } from '@/components/OCRResult';
+import { OCRResult, type OCRDetectionResult } from '@/components/OCRResult';
+import type { SubjectType, QuestionType, DialogMode } from '@/lib/prompts/types';
 import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { PageHeader } from '@/components/PageHeader';
@@ -101,6 +102,13 @@ function WorkbenchPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState('');
   const [geometryData, setGeometryData] = useState<any>(null);
+
+  // 新增：OCR 识别的科目和题型信息
+  const [ocrSubject, setOcrSubject] = useState<{ type: SubjectType; confidence: number } | null>(null);
+  const [ocrQuestionType, setOcrQuestionType] = useState<{ type: QuestionType; confidence: number } | null>(null);
+
+  // 新增：对话模式（Logic / Socra）
+  const [dialogMode, setDialogMode] = useState<DialogMode>('Logic');
 
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -354,9 +362,20 @@ function WorkbenchPage() {
     setCurrentStep('ocr');
   };
 
-  const handleOCRComplete = async (text: string, geomData?: any, geomSvg?: string | null) => {
-    setOcrText(text);
-    setGeometryData(geomData || null);
+  const handleOCRComplete = async (result: OCRDetectionResult) => {
+    setOcrText(result.text);
+    setGeometryData(result.geometryData || null);
+
+    // 保存 OCR 识别的科目和题型
+    if (result.subject) {
+      setOcrSubject(result.subject);
+      console.log('OCR Subject:', result.subject);
+    }
+    if (result.questionType) {
+      setOcrQuestionType(result.questionType);
+      console.log('OCR Question Type:', result.questionType);
+    }
+
     setCurrentStep('chat');
 
     if (!profile?.id) {
@@ -364,24 +383,39 @@ function WorkbenchPage() {
       return;
     }
 
-    saveErrorSession(text, geomData, geomSvg);
+    saveErrorSession(result.text, result.geometryData, result.geometrySvg, result.subject, result.questionType);
   };
 
-  const saveErrorSession = async (text: string, geomData?: any, geomSvg?: string | null) => {
+  const saveErrorSession = async (
+    text: string,
+    geomData?: any,
+    geomSvg?: string | null,
+    subjectInfo?: { type: SubjectType; confidence: number } | null,
+    questionTypeInfo?: { type: QuestionType; confidence: number } | null
+  ) => {
     if (!profile?.id) return;
     try {
       console.log('Creating error session with profile ID:', profile.id);
+
+      // 确定科目（优先使用 OCR 识别结果）
+      const sessionSubject = subjectInfo?.type || 'math';
+
       const response = await fetch('/api/error-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: effectiveStudentId,
-          subject: 'math',
+          subject: sessionSubject,
           original_image_url: imagePreview || null,
           extracted_text: text,
           theme_used: profile?.theme_preference || 'junior',
           geometry_data: geomData || null, // 几何图形JSON数据（可编辑）
           geometry_svg: geomSvg || null, // 几何图形SVG图片（视觉一致）
+          // 新增：OCR 识别信息
+          ocr_subject: subjectInfo?.type || null,
+          ocr_subject_confidence: subjectInfo?.confidence || null,
+          ocr_question_type: questionTypeInfo?.type || null,
+          ocr_question_type_confidence: questionTypeInfo?.confidence || null,
         }),
       });
 
@@ -405,6 +439,10 @@ function WorkbenchPage() {
     setCurrentStep('upload');
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
+    // 重置 OCR 识别状态
+    setOcrSubject(null);
+    setOcrQuestionType(null);
+    setDialogMode('Logic');
   };
 
   // Chat functions
@@ -420,6 +458,9 @@ function WorkbenchPage() {
     setIsChatLoading(true);
 
     try {
+      // 获取用户等级（从 profile 获取，默认为 free）
+      const userLevel = (profile as any)?.subscription_tier || 'free';
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -427,13 +468,23 @@ function WorkbenchPage() {
           message: content,
           session_id: chatSessionRef.current,
           theme: profile?.theme_preference || 'junior',
-          subject: 'math',
+          // 新增参数
+          subject: ocrSubject?.type || 'math',
+          userLevel: userLevel,
+          subjectConfidence: ocrSubject?.confidence || 1,
+          questionType: ocrQuestionType?.type || 'unknown',
+          // 原有参数
           questionContent: ocrText,
-          geometryData: geometryData, // 传递几何图形数据
+          geometryData: geometryData,
         }),
       });
 
       const data = await response.json();
+
+      // 保存对话模式（Logic / Socra）
+      if (data.dialogMode) {
+        setDialogMode(data.dialogMode);
+      }
 
       if (data.content) {
         const assistantMessage: Message = {
@@ -467,6 +518,9 @@ function WorkbenchPage() {
 
   const handleResetChat = () => {
     setMessages([]);
+    // 获取用户等级
+    const userLevel = (profile as any)?.subscription_tier || 'free';
+
     // 清除服务端的对话历史缓存
     fetch('/api/chat/clear-history', {
       method: 'POST',
@@ -475,9 +529,12 @@ function WorkbenchPage() {
         sessionId: chatSessionRef.current,
         newSessionId: `session_${Date.now()}`,
         theme: profile?.theme_preference || 'junior',
-        subject: 'math',
+        subject: ocrSubject?.type || 'math',
+        userLevel: userLevel,
+        subjectConfidence: ocrSubject?.confidence || 1,
+        questionType: ocrQuestionType?.type || 'unknown',
         questionContent: ocrText,
-        geometryData: geometryData, // 传递当前几何数据
+        geometryData: geometryData,
       }),
     }).catch(console.error);
     chatSessionRef.current = `session_${Date.now()}`;
@@ -532,7 +589,9 @@ function WorkbenchPage() {
   }, [messages]);
 
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
-  const aiName = profile?.theme_preference === 'junior' ? 'Jasper' : 'Logic';
+
+  // 根据对话模式确定 AI 名称（Logic = 通用模式，Socra = 专科模式）
+  const aiName = dialogMode;
 
   // Show student selector for parents without selected student
   if (isParent && !effectiveStudentId) {

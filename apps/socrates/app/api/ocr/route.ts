@@ -1,8 +1,10 @@
 // =====================================================
 // Project Socrates - Cloud OCR API (通义千问 VL)
+// Enhanced with Subject & Question Type Detection
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
+import type { SubjectType, QuestionType } from '@/lib/prompts/types';
 
 const QWEN_VL_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 
@@ -10,51 +12,49 @@ interface OCRResponse {
   success: boolean;
   text?: string;
   error?: string;
+  // 新增：科目识别
+  subject?: {
+    type: SubjectType;
+    confidence: number;
+  };
+  // 新增：题型识别
+  questionType?: {
+    type: QuestionType;
+    confidence: number;
+  };
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>> {
-  try {
-    const body = await req.json();
-    const { image } = body as { image?: string };
+// 科目和题型识别 Prompt
+const SUBJECT_DETECTION_PROMPT = `
+【科目识别】
+请判断这道题目属于哪个学科：
+- math: 数学（包含数字、公式、几何图形、计算等）
+- chinese: 语文（包含阅读理解、古诗文、作文等）
+- english: 英语（包含英文单词、语法、阅读等）
 
-    if (!image) {
-      return NextResponse.json({
-        success: false,
-        error: '缺少图片数据',
-      }, { status: 400 });
-    }
+【题型识别】
+请判断这道题目属于哪种题型：
+- choice: 选择题（有A、B、C、D等选项）
+- fill: 填空题（有______、括号等需要填写的内容）
+- solution: 解答题（需要写出解答过程）
+- proof: 证明题（需要证明某个结论）
+- calculation: 计算题（纯计算）
+- reading: 阅读理解（基于文章回答问题）
+- writing: 写作题（作文）
 
-    const apiKey = process.env.AI_API_KEY_VISION;
+【输出格式】
+请严格按照以下JSON格式输出，不要输出其他内容：
+{
+  "subject": "math",
+  "questionType": "proof",
+  "confidence": 0.95
+}
 
-    if (!apiKey) {
-      return NextResponse.json({
-        success: false,
-        error: 'OCR 服务未配置',
-      }, { status: 500 });
-    }
+注意：confidence 是你对识别结果的确信程度，范围 0-1。
+`;
 
-    // 使用通义千问 VL 进行 OCR
-    const response = await fetch(QWEN_VL_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'qwen-vl-max',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${image}`,
-                },
-              },
-              {
-                type: 'text',
-                text: `你是一个专业的数学题目OCR识别助手。请识别图片中的【数学题目文字部分】。
+// 题目识别 Prompt（原 OCR 功能）
+const OCR_PROMPT = `你是一个专业的数学题目OCR识别助手。请识别图片中的【数学题目文字部分】。
 
 ═══════════════════════════════════════
 【识别范围界定 - 非常重要！】
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>>
 
 【2. 分数与比例】
 - 分数用斜线格式：a/b，如 1/2, 3/4, (x+1)/2
-- 禁止使用：\\frac{a}{b}, {a\over b}
+- 禁止使用：\\frac{a}{b}, {a\\over b}
 
 【3. 幂与根号】
 ┌─────────┬─────────┬─────────────────────┐
@@ -216,7 +216,59 @@ export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>>
 6. 只输出识别到的内容，不要解释
 7. 如果图片包含多个区域，只输出主要题目区域的文字
 
-请直接输出题目文字识别结果：`,
+请直接输出题目文字识别结果：`;
+
+export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>> {
+  try {
+    const body = await req.json();
+    const { image, detectSubject = true } = body as { image?: string; detectSubject?: boolean };
+
+    if (!image) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '缺少图片数据',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 优先使用 AI_API_KEY_VISION，备选使用 DASHSCOPE_API_KEY
+    const apiKey = process.env.AI_API_KEY_VISION || process.env.DASHSCOPE_API_KEY;
+
+    if (!apiKey) {
+      console.error('OCR API: No API key configured');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'OCR 服务未配置（缺少 API Key）',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Step 1: OCR 识别题目文字
+    const ocrResponse = await fetch(QWEN_VL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'qwen-vl-max',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${image}`,
+                },
+              },
+              {
+                type: 'text',
+                text: OCR_PROMPT,
               },
             ],
           },
@@ -225,17 +277,20 @@ export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>>
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!ocrResponse.ok) {
+      const errorText = await ocrResponse.text();
       console.error('Qwen VL OCR error:', errorText);
-      return NextResponse.json({
-        success: false,
-        error: `OCR 服务错误: ${response.status}`,
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: `OCR 服务错误: ${ocrResponse.status}`,
+        },
+        { status: 500 }
+      );
     }
 
-    const result = await response.json();
-    const recognizedText = result.choices?.[0]?.message?.content || '';
+    const ocrResult = await ocrResponse.json();
+    const recognizedText = ocrResult.choices?.[0]?.message?.content || '';
 
     if (!recognizedText.trim()) {
       return NextResponse.json({
@@ -244,17 +299,117 @@ export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>>
       });
     }
 
+    // Step 2: 科目和题型识别（可选）
+    let subjectInfo: OCRResponse['subject'] = undefined;
+    let questionTypeInfo: OCRResponse['questionType'] = undefined;
+
+    if (detectSubject) {
+      try {
+        const detectResponse = await fetch(QWEN_VL_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'qwen-vl-max',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:image/jpeg;base64,${image}`,
+                    },
+                  },
+                  {
+                    type: 'text',
+                    text: SUBJECT_DETECTION_PROMPT,
+                  },
+                ],
+              },
+            ],
+            max_tokens: 200,
+          }),
+        });
+
+        if (detectResponse.ok) {
+          const detectResult = await detectResponse.json();
+          const detectContent = detectResult.choices?.[0]?.message?.content || '';
+
+          // 解析 JSON 响应
+          try {
+            // 尝试提取 JSON（可能包含 markdown 代码块）
+            let jsonStr = detectContent.trim();
+            if (jsonStr.includes('```json')) {
+              jsonStr = jsonStr.match(/```json\s*([\s\S]*?)```/)?.[1] || jsonStr;
+            } else if (jsonStr.includes('```')) {
+              jsonStr = jsonStr.match(/```\s*([\s\S]*?)```/)?.[1] || jsonStr;
+            }
+
+            const parsed = JSON.parse(jsonStr.trim());
+
+            // 映射科目
+            const subjectMap: Record<string, SubjectType> = {
+              math: 'math',
+              mathematics: 'math',
+              chinese: 'chinese',
+              english: 'english',
+            };
+
+            const validSubject = subjectMap[parsed.subject?.toLowerCase()] || 'generic';
+            subjectInfo = {
+              type: validSubject,
+              confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.8,
+            };
+
+            // 映射题型
+            const validTypes: QuestionType[] = [
+              'choice',
+              'fill',
+              'solution',
+              'proof',
+              'calculation',
+              'reading',
+              'writing',
+              'unknown',
+            ];
+            const detectedType = parsed.questionType?.toLowerCase();
+            questionTypeInfo = {
+              type: validTypes.includes(detectedType) ? detectedType : 'unknown',
+              confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.7,
+            };
+
+            console.log('Subject detection result:', subjectInfo, questionTypeInfo);
+          } catch (parseError) {
+            console.error('Failed to parse subject detection result:', parseError);
+            // 默认值
+            subjectInfo = { type: 'generic', confidence: 0.5 };
+            questionTypeInfo = { type: 'unknown', confidence: 0.5 };
+          }
+        }
+      } catch (detectError) {
+        console.error('Subject detection error:', detectError);
+        // 识别失败不影响主流程
+      }
+    }
+
     return NextResponse.json({
       success: true,
       text: recognizedText.trim(),
+      subject: subjectInfo,
+      questionType: questionTypeInfo,
     });
-
   } catch (error: any) {
     console.error('OCR API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message || 'OCR 处理失败',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'OCR 处理失败',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -267,6 +422,11 @@ export async function GET() {
       provider: hasVisionKey ? 'qwen-vl' : 'unavailable',
       method: hasVisionKey ? '通义千问 VL (云端)' : '未配置',
       available: hasVisionKey,
+      features: {
+        textRecognition: true,
+        subjectDetection: hasVisionKey,
+        questionTypeDetection: hasVisionKey,
+      },
     },
   });
 }
