@@ -6,7 +6,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import JXG from 'jsxgraph';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -109,14 +108,28 @@ export function GeometryRenderer({
   height = 300,
   onRedraw,
 }: GeometryRendererProps) {
-  const boardRef = useRef<JXG.Board | null>(null);
+  const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [JXG, setJXG] = useState<any>(null);
+
+  // 确保只在客户端渲染并动态加载 JSXGraph
+  useEffect(() => {
+    setIsClient(true);
+    // 动态导入 JSXGraph
+    import('jsxgraph').then((module) => {
+      setJXG(module.default || module);
+    }).catch((err) => {
+      console.error('Failed to load JSXGraph:', err);
+      setError('图形库加载失败');
+    });
+  }, []);
 
   // 绘制几何图形
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!isClient || !containerRef.current || !JXG) return;
 
     // 清除之前的画板
     if (boardRef.current) {
@@ -265,16 +278,16 @@ export function GeometryRenderer({
     }
 
     return () => {
-      if (boardRef.current) {
+      if (boardRef.current && JXG) {
         JXG.JSXGraph.freeBoard(boardRef.current);
         boardRef.current = null;
       }
     };
-  }, [geometryData]);
+  }, [geometryData, isClient]);
 
   // 导出为图片
   const handleExportImage = () => {
-    if (!boardRef.current) return;
+    if (!boardRef.current || !JXG || !isClient) return;
 
     const svg = boardRef.current.renderer.svgRoot;
     const serializer = new XMLSerializer();
@@ -336,15 +349,24 @@ export function GeometryRenderer({
         </div>
       </CardHeader>
       <CardContent>
-        <div
-          ref={containerRef}
-          className={cn(
-            "w-full bg-slate-50 dark:bg-slate-900 rounded-lg border border-border/30",
-            isFullscreen && "fixed inset-4 z-50"
-          )}
-          style={{ height: isFullscreen ? 'calc(100vh - 2rem)' : height }}
-          id="jxgbox"
-        />
+        {!isClient || !JXG ? (
+          <div
+            className="w-full bg-slate-50 dark:bg-slate-900 rounded-lg border border-border/30 flex items-center justify-center"
+            style={{ height }}
+          >
+            <span className="text-sm text-muted-foreground">加载图形组件...</span>
+          </div>
+        ) : (
+          <div
+            ref={containerRef}
+            className={cn(
+              "w-full bg-slate-50 dark:bg-slate-900 rounded-lg border border-border/30",
+              isFullscreen && "fixed inset-4 z-50"
+            )}
+            style={{ height: isFullscreen ? 'calc(100vh - 2rem)' : height }}
+            id="jxgbox"
+          />
+        )}
 
         {error && (
           <p className="text-sm text-destructive mt-2">{error}</p>
