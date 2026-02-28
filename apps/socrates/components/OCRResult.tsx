@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud, Hexagon, BookOpen, FileQuestion } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,22 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
   const [showGeometry, setShowGeometry] = useState(true);
   const cancelRef = useRef<boolean>(false);
   const geometryRendererRef = useRef<GeometryRendererRef>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 自动调整 textarea 高度
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.max(80, textarea.scrollHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+
+  // 当文本变化时调整高度
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [text, adjustTextareaHeight]);
 
   // 新增：科目和题型识别结果
   const [subjectInfo, setSubjectInfo] = useState<OCRDetectionResult['subject']>(null);
@@ -298,17 +314,17 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
           <>
             <div className="space-y-3">
               <textarea
+                ref={textareaRef}
                 value={text}
                 onChange={handleTextChange}
                 placeholder="上传图片后，AI将自动识别题目内容..."
                 className={cn(
-                  "w-full min-h-[180px] rounded-xl border bg-transparent px-4 py-3 text-base resize-none",
+                  "w-full rounded-lg border bg-transparent px-3 py-2 text-sm leading-relaxed resize-none",
                   "transition-all duration-200",
                   "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50",
                   "placeholder:text-muted-foreground/60"
                 )}
-                style={{ height: 'auto', overflow: 'hidden' }}
-                rows={8}
+                style={{ minHeight: '80px', overflow: 'hidden' }}
               />
 
               {/* 科目和题型识别结果标签 */}
