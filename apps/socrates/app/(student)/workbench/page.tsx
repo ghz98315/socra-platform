@@ -21,7 +21,9 @@ import {
   Users,
   ArrowLeft,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  PanelLeft,
+  Smartphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -121,6 +123,10 @@ function WorkbenchPage() {
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [showAnalysisPrompt, setShowAnalysisPrompt] = useState(false);
 
+  // Mobile panel state
+  const [showMobilePanel, setShowMobilePanel] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
   // Load parent's students and check URL params
   useEffect(() => {
     if (isParent && profile?.id) {
@@ -135,6 +141,16 @@ function WorkbenchPage() {
       setSelectedStudentName(studentNameParam || '学生');
     }
   }, [isParent, profile?.id, searchParams]);
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const loadParentStudents = async () => {
     if (!profile?.id) return;
@@ -338,7 +354,7 @@ function WorkbenchPage() {
     setCurrentStep('ocr');
   };
 
-  const handleOCRComplete = async (text: string, geomData?: any) => {
+  const handleOCRComplete = async (text: string, geomData?: any, geomSvg?: string | null) => {
     setOcrText(text);
     setGeometryData(geomData || null);
     setCurrentStep('chat');
@@ -348,10 +364,10 @@ function WorkbenchPage() {
       return;
     }
 
-    saveErrorSession(text, geomData);
+    saveErrorSession(text, geomData, geomSvg);
   };
 
-  const saveErrorSession = async (text: string, geomData?: any) => {
+  const saveErrorSession = async (text: string, geomData?: any, geomSvg?: string | null) => {
     if (!profile?.id) return;
     try {
       console.log('Creating error session with profile ID:', profile.id);
@@ -364,7 +380,8 @@ function WorkbenchPage() {
           original_image_url: imagePreview || null,
           extracted_text: text,
           theme_used: profile?.theme_preference || 'junior',
-          geometry_data: geomData || null, // 传递几何图形数据
+          geometry_data: geomData || null, // 几何图形JSON数据（可编辑）
+          geometry_svg: geomSvg || null, // 几何图形SVG图片（视觉一致）
         }),
       });
 
@@ -657,68 +674,98 @@ function WorkbenchPage() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - 双栏布局 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left Panel - 40% */}
+        {/* 移动端横屏提示 */}
+        {isMobile && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-center gap-3">
+            <Smartphone className="w-5 h-5 text-blue-500" />
+            <div className="flex-1">
+              <p className="text-sm text-blue-700 dark:text-blue-400">
+                横屏使用体验更佳，题目和对话可同时显示
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Panel - 题目区域 - PC端固定，移动端可折叠 */}
           <div
             ref={leftPanelAnimation.ref}
-            className="lg:col-span-2 space-y-6"
+            className={cn(
+              "w-full lg:w-[40%] lg:flex-shrink-0 transition-all duration-300",
+              isMobile && !showMobilePanel && "hidden"
+            )}
             style={{
               opacity: leftPanelAnimation.isVisible ? 1 : 0,
               transform: leftPanelAnimation.isVisible ? 'translateX(0)' : 'translateX(-30px)',
               transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
             }}
           >
-            {/* Image Upload Card */}
-            <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Camera className="w-5 h-5 text-primary" />
-                  上传错题
-                </CardTitle>
-                <CardDescription>
-                  拍摄或上传你的错题图片
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageUploader
-                  onImageSelect={handleImageSelect}
-                  onImageRemove={handleImageRemove}
-                  currentImage={imagePreview}
-                  maxSize={10}
-                />
-              </CardContent>
-            </Card>
+            {/* PC端：sticky固定 */}
+            <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto space-y-6">
+              {/* Image Upload Card */}
+              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Camera className="w-5 h-5 text-primary" />
+                    上传错题
+                  </CardTitle>
+                  <CardDescription>
+                    拍摄或上传你的错题图片
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ImageUploader
+                    onImageSelect={handleImageSelect}
+                    onImageRemove={handleImageRemove}
+                    currentImage={imagePreview}
+                    maxSize={10}
+                  />
+                </CardContent>
+              </Card>
 
-            {/* OCR Result Card */}
-            {selectedImage && (
-              <div
-                className="animate-slide-up"
-                style={{
-                  animation: 'slideUp 0.4s ease-out forwards',
-                }}
-              >
-                <OCRResult
-                  initialText={ocrText}
-                  onTextChange={setOcrText}
-                  onConfirm={handleOCRComplete}
-                  imageData={imagePreview}
-                />
-              </div>
-            )}
+              {/* OCR Result Card */}
+              {selectedImage && (
+                <div
+                  className="animate-slide-up"
+                  style={{
+                    animation: 'slideUp 0.4s ease-out forwards',
+                  }}
+                >
+                  <OCRResult
+                    initialText={ocrText}
+                    onTextChange={setOcrText}
+                    onConfirm={handleOCRComplete}
+                    imageData={imagePreview}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right Panel - 60% - Chat Area */}
+          {/* Right Panel - 对话区域 - 可独立滚动 */}
           <div
             ref={rightPanelAnimation.ref}
-            className="lg:col-span-3"
+            className="flex-1 min-w-0"
             style={{
               opacity: rightPanelAnimation.isVisible ? 1 : 0,
               transform: rightPanelAnimation.isVisible ? 'translateX(0)' : 'translateX(30px)',
               transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
             }}
           >
+            {/* 移动端切换按钮 */}
+            {isMobile && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMobilePanel(!showMobilePanel)}
+                className="mb-4 gap-2"
+              >
+                <PanelLeft className="w-4 h-4" />
+                {showMobilePanel ? '隐藏题目区' : '显示题目区'}
+              </Button>
+            )}
             <Card className="border-border/50 h-full flex flex-col min-h-[600px] transition-all duration-300 hover:shadow-lg">
               {currentStep === 'upload' && (
                 <div className="flex-1 flex items-center justify-center p-8">

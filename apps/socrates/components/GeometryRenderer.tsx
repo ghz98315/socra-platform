@@ -5,12 +5,12 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Hexagon, RefreshCw, Maximize2, Download, PenLine, X } from 'lucide-react';
+import { Hexagon, RefreshCw, Maximize2, Download, PenLine, X, Plus, MapPin } from 'lucide-react';
 
 // 几何图形数据结构
 export interface GeometryData {
@@ -86,6 +86,12 @@ interface GeometryRendererProps {
   onRedraw?: () => void;
 }
 
+// 暴露给父组件的方法
+export interface GeometryRendererRef {
+  getSVGContent: () => string | null;
+  getGeometryData: () => GeometryData | null;
+}
+
 // 默认的示例三角形数据
 const DEFAULT_TRIANGLE: GeometryData = {
   type: 'triangle',
@@ -114,13 +120,13 @@ const DEFAULT_TRIANGLE: GeometryData = {
   confidence: 0.8,
 };
 
-export function GeometryRenderer({
+export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRendererProps>(function GeometryRenderer({
   geometryData,
   rawText,
   className,
   height = 300,
   onRedraw,
-}: GeometryRendererProps) {
+}, ref) {
   const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -133,6 +139,11 @@ export function GeometryRenderer({
   const [selectedPoints, setSelectedPoints] = useState<string[]>([]);
   const [auxiliaryLines, setAuxiliaryLines] = useState<Array<{ start: string; end: string; element: any }>>([]);
   const elementsRef = useRef<Record<string, any>>({});
+
+  // 自定义点相关状态
+  const [isAddingPoint, setIsAddingPoint] = useState(false);
+  const [customPoints, setCustomPoints] = useState<Array<{ id: string; name: string; x: number; y: number; element: any }>>([]);
+  const customPointCounterRef = useRef(0);
 
   // 确保只在客户端渲染并动态加载 JSXGraph
   useEffect(() => {
@@ -148,6 +159,25 @@ export function GeometryRenderer({
       setError('图形库加载失败');
     });
   }, []);
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    getSVGContent: () => {
+      if (!boardRef.current || !JXG || !isClient) return null;
+      try {
+        const svg = boardRef.current.renderer.svgRoot;
+        if (!svg) return null;
+        const serializer = new XMLSerializer();
+        return serializer.serializeToString(svg);
+      } catch (e) {
+        console.error('Error getting SVG content:', e);
+        return null;
+      }
+    },
+    getGeometryData: () => {
+      return geometryData;
+    },
+  }), [JXG, isClient, geometryData]);
 
   // 绘制几何图形
   useEffect(() => {
@@ -408,6 +438,86 @@ export function GeometryRenderer({
     }
   };
 
+  // 添加自定义点
+  const handleAddCustomPoint = (x: number, y: number) => {
+    if (!boardRef.current) return;
+
+    customPointCounterRef.current += 1;
+    const pointId = `custom_${customPointCounterRef.current}`;
+    const pointName = `P${customPointCounterRef.current}`;
+
+    const pointElement = boardRef.current.create('point', [x, y], {
+      name: pointName,
+      size: 4,
+      color: '#f97316', // 橙色，区别于蓝色原始点
+      fixed: false,
+      withLabel: true,
+      snapToGrid: true,
+      snapSizeX: 0.5,
+      snapSizeY: 0.5,
+    });
+
+    // 存储到elementsRef以便后续引用
+    elementsRef.current[pointId] = pointElement;
+
+    setCustomPoints(prev => [...prev, {
+      id: pointId,
+      name: pointName,
+      x,
+      y,
+      element: pointElement
+    }]);
+  };
+
+  // 处理画板点击（用于添加自定义点）
+  const handleBoardClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isAddingPoint || !boardRef.current || !containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+
+    // 将像素坐标转换为数学坐标
+    const board = boardRef.current;
+    const coords = board.getCoords([clickX, clickY]);
+    const x = coords.usrCoords[1];
+    const y = coords.usrCoords[2];
+
+    handleAddCustomPoint(x, y);
+  };
+
+  // 删除最后一个自定义点
+  const handleRemoveLastCustomPoint = () => {
+    if (customPoints.length === 0 || !boardRef.current) return;
+
+    const lastPoint = customPoints[customPoints.length - 1];
+    try {
+      boardRef.current.removeObject(lastPoint.element);
+      delete elementsRef.current[lastPoint.id];
+    } catch (e) {
+      console.warn('Error removing custom point:', e);
+    }
+
+    setCustomPoints(prev => prev.slice(0, -1));
+  };
+
+  // 清除所有自定义点
+  const handleClearCustomPoints = () => {
+    if (!boardRef.current) return;
+
+    customPoints.forEach(point => {
+      try {
+        boardRef.current.removeObject(point.element);
+        delete elementsRef.current[point.id];
+      } catch (e) {
+        console.warn('Error removing custom point:', e);
+      }
+    });
+
+    setCustomPoints([]);
+    customPointCounterRef.current = 0;
+  };
+
   // 导出为图片
   const handleExportImage = () => {
     if (!boardRef.current || !JXG || !isClient) return;
@@ -442,6 +552,41 @@ export function GeometryRenderer({
             )}
           </CardTitle>
           <div className="flex items-center gap-1">
+            {/* 添加点模式按钮 */}
+            <Button
+              variant={isAddingPoint ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                setIsAddingPoint(!isAddingPoint);
+                setIsDrawingMode(false);
+              }}
+              className={cn("h-7 px-2", isAddingPoint && "bg-green-500 hover:bg-green-600")}
+              title="添加自定义点"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </Button>
+            {customPoints.length > 0 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveLastCustomPoint}
+                  className="h-7 px-2 text-xs"
+                  title="删除最后一个点"
+                >
+                  <X className="w-3 h-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearCustomPoints}
+                  className="h-7 px-2 text-xs"
+                  title="清除所有自定义点"
+                >
+                  清除点
+                </Button>
+              </>
+            )}
             {/* 辅助线模式按钮 */}
             <Button
               variant={isDrawingMode ? 'default' : 'ghost'}
@@ -519,10 +664,12 @@ export function GeometryRenderer({
             ref={containerRef}
             className={cn(
               "w-full bg-slate-50 dark:bg-slate-900 rounded-lg border border-border/30",
-              isFullscreen && "fixed inset-4 z-50"
+              isFullscreen && "fixed inset-4 z-50",
+              isAddingPoint && "cursor-crosshair"
             )}
             style={{ height: isFullscreen ? 'calc(100vh - 2rem)' : height }}
             id="jxgbox"
+            onClick={handleBoardClick}
           />
         )}
 
@@ -542,6 +689,26 @@ export function GeometryRenderer({
           </p>
         )}
 
+        {/* 添加点模式提示 */}
+        {isAddingPoint && (
+          <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <p className="text-xs text-green-700 dark:text-green-400 mb-2">
+              <MapPin className="w-3 h-3 inline mr-1" />
+              添加点模式：点击图板任意位置添加新点（可拖动）
+            </p>
+            {customPoints.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                <span className="text-xs text-green-600 dark:text-green-400">已添加：</span>
+                {customPoints.map((point) => (
+                  <Badge key={point.id} variant="secondary" className="text-xs bg-orange-100 text-orange-700">
+                    {point.name} ({point.x.toFixed(1)}, {point.y.toFixed(1)})
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 辅助线绘制模式提示 */}
         {isDrawingMode && geometryData && (
           <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
@@ -549,6 +716,7 @@ export function GeometryRenderer({
               辅助线模式：点击选择两个点来添加虚线辅助线
             </p>
             <div className="flex flex-wrap gap-1">
+              {/* 原始点 */}
               {geometryData.points?.map((point: PointData) => (
                 <Button
                   key={point.id}
@@ -563,6 +731,21 @@ export function GeometryRenderer({
                   {point.name}
                 </Button>
               ))}
+              {/* 自定义点 */}
+              {customPoints.map((point) => (
+                <Button
+                  key={point.id}
+                  variant={selectedPoints.includes(point.id) ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handlePointSelect(point.id)}
+                  className={cn(
+                    "h-6 px-2 text-xs border-orange-300",
+                    selectedPoints.includes(point.id) && "bg-orange-500 hover:bg-orange-600"
+                  )}
+                >
+                  <span className="text-orange-600">{point.name}</span>
+                </Button>
+              ))}
             </div>
             {selectedPoints.length > 0 && (
               <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
@@ -570,6 +753,13 @@ export function GeometryRenderer({
               </p>
             )}
           </div>
+        )}
+
+        {/* 自定义点统计 */}
+        {customPoints.length > 0 && !isAddingPoint && (
+          <p className="text-xs text-muted-foreground mt-2">
+            已添加 {customPoints.length} 个自定义点 ({customPoints.map(p => p.name).join(', ')})
+          </p>
         )}
 
         {/* 辅助线统计 */}
@@ -660,6 +850,4 @@ export function GeometryRenderer({
       </CardContent>
     </Card>
   );
-}
-
-export default GeometryRenderer;
+});

@@ -16,7 +16,17 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { student_id, subject, original_image_url, extracted_text, difficulty_rating, concept_tags, theme_used } = body;
+    const {
+      student_id,
+      subject,
+      original_image_url,
+      extracted_text,
+      difficulty_rating,
+      concept_tags,
+      theme_used,
+      geometry_data,
+      geometry_svg,
+    } = body;
 
     // 验证必填字段
     if (!student_id || !subject || !extracted_text) {
@@ -36,6 +46,8 @@ export async function POST(req: NextRequest) {
         difficulty_rating: difficulty_rating || null,
         concept_tags: concept_tags || null,
         theme_used: theme_used || null, // 记录对话时使用的主题模式
+        geometry_data: geometry_data || null, // 几何图形JSON数据
+        geometry_svg: geometry_svg || null, // 几何图形SVG图片
         created_at: new Date().toISOString(),
       })
       .select()

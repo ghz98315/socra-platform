@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud, Pencil, Hexagon } from 'lucide-react';
+import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud, Hexagon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { ImageAnnotator } from '@/components/ImageAnnotator';
-import { GeometryRenderer, type GeometryData } from '@/components/GeometryRenderer';
+import { GeometryRenderer, type GeometryData, type GeometryRendererRef } from '@/components/GeometryRenderer';
 
 // Base64 conversion utility function
 function getBase64FromDataURL(dataUrl: string): string {
@@ -20,7 +19,7 @@ function getBase64FromDataURL(dataUrl: string): string {
 interface OCRResultProps {
   initialText: string;
   onTextChange: (text: string) => void;
-  onConfirm: (text: string, geometryData?: GeometryData | null) => void;
+  onConfirm: (text: string, geometryData?: GeometryData | null, geometrySvg?: string | null) => void;
   imageData?: string | null;
 }
 
@@ -35,12 +34,11 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
   const [text, setText] = useState(initialText);
   const [error, setError] = useState<string>('');
   const [cloudOCRAvailable, setCloudOCRAvailable] = useState<boolean | null>(null);
-  const [showAnnotator, setShowAnnotator] = useState(false);
-  const [annotatedImage, setAnnotatedImage] = useState<string | null>(null);
   const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
   const [isParsingGeometry, setIsParsingGeometry] = useState(false);
   const [showGeometry, setShowGeometry] = useState(true);
   const cancelRef = useRef<boolean>(false);
+  const geometryRendererRef = useRef<GeometryRendererRef>(null);
 
   useEffect(() => {
     setText(initialText);
@@ -197,15 +195,6 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
     }
   };
 
-  // 处理标注保存
-  const handleAnnotatorSave = (annotatedImageUrl: string) => {
-    setAnnotatedImage(annotatedImageUrl);
-    setShowAnnotator(false);
-  };
-
-  // 获取当前显示的图片（优先显示标注后的图片）
-  const displayImage = annotatedImage || imageData;
-
   // Auto-execute OCR when image is uploaded
   useEffect(() => {
     if (imageData && !initialText && !isProcessing) {
@@ -214,7 +203,6 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
   }, [imageData]);
 
   return (
-    <>
     <Card className={cn(
       "border-border/50 transition-all duration-300",
       isProcessing && "border-primary/30 shadow-lg shadow-primary/5"
@@ -303,6 +291,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                     </Card>
                   ) : geometryData ? (
                     <GeometryRenderer
+                      ref={geometryRendererRef}
                       geometryData={geometryData}
                       rawText={text}
                       height={250}
@@ -322,17 +311,6 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
             </div>
 
             <div className="flex gap-2 mt-4">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={() => setShowAnnotator(true)}
-                disabled={!imageData}
-                title="在图片上画线、标注"
-              >
-                <Pencil className="w-4 h-4" />
-                标注
-              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -367,25 +345,16 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               <Button
                 size="sm"
                 className="flex-1 gap-2"
-                onClick={() => onConfirm(text, geometryData)}
+                onClick={() => {
+                  const svgContent = geometryRendererRef.current?.getSVGContent() || null;
+                  onConfirm(text, geometryData, svgContent);
+                }}
                 disabled={!text || isProcessing}
               >
                 <Check className="w-4 h-4" />
                 确认并开始学习
               </Button>
             </div>
-
-            {/* 标注后的图片预览 */}
-            {annotatedImage && (
-              <div className="mt-3">
-                <p className="text-xs text-muted-foreground mb-2">已标注图片：</p>
-                <img
-                  src={annotatedImage}
-                  alt="已标注"
-                  className="max-w-full h-auto rounded-lg border"
-                />
-              </div>
-            )}
           </>
         )}
 
@@ -397,31 +366,5 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
         )}
       </CardContent>
     </Card>
-
-      {/* 图片标注模态框 */}
-      {showAnnotator && imageData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-background rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-semibold">图片标注工具</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAnnotator(false)}
-              >
-                ✕
-              </Button>
-            </div>
-            <div className="p-4">
-              <ImageAnnotator
-                imageUrl={displayImage || ''}
-                onSave={handleAnnotatorSave}
-                onCancel={() => setShowAnnotator(false)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
