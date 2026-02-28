@@ -14,10 +14,11 @@ import { Hexagon, RefreshCw, Maximize2, Download, PenLine, X, Plus, MapPin } fro
 
 // 几何图形数据结构
 export interface GeometryData {
-  type: 'triangle' | 'quadrilateral' | 'circle' | 'line' | 'angle' | 'composite' | 'unknown';
+  type: 'triangle' | 'quadrilateral' | 'circle' | 'line' | 'angle' | 'function' | 'composite' | 'unknown';
   points: PointData[];
   lines: LineData[];
   circles: CircleData[];
+  curves: CurveData[];
   angles: AngleData[];
   labels: LabelData[];
   relations: RelationData[];
@@ -34,6 +35,7 @@ export interface ConditionData {
   midpoints?: string[];
   tangents?: string[];
   intersections?: string[];
+  functions?: string[];
   others?: string[];
 }
 
@@ -56,6 +58,16 @@ export interface CircleData {
   center: string;
   radius?: number;
   pointOnCircle?: string;
+}
+
+export interface CurveData {
+  id: string;
+  type: 'inverse_proportional' | 'linear' | 'quadratic' | 'exponential';
+  equation: string;
+  parameter?: number;
+  pointsOnCurve?: string[];
+  xRange?: [number, number];
+  color?: string;
 }
 
 export interface AngleData {
@@ -106,6 +118,7 @@ const DEFAULT_TRIANGLE: GeometryData = {
     { id: 'CA', start: 'C', end: 'A', type: 'segment' },
   ],
   circles: [],
+  curves: [],
   angles: [
     { id: 'angleA', vertex: 'A', point1: 'B', point2: 'C', showArc: true },
     { id: 'angleB', vertex: 'B', point1: 'A', point2: 'C', showArc: true },
@@ -297,6 +310,51 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           }
         }
       });
+
+      // 绘制函数曲线
+      if (data.curves && data.curves.length > 0) {
+        data.curves.forEach(curve => {
+          const curveColor = curve.color || '#22c55e'; // 默认绿色
+
+          if (curve.type === 'inverse_proportional' && curve.parameter) {
+            const k = curve.parameter;
+            const xMin = curve.xRange?.[0] || 0.1;
+            const xMax = curve.xRange?.[1] || 10;
+
+            // 绘制 y = k/x 曲线（x > 0 分支）
+            board.create('functiongraph', [
+              function(x: number) {
+                if (x > 0.05) return k / x;
+                return NaN;
+              }
+            ], {
+              strokeColor: curveColor,
+              strokeWidth: 2.5,
+              highlight: false,
+            });
+
+            // 绘制 y = k/x 曲线（x < 0 分支）
+            board.create('functiongraph', [
+              function(x: number) {
+                if (x < -0.05) return k / x;
+                return NaN;
+              }
+            ], {
+              strokeColor: curveColor,
+              strokeWidth: 2.5,
+              highlight: false,
+            });
+
+            // 添加函数标签
+            board.create('text', [xMax * 0.6, k / (xMax * 0.6) + 0.5, `y=${k}/x`], {
+              fontSize: 14,
+              color: curveColor,
+              anchorX: 'left',
+              anchorY: 'bottom',
+            });
+          }
+        });
+      }
 
       // 绘制角度弧 - 特殊处理直角
       data.angles.forEach(angle => {
@@ -547,6 +605,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
                 {geometryData.type === 'triangle' ? '三角形' :
                  geometryData.type === 'quadrilateral' ? '四边形' :
                  geometryData.type === 'circle' ? '圆' :
+                 geometryData.type === 'function' ? '函数图象' :
                  geometryData.type === 'composite' ? '组合图形' : '几何图'}
               </Badge>
             )}
@@ -769,6 +828,26 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           </p>
         )}
 
+        {/* 函数曲线显示 */}
+        {geometryData?.curves && geometryData.curves.length > 0 && (
+          <div className="mt-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-2">
+              函数曲线
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {geometryData.curves.map((curve, i) => (
+                <Badge key={`curve-${i}`} variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                  {curve.type === 'inverse_proportional' ? '反比例函数' :
+                   curve.type === 'linear' ? '一次函数' :
+                   curve.type === 'quadratic' ? '二次函数' :
+                   curve.type === 'exponential' ? '指数函数' : curve.type}
+                  : {curve.equation}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 已知条件展示 */}
         {geometryData?.conditions && (
           <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -813,6 +892,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               ))}
               {geometryData.conditions.intersections?.map((c, i) => (
                 <Badge key={`int-${i}`} variant="secondary" className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.functions?.map((c, i) => (
+                <Badge key={`fun-${i}`} variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
                   {c}
                 </Badge>
               ))}
