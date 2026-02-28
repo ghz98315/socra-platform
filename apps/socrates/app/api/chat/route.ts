@@ -98,22 +98,71 @@ ${theme === 'junior' ? `
       triangle: '三角形',
       quadrilateral: '四边形',
       circle: '圆',
+      function: '函数图象',
       composite: '组合图形',
     };
+
+    // 构建条件描述
+    const conditions: string[] = [];
+    if (geometryData.conditions) {
+      if (geometryData.conditions.lengths?.length) {
+        conditions.push(`长度：${geometryData.conditions.lengths.join('、')}`);
+      }
+      if (geometryData.conditions.angles?.length) {
+        conditions.push(`角度：${geometryData.conditions.angles.join('、')}`);
+      }
+      if (geometryData.conditions.ratios?.length) {
+        conditions.push(`比例：${geometryData.conditions.ratios.join('、')}`);
+      }
+      if (geometryData.conditions.parallels?.length) {
+        conditions.push(`平行：${geometryData.conditions.parallels.join('、')}`);
+      }
+      if (geometryData.conditions.perpendiculars?.length) {
+        conditions.push(`垂直：${geometryData.conditions.perpendiculars.join('、')}`);
+      }
+      if (geometryData.conditions.midpoints?.length) {
+        conditions.push(`中点：${geometryData.conditions.midpoints.join('、')}`);
+      }
+      if (geometryData.conditions.functions?.length) {
+        conditions.push(`函数：${geometryData.conditions.functions.join('、')}`);
+      }
+      if (geometryData.conditions.others?.length) {
+        conditions.push(`其他：${geometryData.conditions.others.join('、')}`);
+      }
+    }
+
+    // 构建曲线描述
+    let curvesDesc = '';
+    if (geometryData.curves?.length > 0) {
+      curvesDesc = geometryData.curves.map((c: any) => {
+        const typeNames: Record<string, string> = {
+          inverse_proportional: '反比例函数',
+          linear: '一次函数',
+          quadratic: '二次函数',
+        };
+        return `${typeNames[c.type] || c.type} ${c.equation}`;
+      }).join('、');
+    }
+
     geometryDescription = `
 【几何图形信息】
 图形类型：${typeNames[geometryData.type] || geometryData.type}
-顶点：${geometryData.points?.map((p: any) => p.name).join('、') || '未知'}
+顶点：${geometryData.points?.map((p: any) => `${p.name}(${p.x.toFixed(1)},${p.y.toFixed(1)})`).join('、') || '未知'}
 线段：${geometryData.lines?.map((l: any) => l.id).join('、') || '未知'}
+${curvesDesc ? `曲线：${curvesDesc}` : ''}
 ${geometryData.relations?.length > 0 ? `关系：${geometryData.relations.map((r: any) => {
   const relationNames: Record<string, string> = {
     perpendicular: '垂直',
     parallel: '平行',
     congruent: '全等',
     similar: '相似',
+    tangent: '相切',
+    intersect: '相交',
+    midpoint: '中点',
   };
   return `${r.targets.join('与')}${relationNames[r.type] || r.type}`;
 }).join('、')}` : ''}
+${conditions.length > 0 ? `已知条件：\n${conditions.map(c => `  - ${c}`).join('\n')}` : ''}
 `;
   }
 
@@ -555,6 +604,10 @@ export async function POST(req: NextRequest) {
     const hasApiKey = (process.env.AI_API_KEY_LOGIC && process.env.AI_API_KEY_LOGIC !== 'your-api-key-here') ||
                       (process.env.AI_API_KEY_VISION && process.env.AI_API_KEY_VISION !== 'your-api-key-here') ||
                       (process.env.DASHSCOPE_API_KEY && process.env.DASHSCOPE_API_KEY !== 'your-api-key-here');
+
+    console.log('Chat API - hasApiKey:', hasApiKey);
+    console.log('Chat API - geometryData:', geometryData ? JSON.stringify(geometryData).substring(0, 200) : 'null');
+    console.log('Chat API - questionContent:', questionContent?.substring(0, 100));
 
     // 获取或创建对话历史（内存）
     const historySessionId = sessionId || session_id;
