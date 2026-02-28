@@ -81,9 +81,14 @@ export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>>
 └─────────┴─────────┴─────────────────────┘
 
 【2. 分数与比例】
-- 分数用 a/b 格式，如：1/2, 3/4, (x+1)/2
-- 或用文字描述：二分之一、3分之2
-- 禁止使用：\\frac{a}{b}, {a\over b}
+分数可以用以下三种格式：
+- 水平分数线：1 ─  或  1
+                  2       ─
+                          2
+- 斜线格式：1/2, 3/4, (x+1)/2
+- 文字描述：二分之一、3分之2、x分之1
+
+禁止使用：\\frac{a}{b}, {a\over b}
 
 【3. 幂与根号】
 ┌─────────┬─────────┬─────────────────────┐
@@ -148,6 +153,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<OCRResponse>>
 
 例1 - 分数方程：
 ✅ 正确：60/x - 60/2x = 3
+✅ 正确：60     60
+        ──  -  ─── = 3
+        x      2x
+✅ 正确：60分之x - 2x分之60 = 3
 ❌ 错误：$\\frac{60}{x}-\\frac{60}{2x}=3$
 
 例2 - 全等三角形：
