@@ -433,51 +433,80 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           // 获取点击位置的数学坐标
           let x, y;
 
-          // 尝试不同的方式获取坐标
-          if (evt && evt.coords) {
-            // 直接从事件获取坐标
-            x = evt.coords.usrCoords[1];
-            y = evt.coords.usrCoords[2];
-          } else if (board.mouse) {
-            // 从 board.mouse 获取
+          // 使用 board 的内部方法获取坐标
+          // JSXGraph 在 'down' 事件中会更新 board.mouse 属性
+          if (board.mouse && board.mouse.usrCoords) {
             x = board.mouse.usrCoords[1];
             y = board.mouse.usrCoords[2];
+            console.log('Got coords from board.mouse:', x, y);
           } else {
-            console.log('Could not get coordinates from event');
-            return;
+            // 备选方案：从事件中获取屏幕坐标并转换
+            const container = document.getElementById('jxgbox');
+            if (container && evt) {
+              const rect = container.getBoundingClientRect();
+              let clientX, clientY;
+
+              // 尝试多种方式获取客户端坐标
+              if (evt.clientX !== undefined) {
+                clientX = evt.clientX;
+                clientY = evt.clientY;
+              } else if (evt.originalEvent && evt.originalEvent.clientX !== undefined) {
+                clientX = evt.originalEvent.clientX;
+                clientY = evt.originalEvent.clientY;
+              } else if (window.event) {
+                const winEvt = window.event as any;
+                clientX = winEvt.clientX;
+                clientY = winEvt.clientY;
+              }
+
+              if (clientX !== undefined && clientY !== undefined) {
+                const relX = clientX - rect.left;
+                const relY = clientY - rect.top;
+
+                // 使用 JSXGraph 的坐标转换
+                const [ux, uy] = board.getUsrCoords(relX, relY);
+                x = ux;
+                y = uy;
+                console.log('Got coords from getUsrCoords:', x, y);
+              }
+            }
           }
 
-          console.log('Creating point at:', x, y);
+          if (x !== undefined && y !== undefined && !isNaN(x) && !isNaN(y)) {
+            console.log('Creating point at:', x, y);
 
-          // 创建自定义点
-          customPointCounterRef.current += 1;
-          const pointId = `custom_${customPointCounterRef.current}`;
-          const pointName = `P${customPointCounterRef.current}`;
+            // 创建自定义点
+            customPointCounterRef.current += 1;
+            const pointId = `custom_${customPointCounterRef.current}`;
+            const pointName = `P${customPointCounterRef.current}`;
 
-          const pointElement = board.create('point', [x, y], {
-            name: pointName,
-            size: 4,
-            color: '#f97316',
-            fixed: false,
-            withLabel: true,
-            snapToGrid: true,
-            snapSizeX: 0.5,
-            snapSizeY: 0.5,
-          });
+            const pointElement = board.create('point', [x, y], {
+              name: pointName,
+              size: 4,
+              color: '#f97316',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: true,
+              snapSizeX: 0.5,
+              snapSizeY: 0.5,
+            });
 
-          // 存储到elementsRef以便后续引用
-          elements[pointId] = pointElement;
-          elementsRef.current[pointId] = pointElement;
+            // 存储到elementsRef以便后续引用
+            elements[pointId] = pointElement;
+            elementsRef.current[pointId] = pointElement;
 
-          setCustomPoints(prev => [...prev, {
-            id: pointId,
-            name: pointName,
-            x,
-            y,
-            element: pointElement
-          }]);
+            setCustomPoints(prev => [...prev, {
+              id: pointId,
+              name: pointName,
+              x,
+              y,
+              element: pointElement
+            }]);
 
-          console.log('Point created successfully:', pointName);
+            console.log('Point created successfully:', pointName);
+          } else {
+            console.log('Could not get valid coordinates');
+          }
         } catch (err) {
           console.error('Error creating point:', err);
         }
