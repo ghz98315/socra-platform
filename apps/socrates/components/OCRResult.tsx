@@ -166,6 +166,8 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
     if (!recognizedText.trim()) return;
 
     setIsParsingGeometry(true);
+    console.log('Parsing geometry for text:', recognizedText.substring(0, 100));
+
     try {
       const response = await fetch('/api/geometry', {
         method: 'POST',
@@ -174,11 +176,13 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
       });
 
       const result = await response.json();
+      console.log('Geometry API result:', result);
 
       if (result.success && result.geometry && result.geometry.type !== 'unknown') {
         setGeometryData(result.geometry);
         setShowGeometry(true);
       } else {
+        console.log('No geometry detected or unknown type');
         setGeometryData(null);
       }
     } catch (err) {
@@ -302,6 +306,14 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                     />
                   ) : null}
                 </div>
+              )}
+
+              {/* 当没有检测到几何图形时的提示 */}
+              {!isParsingGeometry && !geometryData && text && (
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                  <Hexagon className="w-3 h-3" />
+                  如需绘制几何图形，请点击"绘制图形"按钮
+                </p>
               )}
             </div>
 

@@ -120,7 +120,10 @@ export function GeometryRenderer({
     setIsClient(true);
     // 动态导入 JSXGraph
     import('jsxgraph').then((module) => {
-      setJXG(module.default || module);
+      // JSXGraph 导出的是 CommonJS 模块
+      const jsxgraph = module.default || module;
+      console.log('JSXGraph loaded:', !!jsxgraph, !!jsxgraph?.JSXGraph);
+      setJXG(jsxgraph);
     }).catch((err) => {
       console.error('Failed to load JSXGraph:', err);
       setError('图形库加载失败');
@@ -129,11 +132,20 @@ export function GeometryRenderer({
 
   // 绘制几何图形
   useEffect(() => {
-    if (!isClient || !containerRef.current || !JXG) return;
+    if (!isClient || !containerRef.current || !JXG) {
+      console.log('Geometry render skipped:', { isClient, hasContainer: !!containerRef.current, hasJXG: !!JXG });
+      return;
+    }
+
+    console.log('Rendering geometry:', geometryData);
 
     // 清除之前的画板
     if (boardRef.current) {
-      JXG.JSXGraph.freeBoard(boardRef.current);
+      try {
+        JXG.JSXGraph.freeBoard(boardRef.current);
+      } catch (e) {
+        console.warn('Error freeing board:', e);
+      }
       boardRef.current = null;
     }
 
@@ -141,6 +153,7 @@ export function GeometryRenderer({
 
     try {
       const data = geometryData || DEFAULT_TRIANGLE;
+      console.log('Using data:', data.type, data.points.length, 'points');
 
       // 计算边界
       const allPoints = data.points;
@@ -279,11 +292,15 @@ export function GeometryRenderer({
 
     return () => {
       if (boardRef.current && JXG) {
-        JXG.JSXGraph.freeBoard(boardRef.current);
+        try {
+          JXG.JSXGraph.freeBoard(boardRef.current);
+        } catch (e) {
+          console.warn('Error in cleanup:', e);
+        }
         boardRef.current = null;
       }
     };
-  }, [geometryData, isClient]);
+  }, [geometryData, isClient, JXG]);
 
   // 导出为图片
   const handleExportImage = () => {

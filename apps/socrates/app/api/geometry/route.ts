@@ -249,14 +249,33 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
       }, { status: 400 });
     }
 
-    // 检查是否是几何相关题目
-    const geometryKeywords = ['△', '三角形', '四边形', '矩形', '正方形', '圆', '直径', '半径',
-      '圆心', '切线', '弦', '弧', '∠', '角', '垂直', '平行', '全等', '相似', 'AB', 'BC', 'CD',
-      '如图', '⊙', '⊙O', '点A', '点B', '点C', '中点', '垂线', '高'];
+    console.log('Geometry API received text:', text.substring(0, 200));
+
+    // 检查是否是几何相关题目 - 扩展关键词列表
+    const geometryKeywords = [
+      // 基本图形
+      '△', '三角形', '四边形', '矩形', '正方形', '圆', '直径', '半径',
+      '圆心', '切线', '弦', '弧', '扇形', '菱形', '平行四边形', '梯形',
+      // 点和线
+      '∠', '角', '线段', '直线', '射线', '点A', '点B', '点C', '点D', '点O',
+      // 关系
+      '垂直', '平行', '全等', '相似', '相交', '中点', '垂线', '高', '中线',
+      // 图形描述
+      '如图', '⊙', '⊙O', 'ABCD', 'AB=', 'BC=', 'CD=', 'DA=',
+      // 常见字母组合
+      'AB', 'BC', 'CD', 'DA', 'AC', 'BD', 'OA', 'OB', 'OC', 'OD',
+      // 角度相关
+      '度', '∠A', '∠B', '∠C', '∠D', '90°', '60°', '45°', '30°',
+      // 其他几何术语
+      '对角线', '周长', '面积', '勾股', '斜边', '直角边', '等腰', '等边'
+    ];
 
     const hasGeometryContent = geometryKeywords.some(keyword => text.includes(keyword));
+    console.log('Has geometry content:', hasGeometryContent, 'Keywords found:',
+      geometryKeywords.filter(k => text.includes(k)));
 
     if (!hasGeometryContent) {
+      console.log('No geometry keywords found, returning unknown');
       return NextResponse.json({
         success: true,
         geometry: {
@@ -316,6 +335,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
 
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || '';
+    console.log('AI response content:', content.substring(0, 500));
 
     // 尝试解析JSON
     let geometry;
@@ -327,6 +347,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
       } else if (jsonStr.includes('```')) {
         jsonStr = jsonStr.match(/```\s*([\s\S]*?)\s*```/)?.[1] || jsonStr;
       }
+      console.log('Parsing JSON:', jsonStr.substring(0, 300));
 
       geometry = JSON.parse(jsonStr);
     } catch (parseError) {
