@@ -433,14 +433,24 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           // 获取点击位置的数学坐标
           let x: number | undefined, y: number | undefined;
 
-          // 使用 board 的内部方法获取坐标
-          // JSXGraph 在 'down' 事件中会更新 board.mouse 属性
-          if (board.mouse && board.mouse.usrCoords) {
+          // 方法1：使用 board.mouse.usrCoords（齐次坐标 [1, x, y]）
+          if (board.mouse && board.mouse.usrCoords && board.mouse.usrCoords.length >= 3) {
             x = board.mouse.usrCoords[1];
             y = board.mouse.usrCoords[2];
-            console.log('Got coords from board.mouse:', x, y);
-          } else {
-            // 备选方案：从事件中获取屏幕坐标并转换
+            console.log('Got coords from board.mouse.usrCoords:', x, y);
+          }
+          // 方法2：使用事件中的坐标直接获取
+          else if (evt && evt.target && typeof board.getCoords === 'function') {
+            const coords = board.getCoords(evt);
+            if (coords && coords.usrCoords && coords.usrCoords.length >= 3) {
+              x = coords.usrCoords[1];
+              y = coords.usrCoords[2];
+              console.log('Got coords from board.getCoords:', x, y);
+            }
+          }
+
+          // 方法3：手动计算坐标转换
+          if (x === undefined || y === undefined) {
             const container = document.getElementById('jxgbox');
             if (container && evt) {
               const rect = container.getBoundingClientRect();
@@ -453,26 +463,28 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               } else if (evt.originalEvent && evt.originalEvent.clientX !== undefined) {
                 clientX = evt.originalEvent.clientX;
                 clientY = evt.originalEvent.clientY;
-              } else if (window.event) {
-                const winEvt = window.event as any;
-                clientX = winEvt.clientX;
-                clientY = winEvt.clientY;
               }
 
               if (clientX !== undefined && clientY !== undefined) {
                 const relX = clientX - rect.left;
                 const relY = clientY - rect.top;
 
-                // 使用 JSXGraph 的坐标转换
-                const [ux, uy] = board.getUsrCoords(relX, relY);
-                x = ux;
-                y = uy;
-                console.log('Got coords from getUsrCoords:', x, y);
+                // 手动计算坐标转换
+                // JSXGraph 的 boundingbox 格式为 [left, top, right, bottom]
+                const bbox = board.getBoundingBox();
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+
+                // 将像素坐标转换为用户坐标
+                x = bbox[0] + (relX / width) * (bbox[2] - bbox[0]);
+                y = bbox[3] + (relY / height) * (bbox[1] - bbox[3]);
+
+                console.log('Got coords from manual calculation:', x, y, 'bbox:', bbox);
               }
             }
           }
 
-          if (x !== undefined && y !== undefined && !isNaN(x) && !isNaN(y)) {
+          if (x !== undefined && y !== undefined && !isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y)) {
             console.log('Creating point at:', x, y);
 
             // 创建自定义点
