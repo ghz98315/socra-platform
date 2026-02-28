@@ -426,40 +426,61 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
       // 添加画板点击事件处理（用于添加自定义点）
       board.on('down', function(evt: any) {
+        console.log('Board down event triggered, isAddingPoint:', isAddingPointRef.current);
         if (!isAddingPointRef.current) return;
 
-        // 获取点击位置的数学坐标
-        const coords = board.getCoords(evt);
-        const x = coords.usrCoords[1];
-        const y = coords.usrCoords[2];
+        try {
+          // 获取点击位置的数学坐标
+          let x, y;
 
-        // 创建自定义点
-        customPointCounterRef.current += 1;
-        const pointId = `custom_${customPointCounterRef.current}`;
-        const pointName = `P${customPointCounterRef.current}`;
+          // 尝试不同的方式获取坐标
+          if (evt && evt.coords) {
+            // 直接从事件获取坐标
+            x = evt.coords.usrCoords[1];
+            y = evt.coords.usrCoords[2];
+          } else if (board.mouse) {
+            // 从 board.mouse 获取
+            x = board.mouse.usrCoords[1];
+            y = board.mouse.usrCoords[2];
+          } else {
+            console.log('Could not get coordinates from event');
+            return;
+          }
 
-        const pointElement = board.create('point', [x, y], {
-          name: pointName,
-          size: 4,
-          color: '#f97316',
-          fixed: false,
-          withLabel: true,
-          snapToGrid: true,
-          snapSizeX: 0.5,
-          snapSizeY: 0.5,
-        });
+          console.log('Creating point at:', x, y);
 
-        // 存储到elementsRef以便后续引用
-        elements[pointId] = pointElement;
-        elementsRef.current[pointId] = pointElement;
+          // 创建自定义点
+          customPointCounterRef.current += 1;
+          const pointId = `custom_${customPointCounterRef.current}`;
+          const pointName = `P${customPointCounterRef.current}`;
 
-        setCustomPoints(prev => [...prev, {
-          id: pointId,
-          name: pointName,
-          x,
-          y,
-          element: pointElement
-        }]);
+          const pointElement = board.create('point', [x, y], {
+            name: pointName,
+            size: 4,
+            color: '#f97316',
+            fixed: false,
+            withLabel: true,
+            snapToGrid: true,
+            snapSizeX: 0.5,
+            snapSizeY: 0.5,
+          });
+
+          // 存储到elementsRef以便后续引用
+          elements[pointId] = pointElement;
+          elementsRef.current[pointId] = pointElement;
+
+          setCustomPoints(prev => [...prev, {
+            id: pointId,
+            name: pointName,
+            x,
+            y,
+            element: pointElement
+          }]);
+
+          console.log('Point created successfully:', pointName);
+        } catch (err) {
+          console.error('Error creating point:', err);
+        }
       });
 
     } catch (err: any) {
