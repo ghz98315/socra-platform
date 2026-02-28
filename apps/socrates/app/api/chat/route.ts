@@ -54,7 +54,7 @@ async function callAIModel(
 }
 
 // 苏格拉底式教学系统提示词
-function getSystemPrompt(theme: 'junior' | 'senior', subject?: string, questionContent?: string): string {
+function getSystemPrompt(theme: 'junior' | 'senior', subject?: string, questionContent?: string, geometryData?: any): string {
   const basePrompt = `你是苏格拉底，一位古希腊哲学家，专门用提问的方式帮助学生自己思考出答案。
 
 【核心原则】
@@ -91,14 +91,41 @@ ${theme === 'junior' ? `
 `}
 `;
 
+  // 构建几何图形描述
+  let geometryDescription = '';
+  if (geometryData && geometryData.type !== 'unknown') {
+    const typeNames: Record<string, string> = {
+      triangle: '三角形',
+      quadrilateral: '四边形',
+      circle: '圆',
+      composite: '组合图形',
+    };
+    geometryDescription = `
+【几何图形信息】
+图形类型：${typeNames[geometryData.type] || geometryData.type}
+顶点：${geometryData.points?.map((p: any) => p.name).join('、') || '未知'}
+线段：${geometryData.lines?.map((l: any) => l.id).join('、') || '未知'}
+${geometryData.relations?.length > 0 ? `关系：${geometryData.relations.map((r: any) => {
+  const relationNames: Record<string, string> = {
+    perpendicular: '垂直',
+    parallel: '平行',
+    congruent: '全等',
+    similar: '相似',
+  };
+  return `${r.targets.join('与')}${relationNames[r.type] || r.type}`;
+}).join('、')}` : ''}
+`;
+  }
+
   if (questionContent) {
     return `${basePrompt}
 
 【当前题目】
 ${questionContent}
-
+${geometryDescription}
 【任务】
-请引导学生分析这道题，从读题→找条件→定方法→列算式→验答案，一步步引导。每次回应包含：
+请引导学生分析这道题，从读题→找条件→定方法→列算式→验答案，一步步引导。${geometryDescription ? '题目包含几何图形，可以引导学生观察图形中的点和线的关系。' : ''}
+每次回应包含：
 1. 简短肯定（"很好""对""这个思路不错"）
 2. 一个具体的引导问题`;
   }
@@ -514,6 +541,7 @@ export async function POST(req: NextRequest) {
       theme = 'junior',
       subject,
       questionContent,
+      geometryData,   // 新增：几何图形数据
       modelId,        // 可选：用户指定的模型 ID
       useReasoning,   // 可选：是否使用推理模型
       userId,         // 可选：用户 ID（用于获取模型偏好）
@@ -533,7 +561,7 @@ export async function POST(req: NextRequest) {
 
     if (!conversationHistory.has(historySessionId)) {
       conversationHistory.set(historySessionId, [
-        { role: 'system', content: getSystemPrompt(theme, subject, questionContent) },
+        { role: 'system', content: getSystemPrompt(theme, subject, questionContent, geometryData) },
       ]);
     }
 

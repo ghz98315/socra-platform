@@ -98,6 +98,7 @@ function WorkbenchPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState('');
+  const [geometryData, setGeometryData] = useState<any>(null);
 
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -337,8 +338,9 @@ function WorkbenchPage() {
     setCurrentStep('ocr');
   };
 
-  const handleOCRComplete = async (text: string) => {
+  const handleOCRComplete = async (text: string, geomData?: any) => {
     setOcrText(text);
+    setGeometryData(geomData || null);
     setCurrentStep('chat');
 
     if (!profile?.id) {
@@ -346,10 +348,10 @@ function WorkbenchPage() {
       return;
     }
 
-    saveErrorSession(text);
+    saveErrorSession(text, geomData);
   };
 
-  const saveErrorSession = async (text: string) => {
+  const saveErrorSession = async (text: string, geomData?: any) => {
     if (!profile?.id) return;
     try {
       console.log('Creating error session with profile ID:', profile.id);
@@ -361,7 +363,8 @@ function WorkbenchPage() {
           subject: 'math',
           original_image_url: imagePreview || null,
           extracted_text: text,
-          theme_used: profile?.theme_preference || 'junior', // 记录对话时使用的主题模式
+          theme_used: profile?.theme_preference || 'junior',
+          geometry_data: geomData || null, // 传递几何图形数据
         }),
       });
 
@@ -409,6 +412,7 @@ function WorkbenchPage() {
           theme: profile?.theme_preference || 'junior',
           subject: 'math',
           questionContent: ocrText,
+          geometryData: geometryData, // 传递几何图形数据
         }),
       });
 

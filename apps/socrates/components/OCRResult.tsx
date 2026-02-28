@@ -20,7 +20,7 @@ function getBase64FromDataURL(dataUrl: string): string {
 interface OCRResultProps {
   initialText: string;
   onTextChange: (text: string) => void;
-  onConfirm: (text: string) => void;
+  onConfirm: (text: string, geometryData?: GeometryData | null) => void;
   imageData?: string | null;
 }
 
@@ -367,7 +367,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               <Button
                 size="sm"
                 className="flex-1 gap-2"
-                onClick={() => onConfirm(text)}
+                onClick={() => onConfirm(text, geometryData)}
                 disabled={!text || isProcessing}
               >
                 <Check className="w-4 h-4" />
