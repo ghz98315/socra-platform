@@ -240,11 +240,13 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                 onChange={handleTextChange}
                 placeholder="上传图片后，AI将自动识别题目内容..."
                 className={cn(
-                  "w-full h-32 rounded-xl border bg-transparent px-4 py-3 text-sm resize-none",
+                  "w-full min-h-[180px] rounded-xl border bg-transparent px-4 py-3 text-base resize-none",
                   "transition-all duration-200",
                   "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50",
                   "placeholder:text-muted-foreground/60"
                 )}
+                style={{ height: 'auto', overflow: 'hidden' }}
+                rows={8}
               />
             </div>
 

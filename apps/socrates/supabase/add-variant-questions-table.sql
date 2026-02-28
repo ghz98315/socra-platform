@@ -62,6 +62,13 @@ CREATE INDEX IF NOT EXISTS idx_variant_practice_logs_student_id ON variant_pract
 ALTER TABLE variant_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE variant_practice_logs ENABLE ROW LEVEL SECURITY;
 
+-- 删除已存在的策略（避免重复错误）
+DROP POLICY IF EXISTS "Students can view their own variant questions" ON variant_questions;
+DROP POLICY IF EXISTS "Students can insert their own variant questions" ON variant_questions;
+DROP POLICY IF EXISTS "Students can update their own variant questions" ON variant_questions;
+DROP POLICY IF EXISTS "Students can view their own practice logs" ON variant_practice_logs;
+DROP POLICY IF EXISTS "Students can insert their own practice logs" ON variant_practice_logs;
+
 -- 变式题目 RLS 策略
 CREATE POLICY "Students can view their own variant questions"
   ON variant_questions FOR SELECT

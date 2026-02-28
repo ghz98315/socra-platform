@@ -29,8 +29,12 @@ CREATE INDEX IF NOT EXISTS idx_study_sessions_student_id ON study_sessions(stude
 CREATE INDEX IF NOT EXISTS idx_study_sessions_start_time ON study_sessions(start_time);
 CREATE INDEX IF NOT EXISTS idx_study_sessions_session_type ON study_sessions(session_type);
 
--- RLS 策略
+-- RLS 策略（先删除再创建，避免重复错误）
 ALTER TABLE study_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Students can view their own study sessions" ON study_sessions;
+DROP POLICY IF EXISTS "Students can insert their own study sessions" ON study_sessions;
+DROP POLICY IF EXISTS "Students can update their own study sessions" ON study_sessions;
 
 CREATE POLICY "Students can view their own study sessions"
   ON study_sessions FOR SELECT

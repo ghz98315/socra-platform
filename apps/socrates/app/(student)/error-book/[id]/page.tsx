@@ -259,21 +259,12 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleExportPDF}
-                disabled={exporting}
-                className="gap-2"
+                disabled
+                className="gap-2 opacity-50 cursor-not-allowed"
+                title="功能调试中"
               >
-                {exporting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    导出中...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    导出PDF
-                  </>
-                )}
+                <Download className="w-4 h-4" />
+                导出PDF
               </Button>
               {messages.length >= 3 && profile?.role === 'parent' && (
                 <Button
