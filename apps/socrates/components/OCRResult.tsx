@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud, Pencil } from 'lucide-react';
+import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud, Pencil, Hexagon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { ImageAnnotator } from '@/components/ImageAnnotator';
+import { GeometryRenderer, type GeometryData } from '@/components/GeometryRenderer';
 
 // Base64 conversion utility function
 function getBase64FromDataURL(dataUrl: string): string {
@@ -36,6 +37,9 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
   const [cloudOCRAvailable, setCloudOCRAvailable] = useState<boolean | null>(null);
   const [showAnnotator, setShowAnnotator] = useState(false);
   const [annotatedImage, setAnnotatedImage] = useState<string | null>(null);
+  const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
+  const [isParsingGeometry, setIsParsingGeometry] = useState(false);
+  const [showGeometry, setShowGeometry] = useState(true);
   const cancelRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -118,6 +122,8 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
           onTextChange(result.text);
           updateProgress(100, '识别完成!');
           setCloudOCRAvailable(true);
+          // 自动解析几何图形
+          parseGeometry(result.text);
         } else {
           throw new Error(result.error || '未识别到文字');
         }
@@ -153,6 +159,34 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
     setIsProcessing(false);
     setProgress(0);
     setStatus('');
+  };
+
+  // 解析几何图形
+  const parseGeometry = async (recognizedText: string) => {
+    if (!recognizedText.trim()) return;
+
+    setIsParsingGeometry(true);
+    try {
+      const response = await fetch('/api/geometry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: recognizedText }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.geometry && result.geometry.type !== 'unknown') {
+        setGeometryData(result.geometry);
+        setShowGeometry(true);
+      } else {
+        setGeometryData(null);
+      }
+    } catch (err) {
+      console.error('Geometry parse error:', err);
+      setGeometryData(null);
+    } finally {
+      setIsParsingGeometry(false);
+    }
   };
 
   // 处理标注保存
@@ -248,6 +282,27 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                 style={{ height: 'auto', overflow: 'hidden' }}
                 rows={8}
               />
+
+              {/* 几何图形渲染区域 */}
+              {(geometryData || isParsingGeometry) && showGeometry && (
+                <div className="mt-3">
+                  {isParsingGeometry ? (
+                    <Card className="border-border/50">
+                      <CardContent className="py-4 flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                        <span className="text-sm text-muted-foreground">正在解析几何图形...</span>
+                      </CardContent>
+                    </Card>
+                  ) : geometryData ? (
+                    <GeometryRenderer
+                      geometryData={geometryData}
+                      rawText={text}
+                      height={250}
+                      onRedraw={() => parseGeometry(text)}
+                    />
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 mt-4">
@@ -261,6 +316,27 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               >
                 <Pencil className="w-4 h-4" />
                 标注
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  if (geometryData) {
+                    setShowGeometry(!showGeometry);
+                  } else {
+                    parseGeometry(text);
+                  }
+                }}
+                disabled={!text || isParsingGeometry}
+                title="根据题目内容自动绘制几何图形"
+              >
+                {isParsingGeometry ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Hexagon className="w-4 h-4" />
+                )}
+                {geometryData ? (showGeometry ? '隐藏图形' : '显示图形') : '绘制图形'}
               </Button>
               <Button
                 size="sm"
