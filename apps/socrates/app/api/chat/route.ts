@@ -30,7 +30,7 @@ async function callAIModel(
   messages: Array<{role: string; content: string}>,
   modelId?: string,
   isReasoning: boolean = false
-): Promise<string> {
+): Promise<{ content: string; modelUsed: string }> {
   // 确定使用的模型
   let targetModelId = modelId;
 
@@ -38,7 +38,10 @@ async function callAIModel(
     // 根据是否需要推理选择默认模型
     const defaultModel = getDefaultModel(isReasoning ? 'reasoning' : 'chat');
     targetModelId = defaultModel.id;
+    console.log('getDefaultModel result:', defaultModel.id, defaultModel.name, 'enabled:', defaultModel.enabled);
   }
+
+  console.log('callAIModel - targetModelId:', targetModelId);
 
   // 使用模型服务调用
   const result = await callModelById(targetModelId, messages, {
@@ -46,11 +49,16 @@ async function callAIModel(
     maxTokens: isReasoning ? 4096 : 2048,
   });
 
+  console.log('callModelById result - success:', result.success, 'error:', result.error, 'model:', result.model);
+
   if (!result.success) {
     throw new Error(result.error || 'AI 模型调用失败');
   }
 
-  return result.content || '';
+  return {
+    content: result.content || '',
+    modelUsed: result.model || targetModelId,
+  };
 }
 
 // 苏格拉底式教学系统提示词
@@ -745,20 +753,26 @@ export async function POST(req: NextRequest) {
     history.push({ role: 'user', content: message });
 
     let responseText: string;
+    let modelUsed: string = 'mock'; // 默认是 mock 模式
 
     if (hasApiKey) {
       // 使用多模型 AI 服务
       console.log('Using AI Model Service, modelId:', modelId || 'default');
       try {
-        responseText = await callAIModel(history, modelId, useReasoning);
+        const aiResult = await callAIModel(history, modelId, useReasoning);
+        responseText = aiResult.content;
+        modelUsed = aiResult.modelUsed;
+        console.log('AI Model call successful, modelUsed:', modelUsed);
       } catch (apiError: any) {
         console.error('AI API Error, falling back to mock:', apiError.message);
         responseText = generateImprovedMockResponse(message, theme, history, questionContent);
+        modelUsed = 'mock (fallback)';
       }
     } else {
       // 使用改进的预设回应
-      console.log('Using fallback mock response mode');
+      console.log('Using fallback mock response mode - no API key configured');
       responseText = generateImprovedMockResponse(message, theme, history, questionContent);
+      modelUsed = 'mock';
     }
 
     // 添加助手响应到历史（内存）
@@ -798,6 +812,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       content: responseText,
       done: true,
+      modelUsed, // 返回使用的模型，方便调试
     });
   } catch (error: any) {
     console.error('Chat API error:', error);

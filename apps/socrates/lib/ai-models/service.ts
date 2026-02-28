@@ -104,6 +104,8 @@ export async function callAIModel(
       body: JSON.stringify(requestBody),
     });
 
+    console.log('API Response status:', response.status, response.statusText);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`AI API Error (${model.provider}):`, errorText);
@@ -176,11 +178,19 @@ export async function callModelById(
 ): Promise<ModelResponse> {
   const model = getModelById(modelId);
   if (!model) {
+    console.error('callModelById: Model not found:', modelId);
     return { success: false, error: `Model not found: ${modelId}` };
   }
   if (!model.enabled) {
+    console.error('callModelById: Model is disabled:', modelId);
     return { success: false, error: `Model is disabled: ${modelId}` };
   }
+
+  console.log('callModelById: Using model:', model.name, 'provider:', model.provider);
+  console.log('callModelById: API key env var:', model.api_key_env);
+  console.log('callModelById: API key exists:', !!process.env[model.api_key_env]);
+  console.log('callModelById: Base URL:', model.base_url);
+
   return callAIModel(model, messages, options);
 }
 
