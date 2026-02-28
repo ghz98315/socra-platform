@@ -450,6 +450,19 @@ function WorkbenchPage() {
 
   const handleResetChat = () => {
     setMessages([]);
+    // 清除服务端的对话历史缓存
+    fetch('/api/chat/clear-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: chatSessionRef.current,
+        newSessionId: `session_${Date.now()}`,
+        theme: profile?.theme_preference || 'junior',
+        subject: 'math',
+        questionContent: ocrText,
+        geometryData: geometryData, // 传递当前几何数据
+      }),
+    }).catch(console.error);
     chatSessionRef.current = `session_${Date.now()}`;
     setIsMastered(false);
     setMasterMessage(null);
@@ -840,7 +853,7 @@ function WorkbenchPage() {
                           size="sm"
                           variant="ghost"
                           onClick={handleResetChat}
-                          className="gap-2 transition-all duration-200 hover:rotate-180"
+                          className="gap-2"
                         >
                           <RefreshCw className="w-4 h-4" />
                           重新开始

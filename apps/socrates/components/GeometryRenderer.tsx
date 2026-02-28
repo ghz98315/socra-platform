@@ -172,9 +172,9 @@ export function GeometryRenderer({
         maxY = Math.max(...allPoints.map(p => p.y)) + 2;
       }
 
-      // 创建画板
+      // 创建画板 - 注意 boundingbox 格式为 [x左, y上, x右, y下]
       const board = JXG.JSXGraph.initBoard(containerRef.current, {
-        boundingbox: [minX, maxY, maxX, minY],
+        boundingbox: [minX, maxY, maxX, minY],  // [left, top, right, bottom]
         axis: true,
         grid: true,
         showNavigation: false,
@@ -190,14 +190,21 @@ export function GeometryRenderer({
       const elements: Record<string, any> = {};
       elementsRef.current = elements;
 
-      // 绘制点（添加点击事件用于辅助线）
+      // 收集所有线段用于点吸附
+      const lineSegments: any[] = [];
+
+      // 绘制点（启用吸附功能）
       data.points.forEach(point => {
+        // 注意：JSXGraph Y轴向上，可能需要调整
         const pointElement = board.create('point', [point.x, point.y], {
           name: point.name,
           size: 4,
           color: '#3b82f6',
           fixed: false,
           withLabel: true,
+          snapToGrid: true,
+          snapSizeX: 0.5,
+          snapSizeY: 0.5,
         });
         elements[point.id] = pointElement;
       });
@@ -248,40 +255,57 @@ export function GeometryRenderer({
         }
       });
 
-      // 绘制角度弧
+      // 绘制角度弧 - 特殊处理直角
       data.angles.forEach(angle => {
         const vertex = elements[angle.vertex];
         const p1 = elements[angle.point1];
         const p2 = elements[angle.point2];
         if (vertex && p1 && p2 && angle.showArc) {
-          board.create('angle', [p1, vertex, p2], {
-            radius: 0.8,
-            fillColor: '#fbbf24',
-            fillOpacity: 0.3,
-            strokeColor: '#f59e0b',
-            strokeWidth: 1,
-            name: angle.value ? `${angle.value}°` : '',
-          });
+          const isRightAngle = angle.value === 90;
+
+          if (isRightAngle) {
+            // 直角使用特殊的正方形标记
+            board.create('angle', [p1, vertex, p2], {
+              radius: 0.5,
+              fillColor: '#22c55e',
+              fillOpacity: 0.4,
+              strokeColor: '#16a34a',
+              strokeWidth: 1.5,
+              name: '',
+              orthoSensitivity: 0,  // 精确90度
+            });
+          } else {
+            board.create('angle', [p1, vertex, p2], {
+              radius: 0.8,
+              fillColor: '#fbbf24',
+              fillOpacity: 0.3,
+              strokeColor: '#f59e0b',
+              strokeWidth: 1,
+              name: angle.value ? `${angle.value}°` : '',
+            });
+          }
         }
       });
 
-      // 绘制关系标记
+      // 绘制关系标记 - 垂直关系自动添加直角符号
       data.relations.forEach(relation => {
         if (relation.type === 'perpendicular' && relation.targets.length >= 2) {
           const line1 = elements[relation.targets[0]];
           const line2 = elements[relation.targets[1]];
           if (line1 && line2) {
-            // 添加垂直标记
+            // 添加垂直标记（直角符号）
             const intersection = board.create('intersection', [line1, line2], {
               visible: false,
             });
             if (intersection) {
+              // 直角符号 - 使用正方形标记
               board.create('angle', [line1.point1, intersection, line2.point1], {
-                radius: 0.4,
+                radius: 0.5,
                 fillColor: '#22c55e',
-                fillOpacity: 0.5,
+                fillOpacity: 0.4,
                 strokeColor: '#16a34a',
-                name: '∟',
+                strokeWidth: 1.5,
+                name: '',
               });
             }
           }
