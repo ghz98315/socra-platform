@@ -178,7 +178,11 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
       const result = await response.json();
       console.log('Geometry API result:', result);
 
-      if (result.success && result.geometry && result.geometry.type !== 'unknown') {
+      if (!response.ok) {
+        console.error('Geometry API error:', result.error);
+        setError(`几何解析失败: ${result.error || '未知错误'}`);
+        setGeometryData(null);
+      } else if (result.success && result.geometry && result.geometry.type !== 'unknown') {
         setGeometryData(result.geometry);
         setShowGeometry(true);
       } else {

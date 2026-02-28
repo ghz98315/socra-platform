@@ -291,16 +291,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
       });
     }
 
-    const apiKey = process.env.AI_API_KEY;
+    const apiKey = process.env.AI_API_KEY_LOGIC || process.env.DASHSCOPE_API_KEY || process.env.AI_API_KEY;
 
     if (!apiKey) {
+      console.error('Geometry API: No AI API key configured');
       return NextResponse.json({
         success: false,
-        error: 'AI服务未配置',
+        error: 'AI服务未配置，请检查环境变量 AI_API_KEY_LOGIC 或 DASHSCOPE_API_KEY',
       }, { status: 500 });
     }
 
     // 调用AI解析几何图形
+    console.log('Calling AI for geometry parsing...');
     const response = await fetch(AI_URL, {
       method: 'POST',
       headers: {
@@ -326,10 +328,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI parse error:', errorText);
+      console.error('AI parse error:', response.status, errorText);
       return NextResponse.json({
         success: false,
-        error: `AI解析失败: ${response.status}`,
+        error: `AI解析失败(${response.status}): ${errorText.substring(0, 200)}`,
       }, { status: 500 });
     }
 
@@ -350,11 +352,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
       console.log('Parsing JSON:', jsonStr.substring(0, 300));
 
       geometry = JSON.parse(jsonStr);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Content:', content);
+      console.log('Parsed geometry type:', geometry.type);
+    } catch (parseError: any) {
+      console.error('JSON parse error:', parseError.message, 'Content:', content.substring(0, 500));
       return NextResponse.json({
         success: false,
-        error: '图形数据解析失败',
+        error: `图形数据解析失败: ${parseError.message}`,
       }, { status: 500 });
     }
 
@@ -386,7 +389,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
 
 // GET endpoint - 获取服务状态
 export async function GET() {
-  const hasAIKey = !!process.env.AI_API_KEY;
+  const hasAIKey = !!(process.env.AI_API_KEY_LOGIC || process.env.DASHSCOPE_API_KEY || process.env.AI_API_KEY);
 
   return NextResponse.json({
     config: {
