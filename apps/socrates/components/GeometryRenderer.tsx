@@ -21,7 +21,20 @@ export interface GeometryData {
   angles: AngleData[];
   labels: LabelData[];
   relations: RelationData[];
+  conditions?: ConditionData;
   confidence: number;
+}
+
+export interface ConditionData {
+  lengths?: string[];
+  angles?: string[];
+  ratios?: string[];
+  parallels?: string[];
+  perpendiculars?: string[];
+  midpoints?: string[];
+  tangents?: string[];
+  intersections?: string[];
+  others?: string[];
 }
 
 export interface PointData {
@@ -564,6 +577,85 @@ export function GeometryRenderer({
           <p className="text-xs text-muted-foreground mt-2">
             已添加 {auxiliaryLines.length} 条辅助线
           </p>
+        )}
+
+        {/* 已知条件展示 */}
+        {geometryData?.conditions && (
+          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2">
+              已知条件
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {geometryData.conditions.lengths?.map((c, i) => (
+                <Badge key={`len-${i}`} variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.angles?.map((c, i) => (
+                <Badge key={`ang-${i}`} variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.ratios?.map((c, i) => (
+                <Badge key={`rat-${i}`} variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.parallels?.map((c, i) => (
+                <Badge key={`par-${i}`} variant="secondary" className="text-xs bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.perpendiculars?.map((c, i) => (
+                <Badge key={`per-${i}`} variant="secondary" className="text-xs bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.midpoints?.map((c, i) => (
+                <Badge key={`mid-${i}`} variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.tangents?.map((c, i) => (
+                <Badge key={`tan-${i}`} variant="secondary" className="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.intersections?.map((c, i) => (
+                <Badge key={`int-${i}`} variant="secondary" className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400">
+                  {c}
+                </Badge>
+              ))}
+              {geometryData.conditions.others?.map((c, i) => (
+                <Badge key={`oth-${i}`} variant="secondary" className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                  {c}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 关系列表 */}
+        {geometryData?.relations && geometryData.relations.length > 0 && (
+          <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded border border-slate-200 dark:border-slate-700">
+            <p className="text-xs text-muted-foreground mb-1">图形关系：</p>
+            <div className="flex flex-wrap gap-1">
+              {geometryData.relations.map((rel, i) => (
+                <Badge key={i} variant="outline" className="text-xs">
+                  {rel.type === 'perpendicular' ? '⊥' :
+                   rel.type === 'parallel' ? '//' :
+                   rel.type === 'congruent' ? '≌' :
+                   rel.type === 'similar' ? '∽' :
+                   rel.type === 'tangent' ? '切' :
+                   rel.type === 'intersect' ? '∩' :
+                   rel.type === 'midpoint' ? '中点' :
+                   rel.type === 'bisect' ? '平分' : rel.type}
+                  {' '}
+                  {rel.targets.join(', ')}
+                </Badge>
+              ))}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
