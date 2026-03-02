@@ -68,9 +68,30 @@ export async function POST(req: NextRequest) {
       ['first_error', 'error_collector_10', 'error_collector_50', 'error_collector_100'].includes(a.id)
     );
 
+    console.log('[Achievements Sync] Upload achievements to check:', uploadAchievements.map(a => ({
+      id: a.id,
+      target: a.requirement?.target,
+      hasRequirement: !!a.requirement
+    })));
+
     for (const achievement of uploadAchievements) {
-      if (unlockedIds.has(achievement.id)) continue;
-      const target = achievement.requirement.target;
+      console.log('[Achievements Sync] Checking:', achievement.id, {
+        alreadyUnlocked: unlockedIds.has(achievement.id),
+        requirement: achievement.requirement,
+        errorCount
+      });
+
+      if (unlockedIds.has(achievement.id)) {
+        console.log('[Achievements Sync] Already unlocked:', achievement.id);
+        continue;
+      }
+
+      const target = achievement.requirement?.target;
+      if (!target) {
+        console.log('[Achievements Sync] No target for:', achievement.id);
+        continue;
+      }
+
       if ((errorCount || 0) >= target) {
         achievementsToInsert.push({
           user_id,
