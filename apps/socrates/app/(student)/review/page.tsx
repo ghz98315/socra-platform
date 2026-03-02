@@ -86,6 +86,12 @@ export default function ReviewPage() {
       return;
     }
 
+    // 如果已经有数据，不需要重新加载
+    if (reviews.length > 0) {
+      console.log('[Review Page] Already has', reviews.length, 'reviews, skipping load');
+      return;
+    }
+
     // 防止重复加载（使用 ref 追踪）
     if (isLoadingRef.current) {
       console.log('[Review Page] Already loading, skipping...');
