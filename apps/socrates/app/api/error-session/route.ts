@@ -70,7 +70,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 触发成就检查 - 上传错题
-    const achievementUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`;
+    // 构建完整的 URL（服务端 fetch 需要绝对路径）
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const achievementUrl = `${baseUrl}/api/achievements`;
     console.log('[Error Session] Triggering achievement check at:', achievementUrl);
 
     try {

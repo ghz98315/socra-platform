@@ -107,7 +107,9 @@ export async function POST(req: NextRequest) {
 
     // 5. 更新成就（可选：记录掌握成就）
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`, {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      await fetch(`${baseUrl}/api/achievements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
