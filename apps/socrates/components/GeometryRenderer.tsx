@@ -94,8 +94,9 @@ interface GeometryRendererProps {
   geometryData: GeometryData | null;
   rawText?: string;
   className?: string;
-  height?: number;
+  size?: number; // 正方形边长
   onRedraw?: () => void;
+  onGeometryChange?: (data: GeometryData) => void; // 几何数据变化回调
 }
 
 // 暴露给父组件的方法
@@ -137,8 +138,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
   geometryData,
   rawText,
   className,
-  height = 300,
+  size = 400,
   onRedraw,
+  onGeometryChange,
 }, ref) {
   const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,12 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
   const [customPoints, setCustomPoints] = useState<Array<{ id: string; name: string; x: number; y: number; element: any }>>([]);
   const customPointCounterRef = useRef(0);
   const isAddingPointRef = useRef(false); // 用于在useEffect中访问最新状态
+  const onGeometryChangeRef = useRef(onGeometryChange); // 用于在useEffect中访问最新回调
+
+  // 同步 onGeometryChange 到 ref
+  useEffect(() => {
+    onGeometryChangeRef.current = onGeometryChange;
+  }, [onGeometryChange]);
 
   // 确保只在客户端渲染并动态加载 JSXGraph
   useEffect(() => {
@@ -179,6 +187,57 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
     isAddingPointRef.current = isAddingPoint;
   }, [isAddingPoint]);
 
+  // 获取当前完整的几何数据（包含用户修改）
+  const getCurrentGeometryData = (): GeometryData | null => {
+    if (!geometryData) return null;
+
+    // 构建包含用户修改的完整数据
+    const updatedData: GeometryData = {
+      ...geometryData,
+      // 添加自定义点到顶点列表
+      points: [
+        ...geometryData.points,
+        ...customPoints.map(p => ({
+          id: p.id,
+          name: p.name,
+          x: p.x,
+          y: p.y,
+        })),
+      ],
+      // 添加辅助线到线段列表
+      lines: [
+        ...geometryData.lines,
+        ...auxiliaryLines.map(line => ({
+          id: `aux_${line.start}_${line.end}`,
+          start: line.start,
+          end: line.end,
+          type: 'segment' as const,
+        })),
+      ],
+    };
+
+    // 更新原始点的坐标（如果用户拖动了）
+    if (boardRef.current && elementsRef.current) {
+      updatedData.points = updatedData.points.map(point => {
+        const element = elementsRef.current[point.id];
+        if (element && typeof element.X === 'function' && typeof element.Y === 'function') {
+          try {
+            const newX = element.X();
+            const newY = element.Y();
+            if (isFinite(newX) && isFinite(newY)) {
+              return { ...point, x: newX, y: newY };
+            }
+          } catch (e) {
+            // 保持原坐标
+          }
+        }
+        return point;
+      });
+    }
+
+    return updatedData;
+  };
+
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
     getSVGContent: () => {
@@ -194,9 +253,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       }
     },
     getGeometryData: () => {
-      return geometryData;
+      return getCurrentGeometryData();
     },
-  }), [JXG, isClient, geometryData]);
+  }), [JXG, isClient, geometryData, customPoints, auxiliaryLines]);
 
   // 绘制几何图形
   useEffect(() => {
@@ -255,7 +314,96 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       // 收集所有线段用于点吸附
       const lineSegments: any[] = [];
 
-      // 绘制点（启用吸附功能）
+      // 绘制线段（先绘制线段，以便点可以吸附）
+      data.lines.forEach(line => {
+        const start = elements[line.start];
+        const end = elements[line.end];
+        if (start && end) {
+          if (line.type === 'segment') {
+            const lineElement = board.create('segment', [start, end], {
+              strokeColor: '#1e40af',
+              strokeWidth: 2,
+            });
+            elements[line.id] = lineElement;
+            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
+          } else if (line.type === 'line') {
+            const lineElement = board.create('line', [start, end], {
+              strokeColor: '#1e40af',
+              strokeWidth: 2,
+              straightFirst: true,
+              straightLast: true,
+            });
+            elements[line.id] = lineElement;
+            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
+          } else if (line.type === 'ray') {
+            const lineElement = board.create('ray', [start, end], {
+              strokeColor: '#1e40af',
+              strokeWidth: 2,
+            });
+            elements[line.id] = lineElement;
+            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
+          }
+        }
+      });
+
+      // 吸附阈值配置
+      const SNAP_THRESHOLD = 0.3; // 吸附距离阈值
+      const SNAP_GRID_SIZE = 0.05; // 网格吸附精度（更小的值更丝滑）
+
+      // 计算点到线段的最短距离和最近点
+      const getPointToLineInfo = (px: number, py: number, lineElement: any): { distance: number; closestX: number; closestY: number } => {
+        try {
+          const p1 = lineElement.point1 ? [lineElement.point1.X(), lineElement.point1.Y()] : null;
+          const p2 = lineElement.point2 ? [lineElement.point2.X(), lineElement.point2.Y()] : null;
+
+          if (!p1 || !p2) return { distance: Infinity, closestX: px, closestY: py };
+
+          const [x1, y1] = p1;
+          const [x2, y2] = p2;
+
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const lengthSquared = dx * dx + dy * dy;
+
+          if (lengthSquared === 0) return { distance: Math.sqrt((px - x1) ** 2 + (py - y1) ** 2), closestX: x1, closestY: y1 };
+
+          // 计算投影参数 t
+          let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+          t = Math.max(0, Math.min(1, t)); // 限制在线段范围内
+
+          const closestX = x1 + t * dx;
+          const closestY = y1 + t * dy;
+          const distance = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+
+          return { distance, closestX, closestY };
+        } catch {
+          return { distance: Infinity, closestX: px, closestY: py };
+        }
+      };
+
+      // 计算两点连线的斜率（用于平行/垂直检测）
+      const getSlope = (x1: number, y1: number, x2: number, y2: number): number | null => {
+        if (Math.abs(x2 - x1) < 0.001) return null; // 垂直线
+        return (y2 - y1) / (x2 - x1);
+      };
+
+      // 检查是否接近垂直或水平（用于自动吸附）
+      const checkAxisAlignment = (x1: number, y1: number, x2: number, y2: number): { isVertical: boolean; isHorizontal: boolean; snapX?: number; snapY?: number } => {
+        const dx = Math.abs(x2 - x1);
+        const dy = Math.abs(y2 - y1);
+
+        // 如果接近垂直（dx很小），建议吸附到垂直
+        if (dx < SNAP_THRESHOLD && dx < dy) {
+          return { isVertical: true, isHorizontal: false, snapX: x1 };
+        }
+        // 如果接近水平（dy很小），建议吸附到水平
+        if (dy < SNAP_THRESHOLD && dy < dx) {
+          return { isHorizontal: true, isVertical: false, snapY: y1 };
+        }
+        return { isVertical: false, isHorizontal: false };
+      };
+
+      // 绘制点（启用吸附功能 + 高级吸附逻辑）
       data.points.forEach(point => {
         // 注意：JSXGraph Y轴向上，可能需要调整
         const pointElement = board.create('point', [point.x, point.y], {
@@ -265,36 +413,88 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           fixed: false,
           withLabel: true,
           snapToGrid: true,
-          snapSizeX: 0.5,
-          snapSizeY: 0.5,
+          snapSizeX: SNAP_GRID_SIZE,
+          snapSizeY: SNAP_GRID_SIZE,
+          // 吸附到点
+          attractors: data.points
+            .filter(p => p.id !== point.id)
+            .map(p => elements[p.id])
+            .filter(el => el),
+          attractorDistance: 0.3,
+          snatchDistance: 0.4,
         });
         elements[point.id] = pointElement;
-      });
 
-      // 绘制线段
-      data.lines.forEach(line => {
-        const start = elements[line.start];
-        const end = elements[line.end];
-        if (start && end) {
-          if (line.type === 'segment') {
-            elements[line.id] = board.create('segment', [start, end], {
-              strokeColor: '#1e40af',
-              strokeWidth: 2,
-            });
-          } else if (line.type === 'line') {
-            elements[line.id] = board.create('line', [start, end], {
-              strokeColor: '#1e40af',
-              strokeWidth: 2,
-              straightFirst: true,
-              straightLast: true,
-            });
-          } else if (line.type === 'ray') {
-            elements[line.id] = board.create('ray', [start, end], {
-              strokeColor: '#1e40af',
-              strokeWidth: 2,
-            });
+        // 监听点拖动事件 - 实现线段吸附和特殊关系吸附
+        pointElement.on('drag', function() {
+          const currentX = pointElement.X();
+          const currentY = pointElement.Y();
+          let snapX = currentX;
+          let snapY = currentY;
+          let shouldSnap = false;
+
+          // 1. 检查线段吸附
+          for (const lineInfo of lineSegments) {
+            // 跳过以当前点为端点的线段
+            if (lineInfo.start === point.id || lineInfo.end === point.id) continue;
+
+            const info = getPointToLineInfo(currentX, currentY, lineInfo.element);
+            if (info.distance < SNAP_THRESHOLD && info.distance < 0.3) {
+              snapX = info.closestX;
+              snapY = info.closestY;
+              shouldSnap = true;
+              console.log(`Point ${point.name} snapping to line ${lineInfo.id}`);
+              break;
+            }
           }
-        }
+
+          // 2. 检查与其他点的垂直/水平关系吸附
+          if (!shouldSnap) {
+            for (const otherPoint of data.points) {
+              if (otherPoint.id === point.id) continue;
+              const otherElement = elements[otherPoint.id];
+              if (!otherElement) continue;
+
+              const otherX = otherElement.X();
+              const otherY = otherElement.Y();
+              const axisAlign = checkAxisAlignment(currentX, currentY, otherX, otherY);
+
+              if (axisAlign.isVertical && axisAlign.snapX !== undefined) {
+                // 吸附到垂直线
+                snapX = axisAlign.snapX;
+                shouldSnap = true;
+                console.log(`Point ${point.name} snapping to vertical with ${otherPoint.name}`);
+                break;
+              } else if (axisAlign.isHorizontal && axisAlign.snapY !== undefined) {
+                // 吸附到水平线
+                snapY = axisAlign.snapY;
+                shouldSnap = true;
+                console.log(`Point ${point.name} snapping to horizontal with ${otherPoint.name}`);
+                break;
+              }
+            }
+          }
+
+          // 应用吸附
+          if (shouldSnap) {
+            pointElement.setPosition(JXG.COORDS_BY_USER, [snapX, snapY]);
+            board.update();
+          }
+        });
+
+        // 监听点拖动结束事件
+        pointElement.on('up', function() {
+          console.log(`Point ${point.name} dragged to:`, pointElement.X(), pointElement.Y());
+          // 延迟通知以确保坐标更新完成
+          setTimeout(() => {
+            if (onGeometryChangeRef.current) {
+              const currentData = getCurrentGeometryData();
+              if (currentData) {
+                onGeometryChangeRef.current(currentData);
+              }
+            }
+          }, 50);
+        });
       });
 
       // 绘制圆
@@ -322,15 +522,42 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         data.curves.forEach(curve => {
           const curveColor = curve.color || '#22c55e'; // 默认绿色
 
-          if (curve.type === 'inverse_proportional' && curve.parameter) {
-            const k = curve.parameter;
-            const xMin = curve.xRange?.[0] || 0.1;
-            const xMax = curve.xRange?.[1] || 10;
+          if (curve.type === 'inverse_proportional') {
+            // 反比例函数 y = k/x
+            // 如果有 pointsOnCurve，使用第一个点来计算 k 值
+            let initialK = curve.parameter || 1;
+
+            // 如果曲线经过某个点，计算 k 值
+            if (curve.pointsOnCurve && curve.pointsOnCurve.length > 0) {
+              const pointOnCurve = data.points.find(p => p.name === curve.pointsOnCurve![0]);
+              if (pointOnCurve && pointOnCurve.x !== 0) {
+                initialK = pointOnCurve.x * pointOnCurve.y;
+              }
+            }
+
+            const xMin = curve.xRange?.[0] || 0.2;
+            const xMax = curve.xRange?.[1] || 8;
+
+            // 创建一个可拖动的滑块点来控制 k 值
+            // 滑块位于 (1, k) 位置，拖动它可以改变 k
+            const kSlider = board.create('point', [1, initialK], {
+              name: 'k',
+              size: 6,
+              color: '#f97316',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: false,
+              visible: true,
+            });
+
+            // 使用滑块的 Y 坐标作为 k 值
+            const kValue = () => kSlider.Y();
 
             // 绘制 y = k/x 曲线（x > 0 分支）
             board.create('functiongraph', [
               function(x: number) {
-                if (x > 0.05) return k / x;
+                const k = kValue();
+                if (x > 0.05 && Math.abs(k) > 0.01) return k / x;
                 return NaN;
               }
             ], {
@@ -342,7 +569,8 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             // 绘制 y = k/x 曲线（x < 0 分支）
             board.create('functiongraph', [
               function(x: number) {
-                if (x < -0.05) return k / x;
+                const k = kValue();
+                if (x < -0.05 && Math.abs(k) > 0.01) return k / x;
                 return NaN;
               }
             ], {
@@ -351,13 +579,19 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               highlight: false,
             });
 
-            // 添加函数标签
-            board.create('text', [xMax * 0.6, k / (xMax * 0.6) + 0.5, `y=${k}/x`], {
+            // 添加动态函数标签
+            board.create('text', [xMax * 0.5, xMax * 0.8, function() {
+              const k = kValue();
+              return `y=${k.toFixed(1)}/x`;
+            }], {
               fontSize: 14,
               color: curveColor,
               anchorX: 'left',
               anchorY: 'bottom',
             });
+
+            // 存储 k 滑块引用
+            elements[`kSlider_${curve.id}`] = kSlider;
           }
         });
       }
@@ -487,10 +721,13 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           if (x !== undefined && y !== undefined && !isNaN(x) && !isNaN(y) && isFinite(x) && isFinite(y)) {
             console.log('Creating point at:', x, y);
 
-            // 创建自定义点
+            // 创建自定义点 - 使用相同的吸附设置
             customPointCounterRef.current += 1;
             const pointId = `custom_${customPointCounterRef.current}`;
             const pointName = `P${customPointCounterRef.current}`;
+
+            // 收集所有点用于吸附
+            const allPoints = [...Object.values(elementsRef.current).filter((el: any) => el && el.elementClass === JXG.OBJECT_CLASS_POINT)];
 
             const pointElement = board.create('point', [x, y], {
               name: pointName,
@@ -499,8 +736,59 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               fixed: false,
               withLabel: true,
               snapToGrid: true,
-              snapSizeX: 0.5,
-              snapSizeY: 0.5,
+              snapSizeX: 0.05,
+              snapSizeY: 0.05,
+              // 吸附到其他点
+              attractors: allPoints,
+              attractorDistance: 0.3,
+              snatchDistance: 0.4,
+            });
+
+            // 为自定义点添加拖动吸附逻辑
+            pointElement.on('drag', function() {
+              const currentX = pointElement.X();
+              const currentY = pointElement.Y();
+              let snapX = currentX;
+              let snapY = currentY;
+              let shouldSnap = false;
+
+              // 检查线段吸附
+              for (const lineInfo of lineSegments) {
+                const info = getPointToLineInfo(currentX, currentY, lineInfo.element);
+                if (info.distance < SNAP_THRESHOLD) {
+                  snapX = info.closestX;
+                  snapY = info.closestY;
+                  shouldSnap = true;
+                  break;
+                }
+              }
+
+              // 检查与点的垂直/水平吸附
+              if (!shouldSnap) {
+                for (const otherPoint of data.points) {
+                  const otherElement = elements[otherPoint.id];
+                  if (!otherElement) continue;
+
+                  const otherX = otherElement.X();
+                  const otherY = otherElement.Y();
+                  const axisAlign = checkAxisAlignment(currentX, currentY, otherX, otherY);
+
+                  if (axisAlign.isVertical && axisAlign.snapX !== undefined) {
+                    snapX = axisAlign.snapX;
+                    shouldSnap = true;
+                    break;
+                  } else if (axisAlign.isHorizontal && axisAlign.snapY !== undefined) {
+                    snapY = axisAlign.snapY;
+                    shouldSnap = true;
+                    break;
+                  }
+                }
+              }
+
+              if (shouldSnap) {
+                pointElement.setPosition(JXG.COORDS_BY_USER, [snapX, snapY]);
+                board.update();
+              }
             });
 
             // 存储到elementsRef以便后续引用
@@ -516,6 +804,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             }]);
 
             console.log('Point created successfully:', pointName);
+
+            // 通知几何变化（延迟执行以确保状态已更新）
+            setTimeout(() => notifyGeometryChange(), 0);
           } else {
             console.log('Could not get valid coordinates');
           }
@@ -541,6 +832,16 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
     };
   }, [geometryData, isClient, JXG]);
 
+  // 通知父组件几何数据变化
+  const notifyGeometryChange = () => {
+    if (onGeometryChange) {
+      const currentData = getCurrentGeometryData();
+      if (currentData) {
+        onGeometryChange(currentData);
+      }
+    }
+  };
+
   // 添加辅助线
   const handleAddAuxiliaryLine = (startId: string, endId: string) => {
     if (!boardRef.current || !elementsRef.current[startId] || !elementsRef.current[endId]) return;
@@ -556,6 +857,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
     });
 
     setAuxiliaryLines(prev => [...prev, { start: startId, end: endId, element: line }]);
+
+    // 通知几何变化
+    setTimeout(() => notifyGeometryChange(), 0);
   };
 
   // 移除最后一条辅助线
@@ -570,6 +874,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
     }
 
     setAuxiliaryLines(prev => prev.slice(0, -1));
+
+    // 通知几何变化
+    setTimeout(() => notifyGeometryChange(), 0);
   };
 
   // 清除所有辅助线
@@ -585,6 +892,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
     });
 
     setAuxiliaryLines([]);
+
+    // 通知几何变化
+    setTimeout(() => notifyGeometryChange(), 0);
   };
 
   // 处理点选择（用于绘制辅助线）
@@ -617,8 +927,8 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       fixed: false,
       withLabel: true,
       snapToGrid: true,
-      snapSizeX: 0.5,
-      snapSizeY: 0.5,
+      snapSizeX: 0.05, // 更精细的吸附
+      snapSizeY: 0.05,
     });
 
     // 存储到elementsRef以便后续引用
@@ -646,6 +956,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
     }
 
     setCustomPoints(prev => prev.slice(0, -1));
+
+    // 通知几何变化
+    setTimeout(() => notifyGeometryChange(), 0);
   };
 
   // 清除所有自定义点
@@ -663,6 +976,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
     setCustomPoints([]);
     customPointCounterRef.current = 0;
+
+    // 通知几何变化
+    setTimeout(() => notifyGeometryChange(), 0);
   };
 
   // 导出为图片
@@ -803,7 +1119,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         {!isClient || !JXG ? (
           <div
             className="w-full bg-slate-50 dark:bg-slate-900 rounded-lg border border-border/30 flex items-center justify-center"
-            style={{ height }}
+            style={{ height: size, minHeight: size }}
           >
             <span className="text-sm text-muted-foreground">加载图形组件...</span>
           </div>
@@ -815,7 +1131,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               isFullscreen && "fixed inset-4 z-50",
               isAddingPoint && "cursor-crosshair"
             )}
-            style={{ height: isFullscreen ? 'calc(100vh - 2rem)' : height }}
+            style={{
+              height: isFullscreen ? 'calc(100vh - 2rem)' : size,
+              minHeight: size,
+              aspectRatio: isFullscreen ? 'auto' : '1'
+            }}
             id="jxgbox"
           />
         )}
