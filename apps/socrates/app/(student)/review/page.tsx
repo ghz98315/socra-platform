@@ -203,7 +203,12 @@ export default function ReviewPage() {
     }
   }, [profile?.id, loadReviews]);
 
-  console.log('[Review Page] State - reviews:', reviews.length, ', filterStatus:', filterStatus, ', loading:', loading);
+  // 监控 reviews 状态变化
+  useEffect(() => {
+    console.log('[Review Page] Reviews state changed:', reviews.length, 'items');
+  }, [reviews]);
+
+  console.log('[Review Page] Render - reviews:', reviews.length, ', filterStatus:', filterStatus, ', loading:', loading);
 
   const filteredReviews = reviews.filter(review => {
     if (filterStatus === 'pending') return !review.isOverdue;
