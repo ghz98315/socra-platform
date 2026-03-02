@@ -73,6 +73,7 @@ export default function ReviewPage() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'overdue'>('all');
+  const isLoadingRef = useRef(false); // 用 ref 追踪加载状态，避免闭包问题
 
   // 滚动动画 refs
   const filterAnimation = useScrollAnimation();
@@ -85,6 +86,13 @@ export default function ReviewPage() {
       return;
     }
 
+    // 防止重复加载（使用 ref 追踪）
+    if (isLoadingRef.current) {
+      console.log('[Review Page] Already loading, skipping...');
+      return;
+    }
+
+    isLoadingRef.current = true;
     console.log('[Review Page] Loading reviews for user:', profile.id);
     setLoading(true);
 
@@ -99,6 +107,7 @@ export default function ReviewPage() {
 
     if (reviewError) {
       console.error('Failed to load reviews:', reviewError);
+      isLoadingRef.current = false;
       setLoading(false);
       return;
     }
@@ -178,6 +187,7 @@ export default function ReviewPage() {
       setReviews([]);
     }
 
+    isLoadingRef.current = false;
     setLoading(false);
     console.log('[Review Page] Loading complete');
 
