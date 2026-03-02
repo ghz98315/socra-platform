@@ -1,7 +1,7 @@
 // =====================================================
 // Project Socrates - Review List Page
 // 方案二：分层卡片设计 + 苹果风格动画
-// v1.6.18 - Fixed profile loading trigger
+// v1.6.19 - Added Zustand store for caching
 // =====================================================
 
 'use client';
@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
+import { useReviewStore } from '@/lib/stores/review-store';
 
 // 滚动动画 Hook
 function useScrollAnimation(threshold = 0.1) {
@@ -71,26 +72,34 @@ export default function ReviewPage() {
   const { profile } = useAuth();
   const supabase = createClient() as SupabaseClient;
 
-  const [reviews, setReviews] = useState<ReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 使用 Zustand store 管理复习数据
+  const {
+    reviews,
+    loading,
+    setReviews,
+    setLoading,
+    shouldRefetch,
+    updateReviewStage,
+    removeReview
+  } = useReviewStore();
+
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'overdue'>('all');
   const isLoadingRef = useRef(false); // 用 ref 追踪加载状态，避免闭包问题
-  const hasLoadedRef = useRef(false); // 用 ref 追踪是否已加载过数据
 
   // 滚动动画 refs
   const filterAnimation = useScrollAnimation();
   const listAnimation = useScrollAnimation();
 
-  const loadReviews = useCallback(async () => {
+  const loadReviews = useCallback(async (forceRefresh = false) => {
     // 如果 profile 还没加载完成，等待
     if (!profile?.id) {
       console.log('Review page: waiting for profile...');
       return;
     }
 
-    // 如果已经加载过数据，不需要重新加载
-    if (hasLoadedRef.current) {
-      console.log('[Review Page] Already loaded data, skipping reload');
+    // 检查是否需要重新获取数据（使用缓存机制）
+    if (!forceRefresh && !shouldRefetch()) {
+      console.log('[Review Page] Using cached data, skipping fetch');
       return;
     }
 
@@ -190,12 +199,10 @@ export default function ReviewPage() {
 
       console.log('[Review Page] Enriched reviews:', enrichedReviews.length);
       setReviews(enrichedReviews);
-      hasLoadedRef.current = true; // 标记已加载
       console.log('[Review Page] setReviews called with', enrichedReviews.length, 'items');
     } else {
       console.log('[Review Page] No session IDs found, setting empty reviews');
       setReviews([]);
-      hasLoadedRef.current = true; // 标记已加载
     }
 
     isLoadingRef.current = false;
@@ -219,6 +226,20 @@ export default function ReviewPage() {
     console.log('[Review Page] Reviews state changed:', reviews.length, 'items');
   }, [reviews]);
 
+  // 页面可见性变化时刷新数据（从复习页面返回时）
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && profile?.id) {
+        console.log('[Review Page] Page visible, checking if refresh needed');
+        // 强制刷新以确保数据最新
+        loadReviews(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [profile?.id, loadReviews]);
+
   console.log('[Review Page] Render - reviews:', reviews.length, ', filterStatus:', filterStatus, ', loading:', loading);
 
   const filteredReviews = reviews.filter(review => {
@@ -229,27 +250,20 @@ export default function ReviewPage() {
   console.log('[Review Page] filteredReviews:', filteredReviews.length);
 
   const handleCompleteReview = async (reviewId: string) => {
-    // 更新为下一阶段
-    const { data: currentReview, error: fetchError } = await supabase
-      .from('review_schedule')
-      .select('*')
-      .eq('id', reviewId)
-      .single();
-
-    if (fetchError || !currentReview) {
-      console.error('Failed to fetch review:', fetchError);
-      return;
-    }
-
-    const reviewSchedule = currentReview as { review_stage: number; next_review_at: string };
+    // 获取当前复习项
+    const currentReview = reviews.find(r => r.id === reviewId);
+    if (!currentReview) return;
 
     // 计算下一阶段
-    const nextStage = Math.min(reviewSchedule.review_stage + 1, 4);
-    const currentDate = new Date(reviewSchedule.next_review_at);
+    const nextStage = Math.min(currentReview.reviewStage + 1, 4);
+    const currentDate = new Date(currentReview.nextReviewAt);
     const nextDays = REVIEW_STAGES.find(s => s.stage === nextStage)?.days || 30;
     currentDate.setDate(currentDate.getDate() + nextDays);
 
-    // 更新
+    // 乐观更新 UI（立即反馈）
+    updateReviewStage(reviewId, nextStage);
+
+    // 后台更新数据库
     const { error: updateError } = await supabase
       .from('review_schedule')
       .update({
@@ -260,11 +274,12 @@ export default function ReviewPage() {
 
     if (updateError) {
       console.error('Failed to complete review:', updateError);
+      // 如果更新失败，回滚并强制刷新
+      await loadReviews(true);
       return;
     }
 
-    // 重新加载列表
-    await loadReviews();
+    console.log('[Review Page] Review completed:', reviewId, 'new stage:', nextStage);
   };
 
   const getSubjectIcon = (subject: string) => {
