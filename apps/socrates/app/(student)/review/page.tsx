@@ -74,6 +74,7 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'overdue'>('all');
   const isLoadingRef = useRef(false); // 用 ref 追踪加载状态，避免闭包问题
+  const hasLoadedRef = useRef(false); // 用 ref 追踪是否已加载过数据
 
   // 滚动动画 refs
   const filterAnimation = useScrollAnimation();
@@ -86,9 +87,9 @@ export default function ReviewPage() {
       return;
     }
 
-    // 如果已经有数据，不需要重新加载
-    if (reviews.length > 0) {
-      console.log('[Review Page] Already has', reviews.length, 'reviews, skipping load');
+    // 如果已经加载过数据，不需要重新加载
+    if (hasLoadedRef.current) {
+      console.log('[Review Page] Already loaded data, skipping reload');
       return;
     }
 
@@ -187,10 +188,12 @@ export default function ReviewPage() {
 
       console.log('[Review Page] Enriched reviews:', enrichedReviews.length);
       setReviews(enrichedReviews);
+      hasLoadedRef.current = true; // 标记已加载
       console.log('[Review Page] setReviews called with', enrichedReviews.length, 'items');
     } else {
       console.log('[Review Page] No session IDs found, setting empty reviews');
       setReviews([]);
+      hasLoadedRef.current = true; // 标记已加载
     }
 
     isLoadingRef.current = false;
