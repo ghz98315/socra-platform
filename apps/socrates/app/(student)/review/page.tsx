@@ -454,11 +454,6 @@ export default function ReviewPage() {
                   "hover:shadow-lg",
                   review.isOverdue && "border-l-4 border-l-red-500"
                 )}
-                style={{
-                  opacity: listAnimation.isVisible ? 1 : 0,
-                  transform: listAnimation.isVisible ? 'translateY(0)' : 'translateY(30px)',
-                  transition: `opacity 0.5s ease-out ${index * 0.1}s, transform 0.5s ease-out ${index * 0.1}s`,
-                }}
               >
                 <CardContent className="p-5">
                   {/* Header */}
