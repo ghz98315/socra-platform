@@ -318,8 +318,8 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         showNavigation: false,
         showCopyright: false,
         keepAspectRatio: true, // 保持纵横比为1（正方形）
-        pan: { enabled: true, needShift: false },
-        zoom: { enabled: true, pinchHorizontal: false, pinchVertical: false },
+        pan: { enabled: false }, // 禁用画板平移
+        zoom: { enabled: true },
       });
 
       boardRef.current = board;
@@ -330,38 +330,6 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
       // 收集所有线段用于点吸附
       const lineSegments: any[] = [];
-
-      // 绘制线段（先绘制线段，以便点可以吸附）
-      data.lines.forEach(line => {
-        const start = elements[line.start];
-        const end = elements[line.end];
-        if (start && end) {
-          if (line.type === 'segment') {
-            const lineElement = board.create('segment', [start, end], {
-              strokeColor: '#1e40af',
-              strokeWidth: 2,
-            });
-            elements[line.id] = lineElement;
-            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
-          } else if (line.type === 'line') {
-            const lineElement = board.create('line', [start, end], {
-              strokeColor: '#1e40af',
-              strokeWidth: 2,
-              straightFirst: true,
-              straightLast: true,
-            });
-            elements[line.id] = lineElement;
-            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
-          } else if (line.type === 'ray') {
-            const lineElement = board.create('ray', [start, end], {
-              strokeColor: '#1e40af',
-              strokeWidth: 2,
-            });
-            elements[line.id] = lineElement;
-            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
-          }
-        }
-      });
 
       // 吸附阈值配置
       const SNAP_THRESHOLD = 0.3; // 吸附距离阈值
@@ -420,9 +388,8 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         return { isVertical: false, isHorizontal: false };
       };
 
-      // 绘制点（启用吸附功能 + 高级吸附逻辑）
+      // 1. 先绘制点
       data.points.forEach(point => {
-        // 注意：JSXGraph Y轴向上，可能需要调整
         const pointElement = board.create('point', [point.x, point.y], {
           name: point.name,
           size: 4,
@@ -432,15 +399,46 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
           snapToGrid: true,
           snapSizeX: SNAP_GRID_SIZE,
           snapSizeY: SNAP_GRID_SIZE,
-          // 吸附到点
-          attractors: data.points
-            .filter(p => p.id !== point.id)
-            .map(p => elements[p.id])
-            .filter(el => el),
-          attractorDistance: 0.3,
-          snatchDistance: 0.4,
         });
         elements[point.id] = pointElement;
+      });
+
+      // 2. 然后绘制线段（点已经创建，可以引用）
+      data.lines.forEach(line => {
+        const start = elements[line.start];
+        const end = elements[line.end];
+        if (start && end) {
+          if (line.type === 'segment') {
+            const lineElement = board.create('segment', [start, end], {
+              strokeColor: '#1e40af',
+              strokeWidth: 2,
+            });
+            elements[line.id] = lineElement;
+            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
+          } else if (line.type === 'line') {
+            const lineElement = board.create('line', [start, end], {
+              strokeColor: '#1e40af',
+              strokeWidth: 2,
+              straightFirst: true,
+              straightLast: true,
+            });
+            elements[line.id] = lineElement;
+            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
+          } else if (line.type === 'ray') {
+            const lineElement = board.create('ray', [start, end], {
+              strokeColor: '#1e40af',
+              strokeWidth: 2,
+            });
+            elements[line.id] = lineElement;
+            lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
+          }
+        }
+      });
+
+      // 3. 为点添加拖动事件（吸附逻辑）
+      data.points.forEach(point => {
+        const pointElement = elements[point.id];
+        if (!pointElement) return;
 
         // 监听点拖动事件 - 实现线段吸附和特殊关系吸附
         pointElement.on('drag', function() {
