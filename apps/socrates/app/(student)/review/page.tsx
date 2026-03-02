@@ -105,20 +105,27 @@ export default function ReviewPage() {
 
     const reviewSchedules = reviewData || [];
     console.log('[Review Page] Review schedules found:', reviewSchedules.length);
+    console.log('[Review Page] Sample review:', reviewSchedules[0]);
 
     // 关联错题会话信息
-    const sessionIds = reviewSchedules.map((r: { session_id: string }) => r.session_id) || [];
+    const sessionIds = reviewSchedules.map((r: any) => r.session_id).filter(Boolean);
+    console.log('[Review Page] Session IDs to fetch:', sessionIds.length, sessionIds.slice(0, 3));
 
     if (sessionIds.length > 0) {
-      const { data: sessionData } = await supabase
+      const { data: sessionData, error: sessionError } = await supabase
         .from('error_sessions')
         .select('*')
         .in('id', sessionIds);
 
+      if (sessionError) {
+        console.error('[Review Page] Error fetching sessions:', sessionError);
+      }
+
       const sessions = sessionData || [];
+      console.log('[Review Page] Sessions fetched:', sessions.length);
 
       // 组合数据
-      const sessionMap = new Map(sessions.map((s: { id: string }) => [s.id, s]));
+      const sessionMap = new Map(sessions.map((s: any) => [s.id, s]));
 
       const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
         const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
@@ -139,12 +146,15 @@ export default function ReviewPage() {
         };
       });
 
+      console.log('[Review Page] Enriched reviews:', enrichedReviews.length, enrichedReviews.slice(0, 2));
       setReviews(enrichedReviews);
     } else {
+      console.log('[Review Page] No session IDs found, setting empty reviews');
       setReviews([]);
     }
 
     setLoading(false);
+    console.log('[Review Page] Loading complete, reviews state updated');
   }, [profile?.id, supabase]);
 
   // 加载复习列表
