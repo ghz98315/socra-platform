@@ -209,6 +209,12 @@ export default function ReviewPage() {
   const overdueCount = reviews.filter(r => r.isOverdue).length;
   const pendingCount = reviews.filter(r => !r.isOverdue).length;
 
+  // 计算完成率：已掌握（stage 5）的数量 / 总数量
+  const completedCount = reviews.filter(r => r.reviewStage >= 5).length;
+  const completionRate = reviews.length > 0
+    ? Math.round((completedCount / reviews.length) * 100)
+    : 0;
+
   return (
     <div className={cn(
       "min-h-screen bg-background",
@@ -257,7 +263,7 @@ export default function ReviewPage() {
             />
             <StatCard
               label="完成率"
-              value="0%"
+              value={`${completionRate}%`}
               icon={CheckCircle}
               color="text-green-500"
               delay={0.3}

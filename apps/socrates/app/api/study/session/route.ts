@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Failed to start session' }, { status: 500 });
         }
 
+        // 更新连续学习天数
+        await updateStreak(student_id!);
+
         return NextResponse.json({
           data: { session_id: data.id },
           message: 'Study session started',
@@ -229,5 +232,88 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Study stats API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// 更新连续学习天数
+async function updateStreak(userId: string) {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // 获取用户等级数据
+    const { data: levelData, error: fetchError } = await supabase
+      .from('user_levels')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching user level:', fetchError);
+      return;
+    }
+
+    const currentStreak = levelData?.current_streak || 0;
+    const longestStreak = levelData?.longest_streak || 0;
+    const lastActivityDate = levelData?.last_activity_date;
+
+    let newStreak = 1;
+
+    if (lastActivityDate) {
+      const lastDate = new Date(lastActivityDate);
+      const todayDate = new Date(today);
+      const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        // 同一天，不更新streak
+        return;
+      } else if (diffDays === 1) {
+        // 连续学习
+        newStreak = currentStreak + 1;
+      } else {
+        // 断了，重新开始
+        newStreak = 1;
+      }
+    }
+
+    const newLongestStreak = Math.max(longestStreak, newStreak);
+
+    // 更新或创建记录
+    const { error: upsertError } = await supabase
+      .from('user_levels')
+      .upsert({
+        user_id: userId,
+        current_streak: newStreak,
+        longest_streak: newLongestStreak,
+        last_activity_date: today,
+        level: levelData?.level || 1,
+        xp: levelData?.xp || 0,
+        total_xp: levelData?.total_xp || 0,
+      }, { onConflict: 'user_id' });
+
+    if (upsertError) {
+      console.error('Error updating streak:', upsertError);
+      return;
+    }
+
+    // 触发连续学习成就检查
+    if (newStreak > currentStreak) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            action: 'streak_updated',
+            data: { streak: newStreak },
+          }),
+        });
+      } catch (e) {
+        console.error('Failed to check streak achievements:', e);
+      }
+    }
+
+    console.log(`Streak updated for user ${userId}: ${currentStreak} -> ${newStreak}`);
+  } catch (error) {
+    console.error('updateStreak error:', error);
   }
 }
