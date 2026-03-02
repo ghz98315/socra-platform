@@ -61,6 +61,7 @@ interface ReviewItem {
   reviewStage: number;
   daysUntilDue: number;
   isOverdue: boolean;
+  extractedText?: string; // 题目文字
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,7 +161,7 @@ export default function ReviewPage() {
       const sessionMap = new Map(sessions.map((s: any) => [s.id, s]));
 
       const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
-        const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
+        const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number; extracted_text?: string } | undefined;
         if (!session) {
           console.warn('[Review Page] No session found for:', review.session_id);
         }
@@ -178,6 +179,7 @@ export default function ReviewPage() {
           reviewStage: review.review_stage,
           daysUntilDue: daysUntil,
           isOverdue: daysUntil <= 0,
+          extractedText: session?.extracted_text?.substring(0, 80) || '',
         };
       });
 
@@ -480,6 +482,14 @@ export default function ReviewPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Question Text */}
+                  {review.extractedText && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      {review.extractedText}
+                      {review.extractedText.length >= 80 && '...'}
+                    </p>
+                  )}
 
                   {/* Details */}
                   <div className="space-y-3 text-sm mb-4">
