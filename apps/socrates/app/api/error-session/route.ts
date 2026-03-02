@@ -58,6 +58,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '创建错题会话失败' }, { status: 500 });
     }
 
+    // 获取该学生的错题总数，用于成就检查
+    const { count: errorCount } = await supabase
+      .from('error_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', student_id);
+
+    // 触发成就检查 - 上传错题
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: student_id,
+          action: 'error_uploaded',
+          data: { count: errorCount || 1 },
+        }),
+      });
+    } catch (e) {
+      console.error('Failed to check upload achievements:', e);
+    }
+
     return NextResponse.json({
       data: {
         session_id: data.id,
