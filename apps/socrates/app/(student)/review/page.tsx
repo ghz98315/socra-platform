@@ -165,15 +165,25 @@ export default function ReviewPage() {
         };
       });
 
-      console.log('[Review Page] Enriched reviews:', enrichedReviews.length, enrichedReviews.slice(0, 2));
+      // 调试：检查 isOverdue 分布
+      const overdueReviews = enrichedReviews.filter(r => r.isOverdue);
+      const pendingReviews = enrichedReviews.filter(r => !r.isOverdue);
+      console.log('[Review Page] Overdue:', overdueReviews.length, ', Pending:', pendingReviews.length);
+
+      console.log('[Review Page] Enriched reviews:', enrichedReviews.length);
       setReviews(enrichedReviews);
+      console.log('[Review Page] setReviews called with', enrichedReviews.length, 'items');
     } else {
       console.log('[Review Page] No session IDs found, setting empty reviews');
       setReviews([]);
     }
 
     setLoading(false);
-    console.log('[Review Page] Loading complete, reviews state updated');
+    console.log('[Review Page] Loading complete');
+
+    // 检查过滤后的结果
+    console.log('[Review Page] Filter status:', filterStatus);
+    console.log('[Review Page] Reviews in state:', reviews.length);
   }, [profile?.id, supabase]);
 
   // 加载复习列表
