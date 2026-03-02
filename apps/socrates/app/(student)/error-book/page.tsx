@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -82,20 +82,31 @@ export default function ErrorBookPage() {
   const [errors, setErrors] = useState<ErrorSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'difficulty'>('newest');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
-  // Fetch error sessions
+  // Debounce search input - 防抖优化
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (profile?.id) {
-      fetchErrors();
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
-  }, [profile?.id]);
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
 
-  const fetchErrors = async () => {
+  // Fetch error sessions - 使用 useCallback 优化
+  const fetchErrors = useCallback(async () => {
     if (!profile?.id) return;
     setLoading(true);
 
@@ -114,36 +125,54 @@ export default function ErrorBookPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.id]);
 
-  // Filter and sort errors
-  const filteredErrors = errors
-    .filter((err) => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const textMatch = err.extracted_text?.toLowerCase().includes(query);
-        const tagsMatch = err.concept_tags?.some(tag => tag.toLowerCase().includes(query));
-        if (!textMatch && !tagsMatch) return false;
-      }
-      // Subject filter
-      if (selectedSubject !== 'all' && err.subject !== selectedSubject) return false;
-      // Status filter
-      if (selectedStatus !== 'all' && err.status !== selectedStatus) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'difficulty':
-          return (b.difficulty_rating || 0) - (a.difficulty_rating || 0);
-        default:
-          return 0;
-      }
-    });
+  useEffect(() => {
+    if (profile?.id) {
+      fetchErrors();
+    }
+  }, [profile?.id, fetchErrors]);
+
+  // 使用 useMemo 优化过滤和排序 - 避免每次渲染都重新计算
+  const filteredErrors = useMemo(() => {
+    return errors
+      .filter((err) => {
+        // Search filter - 使用防抖后的搜索词
+        if (debouncedSearch) {
+          const query = debouncedSearch.toLowerCase();
+          const textMatch = err.extracted_text?.toLowerCase().includes(query);
+          const tagsMatch = err.concept_tags?.some(tag => tag.toLowerCase().includes(query));
+          if (!textMatch && !tagsMatch) return false;
+        }
+        // Subject filter
+        if (selectedSubject !== 'all' && err.subject !== selectedSubject) return false;
+        // Status filter
+        if (selectedStatus !== 'all' && err.status !== selectedStatus) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'newest':
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          case 'oldest':
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          case 'difficulty':
+            return (b.difficulty_rating || 0) - (a.difficulty_rating || 0);
+          default:
+            return 0;
+        }
+      });
+  }, [errors, debouncedSearch, selectedSubject, selectedStatus, sortBy]);
+
+  // 使用 useMemo 优化状态计数 - 避免重复计算
+  const statusCounts = useMemo(() => {
+    return {
+      total: errors.length,
+      analyzing: errors.filter(e => e.status === 'analyzing').length,
+      guidedLearning: errors.filter(e => e.status === 'guided_learning').length,
+      mastered: errors.filter(e => e.status === 'mastered').length,
+    };
+  }, [errors]);
 
   // Toggle selection
   const toggleSelect = (id: string) => {
@@ -238,7 +267,7 @@ export default function ErrorBookPage() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="gap-1">
                 <FileText className="w-3 h-3" />
-                {errors.length} 条记录
+                {statusCounts.total} 条记录
               </Badge>
               <Button
                 variant="outline"
@@ -256,27 +285,27 @@ export default function ErrorBookPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
         {/* Stats Cards - 移到顶部 */}
-        {!loading && errors.length > 0 && (
+        {!loading && statusCounts.total > 0 && (
           <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-950/30 border border-blue-200/50 dark:border-blue-800/50">
-              <p className="text-3xl font-bold text-blue-600">{errors.length}</p>
+              <p className="text-3xl font-bold text-blue-600">{statusCounts.total}</p>
               <p className="text-xs text-blue-600/70">总错题数</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-yellow-100 to-yellow-50 dark:from-yellow-900/30 dark:to-yellow-950/30 border border-yellow-200/50 dark:border-yellow-800/50">
               <p className="text-3xl font-bold text-yellow-600">
-                {errors.filter(e => e.status === 'analyzing').length}
+                {statusCounts.analyzing}
               </p>
               <p className="text-xs text-yellow-600/70">分析中</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-950/30 border border-purple-200/50 dark:border-purple-800/50">
               <p className="text-3xl font-bold text-purple-600">
-                {errors.filter(e => e.status === 'guided_learning').length}
+                {statusCounts.guidedLearning}
               </p>
               <p className="text-xs text-purple-600/70">学习中</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-950/30 border border-green-200/50 dark:border-green-800/50">
               <p className="text-3xl font-bold text-green-600">
-                {errors.filter(e => e.status === 'mastered').length}
+                {statusCounts.mastered}
               </p>
               <p className="text-xs text-green-600/70">已掌握 ✨</p>
             </div>
@@ -539,18 +568,18 @@ export default function ErrorBookPage() {
         )}
 
         {/* Summary Stats */}
-        {!loading && errors.length > 0 && (
+        {!loading && statusCounts.total > 0 && (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-primary">{errors.length}</p>
+                <p className="text-2xl font-bold text-primary">{statusCounts.total}</p>
                 <p className="text-xs text-muted-foreground">总错题数</p>
               </CardContent>
             </Card>
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-yellow-500">
-                  {errors.filter(e => e.status === 'analyzing').length}
+                  {statusCounts.analyzing}
                 </p>
                 <p className="text-xs text-muted-foreground">分析中</p>
               </CardContent>
@@ -558,7 +587,7 @@ export default function ErrorBookPage() {
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-blue-500">
-                  {errors.filter(e => e.status === 'guided_learning').length}
+                  {statusCounts.guidedLearning}
                 </p>
                 <p className="text-xs text-muted-foreground">学习中</p>
               </CardContent>
@@ -566,7 +595,7 @@ export default function ErrorBookPage() {
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-green-500">
-                  {errors.filter(e => e.status === 'mastered').length}
+                  {statusCounts.mastered}
                 </p>
                 <p className="text-xs text-muted-foreground">已掌握</p>
               </CardContent>
