@@ -105,7 +105,11 @@ export default function ReviewPage() {
 
     const reviewSchedules = reviewData || [];
     console.log('[Review Page] Review schedules found:', reviewSchedules.length);
-    console.log('[Review Page] Sample review:', reviewSchedules[0]);
+
+    // 检查 session_id 的情况
+    const withSessionId = reviewSchedules.filter((r: any) => r.session_id);
+    const withoutSessionId = reviewSchedules.filter((r: any) => !r.session_id);
+    console.log('[Review Page] With session_id:', withSessionId.length, ', Without:', withoutSessionId.length);
 
     // 关联错题会话信息
     const sessionIds = reviewSchedules.map((r: any) => r.session_id).filter(Boolean);
