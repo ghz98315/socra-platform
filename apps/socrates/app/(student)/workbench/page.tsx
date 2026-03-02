@@ -125,6 +125,7 @@ function WorkbenchPage() {
   const [studySessionId, setStudySessionId] = useState<string | null>(null);
   const [studyDuration, setStudyDuration] = useState(0);
   const studyTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isStudyingRef = useRef(false); // 用 ref 来跟踪 isStudying 状态，解决闭包问题
 
   // Mastery state
   const [isMastered, setIsMastered] = useState(false);
@@ -206,29 +207,32 @@ function WorkbenchPage() {
       startStudySession();
     }
 
-    // Set up heartbeat interval
-    const heartbeatInterval = setInterval(() => {
-      if (isStudying && studySessionId) {
-        sendHeartbeat();
-      }
-    }, 30000);
-
-    // Set up duration update interval
+    // Set up duration update interval - 使用 ref 检查状态
     studyTimerRef.current = setInterval(() => {
-      if (isStudying) {
+      if (isStudyingRef.current) {
         setStudyDuration(prev => prev + 1);
       }
     }, 1000);
 
     // Cleanup on unmount
     return () => {
-      clearInterval(heartbeatInterval);
       if (studyTimerRef.current) {
         clearInterval(studyTimerRef.current);
       }
       endStudySession();
     };
   }, []);
+
+  // Heartbeat effect - 当 isStudying 变化时设置
+  useEffect(() => {
+    if (!isStudying || !studySessionId) return;
+
+    const heartbeatInterval = setInterval(() => {
+      sendHeartbeat();
+    }, 30000);
+
+    return () => clearInterval(heartbeatInterval);
+  }, [isStudying, studySessionId]);
 
   // Start a new study session
   const startStudySession = async () => {
@@ -251,6 +255,7 @@ function WorkbenchPage() {
         const result = await response.json();
         setStudySessionId(result.data.session_id);
         setIsStudying(true);
+        isStudyingRef.current = true; // 同步更新 ref
         setStudyDuration(0);
       }
     } catch (error) {
@@ -277,6 +282,7 @@ function WorkbenchPage() {
 
       if (response.ok) {
         setIsStudying(false);
+        isStudyingRef.current = false; // 同步更新 ref
         setStudySessionId(null);
       }
     } catch (error) {
