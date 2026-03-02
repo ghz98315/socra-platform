@@ -207,22 +207,38 @@ function WorkbenchPage() {
         return;
       }
 
-      if (!reviewData || reviewData.length === 0) {
+      // 类型断言
+      const reviews = (reviewData || []) as Array<{
+        id: string;
+        session_id: string;
+        next_review_at: string;
+        review_stage: number;
+      }>;
+
+      if (reviews.length === 0) {
         setPendingReviews([]);
         return;
       }
 
       // 获取关联的错题信息
-      const sessionIds = reviewData.map(r => r.session_id);
+      const sessionIds = reviews.map(r => r.session_id);
       const { data: sessionData } = await supabase
         .from('error_sessions')
         .select('id, subject, concept_tags, difficulty_rating, extracted_text')
         .in('id', sessionIds);
 
-      const sessionMap = new Map((sessionData || []).map(s => [s.id, s]));
+      const sessions = (sessionData || []) as Array<{
+        id: string;
+        subject?: string;
+        concept_tags?: string[] | null;
+        difficulty_rating?: number | null;
+        extracted_text?: string;
+      }>;
 
-      const reviews = reviewData.map(review => {
-        const session = sessionMap.get(review.session_id) as any;
+      const sessionMap = new Map(sessions.map(s => [s.id, s]));
+
+      const pendingReviews = reviews.map(review => {
+        const session = sessionMap.get(review.session_id);
         const now = new Date();
         const nextReviewDate = new Date(review.next_review_at);
         const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -241,7 +257,7 @@ function WorkbenchPage() {
         };
       });
 
-      setPendingReviews(reviews);
+      setPendingReviews(pendingReviews);
     } catch (err) {
       console.error('Failed to load pending reviews:', err);
     } finally {
