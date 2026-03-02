@@ -94,7 +94,7 @@ interface GeometryRendererProps {
   geometryData: GeometryData | null;
   rawText?: string;
   className?: string;
-  size?: number; // 正方形边长
+  size?: number; // 正方形边长（默认扩大到500）
   onRedraw?: () => void;
   onGeometryChange?: (data: GeometryData) => void; // 几何数据变化回调
 }
@@ -138,7 +138,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
   geometryData,
   rawText,
   className,
-  size = 400,
+  size = 500, // 扩大画板尺寸
   onRedraw,
   onGeometryChange,
 }, ref) {
@@ -282,15 +282,32 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       const data = geometryData || DEFAULT_TRIANGLE;
       console.log('Using data:', data.type, data.points.length, 'points');
 
-      // 计算边界
+      // 计算边界 - 扩大默认范围以适应更多图形
       const allPoints = data.points;
-      let minX = -5, maxX = 5, minY = -5, maxY = 5;
+      let minX = -6, maxX = 6, minY = -6, maxY = 6; // 扩大默认边界
 
       if (allPoints.length > 0) {
-        minX = Math.min(...allPoints.map(p => p.x)) - 2;
-        maxX = Math.max(...allPoints.map(p => p.x)) + 2;
-        minY = Math.min(...allPoints.map(p => p.y)) - 2;
-        maxY = Math.max(...allPoints.map(p => p.y)) + 2;
+        const pointMinX = Math.min(...allPoints.map(p => p.x));
+        const pointMaxX = Math.max(...allPoints.map(p => p.x));
+        const pointMinY = Math.min(...allPoints.map(p => p.y));
+        const pointMaxY = Math.max(...allPoints.map(p => p.y));
+
+        // 计算需要的范围，并添加边距
+        const rangeX = pointMaxX - pointMinX;
+        const rangeY = pointMaxY - pointMinY;
+        const maxRange = Math.max(rangeX, rangeY, 10); // 至少10个单位的范围
+        const padding = maxRange * 0.3; // 30% 的边距
+
+        // 计算中心点
+        const centerX = (pointMinX + pointMaxX) / 2;
+        const centerY = (pointMinY + pointMaxY) / 2;
+
+        // 确保是正方形区域（保持纵横比）
+        const halfRange = maxRange / 2 + padding;
+        minX = centerX - halfRange;
+        maxX = centerX + halfRange;
+        minY = centerY - halfRange;
+        maxY = centerY + halfRange;
       }
 
       // 创建画板 - 注意 boundingbox 格式为 [x左, y上, x右, y下]
@@ -300,9 +317,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         grid: true,
         showNavigation: false,
         showCopyright: false,
-        keepAspectRatio: true,
-        pan: { enabled: true },
-        zoom: { enabled: true },
+        keepAspectRatio: true, // 保持纵横比为1（正方形）
+        pan: { enabled: true, needShift: false },
+        zoom: { enabled: true, pinchHorizontal: false, pinchVertical: false },
       });
 
       boardRef.current = board;
@@ -517,14 +534,14 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         }
       });
 
-      // 绘制函数曲线
+      // 绘制函数曲线 - 支持拖动移动
       if (data.curves && data.curves.length > 0) {
         data.curves.forEach(curve => {
           const curveColor = curve.color || '#22c55e'; // 默认绿色
 
           if (curve.type === 'inverse_proportional') {
-            // 反比例函数 y = k/x
-            // 如果有 pointsOnCurve，使用第一个点来计算 k 值
+            // 反比例函数 y = k/(x-x0) + y0
+            // x0, y0 是曲线的中心位置（渐近线交点）
             let initialK = curve.parameter || 1;
 
             // 如果曲线经过某个点，计算 k 值
@@ -535,11 +552,19 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               }
             }
 
-            const xMin = curve.xRange?.[0] || 0.2;
-            const xMax = curve.xRange?.[1] || 8;
+            // 创建曲线中心控制点（可拖动移动整个曲线）
+            const centerPoint = board.create('point', [0, 0], {
+              name: 'O\'',
+              size: 5,
+              color: '#ef4444',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: true,
+              snapSizeX: 0.1,
+              snapSizeY: 0.1,
+            });
 
-            // 创建一个可拖动的滑块点来控制 k 值
-            // 滑块位于 (1, k) 位置，拖动它可以改变 k
+            // 创建 k 参数控制点
             const kSlider = board.create('point', [1, initialK], {
               name: 'k',
               size: 6,
@@ -550,14 +575,19 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               visible: true,
             });
 
-            // 使用滑块的 Y 坐标作为 k 值
-            const kValue = () => kSlider.Y();
+            // 动态获取参数
+            const getK = () => kSlider.Y();
+            const getX0 = () => centerPoint.X();
+            const getY0 = () => centerPoint.Y();
 
-            // 绘制 y = k/x 曲线（x > 0 分支）
+            // 绘制 y = k/(x-x0) + y0 曲线（x > x0 分支）
             board.create('functiongraph', [
               function(x: number) {
-                const k = kValue();
-                if (x > 0.05 && Math.abs(k) > 0.01) return k / x;
+                const k = getK();
+                const x0 = getX0();
+                const y0 = getY0();
+                const dx = x - x0;
+                if (dx > 0.05 && Math.abs(k) > 0.01) return y0 + k / dx;
                 return NaN;
               }
             ], {
@@ -566,12 +596,180 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               highlight: false,
             });
 
-            // 绘制 y = k/x 曲线（x < 0 分支）
+            // 绘制 y = k/(x-x0) + y0 曲线（x < x0 分支）
             board.create('functiongraph', [
               function(x: number) {
-                const k = kValue();
-                if (x < -0.05 && Math.abs(k) > 0.01) return k / x;
+                const k = getK();
+                const x0 = getX0();
+                const y0 = getY0();
+                const dx = x - x0;
+                if (dx < -0.05 && Math.abs(k) > 0.01) return y0 + k / dx;
                 return NaN;
+              }
+            ], {
+              strokeColor: curveColor,
+              strokeWidth: 2.5,
+              highlight: false,
+            });
+
+            // 绘制渐近线（虚线）
+            board.create('line', [
+              [() => getX0(), () => getY0() - 10],
+              [() => getX0(), () => getY0() + 10]
+            ], {
+              strokeColor: '#94a3b8',
+              strokeWidth: 1,
+              dash: 2,
+              straightFirst: true,
+              straightLast: true,
+            });
+
+            board.create('line', [
+              [() => getX0() - 10, () => getY0()],
+              [() => getX0() + 10, () => getY0()]
+            ], {
+              strokeColor: '#94a3b8',
+              strokeWidth: 1,
+              dash: 2,
+              straightFirst: true,
+              straightLast: true,
+            });
+
+            // 添加动态函数标签
+            board.create('text', [() => getX0() + 4, () => getY0() + 3, function() {
+              const k = getK();
+              const x0 = getX0();
+              const y0 = getY0();
+              let equation = 'y=';
+              if (y0 !== 0) {
+                equation += `${y0.toFixed(1)}+`;
+              }
+              equation += `${k.toFixed(1)}`;
+              if (x0 === 0) {
+                equation += '/x';
+              } else {
+                equation += `/(x${x0 > 0 ? '-' : '+'}${Math.abs(x0).toFixed(1)})`;
+              }
+              return equation;
+            }], {
+              fontSize: 14,
+              color: curveColor,
+              anchorX: 'left',
+              anchorY: 'bottom',
+            });
+
+            // 存储控制点引用
+            elements[`center_${curve.id}`] = centerPoint;
+            elements[`kSlider_${curve.id}`] = kSlider;
+          }
+
+          // 一次函数 y = ax + b
+          if (curve.type === 'linear') {
+            // 解析方程 y = ax + b
+            let a = 1, b = 0;
+            const eqMatch = curve.equation?.match(/y\s*=\s*(-?[\d.]*?)x\s*([+-]\s*[\d.]+)?/);
+            if (eqMatch) {
+              a = parseFloat(eqMatch[1]) || 1;
+              if (eqMatch[2]) {
+                b = parseFloat(eqMatch[2].replace(/\s/g, '')) || 0;
+              }
+            }
+
+            // 创建直线上的一个可拖动点
+            const linePoint1 = board.create('point', [-4, a * -4 + b], {
+              name: 'P1',
+              size: 4,
+              color: '#3b82f6',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: true,
+              snapSizeX: 0.1,
+              snapSizeY: 0.1,
+            });
+
+            const linePoint2 = board.create('point', [4, a * 4 + b], {
+              name: 'P2',
+              size: 4,
+              color: '#3b82f6',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: true,
+              snapSizeX: 0.1,
+              snapSizeY: 0.1,
+            });
+
+            // 绘制直线
+            board.create('line', [linePoint1, linePoint2], {
+              strokeColor: curveColor,
+              strokeWidth: 2.5,
+              straightFirst: true,
+              straightLast: true,
+            });
+
+            // 添加动态函数标签
+            board.create('text', [3, () => linePoint2.Y() + 0.5, function() {
+              const x1 = linePoint1.X(), y1 = linePoint1.Y();
+              const x2 = linePoint2.X(), y2 = linePoint2.Y();
+              if (Math.abs(x2 - x1) < 0.001) return 'x = c'; // 垂直线
+              const slope = (y2 - y1) / (x2 - x1);
+              const intercept = y1 - slope * x1;
+              return `y = ${slope.toFixed(2)}x ${intercept >= 0 ? '+' : ''} ${intercept.toFixed(2)}`;
+            }], {
+              fontSize: 14,
+              color: curveColor,
+              anchorX: 'left',
+              anchorY: 'bottom',
+            });
+
+            elements[`lineP1_${curve.id}`] = linePoint1;
+            elements[`lineP2_${curve.id}`] = linePoint2;
+          }
+
+          // 二次函数 y = ax² + bx + c
+          if (curve.type === 'quadratic') {
+            // 默认参数
+            let a = 1, b = 0, c = 0;
+            const eqMatch = curve.equation?.match(/y\s*=\s*(-?[\d.]*?)x²\s*([+-]\s*[\d.]*?)?x?\s*([+-]\s*[\d.]+)?/);
+            if (eqMatch) {
+              a = parseFloat(eqMatch[1]) || 1;
+              if (eqMatch[2]) {
+                b = parseFloat(eqMatch[2].replace(/\s/g, '')) || 0;
+              }
+              if (eqMatch[3]) {
+                c = parseFloat(eqMatch[3].replace(/\s/g, '')) || 0;
+              }
+            }
+
+            // 创建顶点控制点
+            const vertex = board.create('point', [-b/(2*a), c - b*b/(4*a)], {
+              name: 'V',
+              size: 5,
+              color: '#ef4444',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: true,
+              snapSizeX: 0.1,
+              snapSizeY: 0.1,
+            });
+
+            // 创建 a 参数控制点（控制开口方向和大小）
+            const aSlider = board.create('point', [0, a], {
+              name: 'a',
+              size: 6,
+              color: '#f97316',
+              fixed: false,
+              withLabel: true,
+              snapToGrid: false,
+            });
+
+            // 绘制抛物线
+            board.create('functiongraph', [
+              function(x: number) {
+                const h = vertex.X();
+                const k = vertex.Y();
+                const aVal = aSlider.Y();
+                if (Math.abs(aVal) < 0.01) return NaN;
+                return aVal * (x - h) * (x - h) + k;
               }
             ], {
               strokeColor: curveColor,
@@ -580,9 +778,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             });
 
             // 添加动态函数标签
-            board.create('text', [xMax * 0.5, xMax * 0.8, function() {
-              const k = kValue();
-              return `y=${k.toFixed(1)}/x`;
+            board.create('text', [() => vertex.X() + 2, () => vertex.Y() + 2, function() {
+              const h = vertex.X();
+              const k = vertex.Y();
+              const aVal = aSlider.Y();
+              return `y = ${aVal.toFixed(2)}(x${h >= 0 ? '-' : '+'}${Math.abs(h).toFixed(1)})² ${k >= 0 ? '+' : ''} ${k.toFixed(1)}`;
             }], {
               fontSize: 14,
               color: curveColor,
@@ -590,8 +790,8 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               anchorY: 'bottom',
             });
 
-            // 存储 k 滑块引用
-            elements[`kSlider_${curve.id}`] = kSlider;
+            elements[`vertex_${curve.id}`] = vertex;
+            elements[`aSlider_${curve.id}`] = aSlider;
           }
         });
       }
