@@ -84,6 +84,7 @@ export default function ReviewPage() {
       return;
     }
 
+    console.log('[Review Page] Loading reviews for user:', profile.id);
     setLoading(true);
 
     const { data: reviewData, error: reviewError } = await supabase
@@ -93,6 +94,8 @@ export default function ReviewPage() {
       .eq('is_completed', false)
       .order('next_review_at', { ascending: true });
 
+    console.log('[Review Page] Query result:', { count: reviewData?.length, error: reviewError });
+
     if (reviewError) {
       console.error('Failed to load reviews:', reviewError);
       setLoading(false);
@@ -100,6 +103,7 @@ export default function ReviewPage() {
     }
 
     const reviewSchedules = reviewData || [];
+    console.log('[Review Page] Review schedules found:', reviewSchedules.length);
 
     // 关联错题会话信息
     const sessionIds = reviewSchedules.map((r: { session_id: string }) => r.session_id) || [];
@@ -144,8 +148,10 @@ export default function ReviewPage() {
 
   // 加载复习列表
   useEffect(() => {
-    loadReviews();
-  }, [loadReviews]);
+    if (profile?.id) {
+      loadReviews();
+    }
+  }, [profile?.id, loadReviews]);
 
   const filteredReviews = reviews.filter(review => {
     if (filterStatus === 'pending') return !review.isOverdue;
