@@ -110,6 +110,10 @@ function WorkbenchPage() {
   // 新增：对话模式（Logic / Socra）
   const [dialogMode, setDialogMode] = useState<DialogMode>('Logic');
 
+  // 新增：几何变更提示
+  const [geometryChangeHint, setGeometryChangeHint] = useState<string | null>(null);
+  const prevGeometryDataRef = useRef<any>(null);
+
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -363,6 +367,8 @@ function WorkbenchPage() {
   };
 
   const handleOCRComplete = async (result: OCRDetectionResult) => {
+    console.log('🔔 handleOCRComplete called, result:', result);
+
     setOcrText(result.text);
     setGeometryData(result.geometryData || null);
 
@@ -383,7 +389,75 @@ function WorkbenchPage() {
       return;
     }
 
-    saveErrorSession(result.text, result.geometryData, result.geometrySvg, result.subject, result.questionType);
+    // 保存 session
+    await saveErrorSession(result.text, result.geometryData, result.geometrySvg, result.subject, result.questionType);
+    console.log('🔔 saveErrorSession completed, triggering AI welcome...');
+
+    // 🔔 直接触发 AI 暖场对话（不需要学生发消息）
+    triggerAIWelcome(result.text, result.subject, result.questionType, result.geometryData);
+  };
+
+  // 触发 AI 暖场对话
+  const triggerAIWelcome = async (
+    questionText: string,
+    subjectInfo?: { type: SubjectType; confidence: number } | null,
+    questionTypeInfo?: { type: QuestionType; confidence: number } | null,
+    geomData?: any
+  ) => {
+    console.log('🔔 triggerAIWelcome called with:', { questionText: questionText?.substring(0, 50), subjectInfo, questionTypeInfo, geomData });
+    setIsChatLoading(true);
+
+    // 不需要添加用户消息，直接让 AI 主动发起暖场
+    // 用户已经通过上传题目表示了学习意愿
+
+    try {
+      const userLevel = (profile as any)?.subscription_tier || 'free';
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '[系统触发：学生已上传题目，请按照Phase 1暖场共情流程主动发起对话]',
+          session_id: chatSessionRef.current,
+          theme: profile?.theme_preference || 'junior',
+          subject: subjectInfo?.type || 'math',
+          userLevel: userLevel,
+          subjectConfidence: subjectInfo?.confidence || 1,
+          questionType: questionTypeInfo?.type || 'unknown',
+          questionContent: questionText,
+          geometryData: geomData,
+          isWelcomeTrigger: true, // 标记这是暖场触发
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.dialogMode) {
+        setDialogMode(data.dialogMode);
+      }
+
+      if (data.content) {
+        const assistantMessage: Message = {
+          id: `msg_${Date.now()}_assistant`,
+          role: 'assistant',
+          content: data.content,
+          timestamp: new Date(),
+        };
+        setMessages([assistantMessage]); // 只显示 AI 的消息
+      }
+    } catch (error) {
+      console.error('Failed to trigger AI welcome:', error);
+      // 即使失败也显示一条提示
+      const errorMessage: Message = {
+        id: `msg_${Date.now()}_error`,
+        role: 'assistant',
+        content: '老师收到你的题目了！这是一道很有意思的题目，能告诉我你在哪里卡住了吗？',
+        timestamp: new Date(),
+      };
+      setMessages([errorMessage]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const saveErrorSession = async (
@@ -797,6 +871,55 @@ function WorkbenchPage() {
                     onTextChange={setOcrText}
                     onConfirm={handleOCRComplete}
                     imageData={imagePreview}
+                    onGeometryChange={(data) => {
+                      console.log('Geometry changed:', data);
+
+                      // 生成变更提示
+                      const hints: string[] = [];
+                      const prevData = prevGeometryDataRef.current;
+
+                      if (prevData) {
+                        // 检测新增的自定义点
+                        const prevCustomPoints = prevData.points?.filter((p: any) => p.id.startsWith('custom_')) || [];
+                        const newCustomPoints = data.points?.filter((p: any) => p.id.startsWith('custom_')) || [];
+                        if (newCustomPoints.length > prevCustomPoints.length) {
+                          const addedPoint = newCustomPoints[newCustomPoints.length - 1];
+                          hints.push(`添加了点 ${addedPoint.name}(${addedPoint.x.toFixed(1)}, ${addedPoint.y.toFixed(1)})`);
+                        }
+
+                        // 检测新增的辅助线
+                        const prevAuxLines = prevData.lines?.filter((l: any) => l.id.startsWith('aux_')) || [];
+                        const newAuxLines = data.lines?.filter((l: any) => l.id.startsWith('aux_')) || [];
+                        if (newAuxLines.length > prevAuxLines.length) {
+                          const addedLine = newAuxLines[newAuxLines.length - 1];
+                          hints.push(`添加了辅助线 ${addedLine.start}-${addedLine.end}`);
+                        }
+
+                        // 检测点坐标变化（拖动）
+                        if (data.points && prevData.points) {
+                          data.points.forEach((newPoint: any) => {
+                            const prevPoint = prevData.points?.find((p: any) => p.id === newPoint.id);
+                            if (prevPoint && !newPoint.id.startsWith('custom_')) {
+                              const dx = Math.abs(newPoint.x - prevPoint.x);
+                              const dy = Math.abs(newPoint.y - prevPoint.y);
+                              if (dx > 0.1 || dy > 0.1) {
+                                hints.push(`点 ${newPoint.name} 移动到 (${newPoint.x.toFixed(1)}, ${newPoint.y.toFixed(1)})`);
+                              }
+                            }
+                          });
+                        }
+                      }
+
+                      // 更新状态
+                      setGeometryData(data);
+                      prevGeometryDataRef.current = data;
+
+                      // 显示变更提示（3秒后自动消失）
+                      if (hints.length > 0) {
+                        setGeometryChangeHint(hints.join('；'));
+                        setTimeout(() => setGeometryChangeHint(null), 5000);
+                      }
+                    }}
                   />
                 </div>
               )}
@@ -974,6 +1097,18 @@ function WorkbenchPage() {
                       <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
                         <p className="text-xs text-muted-foreground mb-1 font-medium">当前题目：</p>
                         <p className="text-sm line-clamp-2">{ocrText}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 几何变更提示 */}
+                  {geometryChangeHint && (
+                    <div className="px-6 pt-2">
+                      <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+                        <Sparkles className="w-4 h-4 text-slate-500" />
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          图形已更新：{geometryChangeHint}
+                        </p>
                       </div>
                     </div>
                   )}

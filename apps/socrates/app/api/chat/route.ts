@@ -205,23 +205,30 @@ export async function POST(req: NextRequest) {
       conversationHistory.get(historySessionId) || []
     );
 
-    if (!conversationHistory.has(historySessionId)) {
-      // 构建 System Prompt（三层架构）
-      const systemPrompt = buildSystemPrompt({
-        subject: actualSubject,
-        grade: actualGrade,
-        userLevel: actualUserLevel,
-        questionContent,
-        geometryData,
-        hasImage,
-        questionType: actualQuestionType,
-      });
+    // 构建 System Prompt（三层架构）
+    const systemPrompt = buildSystemPrompt({
+      subject: actualSubject,
+      grade: actualGrade,
+      userLevel: actualUserLevel,
+      questionContent,
+      geometryData,
+      hasImage,
+      questionType: actualQuestionType,
+    });
 
+    if (!conversationHistory.has(historySessionId)) {
+      // 首次创建对话历史
       conversationHistory.set(historySessionId, [
         { role: 'system', content: systemPrompt },
       ]);
-
-      console.log('Chat API - System Prompt built, length:', systemPrompt.length);
+      console.log('Chat API - System Prompt built (new session), length:', systemPrompt.length);
+    } else {
+      // 更新现有对话历史的 System Prompt（以保持几何数据最新）
+      const history = conversationHistory.get(historySessionId)!;
+      if (history.length > 0 && history[0].role === 'system') {
+        history[0].content = systemPrompt;
+        console.log('Chat API - System Prompt updated (geometry changed), length:', systemPrompt.length);
+      }
     }
 
     const history = conversationHistory.get(historySessionId)!;

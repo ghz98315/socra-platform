@@ -38,13 +38,14 @@ interface OCRResultProps {
   onTextChange: (text: string) => void;
   onConfirm: (result: OCRDetectionResult) => void;
   imageData?: string | null;
+  onGeometryChange?: (data: GeometryData) => void; // 几何数据变化回调
 }
 
 // 云端 OCR API
 const CLOUD_OCR_URL = '/api/ocr';
 const OCR_TIMEOUT = 60000; // 60秒超时（云端可能较慢）
 
-export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: OCRResultProps) {
+export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onGeometryChange }: OCRResultProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
@@ -370,8 +371,9 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                       ref={geometryRendererRef}
                       geometryData={geometryData}
                       rawText={text}
-                      height={250}
+                      size={400}
                       onRedraw={() => parseGeometry(text)}
+                      onGeometryChange={onGeometryChange}
                     />
                   ) : null}
                 </div>

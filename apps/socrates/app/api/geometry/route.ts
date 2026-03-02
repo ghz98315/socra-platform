@@ -528,14 +528,14 @@ PA切⊙O于A → OA⊥PA，且A在圆上
 
 输入："如图，Rt△OAB与Rt△OBC位于平面直角坐标系中，∠AOB=∠BOC=30°，BA⊥OA，CB⊥OB，若AB=√3"
 
-输出（注意：O在原点，A在x轴正方向，B在第一象限）：
+输出（注意：O在原点，OA沿Y轴正方向，A在Y轴上，B在第一象限）：
 {
   "type": "composite",
   "points": [
     {"id": "O", "name": "O", "x": 0, "y": 0},
-    {"id": "A", "name": "A", "x": 3, "y": 0},
-    {"id": "B", "name": "B", "x": 3, "y": 1.732},
-    {"id": "C", "name": "C", "x": 2.598, "y": 3}
+    {"id": "A", "name": "A", "x": 0, "y": 3},
+    {"id": "B", "name": "B", "x": 1.732, "y": 3},
+    {"id": "C", "name": "C", "x": 3, "y": 2.598}
   ],
   "lines": [
     {"id": "OA", "start": "O", "end": "A", "type": "segment"},
