@@ -152,6 +152,10 @@ export async function POST(req: NextRequest) {
     const unlocked = (unlockedData || []) as UserAchievement[];
     const unlockedIds = new Set(unlocked.map(a => a.achievement_id));
 
+    // 从数据库获取实际统计数据（而不是依赖传递的 count）
+    const actualStats = await getActualStats(user_id, action);
+    console.log('[Achievements] Actual stats from database:', actualStats);
+
     let newlyUnlocked: AchievementDefinition[] = [];
     let xpGained = 0;
 
@@ -162,7 +166,8 @@ export async function POST(req: NextRequest) {
     for (const achievement of achievementsToCheck) {
       if (unlockedIds.has(achievement.id)) continue;
 
-      if (shouldUnlockAchievement(achievement, action, data)) {
+      // 使用数据库查询的实际数据来检查
+      if (shouldUnlockAchievement(achievement, action, actualStats)) {
         achievementsToInsert.push({
           user_id,
           achievement_id: achievement.id,
@@ -170,6 +175,7 @@ export async function POST(req: NextRequest) {
         });
         newlyUnlocked.push(achievement);
         xpGained += achievement.points;
+        console.log('[Achievements] Unlocked:', achievement.id, achievement.name);
       }
     }
 
@@ -195,9 +201,9 @@ export async function POST(req: NextRequest) {
         xp: newTotalXp - newLevelConfig.xp_required,
       };
 
-      if (action === 'streak_updated' && data?.streak) {
-        updateData.current_streak = data.streak;
-        updateData.longest_streak = Math.max(currentLevel?.longest_streak || 0, data.streak);
+      if (action === 'streak_updated' && actualStats.streak) {
+        updateData.current_streak = actualStats.streak;
+        updateData.longest_streak = Math.max(currentLevel?.longest_streak || 0, actualStats.streak);
         updateData.last_activity_date = new Date().toISOString().split('T')[0];
       }
 
@@ -219,6 +225,62 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Achievements POST error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// 从数据库获取实际统计数据
+async function getActualStats(userId: string, action: string): Promise<{ count?: number; streak?: number }> {
+  try {
+    switch (action) {
+      case 'error_uploaded': {
+        // 查询实际的错题数量
+        const { count, error } = await supabase
+          .from('error_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('student_id', userId);
+        if (error) console.error('[Achievements] Error counting errors:', error);
+        return { count: count || 0 };
+      }
+
+      case 'error_mastered': {
+        // 查询实际掌握的错题数量
+        const { count, error } = await supabase
+          .from('error_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('student_id', userId)
+          .eq('status', 'mastered');
+        if (error) console.error('[Achievements] Error counting mastered:', error);
+        return { count: count || 0 };
+      }
+
+      case 'review_completed': {
+        // 查询实际完成的复习次数
+        const { count, error } = await supabase
+          .from('review_schedule')
+          .select('*', { count: 'exact', head: true })
+          .eq('student_id', userId)
+          .eq('is_completed', true);
+        if (error) console.error('[Achievements] Error counting reviews:', error);
+        return { count: count || 0 };
+      }
+
+      case 'streak_updated': {
+        // 从 user_levels 获取连续学习天数
+        const { data, error } = await supabase
+          .from('user_levels')
+          .select('current_streak')
+          .eq('user_id', userId)
+          .single();
+        if (error) console.error('[Achievements] Error getting streak:', error);
+        return { streak: data?.current_streak || 0 };
+      }
+
+      default:
+        return {};
+    }
+  } catch (error) {
+    console.error('[Achievements] Error getting actual stats:', error);
+    return {};
   }
 }
 
@@ -246,15 +308,19 @@ function getAchievementsForAction(action: string, data: any): AchievementDefinit
   }
 }
 
-// 检查是否应该解锁成就
-function shouldUnlockAchievement(achievement: AchievementDefinition, action: string, data: any): boolean {
+// 检查是否应该解锁成就（使用数据库查询的实际数据）
+function shouldUnlockAchievement(achievement: AchievementDefinition, action: string, stats: { count?: number; streak?: number }): boolean {
   if (achievement.requirement.type === 'count') {
-    const count = data?.count || 1;
-    return count >= achievement.requirement.target;
+    const count = stats?.count || 0;
+    const result = count >= achievement.requirement.target;
+    console.log(`[Achievements] Checking ${achievement.id}: count=${count}, target=${achievement.requirement.target}, result=${result}`);
+    return result;
   }
   if (achievement.requirement.type === 'streak') {
-    const streak = data?.streak || 1;
-    return streak >= achievement.requirement.target;
+    const streak = stats?.streak || 0;
+    const result = streak >= achievement.requirement.target;
+    console.log(`[Achievements] Checking ${achievement.id}: streak=${streak}, target=${achievement.requirement.target}, result=${result}`);
+    return result;
   }
   return false;
 }
