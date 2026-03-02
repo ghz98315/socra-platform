@@ -59,14 +59,22 @@ export async function POST(req: NextRequest) {
     }
 
     // 获取该学生的错题总数，用于成就检查
-    const { count: errorCount } = await supabase
+    const { count: errorCount, error: countError } = await supabase
       .from('error_sessions')
       .select('*', { count: 'exact', head: true })
       .eq('student_id', student_id);
 
+    console.log('[Error Session] Total error count for user:', student_id, 'is:', errorCount);
+    if (countError) {
+      console.error('[Error Session] Failed to count errors:', countError);
+    }
+
     // 触发成就检查 - 上传错题
+    const achievementUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`;
+    console.log('[Error Session] Triggering achievement check at:', achievementUrl);
+
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/achievements`, {
+      const achievementResponse = await fetch(achievementUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -75,8 +83,11 @@ export async function POST(req: NextRequest) {
           data: { count: errorCount || 1 },
         }),
       });
+
+      const achievementResult = await achievementResponse.json();
+      console.log('[Error Session] Achievement API response:', achievementResult);
     } catch (e) {
-      console.error('Failed to check upload achievements:', e);
+      console.error('[Error Session] Failed to check upload achievements:', e);
     }
 
     return NextResponse.json({
