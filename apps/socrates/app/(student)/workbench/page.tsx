@@ -23,7 +23,10 @@ import {
   CheckCircle,
   Sparkles,
   PanelLeft,
-  Smartphone
+  Smartphone,
+  Calendar,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,6 +41,7 @@ import { AnalysisDialog } from '@/components/AnalysisDialog';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
+import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
 
 type Step = 'upload' | 'ocr' | 'chat';
 
@@ -140,6 +144,21 @@ function WorkbenchPage() {
   const [showMobilePanel, setShowMobilePanel] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Review state - 待复习题目
+  const [pendingReviews, setPendingReviews] = useState<Array<{
+    id: string;
+    sessionId: string;
+    subject: string;
+    conceptTags: string[] | null;
+    difficultyRating: number | null;
+    nextReviewAt: string;
+    reviewStage: number;
+    daysUntilDue: number;
+    isOverdue: boolean;
+    extractedText?: string;
+  }>>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+
   // Load parent's students and check URL params
   useEffect(() => {
     if (isParent && profile?.id) {
@@ -164,6 +183,76 @@ function WorkbenchPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Load pending reviews - 加载待复习题目
+  const loadPendingReviews = async () => {
+    if (!effectiveStudentId) return;
+
+    setLoadingReviews(true);
+    const supabase = createClient();
+
+    try {
+      // 获取已到期的复习任务（next_review_at <= now）
+      const { data: reviewData, error } = await supabase
+        .from('review_schedule')
+        .select('*')
+        .eq('student_id', effectiveStudentId)
+        .eq('is_completed', false)
+        .lte('next_review_at', new Date().toISOString())
+        .order('next_review_at', { ascending: true })
+        .limit(5); // 最多显示5个
+
+      if (error) {
+        console.error('Error loading pending reviews:', error);
+        return;
+      }
+
+      if (!reviewData || reviewData.length === 0) {
+        setPendingReviews([]);
+        return;
+      }
+
+      // 获取关联的错题信息
+      const sessionIds = reviewData.map(r => r.session_id);
+      const { data: sessionData } = await supabase
+        .from('error_sessions')
+        .select('id, subject, concept_tags, difficulty_rating, extracted_text')
+        .in('id', sessionIds);
+
+      const sessionMap = new Map((sessionData || []).map(s => [s.id, s]));
+
+      const reviews = reviewData.map(review => {
+        const session = sessionMap.get(review.session_id) as any;
+        const now = new Date();
+        const nextReviewDate = new Date(review.next_review_at);
+        const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        return {
+          id: review.id,
+          sessionId: review.session_id,
+          subject: session?.subject || 'math',
+          conceptTags: session?.concept_tags ?? null,
+          difficultyRating: session?.difficulty_rating ?? null,
+          nextReviewAt: review.next_review_at,
+          reviewStage: review.review_stage,
+          daysUntilDue: daysUntil,
+          isOverdue: daysUntil <= 0,
+          extractedText: session?.extracted_text?.substring(0, 100) || '',
+        };
+      });
+
+      setPendingReviews(reviews);
+    } catch (err) {
+      console.error('Failed to load pending reviews:', err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  // Load pending reviews when effectiveStudentId changes
+  useEffect(() => {
+    loadPendingReviews();
+  }, [effectiveStudentId]);
 
   const loadParentStudents = async () => {
     if (!profile?.id) return;
@@ -1146,6 +1235,107 @@ function WorkbenchPage() {
             </Card>
           </div>
         </div>
+
+        {/* 待复习题目区域 */}
+        {!isParent && (pendingReviews.length > 0 || loadingReviews) && (
+          <div className="mt-8 pt-8 border-t border-border/50">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-orange-500" />
+                待复习题目
+                {pendingReviews.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {pendingReviews.length} 道已到期
+                  </Badge>
+                )}
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push('/review')}
+                className="text-muted-foreground"
+              >
+                查看全部
+              </Button>
+            </div>
+
+            {loadingReviews ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pendingReviews.map((review) => (
+                  <Card
+                    key={review.id}
+                    className={cn(
+                      "border-border/50 transition-all duration-300 hover:shadow-lg cursor-pointer",
+                      review.isOverdue && "border-l-4 border-l-red-500"
+                    )}
+                    onClick={() => router.push(`/review/session/${review.id}`)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">
+                            {review.subject === 'math' ? '📐' : review.subject === 'physics' ? '🔬' : '📚'}
+                          </span>
+                          <Badge
+                            variant={review.isOverdue ? 'destructive' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {getUrgencyLabel(review.daysUntilDue)}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatReviewDate(review.nextReviewAt)}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                        {review.extractedText || '点击查看题目详情'}
+                      </p>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {REVIEW_STAGES.find(s => s.stage === review.reviewStage)?.name || '复习中'}
+                          </span>
+                        </div>
+                        <div className="flex-1 h-1 bg-muted rounded-full mx-2 overflow-hidden">
+                          <div
+                            className="h-full bg-orange-500 rounded-full"
+                            style={{ width: `${(review.reviewStage / 5) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {review.conceptTags && review.conceptTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {review.conceptTags.slice(0, 2).map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs font-normal">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {pendingReviews.length === 0 && !loadingReviews && (
+              <Card className="border-border/50">
+                <CardContent className="py-8 text-center">
+                  <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-3" />
+                  <p className="text-muted-foreground">太棒了！没有待复习的题目</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </main>
 
       {/* AI Analysis Prompt for Parent (after mastery) */}

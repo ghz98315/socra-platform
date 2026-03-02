@@ -37,7 +37,19 @@ export async function GET(req: NextRequest) {
     }
 
     const unlocked = (unlockedData || []) as UserAchievement[];
-    const unlockedIds = new Set(unlocked.map(a => a.achievement_id));
+
+    // 过滤出有效的成就记录（achievement_id 存在于定义中）并去重
+    const validAchievementIds = new Set(ACHIEVEMENTS.map(a => a.id));
+    const uniqueUnlockedMap = new Map<string, UserAchievement>();
+    for (const a of unlocked) {
+      if (validAchievementIds.has(a.achievement_id) && !uniqueUnlockedMap.has(a.achievement_id)) {
+        uniqueUnlockedMap.set(a.achievement_id, a);
+      }
+    }
+    const validUnlocked = Array.from(uniqueUnlockedMap.values());
+    const unlockedIds = new Set(validUnlocked.map(a => a.achievement_id));
+
+    console.log('[Achievements GET] Raw unlocked:', unlocked.length, 'Valid unique:', validUnlocked.length);
 
     // 获取用户等级
     const { data: levelData, error: levelError } = await supabase
@@ -77,12 +89,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 计算统计信息
+    // 计算统计信息（使用去重后的有效成就）
     const stats: AchievementStats = {
       total_achievements: ACHIEVEMENTS.length,
-      unlocked_achievements: unlocked.length,
+      unlocked_achievements: validUnlocked.length,
       total_points: ACHIEVEMENTS.reduce((sum, a) => sum + a.points, 0),
-      earned_points: unlocked.reduce((sum, a) => {
+      earned_points: validUnlocked.reduce((sum, a) => {
         const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
         return sum + (def?.points || 0);
       }, 0),
@@ -90,9 +102,9 @@ export async function GET(req: NextRequest) {
       longest_streak: level?.longest_streak || 0,
     };
 
-    // 构建成就列表（包含进度）
+    // 构建成就列表（包含进度）- 使用去重后的有效记录
     const achievements = ACHIEVEMENTS.map(def => {
-      const unlockedRecord = unlocked.find(a => a.achievement_id === def.id);
+      const unlockedRecord = validUnlocked.find(a => a.achievement_id === def.id);
       return {
         ...def,
         unlocked: !!unlockedRecord,

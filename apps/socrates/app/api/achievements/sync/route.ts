@@ -58,6 +58,44 @@ export async function POST(req: NextRequest) {
     const unlocked = unlockedData || [];
     const unlockedIds = new Set(unlocked.map((a: any) => a.achievement_id));
 
+    // 2.5 清理无效的成就记录（achievement_id 不在定义中）和重复记录
+    const validAchievementIds = new Set(ACHIEVEMENTS.map(a => a.id));
+    const invalidRecords = unlocked.filter((a: any) => !validAchievementIds.has(a.achievement_id));
+
+    if (invalidRecords.length > 0) {
+      console.log('[Achievements Sync] Cleaning up invalid records:', invalidRecords.map((a: any) => a.achievement_id));
+      const invalidIds = invalidRecords.map((a: any) => a.id);
+      await supabase
+        .from('user_achievements')
+        .delete()
+        .in('id', invalidIds);
+    }
+
+    // 检查重复记录（同一 achievement_id 有多条记录）
+    const achievementCounts = new Map<string, number>();
+    for (const a of unlocked) {
+      const count = achievementCounts.get(a.achievement_id) || 0;
+      achievementCounts.set(a.achievement_id, count + 1);
+    }
+
+    for (const [achievementId, count] of achievementCounts) {
+      if (count > 1 && validAchievementIds.has(achievementId)) {
+        // 保留最早的一条，删除其他的
+        const duplicateRecords = unlocked
+          .filter((a: any) => a.achievement_id === achievementId)
+          .sort((a: any, b: any) => new Date(a.unlocked_at).getTime() - new Date(b.unlocked_at).getTime());
+
+        const toDelete = duplicateRecords.slice(1).map((a: any) => a.id);
+        if (toDelete.length > 0) {
+          console.log('[Achievements Sync] Removing duplicates for:', achievementId, 'count:', toDelete.length);
+          await supabase
+            .from('user_achievements')
+            .delete()
+            .in('id', toDelete);
+        }
+      }
+    }
+
     // 3. 检查应该解锁的成就
     const achievementsToInsert: Array<{ user_id: string; achievement_id: string; progress: number; unlocked_at: string }> = [];
     const newlyUnlocked: string[] = [];
@@ -159,29 +197,53 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. 更新 XP
-    if (xpGained > 0) {
-      const { data: levelData } = await supabase
-        .from('user_levels')
-        .select('*')
-        .eq('user_id', user_id)
-        .single();
+    // 5. 重新计算总 XP（基于所有有效成就，而不仅仅是新解锁的）
+    // 获取更新后的所有成就
+    const { data: allUnlockedData } = await supabase
+      .from('user_achievements')
+      .select('achievement_id')
+      .eq('user_id', user_id);
 
-      const currentXp = levelData?.total_xp || 0;
-      const newTotalXp = currentXp + xpGained;
-      const newLevelConfig = getLevelFromXP(newTotalXp);
+    const allUnlocked = allUnlockedData || [];
 
-      await supabase
-        .from('user_levels')
-        .upsert({
-          user_id,
-          total_xp: newTotalXp,
-          level: newLevelConfig.level,
-          xp: newTotalXp - newLevelConfig.xp_required,
-        });
+    // 计算正确的总 XP
+    const validAchievementIds = new Set(ACHIEVEMENTS.map(a => a.id));
+    const calculatedTotalXp = allUnlocked.reduce((sum: number, a: any) => {
+      if (validAchievementIds.has(a.achievement_id)) {
+        const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
+        return sum + (def?.points || 0);
+      }
+      return sum;
+    }, 0);
 
-      console.log('[Achievements Sync] XP updated:', currentXp, '->', newTotalXp);
-    }
+    console.log('[Achievements Sync] Calculated total XP:', calculatedTotalXp);
+
+    // 获取当前等级数据
+    const { data: levelData } = await supabase
+      .from('user_levels')
+      .select('*')
+      .eq('user_id', user_id)
+      .single();
+
+    const currentXp = levelData?.total_xp || 0;
+    const newLevelConfig = getLevelFromXP(calculatedTotalXp);
+
+    // 更新 XP（使用计算出的正确值）
+    await supabase
+      .from('user_levels')
+      .upsert({
+        user_id,
+        total_xp: calculatedTotalXp,
+        level: newLevelConfig.level,
+        xp: calculatedTotalXp - newLevelConfig.xp_required,
+        current_streak: levelData?.current_streak || 0,
+        longest_streak: levelData?.longest_streak || 0,
+      });
+
+    console.log('[Achievements Sync] XP updated:', currentXp, '->', calculatedTotalXp);
+
+    // 计算实际获得的 XP（可能与之前存储的不同）
+    const actualXpGained = calculatedTotalXp - currentXp;
 
     return NextResponse.json({
       success: true,
@@ -191,7 +253,9 @@ export async function POST(req: NextRequest) {
         reviewCount: reviewCount || 0,
       },
       newlyUnlocked,
-      xpGained,
+      xpGained: actualXpGained,
+      totalXp: calculatedTotalXp,
+      previousXp: currentXp,
     });
   } catch (error: any) {
     console.error('[Achievements Sync] Error:', error);
