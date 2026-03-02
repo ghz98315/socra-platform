@@ -206,8 +206,7 @@ export async function POST(req: NextRequest) {
 
     const allUnlocked = allUnlockedData || [];
 
-    // 计算正确的总 XP
-    const validAchievementIds = new Set(ACHIEVEMENTS.map(a => a.id));
+    // 计算正确的总 XP（复用前面定义的 validAchievementIds）
     const calculatedTotalXp = allUnlocked.reduce((sum: number, a: any) => {
       if (validAchievementIds.has(a.achievement_id)) {
         const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
