@@ -444,11 +444,8 @@ export default function ReviewPage() {
             </Card>
           </div>
         ) : (
-          /* Review List - 带动画 */
-          <div
-            ref={listAnimation.ref}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-          >
+          /* Review List */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredReviews.map((review, index) => (
               <Card
                 key={review.id}
