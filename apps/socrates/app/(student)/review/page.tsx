@@ -128,11 +128,26 @@ export default function ReviewPage() {
       const sessions = sessionData || [];
       console.log('[Review Page] Sessions fetched:', sessions.length);
 
+      // 调试：检查ID匹配
+      const reviewSessionIds = new Set(reviewSchedules.map((r: any) => r.session_id));
+      const fetchedSessionIds = new Set(sessions.map((s: any) => s.id));
+      const matchingIds = [...reviewSessionIds].filter(id => fetchedSessionIds.has(id));
+      console.log('[Review Page] ID match check:', {
+        reviewSessionIds: reviewSessionIds.size,
+        fetchedSessionIds: fetchedSessionIds.size,
+        matchingIds: matchingIds.length,
+        sampleReviewId: [...reviewSessionIds].slice(0, 2),
+        sampleFetchedId: [...fetchedSessionIds].slice(0, 2)
+      });
+
       // 组合数据
       const sessionMap = new Map(sessions.map((s: any) => [s.id, s]));
 
       const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
         const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
+        if (!session) {
+          console.warn('[Review Page] No session found for:', review.session_id);
+        }
         const now = new Date();
         const nextReviewDate = new Date(review.next_review_at);
         const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
