@@ -193,11 +193,14 @@ export default function ReviewPage() {
     }
   }, [profile?.id, loadReviews]);
 
+  console.log('[Review Page] State - reviews:', reviews.length, ', filterStatus:', filterStatus, ', loading:', loading);
+
   const filteredReviews = reviews.filter(review => {
     if (filterStatus === 'pending') return !review.isOverdue;
     if (filterStatus === 'overdue') return review.isOverdue;
     return true;
   });
+  console.log('[Review Page] filteredReviews:', filteredReviews.length);
 
   const handleCompleteReview = async (reviewId: string) => {
     // 更新为下一阶段
