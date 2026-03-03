@@ -358,6 +358,50 @@
   }
 }
 
+/* Achievement card shimmer sweep effect */
+@keyframes achievement-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Achievement icon breathing effect */
+@keyframes achievement-breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 5px rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* Slow pulse for glow effects */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Sparkle twinkle effect */
+@keyframes sparkle-twinkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Animation Classes */
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
@@ -389,6 +433,28 @@
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Achievement animations */
+.animate-shimmer {
+  animation: achievement-shimmer 1.5s ease-in-out forwards;
+}
+
+.animate-breathe {
+  animation: achievement-breathe 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* Animation delays */
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
 }
 
 /* Stagger Animation Delays */

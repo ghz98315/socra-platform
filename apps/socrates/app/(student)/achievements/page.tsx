@@ -1,6 +1,7 @@
 // =====================================================
 // Project Socrates - Achievements Page
 // 成就页面 - 展示用户成就、等级、积分
+// v1.6.23 - 添加已解锁成就闪光效果和悬停呼吸感
 // =====================================================
 
 'use client';
@@ -17,7 +18,8 @@ import {
   Loader2,
   Clock,
   Zap,
-  Crown
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -283,32 +285,63 @@ export default function AchievementsPage() {
                   <Card
                     key={achievement.id}
                     className={cn(
-                      "border-border/50 transition-all duration-300",
+                      "border-border/50 transition-all duration-500 relative overflow-hidden",
                       achievement.unlocked
-                        ? "hover:shadow-lg"
-                        : "opacity-60"
+                        ? "hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-[1.02] group"
+                        : "opacity-60 hover:opacity-80"
                     )}
                   >
-                    <CardContent className="p-4">
+                    {/* 闪光效果 - 只在已解锁时显示 */}
+                    {achievement.unlocked && (
+                      <>
+                        {/* 闪光扫过动画层 */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                        </div>
+                        {/* 边框发光效果 */}
+                        <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                          <div className="absolute inset-[-2px] bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-400 rounded-lg blur-sm animate-pulse-slow" />
+                        </div>
+                      </>
+                    )}
+
+                    <CardContent className="p-4 relative">
                       <div className="flex items-start gap-3">
                         {/* 图标 */}
                         <div
                           className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center text-2xl",
+                            "w-12 h-12 rounded-xl flex items-center justify-center text-2xl relative",
                             achievement.unlocked
-                              ? rarityConfig.bgColor
+                              ? cn(rarityConfig.bgColor, "group-hover:animate-breathe shadow-lg", rarityConfig.borderColor, "border-2")
                               : "bg-muted"
                           )}
                         >
-                          {achievement.unlocked ? achievement.icon : <Lock className="w-5 h-5 text-muted-foreground" />}
+                          {achievement.unlocked ? (
+                            <>
+                              <span className="relative z-10">{achievement.icon}</span>
+                              {/* 图标周围闪光粒子 */}
+                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping" />
+                                <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-amber-300 rounded-full animate-ping animation-delay-200" />
+                                <div className="absolute top-1/2 -right-1.5 w-1 h-1 bg-orange-300 rounded-full animate-ping animation-delay-400" />
+                              </div>
+                            </>
+                          ) : (
+                            <Lock className="w-5 h-5 text-muted-foreground" />
+                          )}
                         </div>
 
                         {/* 内容 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium truncate">{achievement.name}</h4>
+                            <h4 className={cn(
+                              "font-medium truncate",
+                              achievement.unlocked && "group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors"
+                            )}>
+                              {achievement.name}
+                            </h4>
                             {achievement.unlocked && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/50 dark:to-amber-900/50 text-yellow-700 dark:text-yellow-300 border-yellow-300/50">
                                 +{achievement.points} XP
                               </Badge>
                             )}
@@ -319,7 +352,11 @@ export default function AchievementsPage() {
                           <div className="flex items-center gap-2 mt-2">
                             <Badge
                               variant="outline"
-                              className={cn("text-xs", rarityConfig.color)}
+                              className={cn(
+                                "text-xs",
+                                achievement.unlocked && "group-hover:border-yellow-400/50 transition-colors",
+                                rarityConfig.color
+                              )}
                             >
                               {rarityConfig.label}
                             </Badge>
