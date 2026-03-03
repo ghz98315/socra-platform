@@ -223,7 +223,14 @@ export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): P
 
     // 清理并解析 JSON
     contentString = contentString.replace(/```json\n?|```/g, "").trim();
-    const result = JSON.parse(contentString);
+
+    // 尝试解析 JSON，    let result;
+    try {
+      result = JSON.parse(contentString);
+    } catch (parseError) {
+      console.error("JSON parse failed. Raw content:", contentString.substring(0, 500));
+      throw new Error("AI 返回格式错误，请重试");
+    }
 
     return {
       ...result,
