@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
         xp: calculatedTotalXp - newLevelConfig.xp_required,
         current_streak: levelData?.current_streak || 0,
         longest_streak: levelData?.longest_streak || 0,
-      });
+      }, { onConflict: 'user_id' });
 
     console.log('[Achievements Sync] XP updated:', currentXp, '->', calculatedTotalXp);
 

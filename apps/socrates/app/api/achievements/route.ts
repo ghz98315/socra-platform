@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
           xp: earnedPoints - newLevelConfig.xp_required,
           current_streak: level?.current_streak || 0,
           longest_streak: level?.longest_streak || 0,
-        });
+        }, { onConflict: 'user_id' });
 
       if (syncError) {
         console.error('[Achievements GET] Failed to sync XP:', syncError);
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
         .upsert({
           user_id,
           ...updateData,
-        });
+        }, { onConflict: 'user_id' });
     }
 
     return NextResponse.json({
