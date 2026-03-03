@@ -1,6 +1,7 @@
 // =====================================================
 // Project Socrates - Workbench Page (Student & Parent)
 // 方案二：分层卡片设计 + 苹果风格动画
+// v1.6.27 - 集成难度评分弹窗
 // =====================================================
 
 'use client';
@@ -39,6 +40,7 @@ import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { PageHeader } from '@/components/PageHeader';
 import { AnalysisDialog } from '@/components/AnalysisDialog';
+import { DifficultyRatingModal } from '@/components/DifficultyRating';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -144,6 +146,11 @@ function WorkbenchPage() {
   const [isMastered, setIsMastered] = useState(false);
   const [mastering, setMastering] = useState(false);
   const [masterMessage, setMasterMessage] = useState<string | null>(null);
+
+  // Difficulty rating state - 难度评分弹窗
+  const [showDifficultyModal, setShowDifficultyModal] = useState(false);
+  const [currentSessionForRating, setCurrentSessionForRating] = useState<string | null>(null);
+  const [currentAiDifficulty, setCurrentAiDifficulty] = useState<number | null>(null);
 
   // Analysis state (for parent)
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
@@ -762,6 +769,11 @@ function WorkbenchPage() {
         setIsMastered(true);
         setMasterMessage(data.message || '恭喜！已标记为掌握');
 
+        // 显示难度评分弹窗
+        setCurrentSessionForRating(chatSessionRef.current);
+        setCurrentAiDifficulty(data.difficulty_rating || null);
+        setShowDifficultyModal(true);
+
         // 如果是家长，显示分析提示
         if (isParent && data.can_analyze) {
           setShowAnalysisPrompt(true);
@@ -775,6 +787,40 @@ function WorkbenchPage() {
     } finally {
       setMastering(false);
     }
+  };
+
+  // 提交学生难度评分
+  const handleDifficultySubmit = async (rating: number) => {
+    if (!currentSessionForRating || !effectiveStudentId) return;
+
+    try {
+      const response = await fetch('/api/error-session/difficulty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: currentSessionForRating,
+          student_id: effectiveStudentId,
+          difficulty_rating: rating,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        console.log('[Workbench] Difficulty rating saved:', data.data);
+      } else {
+        console.error('[Workbench] Failed to save difficulty rating:', data.error);
+      }
+    } catch (error) {
+      console.error('[Workbench] Error submitting difficulty rating:', error);
+    }
+  };
+
+  // 关闭难度评分弹窗
+  const handleCloseDifficultyModal = () => {
+    setShowDifficultyModal(false);
+    setCurrentSessionForRating(null);
+    setCurrentAiDifficulty(null);
   };
 
   // Auto-scroll to bottom of messages
@@ -1435,6 +1481,16 @@ function WorkbenchPage() {
         open={showAnalysisDialog}
         onOpenChange={setShowAnalysisDialog}
         sessionId={chatSessionRef.current}
+      />
+
+      {/* Difficulty Rating Modal - 难度评分弹窗 */}
+      <DifficultyRatingModal
+        isOpen={showDifficultyModal}
+        onClose={handleCloseDifficultyModal}
+        onSubmit={handleDifficultySubmit}
+        onSkip={handleCloseDifficultyModal}
+        aiRating={currentAiDifficulty}
+        questionText={ocrText.substring(0, 100)}
       />
 
       {/* Development Notice */}
