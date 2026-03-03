@@ -60,11 +60,17 @@ export async function signOut(): Promise<void> {
   }
 }
 
-// 邮箱密码登录
-export async function signIn(email: string, password: string): Promise<{ user: User | null; error: Error | null }> {
+// 手机号/邮箱登录
+export async function signIn(emailOrPhone: string, password: string): Promise<{ user: User | null; error: Error | null }> {
   const supabase = getSupabaseBrowserClient();
 
   try {
+    // 判断是手机号还是邮箱（11位：1开头 + 第二位3-9 + 后9位数字）
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    const email = phoneRegex.test(emailOrPhone)
+      ? `${emailOrPhone}@student.local`  // 手机号转换为 email
+      : emailOrPhone;
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -80,14 +86,35 @@ export async function signIn(email: string, password: string): Promise<{ user: U
   }
 }
 
-// 注册
-export async function signUp(email: string, password: string): Promise<{ user: User | null; error: Error | null }> {
+// 注册（支持手机号和昵称）
+export async function signUp(
+  emailOrPhone: string,
+  password: string,
+  displayName?: string
+): Promise<{ user: User | null; error: Error | null }> {
   const supabase = getSupabaseBrowserClient();
 
   try {
+    // 判断是手机号还是邮箱（11位：1开头 + 第二位3-9 + 后9位数字）
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    const isPhone = phoneRegex.test(emailOrPhone);
+    const email = isPhone
+      ? `${emailOrPhone}@student.local`  // 手机号转换为 email
+      : emailOrPhone;
+
+    // 记录原始手机号
+    const phone = isPhone ? emailOrPhone : null;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: undefined, // 不需要邮件验证
+        data: {
+          phone: phone,  // 存储手机号到 metadata
+          display_name: displayName || (isPhone ? phone : email.split('@')[0]),  // 昵称
+        },
+      },
     });
 
     if (error) {

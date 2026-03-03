@@ -1,14 +1,17 @@
 // =====================================================
 // AI Essay Reviewer - Main App
-// v1.0.0 - Monorepo Migration
+// v1.1.1 - User Auth & History
 // =====================================================
 
 import React, { useState, useEffect } from 'react';
-import { BookOpenCheck, AlertCircle, Key, Eye, EyeOff, LogOut, User } from 'lucide-react';
+import { BookOpenCheck, AlertCircle, Key, Eye, EyeOff, LogOut, User, Clock } from 'lucide-react';
 import FileUpload from './components/FileUpload';
 import LoadingView from './components/LoadingView';
 import AnalysisResult from './components/AnalysisResult';
+import AuthModal from './components/AuthModal';
+import EssayHistory from './components/EssayHistory';
 import { analyzeEssay, setApiKey, hasApiKey } from './lib/essay-service';
+import { saveEssay, EssayRecord } from './lib/essay-history';
 import { supabase, getCurrentUser, signOut } from './lib/supabase';
 import { EssayAnalysis, AppState, GradeLevel, UserProfile } from './types';
 
@@ -25,6 +28,9 @@ const App: React.FC = () => {
   // 用户状态
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [currentGrade, setCurrentGrade] = useState<GradeLevel | null>(null);
 
   // 检查用户登录状态
   useEffect(() => {
@@ -87,6 +93,7 @@ const App: React.FC = () => {
 
   const handleFileSelect = async (files: string[], previews: string[], grade: GradeLevel) => {
     setImagePreviews(previews);
+    setCurrentGrade(grade);
     setAppState(AppState.ANALYZING);
     setErrorMsg('');
 
@@ -94,12 +101,33 @@ const App: React.FC = () => {
       const result = await analyzeEssay(files, grade);
       setAnalysisResult(result);
       setAppState(AppState.RESULT);
+
+      // 保存到数据库（用户已登录时）
+      if (user) {
+        const content = (result.title ? result.title + '\n' : '') + result.body;
+        await saveEssay({
+          title: result.title || null,
+          content: content,
+          grade: grade,
+          images: previews,
+          analysis: result,
+        });
+      }
     } catch (error: any) {
       console.error('详细错误信息:', error);
       setAppState(AppState.ERROR);
       const errorMsg = error?.message || String(error);
       setErrorMsg(`错误：${errorMsg}`);
     }
+  };
+
+  // 从历史记录选择作文
+  const handleSelectFromHistory = (record: EssayRecord) => {
+    setAnalysisResult(record.analysis);
+    setImagePreviews(record.images || []);
+    setCurrentGrade(record.grade as GradeLevel);
+    setAppState(AppState.RESULT);
+    setShowHistory(false);
   };
 
   const handleReset = () => {
@@ -142,6 +170,14 @@ const App: React.FC = () => {
             {/* 用户信息 */}
             {user ? (
               <div className="flex items-center gap-2">
+                {/* 历史记录按钮 */}
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="text-sm bg-warm-100 text-warm-700 hover:bg-warm-200 font-medium px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                >
+                  <Clock size={14} />
+                  历史
+                </button>
                 <div className="text-sm text-warm-700 flex items-center gap-1">
                   <User size={14} />
                   <span className="max-w-[100px] truncate">{user.display_name || user.email}</span>
@@ -155,12 +191,12 @@ const App: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <a
-                href="https://socrates.socra.cn/login?redirect=essay"
+              <button
+                onClick={() => setShowAuthModal(true)}
                 className="text-sm bg-warm-500 text-white hover:bg-warm-600 font-medium px-3 py-1.5 rounded-full transition-colors"
               >
                 登录
-              </a>
+              </button>
             )}
 
             {/* API Key 配置 */}
@@ -320,6 +356,20 @@ const App: React.FC = () => {
       <footer className="py-8 text-center text-warm-400 text-xs md:text-sm">
         <p>© 2025 AI Essay Grader. 专为中小学生打造的智能写作助手。</p>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={checkUser}
+      />
+
+      {/* Essay History */}
+      <EssayHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onSelectEssay={handleSelectFromHistory}
+      />
     </div>
   );
 };

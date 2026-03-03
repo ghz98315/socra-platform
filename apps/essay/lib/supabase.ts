@@ -22,7 +22,7 @@ export const supabase = createClient(
 export async function getCurrentUser() {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error) {
-    console.error('Error getting user:', error)
+    // 用户未登录是正常情况，不报错
     return null
   }
   return user
