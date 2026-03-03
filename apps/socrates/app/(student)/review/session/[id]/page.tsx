@@ -1,6 +1,7 @@
 // =====================================================
 // Project Socrates - Review Session Page
 // 复习模式：显示原题，进行复习测试
+// v1.6.28 - 支持难度重评功能
 // =====================================================
 
 'use client';
@@ -21,7 +22,8 @@ import {
   ChevronRight,
   FileText,
   MessageSquare,
-  Target
+  Target,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,6 +32,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { REVIEW_STAGES } from '@/lib/review/utils';
+import { StarRating, InteractiveStarRating, calculateFinalDifficulty } from '@/components/DifficultyRating';
 
 interface ReviewSession {
   id: string;
@@ -43,7 +46,9 @@ interface ReviewSession {
     extracted_text: string | null;
     original_image_url: string | null;
     status: string;
-    difficulty_rating: number | null;
+    difficulty_rating: number | null; // AI 评估
+    student_difficulty_rating: number | null; // 学生自评
+    final_difficulty_rating: number | null; // 最终综合
     concept_tags: string[] | null;
     created_at: string;
   };
@@ -73,6 +78,11 @@ export default function ReviewSessionPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [reviewStep, setReviewStep] = useState<'intro' | 'recall' | 'check' | 'complete'>('intro');
   const [userRecall, setUserRecall] = useState('');
+
+  // 难度重评状态
+  const [studentDifficulty, setStudentDifficulty] = useState<number>(0);
+  const [isRatingDifficulty, setIsRatingDifficulty] = useState(false);
+  const [showDifficultySection, setShowDifficultySection] = useState(true);
 
   useEffect(() => {
     loadReviewSession();
@@ -121,7 +131,47 @@ export default function ReviewSessionPage({ params }: { params: Promise<{ id: st
       error_session: errorData as ReviewSession['error_session'],
     });
 
+    // 初始化学生难度评分
+    setStudentDifficulty((errorData as { student_difficulty_rating?: number }).student_difficulty_rating || 0);
+
     setLoading(false);
+  };
+
+  // 提交难度重评
+  const handleDifficultyRating = async () => {
+    if (!reviewSession || studentDifficulty === 0) return;
+
+    setIsRatingDifficulty(true);
+    try {
+      const response = await fetch('/api/error-session/difficulty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: reviewSession.sessionId,
+          student_id: profile?.id,
+          difficulty_rating: studentDifficulty,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // 更新本地状态
+        setReviewSession(prev => prev ? {
+          ...prev,
+          error_session: {
+            ...prev.error_session,
+            student_difficulty_rating: studentDifficulty,
+            final_difficulty_rating: data.data.final_difficulty_rating,
+          }
+        } : null);
+        setShowDifficultySection(false);
+      }
+    } catch (error) {
+      console.error('Failed to submit difficulty rating:', error);
+    } finally {
+      setIsRatingDifficulty(false);
+    }
   };
 
   const handleCompleteReview = async () => {
@@ -404,6 +454,72 @@ export default function ReviewSessionPage({ params }: { params: Promise<{ id: st
                 <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                   <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">你的回忆：</p>
                   <p className="text-sm whitespace-pre-wrap">{userRecall}</p>
+                </div>
+              )}
+
+              {/* 难度重评区域 */}
+              {showDifficultySection && (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        难度评价
+                      </span>
+                    </div>
+                    {reviewSession.error_session.final_difficulty_rating && (
+                      <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                        当前：{reviewSession.error_session.final_difficulty_rating}星
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* 显示当前难度 */}
+                  <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+                    {reviewSession.error_session.difficulty_rating && (
+                      <span>AI评估：{reviewSession.error_session.difficulty_rating}星</span>
+                    )}
+                    {reviewSession.error_session.student_difficulty_rating && (
+                      <span>你的评价：{reviewSession.error_session.student_difficulty_rating}星</span>
+                    )}
+                  </div>
+
+                  {/* 重新评价 */}
+                  <div className="space-y-3">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      这道题对你来说现在感觉如何？重新评价一下吧！
+                    </p>
+                    <InteractiveStarRating
+                      value={studentDifficulty}
+                      onChange={setStudentDifficulty}
+                      size="md"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowDifficultySection(false)}
+                        disabled={isRatingDifficulty}
+                      >
+                        跳过
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleDifficultyRating}
+                        disabled={studentDifficulty === 0 || isRatingDifficulty}
+                        className="bg-amber-500 hover:bg-amber-600 text-white"
+                      >
+                        {isRatingDifficulty ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            提交中...
+                          </>
+                        ) : (
+                          '提交评价'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
 
