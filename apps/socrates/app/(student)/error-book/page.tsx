@@ -1,6 +1,7 @@
 // =====================================================
 // Project Socrates - Error Book Page (错题本)
 // 错题本功能：筛选、排序、搜索、导出
+// v1.6.26 - 支持双维度难度评估显示
 // =====================================================
 
 'use client';
@@ -17,7 +18,6 @@ import {
   Eye,
   Calendar,
   Tag,
-  Star,
   RefreshCw,
   ChevronDown,
   FileText,
@@ -33,6 +33,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorBookPDF } from '@/lib/pdf/ErrorBookPDF';
+import { StarRating } from '@/components/DifficultyRating';
 
 type ErrorSession = {
   id: string;
@@ -41,7 +42,9 @@ type ErrorSession = {
   original_image_url: string | null;
   extracted_text: string | null;
   status: 'analyzing' | 'guided_learning' | 'mastered';
-  difficulty_rating: number | null;
+  difficulty_rating: number | null; // AI 评估难度
+  student_difficulty_rating: number | null; // 学生自评难度
+  final_difficulty_rating: number | null; // 最终综合难度
   concept_tags: string[] | null;
   created_at: string;
 };
@@ -157,7 +160,8 @@ export default function ErrorBookPage() {
           case 'oldest':
             return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           case 'difficulty':
-            return (b.difficulty_rating || 0) - (a.difficulty_rating || 0);
+            // 使用最终综合难度排序，如果没有则使用 AI 评估难度
+            return (b.final_difficulty_rating || b.difficulty_rating || 0) - (a.final_difficulty_rating || a.difficulty_rating || 0);
           default:
             return 0;
         }
@@ -206,7 +210,7 @@ export default function ErrorBookPage() {
         errors: selectedErrors.map(e => ({
           subject: e.subject,
           extractedText: e.extracted_text || '',
-          difficultyRating: e.difficulty_rating,
+          difficultyRating: e.final_difficulty_rating || e.difficulty_rating,
           conceptTags: e.concept_tags,
           createdAt: e.created_at,
           imageUrl: e.original_image_url,
@@ -506,11 +510,18 @@ export default function ErrorBookPage() {
                             {statusLabels[error.status]?.label}
                           </Badge>
 
-                          {/* Difficulty */}
-                          {error.difficulty_rating && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                              {error.difficulty_rating}
+                          {/* Difficulty - 显示最终综合难度 */}
+                          {(error.final_difficulty_rating || error.difficulty_rating) && (
+                            <div className="flex items-center gap-1">
+                              <StarRating
+                                rating={error.final_difficulty_rating || error.difficulty_rating || 0}
+                                size="sm"
+                              />
+                              {error.student_difficulty_rating && (
+                                <span className="text-[10px] text-muted-foreground ml-1">
+                                  (含自评)
+                                </span>
+                              )}
                             </div>
                           )}
 

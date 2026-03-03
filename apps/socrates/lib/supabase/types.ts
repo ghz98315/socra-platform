@@ -24,7 +24,9 @@ export interface ErrorSession {
   student_id: string;
   subject: 'math' | 'physics' | 'chemistry';
   concept_tags: string[] | null;
-  difficulty_rating: number | null;
+  difficulty_rating: number | null; // AI 评估难度 (1-5)
+  student_difficulty_rating: number | null; // 学生自评难度 (1-5)
+  final_difficulty_rating: number | null; // 最终综合难度 (0.5步进，如3.5)
   created_at: string;
 }
 
