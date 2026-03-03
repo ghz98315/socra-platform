@@ -287,20 +287,24 @@ export default function AchievementsPage() {
                     className={cn(
                       "border-border/50 transition-all duration-500 relative overflow-hidden",
                       achievement.unlocked
-                        ? "hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-[1.02] group"
-                        : "opacity-60 hover:opacity-80"
+                        ? "hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-[1.02] group bg-gradient-to-br from-yellow-50/30 via-card to-amber-50/20 dark:from-yellow-950/20 dark:via-card dark:to-amber-950/10"
+                        : "opacity-60 hover:opacity-80 bg-muted/30"
                     )}
                   >
-                    {/* 闪光效果 - 只在已解锁时显示 */}
+                    {/* 已解锁成就的初始光效 - 持续显示 */}
                     {achievement.unlocked && (
                       <>
-                        {/* 闪光扫过动画层 */}
+                        {/* 持续的光晕边框 */}
+                        <div className="absolute inset-0 rounded-lg pointer-events-none">
+                          <div className="absolute inset-[-1px] bg-gradient-to-r from-yellow-400/40 via-amber-300/30 to-yellow-400/40 rounded-lg animate-glow-rotate" />
+                        </div>
+                        {/* 浮动光线循环划过 */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-200/20 to-transparent animate-float-light" />
+                        </div>
+                        {/* 悬停时的额外闪光效果 */}
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                        </div>
-                        {/* 边框发光效果 */}
-                        <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                          <div className="absolute inset-[-2px] bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-400 rounded-lg blur-sm animate-pulse-slow" />
                         </div>
                       </>
                     )}
@@ -312,18 +316,18 @@ export default function AchievementsPage() {
                           className={cn(
                             "w-12 h-12 rounded-xl flex items-center justify-center text-2xl relative",
                             achievement.unlocked
-                              ? cn(rarityConfig.bgColor, "group-hover:animate-breathe shadow-lg", rarityConfig.borderColor, "border-2")
+                              ? cn(rarityConfig.bgColor, "shadow-lg shadow-yellow-500/20", rarityConfig.borderColor, "border-2")
                               : "bg-muted"
                           )}
                         >
                           {achievement.unlocked ? (
                             <>
-                              <span className="relative z-10">{achievement.icon}</span>
-                              {/* 图标周围闪光粒子 */}
-                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-300 rounded-full animate-ping" />
-                                <div className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-amber-300 rounded-full animate-ping animation-delay-200" />
-                                <div className="absolute top-1/2 -right-1.5 w-1 h-1 bg-orange-300 rounded-full animate-ping animation-delay-400" />
+                              <span className="relative z-10 group-hover:animate-breathe">{achievement.icon}</span>
+                              {/* 图标周围持续闪光粒子 */}
+                              <div className="absolute inset-0">
+                                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-yellow-300/80 rounded-full animate-twinkle" />
+                                <div className="absolute -bottom-0.5 -left-0.5 w-1 h-1 bg-amber-300/80 rounded-full animate-twinkle animation-delay-300" />
+                                <div className="absolute top-1/2 -right-1 w-0.5 h-0.5 bg-orange-300/80 rounded-full animate-twinkle animation-delay-600" />
                               </div>
                             </>
                           ) : (
@@ -336,17 +340,22 @@ export default function AchievementsPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className={cn(
                               "font-medium truncate",
-                              achievement.unlocked && "group-hover:text-yellow-600 dark:group-hover:text-yellow-400 transition-colors"
+                              achievement.unlocked
+                                ? "text-yellow-700 dark:text-yellow-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-200 transition-colors"
+                                : ""
                             )}>
                               {achievement.name}
                             </h4>
                             {achievement.unlocked && (
-                              <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/50 dark:to-amber-900/50 text-yellow-700 dark:text-yellow-300 border-yellow-300/50">
+                              <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/50 dark:to-amber-900/50 text-yellow-700 dark:text-yellow-300 border-yellow-300/50 shadow-sm">
                                 +{achievement.points} XP
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className={cn(
+                            "text-sm line-clamp-2",
+                            achievement.unlocked ? "text-foreground/80" : "text-muted-foreground"
+                          )}>
                             {achievement.description}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
@@ -354,14 +363,15 @@ export default function AchievementsPage() {
                               variant="outline"
                               className={cn(
                                 "text-xs",
-                                achievement.unlocked && "group-hover:border-yellow-400/50 transition-colors",
-                                rarityConfig.color
+                                achievement.unlocked
+                                  ? cn(rarityConfig.bgColor, rarityConfig.color, "border-current/30")
+                                  : rarityConfig.color
                               )}
                             >
                               {rarityConfig.label}
                             </Badge>
                             {achievement.unlocked && achievement.unlocked_at && (
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <span className="text-xs text-yellow-600/70 dark:text-yellow-400/70 flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {new Date(achievement.unlocked_at).toLocaleDateString()}
                               </span>
