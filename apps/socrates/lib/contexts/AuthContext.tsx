@@ -289,12 +289,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('[AuthContext] signOut error:', error);
+      }
+    } catch (err) {
+      console.error('[AuthContext] signOut exception:', err);
     }
+    // 清除本地状态
     setUser(null);
     setProfile(null);
+    lastFetchedUserId.current = null;
+    // 使用 window.location.href 进行硬重定向，确保一定跳转
+    window.location.href = '/login';
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {

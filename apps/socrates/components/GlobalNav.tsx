@@ -78,8 +78,9 @@ export function GlobalNav() {
   }
 
   const handleSignOut = async () => {
+    setIsMobileMenuOpen(false); // 关闭移动端菜单
     await signOut();
-    router.push('/login');
+    // signOut 内部已经处理了重定向到 /login
   };
 
   const isParent = profile?.role === 'parent';

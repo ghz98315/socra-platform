@@ -26,7 +26,8 @@ import {
   Smartphone,
   Calendar,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -85,12 +86,20 @@ function usePageAnimation() {
 }
 
 function WorkbenchPage() {
-  const { profile } = useAuth();
+  const { profile, user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pageAnimation = usePageAnimation();
   const leftPanelAnimation = useScrollAnimation();
   const rightPanelAnimation = useScrollAnimation();
+
+  // 未登录时自动重定向到登录页
+  useEffect(() => {
+    if (!loading && !user) {
+      console.log('[Workbench] No user, redirecting to login');
+      router.replace('/login');
+    }
+  }, [loading, user, router]);
 
   // Parent student selection
   const [parentStudents, setParentStudents] = useState<Array<{ id: string; display_name: string }>>([]);
@@ -777,6 +786,30 @@ function WorkbenchPage() {
 
   // 根据对话模式确定 AI 名称（Logic = 通用模式，Socra = 专科模式）
   const aiName = dialogMode;
+
+  // 正在检查登录状态时显示加载
+  if (loading) {
+    return (
+      <div className={cn("min-h-screen bg-background flex items-center justify-center", themeClass)}>
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 未登录时显示重定向提示（useEffect 会处理跳转）
+  if (!user) {
+    return (
+      <div className={cn("min-h-screen bg-background flex items-center justify-center", themeClass)}>
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">正在跳转到登录页...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show student selector for parents without selected student
   if (isParent && !effectiveStudentId) {
