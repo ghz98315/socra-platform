@@ -1,6 +1,7 @@
 // =====================================================
 // Project Socrates - Achievements API
 // 成就系统 API 端点（数据库持久化版本）
+// v1.6.20 - Auto-sync XP, detailed logging
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -51,6 +52,28 @@ export async function GET(req: NextRequest) {
 
     console.log('[Achievements GET] Raw unlocked:', unlocked.length, 'Valid unique:', validUnlocked.length);
 
+    // 详细日志：显示无效/重复的记录
+    if (unlocked.length !== validUnlocked.length) {
+      const invalidRecords = unlocked.filter(a => !validAchievementIds.has(a.achievement_id));
+      const duplicateRecords = unlocked.filter(a => {
+        const firstOccurrence = unlocked.findIndex(x => x.achievement_id === a.achievement_id);
+        return firstOccurrence !== unlocked.indexOf(a);
+      });
+
+      console.log('[Achievements GET] Data cleanup details:', {
+        invalidCount: invalidRecords.length,
+        invalidIds: invalidRecords.map(a => a.achievement_id),
+        duplicateCount: duplicateRecords.length,
+        duplicateIds: [...new Set(duplicateRecords.map(a => a.achievement_id))]
+      });
+    }
+
+    // 记录有效解锁的成就详情
+    console.log('[Achievements GET] Valid unlocked achievements:', validUnlocked.map(a => ({
+      id: a.achievement_id,
+      unlocked_at: a.unlocked_at
+    })));
+
     // 获取用户等级
     const { data: levelData, error: levelError } = await supabase
       .from('user_levels')
@@ -90,17 +113,55 @@ export async function GET(req: NextRequest) {
     }
 
     // 计算统计信息（使用去重后的有效成就）
+    const earnedPoints = validUnlocked.reduce((sum, a) => {
+      const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
+      return sum + (def?.points || 0);
+    }, 0);
+
     const stats: AchievementStats = {
       total_achievements: ACHIEVEMENTS.length,
       unlocked_achievements: validUnlocked.length,
       total_points: ACHIEVEMENTS.reduce((sum, a) => sum + a.points, 0),
-      earned_points: validUnlocked.reduce((sum, a) => {
-        const def = ACHIEVEMENTS.find(d => d.id === a.achievement_id);
-        return sum + (def?.points || 0);
-      }, 0),
+      earned_points: earnedPoints,
       current_streak: level?.current_streak || 0,
       longest_streak: level?.longest_streak || 0,
     };
+
+    // 检查 user_levels.total_xp 是否与实际成就积分一致
+    const storedTotalXp = level?.total_xp || 0;
+    if (storedTotalXp !== earnedPoints) {
+      console.log('[Achievements GET] XP mismatch detected:', {
+        storedTotalXp,
+        earnedPoints,
+        difference: earnedPoints - storedTotalXp
+      });
+
+      // 自动同步：更新 user_levels.total_xp 为正确值
+      const newLevelConfig = getLevelFromXP(earnedPoints);
+      const { error: syncError } = await supabase
+        .from('user_levels')
+        .upsert({
+          user_id,
+          total_xp: earnedPoints,
+          level: newLevelConfig.level,
+          xp: earnedPoints - newLevelConfig.xp_required,
+          current_streak: level?.current_streak || 0,
+          longest_streak: level?.longest_streak || 0,
+        });
+
+      if (syncError) {
+        console.error('[Achievements GET] Failed to sync XP:', syncError);
+      } else {
+        console.log('[Achievements GET] XP synced:', storedTotalXp, '->', earnedPoints);
+        // 更新返回的 level 数据
+        level = {
+          ...level,
+          total_xp: earnedPoints,
+          level: newLevelConfig.level,
+          xp: earnedPoints - newLevelConfig.xp_required,
+        } as UserLevel;
+      }
+    }
 
     // 构建成就列表（包含进度）- 使用去重后的有效记录
     const achievements = ACHIEVEMENTS.map(def => {
