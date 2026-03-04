@@ -19,7 +19,8 @@ import {
   Trophy,
   ChevronRight,
   Bookmark,
-  Users
+  Users,
+  Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -41,6 +42,7 @@ const parentNavItems = [
 
 const studentNavItems = [
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-warm-500' },
+  { href: '/planner', icon: Calendar, label: '计划', shortLabel: '时间', color: 'text-blue-500' },
   { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-warm-600' },
   { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-500' },
   { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-warm-500' },
