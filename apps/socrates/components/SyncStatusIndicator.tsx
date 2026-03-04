@@ -113,7 +113,7 @@ export function SyncStatusIndicator({ compact = false, showDevices = true }: Syn
               {onlineDevices.length}
             </Badge>
           )}
-          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+          <ChevronDown className="w-3 h-3 text-warm-600" />
         </Button>
       </DropdownMenuTrigger>
 
@@ -130,7 +130,7 @@ export function SyncStatusIndicator({ compact = false, showDevices = true }: Syn
         {/* 当前设备 */}
         {deviceInfo && (
           <>
-            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+            <DropdownMenuLabel className="text-xs text-warm-600 font-normal">
               当前设备
             </DropdownMenuLabel>
             <DropdownMenuItem className="flex items-center gap-3">
@@ -143,7 +143,7 @@ export function SyncStatusIndicator({ compact = false, showDevices = true }: Syn
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{deviceInfo.device_name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-warm-600">
                         {deviceInfo.browser} · {deviceInfo.os}
                       </p>
                     </div>
@@ -159,19 +159,19 @@ export function SyncStatusIndicator({ compact = false, showDevices = true }: Syn
         {showDevices && otherDevices.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+            <DropdownMenuLabel className="text-xs text-warm-600 font-normal">
               其他在线设备 ({otherDevices.length})
             </DropdownMenuLabel>
             {otherDevices.map((device) => {
               const DeviceIcon = deviceIcons[device.device_type] || Monitor;
               return (
                 <DropdownMenuItem key={device.id} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted">
-                    <DeviceIcon className="w-4 h-4 text-muted-foreground" />
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-warm-100">
+                    <DeviceIcon className="w-4 h-4 text-warm-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{device.device_name}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-warm-600">
                       活跃于 {formatLastActive(device.last_active)}
                     </p>
                   </div>
@@ -186,7 +186,7 @@ export function SyncStatusIndicator({ compact = false, showDevices = true }: Syn
         {syncState.lastSyncTime && (
           <>
             <DropdownMenuSeparator />
-            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+            <div className="px-2 py-1.5 text-xs text-warm-600">
               上次同步: {new Date(syncState.lastSyncTime).toLocaleString('zh-CN')}
             </div>
           </>

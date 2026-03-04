@@ -92,10 +92,10 @@ export function GlobalNav() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-all duration-500",
+        "sticky top-0 z-50 transition-all duration-500 border-b border-warm-100",
         isScrolled
-          ? "bg-white/80 dark:bg-black/80 backdrop-blur-xl shadow-sm"
-          : "bg-background/95 backdrop-blur-md"
+          ? "bg-white/90 backdrop-blur-xl shadow-sm"
+          : "bg-white/80 backdrop-blur-md"
       )}
     >
       {/* 第一层：顶部栏 - Logo + 用户信息 */}
@@ -110,9 +110,9 @@ export function GlobalNav() {
               <div
                 className={cn(
                   "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300",
-                  "bg-gradient-to-br from-primary to-primary/80",
-                  "shadow-lg shadow-primary/25",
-                  "group-hover:shadow-primary/40"
+                  "bg-warm-500",
+                  "shadow-lg shadow-warm-500/30",
+                  "group-hover:shadow-warm-500/50 group-hover:scale-105"
                 )}
               >
                 <Trophy className="w-5 h-5 text-white" />
@@ -120,8 +120,8 @@ export function GlobalNav() {
             </div>
             <span
               className={cn(
-                "font-bold text-xl tracking-tight hidden sm:block transition-all duration-300",
-                "group-hover:text-primary"
+                "font-bold text-xl tracking-tight hidden sm:block transition-all duration-300 text-warm-900",
+                "group-hover:text-warm-600"
               )}
             >
               Socrates
@@ -139,12 +139,12 @@ export function GlobalNav() {
             <div
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-full",
-                "bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 transition-colors duration-300",
-                "cursor-default border border-primary/20"
+                "bg-warm-50 hover:bg-warm-100 transition-colors duration-300",
+                "cursor-default border border-warm-200"
               )}
             >
-              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-                <User className="w-4 h-4 text-primary" />
+              <div className="w-7 h-7 rounded-full bg-warm-500/20 flex items-center justify-center">
+                <User className="w-4 h-4 text-warm-600" />
               </div>
               <div className="flex flex-col">
                 <span className="font-medium text-sm leading-tight">{displayName}</span>

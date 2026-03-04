@@ -109,10 +109,10 @@ export default function AchievementsPage() {
 
   if (loading) {
     return (
-      <div className={cn('min-h-screen bg-background flex items-center justify-center', themeClass)}>
+      <div className={cn('min-h-screen bg-warm-50 flex items-center justify-center', themeClass)}>
         <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">加载成就数据...</p>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-warm-500" />
+          <p className="text-warm-600">加载成就数据...</p>
         </div>
       </div>
     );
@@ -221,27 +221,27 @@ export default function AchievementsPage() {
           </Card>
 
           {/* 统计卡片 */}
-          <Card className="border-border/50 bg-gradient-to-br from-purple-50/50 via-white to-pink-50/50 dark:from-purple-950/20 dark:via-slate-900 dark:to-pink-950/20">
+          <Card className="border-warm-200/50 bg-gradient-to-br from-purple-50/50 via-white to-pink-50/50 dark:from-purple-950/20 dark:via-slate-900 dark:to-pink-950/20">
             <CardContent className="p-6 space-y-4">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                <span className="text-sm text-muted-foreground">已解锁成就</span>
-                <span className="font-bold text-purple-600">{stats?.unlocked_achievements || 0}<span className="text-muted-foreground font-normal">/{stats?.total_achievements || 0}</span></span>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-warm-100/30">
+                <span className="text-sm text-warm-600">已解锁成就</span>
+                <span className="font-bold text-purple-600">{stats?.unlocked_achievements || 0}<span className="text-warm-600 font-normal">/{stats?.total_achievements || 0}</span></span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                <span className="text-sm text-muted-foreground">获得积分</span>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-warm-100/30">
+                <span className="text-sm text-warm-600">获得积分</span>
                 <span className="font-bold text-yellow-500">{stats?.earned_points || 0} XP</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30">
-                <span className="text-sm text-muted-foreground">当前连续</span>
+                <span className="text-sm text-warm-600">当前连续</span>
                 <span className="font-bold flex items-center gap-1.5">
                   <span className="text-lg animate-[flame_0.5s_ease-in-out_infinite]">🔥</span>
                   <span className="text-orange-500">{stats?.current_streak || 0}</span>
-                  <span className="text-muted-foreground font-normal text-xs">天</span>
+                  <span className="text-warm-600 font-normal text-xs">天</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                <span className="text-sm text-muted-foreground">最长连续</span>
-                <span className="font-bold">{stats?.longest_streak || 0} 天</span>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-warm-100/30">
+                <span className="text-sm text-warm-600">最长连续</span>
+                <span className="font-bold text-warm-900">{stats?.longest_streak || 0} 天</span>
               </div>
             </CardContent>
           </Card>
@@ -254,10 +254,10 @@ export default function AchievementsPage() {
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                "px-4 py-2 rounded-full text-sm font-medium transition-all",
                 filter === f
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/50 hover:bg-muted"
+                  ? "bg-warm-500 text-white shadow-lg shadow-warm-500/30"
+                  : "bg-warm-100/50 hover:bg-warm-100 text-warm-600"
               )}
             >
               {f === 'all' ? '全部' : f === 'unlocked' ? '已解锁' : '未解锁'}
@@ -268,7 +268,7 @@ export default function AchievementsPage() {
         {/* 成就列表 */}
         {Object.entries(groupedAchievements).map(([type, achievements]) => (
           <div key={type} className="space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
+            <h3 className="text-lg font-semibold flex items-center gap-2 text-warm-900">
               {type === 'streak' && <Flame className="w-5 h-5 text-orange-500" />}
               {type === 'learning' && <Target className="w-5 h-5 text-blue-500" />}
               {type === 'mastery' && <CheckCircle className="w-5 h-5 text-green-500" />}
@@ -283,7 +283,7 @@ export default function AchievementsPage() {
                   <Card
                     key={achievement.id}
                     className={cn(
-                      "border-border/50 transition-all duration-300",
+                      "border-warm-200/50 transition-all duration-300",
                       achievement.unlocked
                         ? "hover:shadow-lg"
                         : "opacity-60"
@@ -297,34 +297,34 @@ export default function AchievementsPage() {
                             "w-12 h-12 rounded-xl flex items-center justify-center text-2xl",
                             achievement.unlocked
                               ? rarityConfig.bgColor
-                              : "bg-muted"
+                              : "bg-warm-100"
                           )}
                         >
-                          {achievement.unlocked ? achievement.icon : <Lock className="w-5 h-5 text-muted-foreground" />}
+                          {achievement.unlocked ? achievement.icon : <Lock className="w-5 h-5 text-warm-400" />}
                         </div>
 
                         {/* 内容 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium truncate">{achievement.name}</h4>
+                            <h4 className="font-medium truncate text-warm-900">{achievement.name}</h4>
                             {achievement.unlocked && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs bg-warm-100 text-warm-700">
                                 +{achievement.points} XP
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-sm text-warm-600 line-clamp-2">
                             {achievement.description}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge
                               variant="outline"
-                              className={cn("text-xs", rarityConfig.color)}
+                              className={cn("text-xs border-warm-200", rarityConfig.color)}
                             >
                               {rarityConfig.label}
                             </Badge>
                             {achievement.unlocked && achievement.unlocked_at && (
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <span className="text-xs text-warm-600 flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {new Date(achievement.unlocked_at).toLocaleDateString()}
                               </span>

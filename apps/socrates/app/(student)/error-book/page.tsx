@@ -244,7 +244,7 @@ export default function ErrorBookPage() {
                 variant="outline"
                 size="sm"
                 onClick={fetchErrors}
-                className="gap-2"
+                className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
               >
                 <RefreshCw className="w-4 h-4" />
                 刷新
@@ -287,19 +287,19 @@ export default function ErrorBookPage() {
         <div className="mb-6 space-y-3">
           {/* 搜索框 */}
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-warm-500" />
             <Input
               placeholder="搜索题目内容或标签..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-900/80 border-border/50"
+              className="pl-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-900/80 border-warm-200 focus:border-warm-300"
             />
           </div>
 
           {/* 胶囊筛选按钮组 */}
           <div className="flex flex-wrap gap-2">
             {/* 科目筛选 */}
-            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full">
+            <div className="flex items-center gap-1 p-1 bg-warm-100/50 rounded-full">
               {[
                 { value: 'all', label: '📚 全部', color: '' },
                 { value: 'math', label: '📐 数学', color: 'data-[active=true]:bg-blue-500 data-[active=true]:text-white' },
@@ -313,8 +313,8 @@ export default function ErrorBookPage() {
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                     selectedSubject === subject.value
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "hover:bg-muted"
+                      ? "bg-warm-500 text-white shadow-lg shadow-warm-500/30"
+                      : "hover:bg-warm-100 text-warm-600"
                   )}
                 >
                   {subject.label}
@@ -323,7 +323,7 @@ export default function ErrorBookPage() {
             </div>
 
             {/* 状态筛选 */}
-            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full">
+            <div className="flex items-center gap-1 p-1 bg-warm-100/50 rounded-full">
               {[
                 { value: 'all', label: '📋 全部' },
                 { value: 'analyzing', label: '⏳ 分析中' },
@@ -336,8 +336,8 @@ export default function ErrorBookPage() {
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                     selectedStatus === status.value
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "hover:bg-muted"
+                      ? "bg-warm-500 text-white shadow-lg shadow-warm-500/30"
+                      : "hover:bg-warm-100 text-warm-600"
                   )}
                 >
                   {status.label}
@@ -346,7 +346,7 @@ export default function ErrorBookPage() {
             </div>
 
             {/* 排序 */}
-            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full">
+            <div className="flex items-center gap-1 p-1 bg-warm-100/50 rounded-full">
               {[
                 { value: 'newest', label: '🆕 最新' },
                 { value: 'oldest', label: '📅 最早' },
@@ -358,8 +358,8 @@ export default function ErrorBookPage() {
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                     sortBy === sort.value
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "hover:bg-muted"
+                      ? "bg-warm-500 text-white shadow-lg shadow-warm-500/30"
+                      : "hover:bg-warm-100 text-warm-600"
                   )}
                 >
                   {sort.label}
@@ -371,8 +371,8 @@ export default function ErrorBookPage() {
 
         {/* Action Bar */}
         {selectedIds.size > 0 && (
-          <div className="mb-4 p-3 bg-primary/5 rounded-lg flex items-center justify-between">
-            <span className="text-sm font-medium">
+          <div className="mb-4 p-3 bg-warm-100 rounded-lg flex items-center justify-between border border-warm-200">
+            <span className="text-sm font-medium text-warm-900">
               已选择 {selectedIds.size} 条记录
             </span>
             <div className="flex gap-2">
@@ -381,7 +381,7 @@ export default function ErrorBookPage() {
                 size="sm"
                 onClick={handleExport}
                 disabled={exporting}
-                className="gap-2"
+                className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
               >
                 <Download className="w-4 h-4" />
                 导出PDF
@@ -390,7 +390,7 @@ export default function ErrorBookPage() {
                 variant="destructive"
                 size="sm"
                 onClick={handleDelete}
-                className="gap-2"
+                className="gap-2 rounded-full"
               >
                 <Trash2 className="w-4 h-4" />
                 删除
@@ -403,21 +403,21 @@ export default function ErrorBookPage() {
         {loading ? (
           <div className="text-center py-12">
             <div className="relative w-12 h-12 mx-auto mb-4">
-              <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-warm-200"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-warm-500 border-t-transparent animate-spin"></div>
             </div>
-            <p className="text-muted-foreground">加载中...</p>
+            <p className="text-warm-600">加载中...</p>
           </div>
         ) : filteredErrors.length === 0 ? (
-          <Card className="border-border/50">
+          <Card className="border-warm-200/50">
             <CardContent className="py-12 text-center">
-              <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-muted-foreground mb-4">
+              <BookOpen className="w-12 h-12 mx-auto mb-4 text-warm-300" />
+              <p className="text-warm-600 mb-4">
                 {searchQuery || selectedSubject !== 'all' || selectedStatus !== 'all'
                   ? '没有找到匹配的错题记录'
                   : '还没有错题记录，快去上传吧！'}
               </p>
-              <Button onClick={() => router.push('/workbench')}>
+              <Button onClick={() => router.push('/workbench')} className="bg-warm-500 hover:bg-warm-600 text-white rounded-full shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all">
                 去上传错题
               </Button>
             </CardContent>
@@ -430,9 +430,9 @@ export default function ErrorBookPage() {
                 type="checkbox"
                 checked={selectedIds.size === filteredErrors.length && filteredErrors.length > 0}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded border-input"
+                className="w-4 h-4 rounded border-warm-300"
               />
-              <span className="text-sm text-muted-foreground">全选</span>
+              <span className="text-sm text-warm-600">全选</span>
             </div>
 
             {/* Error Cards */}
@@ -442,10 +442,10 @@ export default function ErrorBookPage() {
                 <Card
                   key={error.id}
                   className={cn(
-                    'border-border/50 border-l-4 transition-all duration-300 hover:shadow-md cursor-pointer',
+                    'border-warm-200/50 border-l-4 transition-all duration-300 hover:shadow-md cursor-pointer',
                     subjectBorderColors[error.subject],
                     subjectBgColors[error.subject],
-                    selectedIds.has(error.id) && 'ring-2 ring-primary'
+                    selectedIds.has(error.id) && 'ring-2 ring-warm-500'
                   )}
                   onClick={() => toggleSelect(error.id)}
                 >
@@ -457,7 +457,7 @@ export default function ErrorBookPage() {
                         checked={selectedIds.has(error.id)}
                         onChange={() => toggleSelect(error.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 w-4 h-4 rounded border-input"
+                        className="mt-1 w-4 h-4 rounded border-warm-300"
                       />
 
                       {/* Content */}
@@ -479,35 +479,35 @@ export default function ErrorBookPage() {
 
                           {/* Difficulty */}
                           {error.difficulty_rating && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1 text-xs text-warm-600">
                               <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                               {error.difficulty_rating}
                             </div>
                           )}
 
                           {/* Date */}
-                          <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+                          <span className="text-xs text-warm-600 ml-auto flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {formatDate(error.created_at)}
                           </span>
                         </div>
 
                         {/* Text Preview */}
-                        <p className="text-sm line-clamp-2 mb-2">
+                        <p className="text-sm line-clamp-2 mb-2 text-warm-900">
                           {error.extracted_text || '暂无题目内容'}
                         </p>
 
                         {/* Tags */}
                         {error.concept_tags && error.concept_tags.length > 0 && (
                           <div className="flex items-center gap-1 flex-wrap">
-                            <Tag className="w-3 h-3 text-muted-foreground" />
+                            <Tag className="w-3 h-3 text-warm-500" />
                             {error.concept_tags.slice(0, 4).map((tag, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
+                              <Badge key={i} variant="secondary" className="text-xs bg-warm-100 text-warm-700">
                                 {tag}
                               </Badge>
                             ))}
                             {error.concept_tags.length > 4 && (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-warm-600">
                                 +{error.concept_tags.length - 4}
                               </span>
                             )}
@@ -524,7 +524,7 @@ export default function ErrorBookPage() {
                             e.stopPropagation();
                             router.push(`/workbench?session=${error.id}`);
                           }}
-                          className="gap-1"
+                          className="gap-1 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
                         >
                           <Eye className="w-4 h-4" />
                           查看
@@ -541,34 +541,34 @@ export default function ErrorBookPage() {
         {/* Summary Stats */}
         {!loading && errors.length > 0 && (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="border-border/50">
+            <Card className="border-warm-200/50">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-primary">{errors.length}</p>
-                <p className="text-xs text-muted-foreground">总错题数</p>
+                <p className="text-2xl font-bold text-warm-500">{errors.length}</p>
+                <p className="text-xs text-warm-600">总错题数</p>
               </CardContent>
             </Card>
-            <Card className="border-border/50">
+            <Card className="border-warm-200/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-yellow-500">
                   {errors.filter(e => e.status === 'analyzing').length}
                 </p>
-                <p className="text-xs text-muted-foreground">分析中</p>
+                <p className="text-xs text-warm-600">分析中</p>
               </CardContent>
             </Card>
-            <Card className="border-border/50">
+            <Card className="border-warm-200/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-blue-500">
                   {errors.filter(e => e.status === 'guided_learning').length}
                 </p>
-                <p className="text-xs text-muted-foreground">学习中</p>
+                <p className="text-xs text-warm-600">学习中</p>
               </CardContent>
             </Card>
-            <Card className="border-border/50">
+            <Card className="border-warm-200/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-green-500">
                   {errors.filter(e => e.status === 'mastered').length}
                 </p>
-                <p className="text-xs text-muted-foreground">已掌握</p>
+                <p className="text-xs text-warm-600">已掌握</p>
               </CardContent>
             </Card>
           </div>

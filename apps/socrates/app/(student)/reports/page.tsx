@@ -167,7 +167,7 @@ export default function ReportsPage() {
           actions={
             <div className="flex items-center gap-2">
               {/* 时间段选择 */}
-              <div className="flex bg-muted/50 rounded-lg p-1">
+              <div className="flex bg-warm-100/50 rounded-lg p-1">
                 {[7, 14, 30].map((days) => (
                   <button
                     key={days}
@@ -175,8 +175,8 @@ export default function ReportsPage() {
                     className={cn(
                       "px-3 py-1.5 text-sm rounded-md transition-all duration-200",
                       selectedPeriod === days
-                        ? "bg-card shadow-sm font-medium"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-white shadow-sm font-medium text-warm-900"
+                        : "text-warm-600 hover:text-warm-900"
                     )}
                   >
                     {formatPeriod(days)}
@@ -188,7 +188,7 @@ export default function ReportsPage() {
                 size="sm"
                 onClick={handleRefresh}
                 disabled={generating}
-                className="gap-2"
+                className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
               >
                 <RefreshCw className={cn("w-4 h-4", generating && "animate-spin")} />
                 刷新
@@ -202,8 +202,8 @@ export default function ReportsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">正在生成报告...</p>
+            <Loader2 className="w-12 h-12 animate-spin text-warm-500" />
+            <p className="mt-4 text-warm-600">正在生成报告...</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -258,24 +258,24 @@ export default function ReportsPage() {
                 transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
               }}
             >
-              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-primary" />
+                  <CardTitle className="flex items-center gap-2 text-warm-900">
+                    <Sparkles className="w-5 h-5 text-warm-500" />
                     AI 学习分析
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-warm-600">
                     基于你的学习数据，AI 给出的个性化建议
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     {aiAnalysis ? (
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed text-warm-900">
                         {aiAnalysis}
                       </div>
                     ) : (
-                      <p className="text-muted-foreground">
+                      <p className="text-warm-600">
                         暂无足够数据生成分析，继续学习后将自动生成报告。
                       </p>
                     )}
@@ -295,13 +295,13 @@ export default function ReportsPage() {
               }}
             >
               {/* 薄弱知识点 */}
-              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
                     <Target className="w-5 h-5 text-orange-500" />
                     薄弱知识点
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-warm-600">
                     需要重点复习的知识点
                   </CardDescription>
                 </CardHeader>
@@ -311,7 +311,7 @@ export default function ReportsPage() {
                       {weakPoints.slice(0, 6).map((point, index) => (
                         <div
                           key={point.tag}
-                          className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                          className="flex items-center justify-between p-3 rounded-xl bg-warm-100/30 hover:bg-warm-100/50 transition-colors"
                           style={{
                             opacity: historyAnimation.isVisible ? 1 : 0,
                             transform: historyAnimation.isVisible ? 'translateX(0)' : 'translateX(-20px)',
@@ -322,16 +322,16 @@ export default function ReportsPage() {
                             <span className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center text-xs font-medium">
                               {index + 1}
                             </span>
-                            <span className="text-sm font-medium">{point.tag}</span>
+                            <span className="text-sm font-medium text-warm-900">{point.tag}</span>
                           </div>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs bg-warm-100 text-warm-700">
                             {point.count}次
                           </Badge>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-center py-8 text-warm-600">
                       <Award className="w-10 h-10 mx-auto mb-3 opacity-50" />
                       <p className="text-sm">太棒了！暂无明显薄弱点</p>
                     </div>
@@ -340,13 +340,13 @@ export default function ReportsPage() {
               </Card>
 
               {/* 历史报告 */}
-              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
                     <Calendar className="w-5 h-5 text-blue-500" />
                     历史报告
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-warm-600">
                     查看之前的学情分析
                   </CardDescription>
                 </CardHeader>
@@ -356,7 +356,7 @@ export default function ReportsPage() {
                       {reports.slice(0, 5).map((report, index) => (
                         <div
                           key={report.id}
-                          className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group"
+                          className="flex items-center justify-between p-3 rounded-xl bg-warm-100/30 hover:bg-warm-100/50 transition-colors cursor-pointer group"
                           style={{
                             opacity: historyAnimation.isVisible ? 1 : 0,
                             transform: historyAnimation.isVisible ? 'translateX(0)' : 'translateX(20px)',
@@ -368,20 +368,20 @@ export default function ReportsPage() {
                               <BookOpen className="w-5 h-5 text-blue-500" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium">
+                              <p className="text-sm font-medium text-warm-900">
                                 {formatDate(report.period_start)} - {formatDate(report.period_end)}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-warm-600">
                                 掌握率 {report.mastery_rate}%
                               </p>
                             </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                          <ChevronRight className="w-4 h-4 text-warm-500 group-hover:text-warm-700 transition-colors" />
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-center py-8 text-warm-600">
                       <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />
                       <p className="text-sm">暂无历史报告</p>
                     </div>
@@ -399,13 +399,13 @@ export default function ReportsPage() {
                 transition: 'opacity 0.6s ease-out 0.4s, transform 0.6s ease-out 0.4s',
               }}
             >
-              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
                     <TrendingUp className="w-5 h-5 text-green-500" />
                     学习趋势
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-warm-600">
                     过去{selectedPeriod}天的学习情况
                   </CardDescription>
                 </CardHeader>
@@ -417,13 +417,13 @@ export default function ReportsPage() {
                       return (
                         <div key={i} className="flex-1 flex flex-col items-center gap-1">
                           <div
-                            className="w-full bg-gradient-to-t from-primary to-primary/60 rounded-t-md transition-all duration-500"
+                            className="w-full bg-gradient-to-t from-warm-500 to-warm-400 rounded-t-md transition-all duration-500"
                             style={{
                               height: `${height}%`,
                               animationDelay: `${i * 0.1}s`,
                             }}
                           />
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-warm-600">
                             {['一', '二', '三', '四', '五', '六', '日'][i]}
                           </span>
                         </div>
@@ -432,12 +432,12 @@ export default function ReportsPage() {
                   </div>
                   <div className="mt-4 flex items-center justify-center gap-6 text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-sm bg-primary" />
-                      <span className="text-muted-foreground">学习时长 (分钟)</span>
+                      <div className="w-3 h-3 rounded-sm bg-warm-500" />
+                      <span className="text-warm-600">学习时长 (分钟)</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">日均:</span>
-                      <span className="font-medium text-foreground">
+                      <span className="text-warm-600">日均:</span>
+                      <span className="font-medium text-warm-900">
                         {reportStats?.avgDailyMinutes || 0}分钟
                       </span>
                     </div>
@@ -456,13 +456,13 @@ export default function ReportsPage() {
               }}
             >
               {/* 科目分布 */}
-              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
                     <BookOpen className="w-5 h-5 text-blue-500" />
                     科目分布
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-warm-600">
                     各科目错题数量占比
                   </CardDescription>
                 </CardHeader>
@@ -478,12 +478,12 @@ export default function ReportsPage() {
                       return (
                         <div key={subject.name}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{subject.name}</span>
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-sm font-medium text-warm-900">{subject.name}</span>
+                            <span className="text-sm text-warm-600">
                               {subject.count}题 ({percentage}%)
                             </span>
                           </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-2 bg-warm-100 rounded-full overflow-hidden">
                             <div
                               className={cn('h-full rounded-full transition-all duration-1000', subject.color)}
                               style={{
@@ -500,13 +500,13 @@ export default function ReportsPage() {
               </Card>
 
               {/* 学习成就 */}
-              <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
                     <Award className="w-5 h-5 text-yellow-500" />
                     学习成就
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-warm-600">
                     你的学习里程碑
                   </CardDescription>
                 </CardHeader>
@@ -519,11 +519,11 @@ export default function ReportsPage() {
                     ].map((achievement, i) => (
                       <div
                         key={achievement.label}
-                        className="text-center p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                        className="text-center p-3 rounded-xl bg-warm-100/30 hover:bg-warm-100/50 transition-colors"
                       >
                         <div className="text-2xl mb-1">{achievement.icon}</div>
-                        <div className="text-lg font-bold">{achievement.value}</div>
-                        <div className="text-xs text-muted-foreground">{achievement.label}</div>
+                        <div className="text-lg font-bold text-warm-900">{achievement.value}</div>
+                        <div className="text-xs text-warm-600">{achievement.label}</div>
                       </div>
                     ))}
                   </div>
@@ -535,7 +535,7 @@ export default function ReportsPage() {
             <div className="flex justify-center pt-6">
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
                 onClick={() => {
                   // TODO: Implement report PDF export
                   alert('报告导出功能即将上线！');

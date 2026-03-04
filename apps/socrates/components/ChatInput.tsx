@@ -159,11 +159,11 @@ export function ChatInput({
   }, [message]);
 
   return (
-    <Card className="shadow-apple">
+    <Card className="shadow-warm-500/30">
       <CardContent className="p-3">
         {/* 数学符号快捷栏 */}
         {showMathPicker && (
-          <div className="mb-2 p-2 bg-muted/30 rounded-lg">
+          <div className="mb-2 p-2 bg-warm-100/30 rounded-lg">
             <MathSymbolPicker
               onSymbolSelect={handleSymbolInsert}
               variant="compact"
@@ -181,7 +181,7 @@ export function ChatInput({
             disabled={disabled || isLoading}
             className={cn(
               "rounded-full h-11 w-11 flex-shrink-0 transition-all duration-200",
-              showMathPicker && "bg-primary"
+              showMathPicker && "bg-warm-500"
             )}
             title="数学符号"
           >
@@ -230,7 +230,7 @@ export function ChatInput({
             size="icon"
             onClick={handleSubmit}
             disabled={disabled || isLoading || !message.trim()}
-            className="rounded-full h-11 w-11 flex-shrink-0 btn-press active:scale-95 transition-transform"
+            className="rounded-full h-11 w-11 flex-shrink-0 btn-press active:scale-95 transition-transform bg-warm-500 hover:bg-warm-600"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -239,14 +239,14 @@ export function ChatInput({
             )}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 text-center hidden sm:block">
+        <p className="text-xs text-warm-600 mt-2 text-center hidden sm:block">
           {isSupported ? (
             <>
-              按 <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> 发送
+              按 <kbd className="px-1 py-0.5 bg-warm-100 rounded text-[10px]">Enter</kbd> 发送
               {' · '}
-              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Σ</kbd> 数学符号
+              <kbd className="px-1 py-0.5 bg-warm-100 rounded text-[10px]">Σ</kbd> 数学符号
               {' · '}
-              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">麦克风</kbd> 语音输入
+              <kbd className="px-1 py-0.5 bg-warm-100 rounded text-[10px]">麦克风</kbd> 语音输入
             </>
           ) : (
             '按 Enter 发送，Shift + Enter 换行'

@@ -1,6 +1,6 @@
 // =====================================================
 // Project Socrates - Page Header Component
-// 页面标题卡片组件 - 配合分层卡片设计 + 苹果风格动画
+// 页面标题卡片组件 - 配合分层卡片设计 + 暖色风格
 // =====================================================
 
 'use client';
@@ -23,7 +23,7 @@ export function PageHeader({
   title,
   description,
   icon: Icon,
-  iconColor = 'text-primary',
+  iconColor = 'text-warm-500',
   actions,
   children,
   className,
@@ -48,7 +48,7 @@ export function PageHeader({
       {/* 页面标题卡片 */}
       <div
         className={cn(
-          "bg-card border border-border/50 rounded-2xl p-6 shadow-sm",
+          "bg-white border border-warm-100 rounded-2xl p-6 shadow-sm",
           "transition-all duration-300 hover:shadow-md"
         )}
       >
@@ -59,23 +59,24 @@ export function PageHeader({
               <div
                 className={cn(
                   "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-                  iconColor.includes('blue') && "bg-blue-500/10",
-                  iconColor.includes('green') && "bg-green-500/10",
-                  iconColor.includes('orange') && "bg-orange-500/10",
-                  iconColor.includes('purple') && "bg-purple-500/10",
-                  iconColor.includes('red') && "bg-red-500/10",
-                  !iconColor.includes('blue') && !iconColor.includes('green') &&
-                  !iconColor.includes('orange') && !iconColor.includes('purple') &&
-                  !iconColor.includes('red') && "bg-primary/10"
+                  iconColor.includes('warm') && "bg-warm-100",
+                  iconColor.includes('blue') && "bg-blue-100",
+                  iconColor.includes('green') && "bg-green-100",
+                  iconColor.includes('orange') && "bg-orange-100",
+                  iconColor.includes('purple') && "bg-purple-100",
+                  iconColor.includes('red') && "bg-red-100",
+                  !iconColor.includes('warm') && !iconColor.includes('blue') &&
+                  !iconColor.includes('green') && !iconColor.includes('orange') &&
+                  !iconColor.includes('purple') && !iconColor.includes('red') && "bg-warm-100"
                 )}
               >
                 <Icon className={cn("w-6 h-6", iconColor)} />
               </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-warm-900">{title}</h1>
               {description && (
-                <p className="text-muted-foreground mt-1">{description}</p>
+                <p className="text-warm-600 mt-1">{description}</p>
               )}
             </div>
           </div>
@@ -90,7 +91,7 @@ export function PageHeader({
 
         {/* 附加内容区域 */}
         {children && (
-          <div className="mt-6 pt-6 border-t border-border/50">
+          <div className="mt-6 pt-6 border-t border-warm-100">
             {children}
           </div>
         )}
@@ -112,7 +113,7 @@ interface StatCardProps {
   delay?: number;
 }
 
-export function StatCard({ label, value, icon: Icon, trend, color = 'text-primary', delay = 0 }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, trend, color = 'text-warm-500', delay = 0 }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -123,8 +124,8 @@ export function StatCard({ label, value, icon: Icon, trend, color = 'text-primar
   return (
     <div
       className={cn(
-        "bg-muted/30 rounded-xl p-4 border border-border/30",
-        "transition-all duration-300 hover:bg-muted/50 hover:shadow-md"
+        "bg-warm-50 rounded-xl p-4 border border-warm-100",
+        "transition-all duration-300 hover:bg-warm-100 hover:shadow-md"
       )}
       style={{
         opacity: isVisible ? 1 : 0,
@@ -137,28 +138,29 @@ export function StatCard({ label, value, icon: Icon, trend, color = 'text-primar
           <div
             className={cn(
               "w-10 h-10 rounded-lg flex items-center justify-center transition-transform duration-300",
-              color.includes('blue') && "bg-blue-500/10",
-              color.includes('green') && "bg-green-500/10",
-              color.includes('orange') && "bg-orange-500/10",
-              color.includes('purple') && "bg-purple-500/10",
-              color.includes('red') && "bg-red-500/10",
-              color.includes('yellow') && "bg-yellow-500/10"
+              color.includes('warm') && "bg-warm-100",
+              color.includes('blue') && "bg-blue-100",
+              color.includes('green') && "bg-green-100",
+              color.includes('orange') && "bg-orange-100",
+              color.includes('purple') && "bg-purple-100",
+              color.includes('red') && "bg-red-100",
+              color.includes('yellow') && "bg-yellow-100"
             )}
           >
             <Icon className={cn("w-5 h-5", color)} />
           </div>
         )}
         <div className="flex-1">
-          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-sm text-warm-600">{label}</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-xl font-bold">{value}</p>
+            <p className="text-xl font-bold text-warm-900">{value}</p>
             {trend && (
               <span
                 className={cn(
                   "text-xs font-medium px-1.5 py-0.5 rounded-full",
                   trend.isPositive
-                    ? "text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30"
-                    : "text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30"
+                    ? "text-green-600 bg-green-100"
+                    : "text-red-600 bg-red-100"
                 )}
               >
                 {trend.isPositive ? '+' : ''}{trend.value}%

@@ -425,22 +425,22 @@ function WorkbenchPage() {
   // Show student selector for parents without selected student
   if (isParent && !effectiveStudentId) {
     return (
-      <div className={cn("min-h-screen bg-background flex items-center justify-center p-6", themeClass)}>
-        <Card className="w-full max-w-md shadow-apple">
+      <div className={cn("min-h-screen bg-warm-50 flex items-center justify-center p-6", themeClass)}>
+        <Card className="w-full max-w-md shadow-lg border-warm-200/50">
           <CardHeader className="text-center">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-primary" />
+            <div className="w-16 h-16 mx-auto rounded-full bg-warm-100 flex items-center justify-center mb-4 shadow-lg shadow-warm-500/30">
+              <Users className="w-8 h-8 text-warm-500" />
             </div>
-            <CardTitle className="text-xl">选择学习对象</CardTitle>
-            <CardDescription>请选择要辅导的学生</CardDescription>
+            <CardTitle className="text-xl text-warm-900">选择学习对象</CardTitle>
+            <CardDescription className="text-warm-600">请选择要辅导的学生</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {loadingStudents ? (
-              <div className="text-center py-8 text-muted-foreground">加载中...</div>
+              <div className="text-center py-8 text-warm-600">加载中...</div>
             ) : parentStudents.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">还没有关联的学生</p>
-                <Button onClick={() => router.push('/dashboard')}>
+                <p className="text-warm-600 mb-4">还没有关联的学生</p>
+                <Button onClick={() => router.push('/dashboard')} className="bg-warm-500 hover:bg-warm-600 text-white rounded-full shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all">
                   去添加学生
                 </Button>
               </div>
@@ -449,23 +449,23 @@ function WorkbenchPage() {
                 <Button
                   key={student.id}
                   variant="outline"
-                  className="w-full justify-start gap-3 h-14"
+                  className="w-full justify-start gap-3 h-14 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full transition-all"
                   onClick={() => {
                     setSelectedStudentId(student.id);
                     setSelectedStudentName(student.display_name);
                   }}
                 >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-bold">{student.display_name.charAt(0)}</span>
+                  <div className="w-10 h-10 rounded-full bg-warm-100 flex items-center justify-center">
+                    <span className="text-warm-600 font-bold">{student.display_name.charAt(0)}</span>
                   </div>
-                  <span className="font-medium">{student.display_name}</span>
+                  <span className="font-medium text-warm-900">{student.display_name}</span>
                 </Button>
               ))
             )}
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t border-warm-200">
               <Button
                 variant="ghost"
-                className="w-full gap-2"
+                className="w-full gap-2 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
                 onClick={() => router.push('/dashboard')}
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -489,12 +489,12 @@ function WorkbenchPage() {
 
       {/* Parent indicator */}
       {isParent && selectedStudentName && (
-        <div className="bg-primary/5 border-b border-primary/10">
+        <div className="bg-warm-100 border-b border-warm-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
-              <Users className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">正在辅导：</span>
-              <span className="font-medium">{selectedStudentName}</span>
+              <Users className="w-4 h-4 text-warm-500" />
+              <span className="text-warm-600">正在辅导：</span>
+              <span className="font-medium text-warm-900">{selectedStudentName}</span>
             </div>
             <Button
               variant="ghost"
@@ -503,7 +503,7 @@ function WorkbenchPage() {
                 setSelectedStudentId(null);
                 setSelectedStudentName('');
               }}
-              className="text-xs"
+              className="text-xs text-warm-600 hover:text-warm-900 hover:bg-warm-200 rounded-full"
             >
               切换学生
             </Button>
@@ -542,7 +542,7 @@ function WorkbenchPage() {
                   variant="outline"
                   size="sm"
                   onClick={toggleStudySession}
-                  className="gap-2 transition-all duration-200"
+                  className="gap-2 transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
                 >
                   {isStudying ? (
                     <>
@@ -576,13 +576,13 @@ function WorkbenchPage() {
             }}
           >
             {/* Image Upload Card */}
-            <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
+            <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Camera className="w-5 h-5 text-primary" />
+                <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
+                  <Camera className="w-5 h-5 text-warm-500" />
                   上传错题
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-warm-600">
                   拍摄或上传你的错题图片
                 </CardDescription>
               </CardHeader>
@@ -624,29 +624,29 @@ function WorkbenchPage() {
               transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
             }}
           >
-            <Card className="border-border/50 h-full flex flex-col min-h-[600px] transition-all duration-300 hover:shadow-lg">
+            <Card className="border-warm-200/50 h-full flex flex-col min-h-[600px] transition-all duration-300 hover:shadow-lg">
               {currentStep === 'upload' && (
                 <div className="flex-1 flex items-center justify-center p-8">
                   <div className="text-center space-y-6">
                     <div
-                      className="w-24 h-24 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center"
+                      className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-warm-100 to-warm-50 flex items-center justify-center shadow-lg shadow-warm-500/20"
                       style={{
                         animation: 'float 6s ease-in-out infinite',
                       }}
                     >
-                      <Bot className="w-12 h-12 text-primary" />
+                      <Bot className="w-12 h-12 text-warm-500" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold mb-2">
+                      <h3 className="text-xl font-semibold mb-2 text-warm-900">
                         {profile?.theme_preference === 'junior' ? '准备好学习了吗?' : '开始你的学习之旅'}
                       </h3>
-                      <p className="text-muted-foreground max-w-sm mx-auto">
+                      <p className="text-warm-600 max-w-sm mx-auto">
                         {profile?.theme_preference === 'junior'
                           ? `${aiName} 会引导你理解问题，一步步找到答案`
                           : `${aiName} 将通过苏格拉底式提问帮助你深入思考`}
                       </p>
                     </div>
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 text-sm text-warm-600">
                       <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                       {aiName} 已就绪
                     </div>
@@ -658,13 +658,13 @@ function WorkbenchPage() {
                 <div className="flex-1 flex items-center justify-center p-8">
                   <div className="text-center space-y-4">
                     <div className="relative w-16 h-16 mx-auto">
-                      <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
-                      <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+                      <div className="absolute inset-0 rounded-full border-4 border-warm-200"></div>
+                      <div className="absolute inset-0 rounded-full border-4 border-warm-500 border-t-transparent animate-spin"></div>
                     </div>
-                    <h3 className="text-lg font-semibold">
+                    <h3 className="text-lg font-semibold text-warm-900">
                       正在分析你的错题...
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-warm-600">
                       AI 正在识别题目内容
                     </p>
                   </div>
@@ -674,15 +674,15 @@ function WorkbenchPage() {
               {currentStep === 'chat' && (
                 <div className="flex-1 flex flex-col">
                   {/* Chat Header */}
-                  <CardHeader className="border-b border-border/50">
+                  <CardHeader className="border-b border-warm-200/50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-bold">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center text-white font-bold shadow-lg shadow-warm-500/30">
                           {aiName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{aiName}</p>
-                          <p className="text-xs text-muted-foreground">AI 学习导师</p>
+                          <p className="font-medium text-warm-900">{aiName}</p>
+                          <p className="text-xs text-warm-600">AI 学习导师</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -691,7 +691,7 @@ function WorkbenchPage() {
                             size="sm"
                             variant="outline"
                             onClick={handleExportPDF}
-                            className="gap-2"
+                            className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
                           >
                             <Download className="w-4 h-4" />
                             导出PDF
@@ -701,7 +701,7 @@ function WorkbenchPage() {
                           size="sm"
                           variant="ghost"
                           onClick={handleResetChat}
-                          className="gap-2 transition-all duration-200 hover:rotate-180"
+                          className="gap-2 transition-all duration-200 hover:rotate-180 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
                         >
                           <RefreshCw className="w-4 h-4" />
                           重新开始
@@ -713,9 +713,9 @@ function WorkbenchPage() {
                   {/* OCR Context */}
                   {ocrText && (
                     <div className="px-6 pt-4">
-                      <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
-                        <p className="text-xs text-muted-foreground mb-1 font-medium">当前题目：</p>
-                        <p className="text-sm line-clamp-2">{ocrText}</p>
+                      <div className="p-4 rounded-xl bg-warm-100 border border-warm-200">
+                        <p className="text-xs text-warm-600 mb-1 font-medium">当前题目：</p>
+                        <p className="text-sm line-clamp-2 text-warm-900">{ocrText}</p>
                       </div>
                     </div>
                   )}
@@ -731,7 +731,7 @@ function WorkbenchPage() {
                   </CardContent>
 
                   {/* Input */}
-                  <div className="p-4 border-t border-border/50">
+                  <div className="p-4 border-t border-warm-200/50">
                     <ChatInput
                       onSend={handleSendMessage}
                       isLoading={isChatLoading}
@@ -752,7 +752,7 @@ function WorkbenchPage() {
       {/* Development Notice */}
       <div className="fixed bottom-4 left-0 right-0 p-4 pointer-events-none">
         <div className="max-w-7xl mx-auto">
-          <div className="mx-auto bg-card/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-muted-foreground shadow-sm border border-border/50 w-fit">
+          <div className="mx-auto bg-white/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-warm-600 shadow-sm border border-warm-200/50 w-fit">
             工作台开发中...更多功能即将上线
           </div>
         </div>
@@ -764,13 +764,13 @@ function WorkbenchPage() {
 // Loading fallback component
 function WorkbenchLoading() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen bg-warm-50 flex items-center justify-center">
       <div className="text-center space-y-4">
         <div className="relative w-16 h-16 mx-auto">
-          <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-warm-200"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-warm-500 border-t-transparent animate-spin"></div>
         </div>
-        <p className="text-muted-foreground">加载中...</p>
+        <p className="text-warm-600">加载中...</p>
       </div>
     </div>
   );

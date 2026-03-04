@@ -392,6 +392,18 @@
   50% { transform: translateY(-5px); }
 }
 
+/* Breathing animation for buttons (like Essay app) */
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(255, 138, 61, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 8px 30px rgba(255, 138, 61, 0.5);
+    transform: scale(1.02);
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -438,6 +450,10 @@
 
 .animate-bounce-slow {
   animation: bounce-slow 3s ease-in-out infinite;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
 }
 
 .animate-fade-in {

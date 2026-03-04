@@ -158,12 +158,12 @@ export function NotificationCenter() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "relative min-w-[44px] min-h-[44px] flex items-center justify-center",
-          "rounded-full hover:bg-muted transition-all duration-300",
-          "focus:outline-none focus:ring-2 focus:ring-primary/50"
+          "rounded-full hover:bg-warm-100 transition-all duration-300",
+          "focus:outline-none focus:ring-2 focus:ring-warm-500/50"
         )}
         aria-label="通知"
       >
-        <Bell className={cn("w-5 h-5", unreadCount > 0 ? "text-primary" : "text-muted-foreground")} />
+        <Bell className={cn("w-5 h-5", unreadCount > 0 ? "text-warm-500" : "text-warm-600")} />
         {unreadCount > 0 && (
           <span
             className={cn(
@@ -212,10 +212,10 @@ export function NotificationCenter() {
           <div className="max-h-[400px] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <Loader2 className="w-6 h-6 animate-spin text-warm-600" />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center py-8 text-warm-600">
                 <BellOff className="w-10 h-10 mb-2 opacity-50" />
                 <p className="text-sm">暂无通知</p>
               </div>
@@ -229,8 +229,8 @@ export function NotificationCenter() {
                     <div
                       key={notification.id}
                       className={cn(
-                        "p-4 hover:bg-muted/30 transition-colors",
-                        !notification.read && "bg-primary/5"
+                        "p-4 hover:bg-warm-100/30 transition-colors",
+                        !notification.read && "bg-warm-100"
                       )}
                     >
                       <div className="flex gap-3">
@@ -251,36 +251,36 @@ export function NotificationCenter() {
                               <p className="text-sm font-medium line-clamp-1">
                                 {notification.title}
                               </p>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              <p className="text-xs text-warm-600 mt-0.5 line-clamp-2">
                                 {notification.message}
                               </p>
                             </div>
                             {!notification.read && (
-                              <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                              <span className="w-2 h-2 rounded-full bg-warm-500 flex-shrink-0 mt-1.5" />
                             )}
                           </div>
 
                           {/* 时间和操作 */}
                           <div className="flex items-center justify-between mt-2">
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-warm-600">
                               {formatTime(notification.created_at)}
                             </span>
                             <div className="flex items-center gap-1">
                               {!notification.read && (
                                 <button
                                   onClick={() => markAsRead(notification.id)}
-                                  className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                                  className="p-1.5 rounded-full hover:bg-warm-100 transition-colors"
                                   title="标记已读"
                                 >
-                                  <Check className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <Check className="w-3.5 h-3.5 text-warm-600" />
                                 </button>
                               )}
                               <button
                                 onClick={() => deleteNotification(notification.id)}
-                                className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                                className="p-1.5 rounded-full hover:bg-warm-100 transition-colors"
                                 title="删除"
                               >
-                                <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+                                <Trash2 className="w-3.5 h-3.5 text-warm-600" />
                               </button>
                             </div>
                           </div>
@@ -295,11 +295,11 @@ export function NotificationCenter() {
 
           {/* 底部 */}
           {notifications.length > 0 && (
-            <div className="p-3 border-t border-border/50 text-center">
+            <div className="p-3 border-t border-warm-200 text-center">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs w-full"
+                className="text-xs w-full rounded-full"
                 onClick={() => {
                   setIsOpen(false);
                   // TODO: Navigate to full notification page

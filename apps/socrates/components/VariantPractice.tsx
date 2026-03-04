@@ -176,7 +176,7 @@ export function VariantPractice({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <Loader2 className="w-6 h-6 animate-spin text-warm-600" />
       </div>
     );
   }
@@ -198,16 +198,16 @@ export function VariantPractice({
           <div className="flex flex-wrap items-center gap-4">
             {/* 难度选择 */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">难度：</span>
+              <span className="text-sm text-warm-600">难度：</span>
               {(['easy', 'medium', 'hard'] as const).map((d) => (
                 <button
                   key={d}
                   onClick={() => setSelectedDifficulty(d)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                    "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                     selectedDifficulty === d
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/50 hover:bg-muted"
+                      ? "bg-warm-500 text-white"
+                      : "bg-warm-100/50 hover:bg-warm-100"
                   )}
                 >
                   {difficultyConfig[d].label}
@@ -219,7 +219,7 @@ export function VariantPractice({
             <Button
               onClick={generateVariants}
               disabled={generating}
-              className="gap-2"
+              className="gap-2 rounded-full bg-warm-500 hover:bg-warm-600"
             >
               {generating ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -244,8 +244,8 @@ export function VariantPractice({
             <Card
               key={variant.id}
               className={cn(
-                "border-border/50 cursor-pointer transition-all",
-                activeVariant?.id === variant.id && "ring-2 ring-primary"
+                "border-warm-200 cursor-pointer transition-all",
+                activeVariant?.id === variant.id && "ring-2 ring-warm-500"
               )}
             >
               {activeVariant?.id === variant.id ? (
@@ -263,14 +263,14 @@ export function VariantPractice({
                     </div>
                     <button
                       onClick={resetPractice}
-                      className="text-sm text-muted-foreground hover:text-foreground"
+                      className="text-sm text-warm-600 hover:text-warm-900"
                     >
                       关闭
                     </button>
                   </div>
 
                   {/* 题目内容 */}
-                  <div className="p-4 bg-muted/30 rounded-xl">
+                  <div className="p-4 bg-warm-100/30 rounded-xl">
                     <p className="whitespace-pre-wrap">{variant.question_text}</p>
                   </div>
 
@@ -300,7 +300,7 @@ export function VariantPractice({
                       {showHints > 0 && (
                         <div className="space-y-2 pl-6">
                           {variant.hints.slice(0, showHints).map((hint, i) => (
-                            <p key={i} className="text-sm text-muted-foreground">
+                            <p key={i} className="text-sm text-warm-600">
                               💡 提示{i + 1}: {hint}
                             </p>
                           ))}
@@ -316,9 +316,9 @@ export function VariantPractice({
                         placeholder="输入你的答案..."
                         value={userAnswer}
                         onChange={(e) => setUserAnswer(e.target.value)}
-                        className="flex-1"
+                        className="flex-1 border-warm-200"
                       />
-                      <Button onClick={() => submitAnswer(variant)}>
+                      <Button onClick={() => submitAnswer(variant)} className="rounded-full bg-warm-500 hover:bg-warm-600">
                         提交
                       </Button>
                     </div>
@@ -365,14 +365,14 @@ export function VariantPractice({
                         </button>
 
                         {showSolution && (
-                          <div className="mt-2 p-4 bg-muted/30 rounded-xl">
+                          <div className="mt-2 p-4 bg-warm-100/30 rounded-xl">
                             <p className="whitespace-pre-wrap text-sm">{variant.solution}</p>
                           </div>
                         )}
                       </div>
 
                       {/* 继续按钮 */}
-                      <Button variant="outline" onClick={resetPractice}>
+                      <Button variant="outline" onClick={resetPractice} className="rounded-full">
                         继续练习
                       </Button>
                     </div>
@@ -381,7 +381,7 @@ export function VariantPractice({
               ) : (
                 // 列表模式
                 <CardContent
-                  className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="p-4 cursor-pointer hover:bg-warm-100/30 transition-colors"
                   onClick={() => setActiveVariant(variant)}
                 >
                   <div className="flex items-center justify-between">
@@ -392,9 +392,9 @@ export function VariantPractice({
                       </span>
                       {getVariantStatusBadge(variant)}
                     </div>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    <ChevronDown className="w-4 h-4 text-warm-600" />
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                  <p className="mt-2 text-sm text-warm-600 line-clamp-2">
                     {variant.question_text}
                   </p>
                 </CardContent>
@@ -406,7 +406,7 @@ export function VariantPractice({
 
       {/* 空状态 */}
       {variants.length === 0 && !generating && (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-8 text-warm-600">
           <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>还没有变式题目</p>
           <p className="text-sm">点击上方按钮生成变式练习题</p>

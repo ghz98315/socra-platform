@@ -161,8 +161,8 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
 
   return (
     <Card className={cn(
-      "border-border/50 transition-all duration-300",
-      isProcessing && "border-primary/30 shadow-lg shadow-primary/5"
+      "border-warm-200 transition-all duration-300",
+      isProcessing && "border-warm-200 shadow-lg shadow-warm-500/30"
     )}>
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
@@ -183,7 +183,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               </span>
             )}
             {cloudOCRAvailable === null && (
-              <span className="text-xs text-muted-foreground">检测服务中...</span>
+              <span className="text-xs text-warm-600">检测服务中...</span>
             )}
           </div>
         </div>
@@ -199,7 +199,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               )}
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <p className="text-sm text-warm-600 flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 {status}
               </p>
@@ -207,16 +207,16 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                 size="sm"
                 variant="ghost"
                 onClick={handleCancel}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-warm-600 hover:text-warm-900 rounded-full"
               >
                 取消
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
+            <p className="text-xs text-warm-600 bg-warm-100/50 p-2 rounded-lg">
               AI 正在识别图片中的文字，请稍候...
               <br />
-              <span className="text-primary">支持数学公式、图表等复杂内容识别</span>
+              <span className="text-warm-500">支持数学公式、图表等复杂内容识别</span>
             </p>
           </div>
         ) : (
@@ -227,10 +227,10 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
                 onChange={handleTextChange}
                 placeholder="上传图片后，AI将自动识别题目内容..."
                 className={cn(
-                  "w-full h-32 rounded-xl border bg-transparent px-4 py-3 text-sm resize-none",
+                  "w-full h-32 rounded-xl border border-warm-200 bg-white px-4 py-3 text-sm resize-none",
                   "transition-all duration-200",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50",
-                  "placeholder:text-muted-foreground/60"
+                  "focus:outline-none focus:ring-2 focus:ring-warm-500/20 focus:border-warm-500/50",
+                  "placeholder:text-warm-600/60"
                 )}
               />
             </div>
@@ -239,7 +239,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               <Button
                 size="sm"
                 variant="outline"
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 rounded-full"
                 onClick={handleReOCR}
                 disabled={isProcessing || !imageData}
               >
@@ -248,7 +248,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
               </Button>
               <Button
                 size="sm"
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 rounded-full bg-warm-500 hover:bg-warm-600"
                 onClick={() => onConfirm(text)}
                 disabled={!text || isProcessing}
               >

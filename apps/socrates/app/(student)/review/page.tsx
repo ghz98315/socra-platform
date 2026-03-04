@@ -220,7 +220,7 @@ export default function ReviewPage() {
               variant="outline"
               size="sm"
               onClick={() => window.location.href = '/workbench'}
-              className="transition-all duration-200"
+              className="transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
             >
               返回工作台
             </Button>
@@ -271,17 +271,20 @@ export default function ReviewPage() {
             transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
           }}
         >
-          <Card className="border-border/50 mb-6 transition-all duration-300 hover:shadow-lg">
+          <Card className="border-warm-200/50 mb-6 transition-all duration-300 hover:shadow-lg">
             <CardContent className="py-4">
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground mr-2">筛选:</span>
+                <Filter className="w-4 h-4 text-warm-500" />
+                <span className="text-sm text-warm-600 mr-2">筛选:</span>
                 <div className="flex gap-2">
                   <Button
                     variant={filterStatus === 'all' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setFilterStatus('all')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "transition-all duration-200 rounded-full",
+                      filterStatus === 'all' ? 'bg-warm-500 hover:bg-warm-600 text-white shadow-lg shadow-warm-500/30' : 'text-warm-600 hover:bg-warm-100'
+                    )}
                   >
                     全部 ({reviews.length})
                   </Button>
@@ -290,8 +293,8 @@ export default function ReviewPage() {
                     size="sm"
                     onClick={() => setFilterStatus('pending')}
                     className={cn(
-                      "transition-all duration-200",
-                      filterStatus === 'pending' && 'bg-yellow-500 hover:bg-yellow-600 text-white dark:bg-yellow-600 dark:hover:bg-yellow-700'
+                      "transition-all duration-200 rounded-full",
+                      filterStatus === 'pending' && 'bg-yellow-500 hover:bg-yellow-600 text-white dark:bg-yellow-600 dark:hover:bg-yellow-700 shadow-lg shadow-yellow-500/30'
                     )}
                   >
                     待复习 ({pendingCount})
@@ -301,8 +304,8 @@ export default function ReviewPage() {
                     size="sm"
                     onClick={() => setFilterStatus('overdue')}
                     className={cn(
-                      "transition-all duration-200",
-                      filterStatus === 'overdue' && 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-700'
+                      "transition-all duration-200 rounded-full",
+                      filterStatus === 'overdue' && 'bg-red-500 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-700 shadow-lg shadow-red-500/30'
                     )}
                   >
                     已到期 ({overdueCount})
@@ -316,8 +319,8 @@ export default function ReviewPage() {
         {/* Loading State */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">加载复习列表...</p>
+            <Loader2 className="w-12 h-12 animate-spin text-warm-500" />
+            <p className="mt-4 text-warm-600">加载复习列表...</p>
           </div>
         ) : filteredReviews.length === 0 ? (
           /* Empty State */
@@ -328,28 +331,28 @@ export default function ReviewPage() {
               transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
             }}
           >
-            <Card className="border-border/50">
+            <Card className="border-warm-200/50">
               <CardContent className="py-20">
                 <div className="flex flex-col items-center justify-center text-center">
                   <div
-                    className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6"
+                    className="w-20 h-20 rounded-full bg-warm-100 flex items-center justify-center mb-6"
                     style={{
                       animation: 'float 6s ease-in-out infinite',
                     }}
                   >
-                    <Calendar className="w-10 h-10 text-muted-foreground" />
+                    <Calendar className="w-10 h-10 text-warm-500" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">
+                  <h3 className="text-lg font-semibold mb-2 text-warm-900">
                     {filterStatus === 'all' && '暂无复习任务'}
                     {filterStatus === 'pending' && '太棒了！没有待复习任务'}
                     {filterStatus === 'overdue' && '没有过期的复习'}
                   </h3>
-                  <p className="text-sm text-muted-foreground max-w-sm">
+                  <p className="text-sm text-warm-600 max-w-sm">
                     完成错题学习后，系统会自动安排复习计划
                   </p>
                   <Button
                     variant="outline"
-                    className="mt-6 transition-all duration-200"
+                    className="mt-6 transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
                     onClick={() => window.location.href = '/workbench'}
                   >
                     去学习错题
@@ -368,7 +371,7 @@ export default function ReviewPage() {
               <Card
                 key={review.id}
                 className={cn(
-                  "border-border/50 transition-all duration-300",
+                  "border-warm-200/50 transition-all duration-300",
                   "hover:shadow-lg",
                   review.isOverdue && "border-l-4 border-l-red-500"
                 )}
@@ -384,7 +387,7 @@ export default function ReviewPage() {
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300",
-                        review.isOverdue ? "bg-red-100 dark:bg-red-900/30" : "bg-muted"
+                        review.isOverdue ? "bg-red-100 dark:bg-red-900/30" : "bg-warm-100"
                       )}>
                         <span className="text-lg">
                           {getSubjectIcon(review.subject)}
@@ -398,7 +401,7 @@ export default function ReviewPage() {
                       </Badge>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-warm-600">
                         {formatReviewDate(review.nextReviewAt)}
                       </span>
                     </div>
@@ -406,44 +409,44 @@ export default function ReviewPage() {
 
                   {/* Details */}
                   <div className="space-y-3 text-sm mb-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-2 text-warm-600">
                       <Clock className="w-4 h-4" />
                       <span>难度: {getDifficultyStars(review.difficultyRating)}</span>
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
                       {review.conceptTags?.slice(0, 2).map(tag => (
-                        <Badge key={tag} variant="outline" className="text-xs font-normal">
+                        <Badge key={tag} variant="outline" className="text-xs font-normal border-warm-200 text-warm-700">
                           {tag}
                         </Badge>
                       ))}
                       {review.conceptTags && review.conceptTags.length > 2 && (
-                        <span className="text-xs text-muted-foreground self-center">
+                        <span className="text-xs text-warm-600 self-center">
                           +{review.conceptTags.length - 2}
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-warm-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          className="h-full bg-warm-500 rounded-full transition-all duration-500"
                           style={{ width: `${(review.reviewStage / 4) * 100}%` }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="text-xs text-warm-600 whitespace-nowrap">
                         {REVIEW_STAGES.find(s => s.stage === review.reviewStage)?.name}
                       </span>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-3 border-t border-border/50">
+                  <div className="flex gap-2 pt-3 border-t border-warm-200/50">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => window.location.href = `/workbench?review=${review.sessionId}`}
-                      className="flex-1 transition-all duration-200"
+                      className="flex-1 transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
                     >
                       开始复习
                     </Button>
@@ -451,7 +454,10 @@ export default function ReviewPage() {
                       size="sm"
                       variant={review.isOverdue ? 'secondary' : 'default'}
                       onClick={() => handleCompleteReview(review.id)}
-                      className="flex-1 gap-2 transition-all duration-200"
+                      className={cn(
+                        "flex-1 gap-2 transition-all duration-200 rounded-full",
+                        !review.isOverdue && "bg-warm-500 hover:bg-warm-600 text-white shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5"
+                      )}
                       disabled={review.isOverdue}
                     >
                       {review.isOverdue ? '已过期' : '完成'}
@@ -468,7 +474,7 @@ export default function ReviewPage() {
       {/* Development Notice */}
       <div className="fixed bottom-4 left-0 right-0 p-4 pointer-events-none">
         <div className="max-w-7xl mx-auto">
-          <div className="mx-auto bg-card/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-muted-foreground shadow-sm border border-border/50 w-fit">
+          <div className="mx-auto bg-white/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-warm-600 shadow-sm border border-warm-200/50 w-fit">
             复习系统开发中...艾宾浩斯算法即将上线
           </div>
         </div>
