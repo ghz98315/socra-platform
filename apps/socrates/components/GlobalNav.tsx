@@ -28,6 +28,7 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 // 导航项配置
@@ -109,16 +110,13 @@ export function GlobalNav() {
             className="flex items-center gap-3 group"
           >
             <div className="relative">
-              <div
-                className={cn(
-                  "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300",
-                  "bg-warm-500",
-                  "shadow-lg shadow-warm-500/30",
-                  "group-hover:shadow-warm-500/50 group-hover:scale-105"
-                )}
-              >
-                <Trophy className="w-5 h-5 text-white" />
-              </div>
+              <Image
+                src="/logo.png"
+                alt="Socrates Logo"
+                width={36}
+                height={36}
+                className="transition-transform duration-300 group-hover:scale-105"
+              />
             </div>
             <span
               className={cn(
