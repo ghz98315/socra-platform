@@ -162,7 +162,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             colorClass="bg-yellow-50 text-yellow-700"
           >
             <div className="space-y-4">
-              {analysis.highlights.map((point, idx) => (
+              {(analysis.highlights || []).map((point, idx) => (
                 <div key={idx} className="flex items-start gap-3 group">
                   <div className="mt-1 w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-xs font-bold flex-shrink-0 group-hover:bg-yellow-200 transition-colors">
                     {idx + 1}
@@ -181,9 +181,9 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             icon={<Wand2 className="text-purple-500" size={24} />}
             colorClass="bg-purple-50 text-purple-700"
           >
-            {analysis.corrections.length > 0 ? (
+            {(analysis.corrections || []).length > 0 ? (
               <div className="space-y-6">
-                {analysis.corrections.map((item, idx) => (
+                {(analysis.corrections || []).map((item, idx) => (
                   <div key={idx} className="relative bg-white border border-purple-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:opacity-100 transition-opacity"></div>
 
@@ -220,7 +220,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             colorClass="bg-emerald-50 text-emerald-700"
           >
              <div className="grid grid-cols-1 gap-4">
-               {analysis.goldenSentences.map((item, idx) => (
+               {(analysis.goldenSentences || []).map((item, idx) => (
                  <div key={idx} className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-4 hover:border-emerald-300 transition-all shadow-sm group">
                    <div className="text-emerald-900 font-medium text-base mb-3 relative pl-6 leading-relaxed">
                      <Quote size={16} className="absolute left-0 top-1 text-emerald-400/50" />
