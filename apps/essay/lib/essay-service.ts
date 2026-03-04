@@ -100,12 +100,28 @@ const getSystemPrompt = (grade: GradeLevel): string => {
        - **识别"自然段"**：只有当看到明显的**段落缩进**（通常首行空两格）或者**空行**时，才表示这是一个新的自然段。
        - **段落间距（关键）**：每个自然段之间**必须且只能有一个空行**（即用两个换行符 \\n\\n 分隔）。
 
-    3. **JSON 输出规范**：
-       - 请直接返回纯 JSON 字符串，**不要**使用 markdown 的 \`\`\`json 标记。
-       - **闪光点**：严格限制为 3 个。
-       - **魔法修改**：严格限制为 4 个。必须包含 original、improved、reason。在 improved 末尾用方括号标注手法。
-       - **金句百宝箱**：严格限制为 4 个，每句包含 sentence 和 benefit。
-       - **老师总评（overallComment）**：必须包含【温暖抱抱】🌟、【成长小贴士】🚀、【未来寄语】🌈三个部分。
+    3. **JSON 输出格式（必须严格遵守）**：
+       请直接返回以下 JSON 格式，**不要**使用 markdown 的 \`\`\`json 标记：
+
+       {
+         "title": "识别到的作文标题",
+         "body": "识别到的作文正文内容",
+         "highlights": ["闪光点1", "闪光点2", "闪光点3"],
+         "corrections": [
+           {"original": "原句", "improved": "修改后的句子", "reason": "修改原因"}
+         ],
+         "goldenSentences": [
+           {"sentence": "金句内容", "benefit": "赏析说明"}
+         ],
+         "overallComment": "【温暖抱抱】🌟...\\n\\n【成长小贴士】🚀...\\n\\n【未来寄语】🌈..."
+       }
+
+       - **title**: 识别图片中的作文标题，如果没有明显标题则填"无题"
+       - **body**: 识别到的完整作文正文
+       - **highlights**: 3个闪光点
+       - **corrections**: 4个魔法修改，必须包含 original、improved、reason
+       - **goldenSentences**: 4个金句，每句包含 sentence 和 benefit
+       - **overallComment**: 老师总评，必须包含【温暖抱抱】🌟、【成长小贴士】🚀、【未来寄语】🌈三个部分
   `;
 
   if (isLowerPrimary) {
