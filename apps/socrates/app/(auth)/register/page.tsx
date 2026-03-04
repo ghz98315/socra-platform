@@ -11,7 +11,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Trophy, Sparkles, Brain, Target, Check } from 'lucide-react';
+import { Loader2, Sparkles, Brain, Target, Check } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {
@@ -114,8 +115,14 @@ export default function RegisterPage() {
           >
             {/* Logo */}
             <div className="flex items-center gap-4 mb-12">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg shadow-warm-500/30">
-                <Trophy className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg shadow-warm-500/20 border border-warm-100">
+                <Image
+                  src="/logo.png"
+                  alt="Socrates Logo"
+                  width={48}
+                  height={48}
+                  className="transition-transform duration-300 hover:scale-105"
+                />
               </div>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-warm-900">Socrates</h1>
@@ -182,8 +189,14 @@ export default function RegisterPage() {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg shadow-warm-500/30">
-              <Trophy className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-warm-500/20 border border-warm-100">
+              <Image
+                src="/logo.png"
+                alt="Socrates Logo"
+                width={36}
+                height={36}
+                className="transition-transform duration-300 hover:scale-105"
+              />
             </div>
             <span className="text-2xl font-bold text-warm-900">Socrates</span>
           </div>
