@@ -224,7 +224,8 @@ export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): P
     // 清理并解析 JSON
     contentString = contentString.replace(/```json\n?|```/g, "").trim();
 
-    // 尝试解析 JSON，    let result;
+    // 尝试解析 JSON
+    let result;
     try {
       // 尝试直接解析
       result = JSON.parse(contentString);
