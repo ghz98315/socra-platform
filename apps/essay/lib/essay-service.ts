@@ -181,8 +181,73 @@ const getSystemPrompt = (grade: GradeLevel): string => {
   `;
 };
 
+// 重试配置
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelay: 1000, // 1秒
+  maxDelay: 10000, // 10秒
+};
+
+// 延迟函数
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 带重试的 API 调用
+const fetchWithRetry = async (
+  url: string,
+  options: RequestInit,
+  retries: number = RETRY_CONFIG.maxRetries
+): Promise<Response> => {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // 如果是速率限制错误，等待后重试
+      if (response.status === 429 && attempt < retries) {
+        const waitTime = Math.min(
+          RETRY_CONFIG.baseDelay * Math.pow(2, attempt),
+          RETRY_CONFIG.maxDelay
+        );
+        console.log(`⏳ 速率限制，等待 ${waitTime}ms 后重试 (${attempt + 1}/${retries})`);
+        await delay(waitTime);
+        continue;
+      }
+
+      // 如果是服务器错误，等待后重试
+      if (response.status >= 500 && attempt < retries) {
+        const waitTime = Math.min(
+          RETRY_CONFIG.baseDelay * Math.pow(2, attempt),
+          RETRY_CONFIG.maxDelay
+        );
+        console.log(`⏳ 服务器错误，等待 ${waitTime}ms 后重试 (${attempt + 1}/${retries})`);
+        await delay(waitTime);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < retries) {
+        const waitTime = Math.min(
+          RETRY_CONFIG.baseDelay * Math.pow(2, attempt),
+          RETRY_CONFIG.maxDelay
+        );
+        console.log(`⏳ 网络错误，等待 ${waitTime}ms 后重试 (${attempt + 1}/${retries})`);
+        await delay(waitTime);
+      }
+    }
+  }
+
+  throw lastError || new Error("API 请求失败，请检查网络连接后重试");
+};
+
 // 分析作文
-export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): Promise<EssayAnalysis> => {
+export const analyzeEssay = async (
+  base64Images: string[],
+  grade: GradeLevel,
+  onRetry?: (attempt: number, maxRetries: number) => void
+): Promise<EssayAnalysis> => {
   try {
     const apiKey = await getApiKey();
     if (!apiKey) {
@@ -209,24 +274,37 @@ export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): P
       { role: "user", content: userContent }
     ];
 
-    // 调用 API
-    const response = await fetch(API_CONFIG.baseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 4000,
-      })
-    });
+    // 调用 API（带重试）
+    const response = await fetchWithRetry(
+      API_CONFIG.baseUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: API_CONFIG.model,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 4000,
+        })
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error("API Error Details:", errorData);
+
+      // 更友好的错误信息
+      if (response.status === 401) {
+        throw new Error("API Key 无效，请检查配置");
+      } else if (response.status === 402) {
+        throw new Error("API 额度不足，请充值后重试");
+      } else if (response.status === 429) {
+        throw new Error("请求过于频繁，请稍后再试");
+      }
+
       throw new Error(`API 请求失败: ${response.status} ${errorData.error?.message || response.statusText}`);
     }
 

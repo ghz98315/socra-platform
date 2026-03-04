@@ -2,8 +2,8 @@
 // Essay History - 历史记录组件
 // =====================================================
 
-import React, { useState, useEffect } from 'react';
-import { X, Clock, Trash2, ChevronRight, Loader2, FileText, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Clock, Trash2, ChevronRight, Loader2, FileText, Calendar, Search, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { getEssayHistory, deleteEssay, EssayRecord } from '../lib/essay-history';
 
 interface EssayHistoryProps {
@@ -12,10 +12,14 @@ interface EssayHistoryProps {
   onSelectEssay: (record: EssayRecord) => void;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const EssayHistory: React.FC<EssayHistoryProps> = ({ isOpen, onClose, onSelectEssay }) => {
   const [records, setRecords] = useState<EssayRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (isOpen) {
@@ -23,12 +27,37 @@ const EssayHistory: React.FC<EssayHistoryProps> = ({ isOpen, onClose, onSelectEs
     }
   }, [isOpen]);
 
+  // 重置分页当搜索词变化时
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const loadHistory = async () => {
     setLoading(true);
-    const data = await getEssayHistory(50);
+    const data = await getEssayHistory(100);
     setRecords(data);
     setLoading(false);
   };
+
+  // 过滤和搜索
+  const filteredRecords = useMemo(() => {
+    if (!searchQuery.trim()) return records;
+
+    const query = searchQuery.toLowerCase();
+    return records.filter(record => {
+      const titleMatch = record.title?.toLowerCase().includes(query);
+      const contentMatch = record.content?.toLowerCase().includes(query);
+      const gradeMatch = record.grade?.toLowerCase().includes(query);
+      return titleMatch || contentMatch || gradeMatch;
+    });
+  }, [records, searchQuery]);
+
+  // 分页
+  const totalPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRecords.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRecords, currentPage]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -81,7 +110,12 @@ const EssayHistory: React.FC<EssayHistoryProps> = ({ isOpen, onClose, onSelectEs
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-800">批改历史</h2>
-              <p className="text-sm text-gray-500">共 {records.length} 条记录</p>
+              <p className="text-sm text-gray-500">
+                共 {filteredRecords.length} 条记录
+                {searchQuery && records.length !== filteredRecords.length && (
+                  <span className="text-warm-500"> (筛选自 {records.length} 条)</span>
+                )}
+              </p>
             </div>
           </div>
           <button
@@ -92,6 +126,28 @@ const EssayHistory: React.FC<EssayHistoryProps> = ({ isOpen, onClose, onSelectEs
           </button>
         </div>
 
+        {/* Search Bar */}
+        <div className="px-6 py-3 border-b border-gray-100 bg-gray-50">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="搜索标题、内容或年级..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-warm-400 focus:ring-2 focus:ring-warm-100 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
@@ -99,17 +155,21 @@ const EssayHistory: React.FC<EssayHistoryProps> = ({ isOpen, onClose, onSelectEs
               <Loader2 className="animate-spin text-warm-500 mb-3" size={32} />
               <p className="text-gray-500">加载中...</p>
             </div>
-          ) : records.length === 0 ? (
+          ) : filteredRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="bg-gray-100 p-4 rounded-full mb-4">
                 <FileText className="text-gray-400" size={40} />
               </div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">暂无批改记录</h3>
-              <p className="text-gray-500 text-sm">批改的作文将自动保存在这里</p>
+              <h3 className="text-lg font-medium text-gray-700 mb-2">
+                {searchQuery ? '未找到匹配的记录' : '暂无批改记录'}
+              </h3>
+              <p className="text-gray-500 text-sm">
+                {searchQuery ? '请尝试其他搜索词' : '批改的作文将自动保存在这里'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {records.map((record) => (
+              {paginatedRecords.map((record) => (
                 <div
                   key={record.id}
                   onClick={() => onSelectEssay(record)}
@@ -167,6 +227,58 @@ const EssayHistory: React.FC<EssayHistoryProps> = ({ isOpen, onClose, onSelectEs
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              第 {currentPage} / {totalPages} 页
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={18} className="text-gray-600" />
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-warm-500 text-white'
+                          : 'hover:bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRightIcon size={18} className="text-gray-600" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">

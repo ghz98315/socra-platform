@@ -3,7 +3,7 @@
 // =====================================================
 
 import React, { useState } from 'react';
-import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles } from 'lucide-react';
+import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2 } from 'lucide-react';
 import { EssayAnalysis } from '../types';
 
 interface AnalysisResultProps {
@@ -11,6 +11,266 @@ interface AnalysisResultProps {
   imagePreviews: string[];
   onReset: () => void;
 }
+
+// 生成 PDF 报告（使用浏览器打印功能）
+const generatePDFReport = async (analysis: EssayAnalysis, title: string): Promise<void> => {
+  // 创建打印内容
+  const printContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>作文批改报告 - ${title || '无题'}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+          padding: 40px;
+          max-width: 800px;
+          margin: 0 auto;
+          color: #333;
+          line-height: 1.8;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 40px;
+          padding-bottom: 20px;
+          border-bottom: 3px solid #ff8a3d;
+        }
+        .header h1 {
+          font-size: 28px;
+          color: #863713;
+          margin-bottom: 10px;
+        }
+        .header .subtitle {
+          color: #888;
+          font-size: 14px;
+        }
+        .section {
+          margin-bottom: 30px;
+          page-break-inside: avoid;
+        }
+        .section-title {
+          font-size: 20px;
+          font-weight: bold;
+          color: #ff8a3d;
+          margin-bottom: 15px;
+          padding-left: 15px;
+          border-left: 4px solid #ff8a3d;
+        }
+        .essay-title {
+          font-size: 22px;
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 15px;
+          text-align: center;
+        }
+        .essay-body {
+          background: #fff9f5;
+          padding: 20px;
+          border-radius: 10px;
+          border: 1px solid #ffe4d1;
+          white-space: pre-wrap;
+          line-height: 2;
+        }
+        .highlight-item {
+          background: #fffbf0;
+          padding: 12px 15px;
+          border-radius: 8px;
+          margin-bottom: 10px;
+          border-left: 3px solid #fbbf24;
+        }
+        .highlight-num {
+          display: inline-block;
+          width: 24px;
+          height: 24px;
+          background: #fbbf24;
+          color: white;
+          border-radius: 50%;
+          text-align: center;
+          line-height: 24px;
+          font-size: 12px;
+          font-weight: bold;
+          margin-right: 10px;
+        }
+        .correction-item {
+          background: #faf5ff;
+          padding: 15px;
+          border-radius: 10px;
+          margin-bottom: 15px;
+          border: 1px solid #e9d5ff;
+        }
+        .correction-original {
+          color: #666;
+          margin-bottom: 8px;
+          padding-left: 10px;
+          border-left: 3px solid #ccc;
+        }
+        .correction-improved {
+          color: #7c3aed;
+          font-weight: 500;
+          padding-left: 10px;
+          border-left: 3px solid #7c3aed;
+          background: #f5f3ff;
+          padding: 10px;
+          border-radius: 5px;
+          margin-bottom: 8px;
+        }
+        .correction-reason {
+          color: #888;
+          font-size: 13px;
+          padding-left: 10px;
+        }
+        .golden-item {
+          background: linear-gradient(to right, #ecfdf5, #fff);
+          padding: 15px;
+          border-radius: 10px;
+          margin-bottom: 15px;
+          border: 1px solid #a7f3d0;
+        }
+        .golden-sentence {
+          color: #065f46;
+          font-weight: 500;
+          font-size: 16px;
+          margin-bottom: 8px;
+        }
+        .golden-benefit {
+          color: #059669;
+          font-size: 14px;
+          font-style: italic;
+        }
+        .comment-section {
+          background: #fff9f5;
+          padding: 25px;
+          border-radius: 15px;
+          border: 1px solid #ffe4d1;
+        }
+        .comment-block {
+          margin-bottom: 20px;
+        }
+        .comment-title {
+          display: inline-block;
+          background: #ff8a3d;
+          color: white;
+          padding: 5px 15px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: bold;
+          margin-bottom: 10px;
+        }
+        .comment-content {
+          padding-left: 10px;
+          color: #555;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid #eee;
+          color: #888;
+          font-size: 12px;
+        }
+        @media print {
+          body { padding: 20px; }
+          .section { page-break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>📝 AI 作文批改报告</h1>
+        <div class="subtitle">生成时间：${new Date().toLocaleString('zh-CN')}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">原文内容</div>
+        ${analysis.title ? `<div class="essay-title">《${analysis.title}》</div>` : ''}
+        <div class="essay-body">${analysis.body || '未能识别到正文内容'}</div>
+      </div>
+
+      ${analysis.highlights && analysis.highlights.length > 0 ? `
+      <div class="section">
+        <div class="section-title">✨ 闪光点</div>
+        ${analysis.highlights.map((point, idx) => `
+          <div class="highlight-item">
+            <span class="highlight-num">${idx + 1}</span>
+            ${point}
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${analysis.corrections && analysis.corrections.length > 0 ? `
+      <div class="section">
+        <div class="section-title">🪄 魔法修改</div>
+        ${analysis.corrections.map((item, idx) => `
+          <div class="correction-item">
+            <div class="correction-original">
+              <strong>原句：</strong>${item.original}
+            </div>
+            <div class="correction-improved">
+              <strong>修改后：</strong>${item.improved}
+            </div>
+            <div class="correction-reason">
+              💡 ${item.reason}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${analysis.goldenSentences && analysis.goldenSentences.length > 0 ? `
+      <div class="section">
+        <div class="section-title">💎 金句赏析</div>
+        ${analysis.goldenSentences.map((item, idx) => `
+          <div class="golden-item">
+            <div class="golden-sentence">"${item.sentence}"</div>
+            <div class="golden-benefit">📖 ${item.benefit}</div>
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${analysis.overallComment ? `
+      <div class="section">
+        <div class="section-title">👩‍🏫 老师总评</div>
+        <div class="comment-section">
+          ${analysis.overallComment.split('\n').map(line => {
+            const match = line.match(/^.*?【(.*?)】(.*)$/);
+            if (match) {
+              return `
+                <div class="comment-block">
+                  <div class="comment-title">${match[1]}</div>
+                  <div class="comment-content">${match[2]}</div>
+                </div>
+              `;
+            }
+            return line ? `<p style="margin-bottom: 10px;">${line}</p>` : '';
+          }).join('')}
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="footer">
+        <p>本报告由 AI 作文批改系统自动生成</p>
+        <p>Socrates AI 学习助手</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // 打开新窗口打印
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    // 延迟打印确保内容加载完成
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  }
+};
 
 const Card: React.FC<{
   title: string;
@@ -79,6 +339,7 @@ const FormattedComment: React.FC<{ text?: string }> = ({ text }) => {
 
 const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews, onReset }) => {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
 
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % imagePreviews.length);
@@ -86,6 +347,18 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
 
   const prevImage = () => {
     setCurrentImageIdx((prev) => (prev - 1 + imagePreviews.length) % imagePreviews.length);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await generatePDFReport(analysis, analysis.title || '');
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('导出失败，请重试');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -259,8 +532,23 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50">
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50 flex items-center gap-3">
+        {/* Export Button */}
+        <button
+          onClick={handleExport}
+          disabled={isExporting}
+          className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 px-6 py-4 rounded-full shadow-lg border border-gray-200 transition-all hover:shadow-xl font-medium active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isExporting ? (
+            <Loader2 className="animate-spin" size={20} />
+          ) : (
+            <Download size={20} />
+          )}
+          导出报告
+        </button>
+
+        {/* Reset Button */}
         <button
           onClick={onReset}
           className="flex items-center gap-2 bg-warm-500 hover:bg-warm-600 text-white px-8 py-4 rounded-full shadow-xl transition-transform hover:scale-105 font-bold tracking-wide active:scale-95 ring-4 ring-warm-200"
