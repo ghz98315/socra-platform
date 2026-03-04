@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { X, Phone, Lock, Loader2, Eye, EyeOff, BookOpenCheck, User } from 'lucide-react';
-import { signIn, signUp } from '@socra/shared/auth';
+import { supabase } from '../lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -80,19 +80,35 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess })
     setLoading(true);
 
     try {
+      // 手机号转换为邮箱格式
+      const email = `${phone}@student.local`;
+
       if (mode === 'login') {
-        const result = await signIn(phone, password);
-        if (result.error) {
-          setError(result.error.message || '登录失败，请检查手机号和密码');
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) {
+          setError(error.message || '登录失败，请检查手机号和密码');
         } else {
           onAuthSuccess();
           onClose();
           resetForm();
         }
       } else {
-        const result = await signUp(phone, password, displayName || undefined);
-        if (result.error) {
-          setError(result.error.message || '注册失败，请稍后重试');
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: undefined,
+            data: {
+              phone: phone,
+              display_name: displayName || phone,
+            },
+          },
+        });
+        if (error) {
+          setError(error.message || '注册失败，请稍后重试');
         } else {
           // 注册成功
           setRegisterSuccess(true);
