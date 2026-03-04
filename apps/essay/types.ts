@@ -14,13 +14,13 @@ export interface GoldenSentence {
 }
 
 export interface EssayAnalysis {
-  title: string;
-  body: string;
-  transcribedText: string;
-  highlights: string[];
-  corrections: MagicCorrection[];
-  goldenSentences: GoldenSentence[];
-  overallComment: string;
+  title?: string;
+  body?: string;
+  transcribedText?: string;
+  highlights?: string[];
+  corrections?: MagicCorrection[];
+  goldenSentences?: GoldenSentence[];
+  overallComment?: string;
 }
 
 export enum AppState {

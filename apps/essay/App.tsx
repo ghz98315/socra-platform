@@ -99,6 +99,20 @@ const App: React.FC = () => {
 
     try {
       const result = await analyzeEssay(files, grade);
+
+      // 验证结果是否有效
+      if (!result || (!result.body && !result.title)) {
+        throw new Error("无法识别作文内容，请确保图片清晰且包含手写文字");
+      }
+
+      console.log("📊 分析结果:", {
+        title: result.title,
+        bodyLength: result.body?.length || 0,
+        highlights: result.highlights?.length || 0,
+        corrections: result.corrections?.length || 0,
+        goldenSentences: result.goldenSentences?.length || 0,
+      });
+
       setAnalysisResult(result);
       setAppState(AppState.RESULT);
 

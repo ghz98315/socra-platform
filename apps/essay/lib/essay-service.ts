@@ -215,23 +215,33 @@ export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): P
     }
 
     const data = await response.json();
+    console.log("📡 API Response Status:", response.status);
+    console.log("📡 API Response Data:", JSON.stringify(data, null, 2).substring(0, 500));
+
     let contentString = data.choices?.[0]?.message?.content;
 
     if (!contentString) {
-      throw new Error("API 返回内容为空");
+      console.error("❌ API 返回内容为空. Full response:", data);
+      throw new Error("API 返回内容为空，请检查图片是否清晰或重试");
     }
+
+    console.log("📝 Raw content length:", contentString.length);
+    console.log("📝 Raw content preview:", contentString.substring(0, 300));
 
     // 清理并解析 JSON
     contentString = contentString.replace(/```json\n?|```/g, "").trim();
+    console.log("🧹 Cleaned content preview:", contentString.substring(0, 300));
 
     // 尝试解析 JSON
     let result;
     try {
       // 尝试直接解析
       result = JSON.parse(contentString);
+      console.log("✅ JSON 解析成功");
     } catch (parseError) {
       // 尝试修复常见的 JSON 问题
-      console.warn("First JSON parse failed, attempting to fix...");
+      console.warn("⚠️ First JSON parse failed, attempting to fix...");
+      console.warn("Parse error:", parseError);
 
       try {
         // 移除可能的尾部逗号
@@ -239,16 +249,39 @@ export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): P
         // 修复未转义的换行符
         fixedContent = fixedContent.replace(/\n/g, '\\n');
         result = JSON.parse(fixedContent);
+        console.log("✅ JSON 修复后解析成功");
       } catch (secondError) {
-        console.error("JSON parse failed. Raw content:", contentString.substring(0, 1000));
+        console.error("❌ JSON parse failed completely");
+        console.error("Raw content (first 1000 chars):", contentString.substring(0, 1000));
         throw new Error("AI 返回格式错误，请重试。如果问题持续，请尝试上传更清晰的图片。");
       }
     }
 
-    return {
-      ...result,
-      transcribedText: (result.title ? result.title + "\n" : "") + result.body
-    } as EssayAnalysis;
+    // 验证必要字段
+    console.log("🔍 Parsed result keys:", Object.keys(result || {}));
+    console.log("🔍 Title:", result?.title);
+    console.log("🔍 Body length:", result?.body?.length || 0);
+    console.log("🔍 Highlights count:", result?.highlights?.length || 0);
+    console.log("🔍 Corrections count:", result?.corrections?.length || 0);
+
+    if (!result.body && !result.title) {
+      console.error("❌ 解析结果缺少正文内容");
+      throw new Error("无法识别作文内容，请确保图片清晰且包含手写文字");
+    }
+
+    // 确保返回完整对象，添加默认值
+    const finalResult: EssayAnalysis = {
+      title: result.title || "",
+      body: result.body || "",
+      transcribedText: (result.title ? result.title + "\n" : "") + (result.body || ""),
+      highlights: result.highlights || [],
+      corrections: result.corrections || [],
+      goldenSentences: result.goldenSentences || [],
+      overallComment: result.overallComment || "暂无总评"
+    };
+
+    console.log("🎉 分析完成，返回结果");
+    return finalResult;
 
   } catch (error) {
     console.error("Error analyzing essay:", error);
