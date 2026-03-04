@@ -1,4 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && pnpm install && pnpm --filter=@socra/socrates build",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && pnpm install",
+  "framework": "nextjs",
   "headers": [
     {
       "source": "/(.*)",
