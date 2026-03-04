@@ -31,6 +31,8 @@ import type { StudentStats } from '@/lib/supabase/types';
 import { LearningHeatmap } from '@/components/LearningHeatmap';
 import { WeakKnowledgePoints } from '@/components/WeakKnowledgePoints';
 import { TodayStats, WeeklyStats } from '@/components/StudyTimeCards';
+import { ParentReview } from '@/components/ParentReview';
+import { LearningSuggestions } from '@/components/LearningSuggestions';
 import { Input } from '@/components/ui/input';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
@@ -409,6 +411,32 @@ export default function DashboardPage() {
             >
               <LearningHeatmap data={heatmapData} />
               <WeakKnowledgePoints data={weakPoints} />
+            </div>
+
+            {/* 学习建议和家长复核 - 带滚动动画 */}
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              style={{
+                opacity: chartsAnimation.isVisible ? 1 : 0,
+                transform: chartsAnimation.isVisible ? 'translateY(0)' : 'translateY(30px)',
+                transition: 'opacity 0.6s ease-out 0.4s, transform 0.6s ease-out 0.4s',
+              }}
+            >
+              <LearningSuggestions
+                studentId={selectedStudent}
+                studentName={selectedStudentName}
+                weakPoints={weakPoints}
+                studyStats={studyStats}
+                studentStats={stats ? {
+                  total_errors: stats.total_errors,
+                  mastered_count: stats.mastered_count,
+                  mastery_rate: stats.mastery_rate,
+                } : null}
+              />
+              <ParentReview
+                studentId={selectedStudent}
+                studentName={selectedStudentName}
+              />
             </div>
           </div>
         ) : (
