@@ -18,7 +18,8 @@ import {
   X,
   Trophy,
   ChevronRight,
-  Bookmark
+  Bookmark,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -38,10 +39,11 @@ const parentNavItems = [
 ];
 
 const studentNavItems = [
-  { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
-  { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
-  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-600' },
-  { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-yellow-500' },
+  { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-warm-500' },
+  { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-warm-600' },
+  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-500' },
+  { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-warm-500' },
+  { href: '/community', icon: Users, label: '社区', shortLabel: '交流', color: 'text-warm-500' },
 ];
 
 export function GlobalNav() {
@@ -221,8 +223,8 @@ export function GlobalNav() {
       {/* 第二层：导航卡片栏 (桌面端) */}
       <div
         className={cn(
-          "hidden sm:block border-t border-border/30 transition-all duration-500",
-          isScrolled ? "bg-muted/10" : "bg-muted/20"
+          "hidden sm:block border-t border-warm-100 transition-all duration-500",
+          isScrolled ? "bg-warm-50" : "bg-warm-100/50"
         )}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -239,8 +241,8 @@ export function GlobalNav() {
                     "group relative flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-300",
                     "animate-fade-in",
                     active
-                      ? "bg-card shadow-sm border border-border/50"
-                      : "hover:bg-card/50 border border-transparent"
+                      ? "bg-white shadow-sm border border-warm-200"
+                      : "hover:bg-white/50 border border-transparent"
                   )}
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
@@ -249,7 +251,7 @@ export function GlobalNav() {
                     <span
                       className={cn(
                         "absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full",
-                        "bg-primary transition-all duration-300"
+                        "bg-warm-500 transition-all duration-300"
                       )}
                     />
                   )}
@@ -258,14 +260,14 @@ export function GlobalNav() {
                     className={cn(
                       "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300",
                       active
-                        ? "bg-primary/10"
-                        : "bg-muted group-hover:bg-muted/80"
+                        ? "bg-warm-100"
+                        : "bg-warm-50 group-hover:bg-warm-100"
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-4 h-4 transition-colors duration-300",
-                        active ? item.color : "text-muted-foreground group-hover:text-foreground"
+                        active ? item.color : "text-warm-600 group-hover:text-warm-900"
                       )}
                     />
                   </div>
@@ -316,8 +318,8 @@ export function GlobalNav() {
       <nav
         className={cn(
           "sm:hidden fixed bottom-0 left-0 right-0 z-50",
-          "bg-white/95 dark:bg-black/95 backdrop-blur-xl",
-          "border-t border-border/50",
+          "bg-white/95 backdrop-blur-xl",
+          "border-t border-warm-100",
           "pb-[env(safe-area-inset-bottom)]"
         )}
       >
@@ -365,7 +367,7 @@ export function GlobalNav() {
           isMobileMenuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
         )}
       >
-        <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl">
+        <div className="border-t border-warm-100 bg-white/95 backdrop-blur-xl">
           {/* 移动端导航卡片 */}
           <div className="p-4 space-y-4">
             {/* 用户信息 */}
