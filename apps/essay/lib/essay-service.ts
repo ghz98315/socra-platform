@@ -224,13 +224,24 @@ export const analyzeEssay = async (base64Images: string[], grade: GradeLevel): P
     // 清理并解析 JSON
     contentString = contentString.replace(/```json\n?|```/g, "").trim();
 
-    // 尝试解析 JSON
-    let result;
+    // 尝试解析 JSON，    let result;
     try {
+      // 尝试直接解析
       result = JSON.parse(contentString);
     } catch (parseError) {
-      console.error("JSON parse failed. Raw content:", contentString.substring(0, 500));
-      throw new Error("AI 返回格式错误，请重试");
+      // 尝试修复常见的 JSON 问题
+      console.warn("First JSON parse failed, attempting to fix...");
+
+      try {
+        // 移除可能的尾部逗号
+        let fixedContent = contentString.replace(/,(\s*[}\]])/g, '$1');
+        // 修复未转义的换行符
+        fixedContent = fixedContent.replace(/\n/g, '\\n');
+        result = JSON.parse(fixedContent);
+      } catch (secondError) {
+        console.error("JSON parse failed. Raw content:", contentString.substring(0, 1000));
+        throw new Error("AI 返回格式错误，请重试。如果问题持续，请尝试上传更清晰的图片。");
+      }
     }
 
     return {
