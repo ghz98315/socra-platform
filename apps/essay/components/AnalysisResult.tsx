@@ -29,7 +29,7 @@ const Card: React.FC<{
   </div>
 );
 
-const FormattedComment: React.FC<{ text: string }> = ({ text }) => {
+const FormattedComment: React.FC<{ text?: string }> = ({ text }) => {
   // 防止 text 为 undefined 或 null
   if (!text) {
     return <p className="text-gray-500">暂无总评</p>;
