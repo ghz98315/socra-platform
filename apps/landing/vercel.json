@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm --filter=@socra/landing build",
   "installCommand": "pnpm install",
-  "outputDirectory": ".next",
+  "outputDirectory": "apps/landing/.next",
   "framework": "nextjs"
 }

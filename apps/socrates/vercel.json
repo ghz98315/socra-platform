@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm --filter=@socra/socrates build",
   "installCommand": "pnpm install",
-  "outputDirectory": ".next",
+  "outputDirectory": "apps/socrates/.next",
   "framework": "nextjs",
   "headers": [
     {
