@@ -17,7 +17,8 @@ import {
   CheckCircle,
   FileText,
   AlertCircle,
-  Filter
+  Filter,
+  RefreshCw
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
@@ -70,76 +71,98 @@ export default function ReviewPage() {
   const supabase = createClient() as SupabaseClient;
 
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [completedCount, setCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'overdue'>('all');
 
   // 滚动动画 refs
   const filterAnimation = useScrollAnimation();
   const listAnimation = useScrollAnimation();
 
-  const loadReviews = useCallback(async () => {
-    setLoading(true);
+  const loadReviews = useCallback(async (isRefresh = false) => {
+    if (!profile?.id) return;
 
-    const { data: reviewData, error: reviewError } = await supabase
-      .from('review_schedule')
-      .select('*')
-      .eq('student_id', profile?.id || '')
-      .eq('is_completed', false)
-      .order('next_review_at', { ascending: true });
-
-    if (reviewError) {
-      console.error('Failed to load reviews:', reviewError);
-      setLoading(false);
-      return;
-    }
-
-    const reviewSchedules = reviewData || [];
-
-    // 关联错题会话信息
-    const sessionIds = reviewSchedules.map((r: { session_id: string }) => r.session_id) || [];
-
-    if (sessionIds.length > 0) {
-      const { data: sessionData } = await supabase
-        .from('error_sessions')
-        .select('*')
-        .in('id', sessionIds);
-
-      const sessions = sessionData || [];
-
-      // 组合数据
-      const sessionMap = new Map(sessions.map((s: { id: string }) => [s.id, s]));
-
-      const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
-        const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
-        const now = new Date();
-        const nextReviewDate = new Date(review.next_review_at);
-        const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-        return {
-          id: review.id,
-          sessionId: review.session_id,
-          subject: session?.subject || 'math',
-          conceptTags: session?.concept_tags ?? null,
-          difficultyRating: session?.difficulty_rating ?? null,
-          nextReviewAt: review.next_review_at,
-          reviewStage: review.review_stage,
-          daysUntilDue: daysUntil,
-          isOverdue: daysUntil <= 0,
-        };
-      });
-
-      setReviews(enrichedReviews);
+    if (isRefresh) {
+      setRefreshing(true);
     } else {
-      setReviews([]);
+      setLoading(true);
     }
 
-    setLoading(false);
+    try {
+      // 并行获取待复习和已完成数量
+      const [pendingResult, completedResult] = await Promise.all([
+        supabase
+          .from('review_schedule')
+          .select('*')
+          .eq('student_id', profile.id)
+          .eq('is_completed', false)
+          .order('next_review_at', { ascending: true }),
+        supabase
+          .from('review_schedule')
+          .select('id', { count: 'exact', head: true })
+          .eq('student_id', profile.id)
+          .eq('is_completed', true)
+      ]);
+
+      if (pendingResult.error) {
+        console.error('Failed to load reviews:', pendingResult.error);
+        return;
+      }
+
+      setCompletedCount(completedResult.count || 0);
+
+      const reviewSchedules = pendingResult.data || [];
+
+      // 关联错题会话信息
+      const sessionIds = reviewSchedules.map((r: { session_id: string }) => r.session_id) || [];
+
+      if (sessionIds.length > 0) {
+        const { data: sessionData } = await supabase
+          .from('error_sessions')
+          .select('*')
+          .in('id', sessionIds);
+
+        const sessions = sessionData || [];
+
+        // 组合数据
+        const sessionMap = new Map(sessions.map((s: { id: string }) => [s.id, s]));
+
+        const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
+          const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
+          const now = new Date();
+          const nextReviewDate = new Date(review.next_review_at);
+          const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+          return {
+            id: review.id,
+            sessionId: review.session_id,
+            subject: session?.subject || 'math',
+            conceptTags: session?.concept_tags ?? null,
+            difficultyRating: session?.difficulty_rating ?? null,
+            nextReviewAt: review.next_review_at,
+            reviewStage: review.review_stage,
+            daysUntilDue: daysUntil,
+            isOverdue: daysUntil <= 0,
+          };
+        });
+
+        setReviews(enrichedReviews);
+      } else {
+        setReviews([]);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [profile?.id, supabase]);
 
-  // 加载复习列表
+  // 加载复习列表 - 确保 profile 存在后再加载
   useEffect(() => {
-    loadReviews();
-  }, [loadReviews]);
+    if (profile?.id) {
+      loadReviews();
+    }
+  }, [profile?.id, loadReviews]);
 
   const filteredReviews = reviews.filter(review => {
     if (filterStatus === 'pending') return !review.isOverdue;
@@ -216,14 +239,25 @@ export default function ReviewPage() {
           icon={FileText}
           iconColor="text-warm-500"
           actions={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.href = '/workbench'}
-              className="transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
-            >
-              返回工作台
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadReviews(true)}
+                disabled={refreshing}
+                className="transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
+              >
+                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = '/workbench'}
+                className="transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
+              >
+                返回工作台
+              </Button>
+            </div>
           }
         >
           {/* 统计卡片 */}
@@ -250,8 +284,8 @@ export default function ReviewPage() {
               delay={0.2}
             />
             <StatCard
-              label="完成率"
-              value="0%"
+              label="已完成"
+              value={completedCount}
               icon={CheckCircle}
               color="text-green-500"
               delay={0.3}
@@ -261,7 +295,7 @@ export default function ReviewPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-32">
         {/* Filter Tabs Card - 带动画 */}
         <div
           ref={filterAnimation.ref}
