@@ -1,7 +1,4 @@
 {
-  "buildCommand": "cd ../.. && pnpm install && pnpm --filter=@socra/socrates build",
-  "installCommand": "cd ../.. && pnpm install",
-  "outputDirectory": ".next",
   "headers": [
     {
       "source": "/(.*)",
