@@ -47,8 +47,8 @@ const getProfileOptions = (currentRole?: string): ProfileOption[] => [
     icon: <ChartBar className="w-12 h-12" />,
     theme: 'senior',
     role: 'parent',
-    // 新用户(无角色)或已经是家长可以选择Parent，学生不能切换到家长
-    locked: currentRole === 'student',
+    // 只有已经是 parent 角色的用户才能选择 parent
+    locked: currentRole !== 'parent',
   },
 ];
 
@@ -126,21 +126,21 @@ export default function SelectProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen flex items-center justify-center bg-warm-50">
+        <Loader2 className="w-8 h-8 animate-spin text-warm-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-warm-50 p-6">
       <div className="w-full max-w-4xl space-y-8">
         {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="text-3xl font-semibold tracking-tight text-warm-900">
             Select your profile
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-warm-600">
             选择你的学习空间
           </p>
         </div>
@@ -153,19 +153,18 @@ export default function SelectProfilePage() {
               onClick={() => handleSelectProfile(option)}
               disabled={selecting !== null}
               className={`
-                group relative bg-card rounded-2xl p-8
+                group relative bg-white rounded-2xl p-8
                 transition-all duration-300 ease-out
-                hover:shadow-apple-hover
+                hover:shadow-lg hover:shadow-warm-500/10
                 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-                border border-transparent hover:border-gray-100
-                ${option.theme === 'junior' ? 'theme-junior' : 'theme-senior'}
+                border border-warm-100 hover:border-warm-200
                 ${option.locked ? 'opacity-60' : ''}
               `}
             >
               {/* Lock overlay for locked options */}
               {option.locked && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-2xl z-10">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-2xl z-10">
+                  <div className="flex flex-col items-center gap-2 text-warm-500">
                     <Lock className="w-8 h-8" />
                     <span className="text-xs font-medium">需要家长权限</span>
                   </div>
@@ -177,8 +176,8 @@ export default function SelectProfilePage() {
                 w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center
                 transition-colors duration-200
                 ${option.theme === 'junior'
-                  ? 'bg-orange-50 text-orange-500 group-hover:bg-orange-100'
-                  : 'bg-blue-50 text-blue-500 group-hover:bg-blue-100'
+                  ? 'bg-warm-100 text-warm-500 group-hover:bg-warm-200'
+                  : 'bg-warm-100 text-warm-600 group-hover:bg-warm-200'
                 }
                 ${option.locked ? 'opacity-50' : ''}
               `}>
@@ -186,21 +185,19 @@ export default function SelectProfilePage() {
               </div>
 
               {/* Title & Subtitle */}
-              <h3 className="text-center text-xl font-semibold mb-1 text-card-foreground">
+              <h3 className="text-center text-xl font-semibold mb-1 text-warm-900">
                 {option.title}
               </h3>
-              <p className="text-center text-sm text-muted-foreground mb-6">
+              <p className="text-center text-sm text-warm-500 mb-6">
                 {option.subtitle}
               </p>
 
               {/* Continue Button */}
               <div className={`
-                py-3 rounded-full text-sm font-medium transition-colors
+                py-3 rounded-full text-sm font-medium transition-all
                 ${option.locked
-                  ? 'bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                  : option.theme === 'junior'
-                    ? 'bg-orange-500 text-white hover:bg-orange-600'
-                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                  ? 'bg-warm-100 text-warm-400'
+                  : 'bg-warm-500 text-white hover:bg-warm-600 hover:shadow-lg hover:shadow-warm-500/30'
                 }
               `}>
                 {selecting === option.id ? (
@@ -225,7 +222,7 @@ export default function SelectProfilePage() {
               await signOut();
               router.push('/login');
             }}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-warm-500 hover:text-warm-700 transition-colors underline underline-offset-4"
           >
             切换账户
           </button>
@@ -235,14 +232,14 @@ export default function SelectProfilePage() {
       {/* Access Denied Modal */}
       {showAccessDenied && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-xl animate-scale-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl animate-scale-in border border-warm-100">
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                <Lock className="w-8 h-8 text-orange-500" />
+              <div className="w-16 h-16 rounded-full bg-warm-100 flex items-center justify-center">
+                <Lock className="w-8 h-8 text-warm-500" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold mb-2">温馨提示</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-lg font-semibold mb-2 text-warm-900">温馨提示</h3>
+                <p className="text-sm text-warm-600">
                   家长控制台需要使用家长账号登录。
                   <br /><br />
                   如果你是学生，请选择 Junior 或 Senior 学习空间。
@@ -252,7 +249,7 @@ export default function SelectProfilePage() {
               </div>
               <button
                 onClick={() => setShowAccessDenied(false)}
-                className="w-full py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary/90 transition-colors"
+                className="w-full py-3 rounded-full bg-warm-500 text-white font-medium hover:bg-warm-600 transition-colors shadow-lg shadow-warm-500/30"
               >
                 我知道了
               </button>

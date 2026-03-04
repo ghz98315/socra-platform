@@ -43,8 +43,8 @@ const statusConfig: Record<SyncStatus, { icon: typeof Cloud; label: string; colo
   syncing: {
     icon: RefreshCw,
     label: '同步中',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    color: 'text-warm-500',
+    bgColor: 'bg-warm-100 dark:bg-warm-900/30',
   },
   offline: {
     icon: CloudOff,

@@ -5,10 +5,24 @@
 @custom-variant dark (&:is(.dark *));
 
 /* =====================================================
-   Project Socrates - Apple Style Design Tokens
+   Project Socrates - Unified Warm Design System
+   Based on Essay App's warm color palette
    ===================================================== */
 
 @theme inline {
+  /* Warm Color System (from Essay App) */
+  --color-warm-50: #fff9f5;
+  --color-warm-100: #fff3eb;
+  --color-warm-200: #ffe4d1;
+  --color-warm-300: #ffcea5;
+  --color-warm-400: #ffaa6c;
+  --color-warm-500: #ff8a3d;
+  --color-warm-600: #f06c1a;
+  --color-warm-700: #c7500c;
+  --color-warm-800: #a3400e;
+  --color-warm-900: #863713;
+  --color-warm-950: #481a07;
+
   /* Apple Color System */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -56,98 +70,104 @@
 }
 
 /* =====================================================
-   Light Mode (Default)
+   Light Mode (Default) - Warm Theme
    ===================================================== */
 :root {
-  /* Apple Colors */
-  --background: 245 245 247; /* #F5F5F7 */
-  --foreground: 29 29 31;    /* #1D1D1F */
+  /* Warm Background Colors */
+  --background: 255 249 245; /* warm-50 #fff9f5 */
+  --foreground: 134 55 19;    /* warm-900 #863713 */
   --card: 255 255 255;       /* #FFFFFF */
-  --card-foreground: 29 29 31;
+  --card-foreground: 134 55 19;
   --popover: 255 255 255;
-  --popover-foreground: 29 29 31;
-  --primary: 29 29 31;       /* Apple Black */
+  --popover-foreground: 134 55 19;
+
+  /* Primary - Warm Orange */
+  --primary: 255 138 61;       /* warm-500 #ff8a3d */
   --primary-foreground: 255 255 255;
-  --secondary: 245 245 247;
-  --secondary-foreground: 29 29 31;
-  --muted: 245 245 247;
-  --muted-foreground: 134 134 139; /* #86868B */
-  --accent: 245 245 247;
-  --accent-foreground: 29 29 31;
+  --secondary: 255 243 235;    /* warm-100 #fff3eb */
+  --secondary-foreground: 134 55 19;
+  --muted: 255 228 209;       /* warm-200 #ffe4d1 */
+  --muted-foreground: 166 108 73; /* warm-700 #c7500c */
+  --accent: 255 243 235;    /* warm-100 */
+  --accent-foreground: 240 108 26; /* warm-600 #f06c1a */
   --destructive: 239 68 68;
-  --border: 0 0 0 / 0.08;    /* rgba(0,0,0,0.08) */
-  --input: 0 0 0 / 0.08;
-  --ring: 29 29 31;
+  --border: 255 228 209 / 0.5; /* warm-200 with opacity */
+  --input: 255 228 209 / 0.5;
+  --ring: 255 138 61; /* warm-500 */
 
-  /* Junior Theme Accent (Orange) */
-  --junior-accent: 255 149 0;      /* #FF9500 */
-  --junior-accent-light: 255 243 224; /* #FFF3E0 */
+  /* Junior Theme Accent (Warm Orange) */
+  --junior-accent: 255 138 61;      /* warm-500 */
+  --junior-accent-light: 255 243 235; /* warm-100 */
 
-  /* Senior Theme Accent (Blue) */
-  --senior-accent: 0 122 255;      /* #007AFF */
-  --senior-accent-light: 229 241 255; /* #E5F1FF */
+  /* Senior Theme Accent (Deeper Warm) */
+  --senior-accent: 240 108 26;      /* warm-600 */
+  --senior-accent-light: 255 228 209; /* warm-200 */
 
-  /* Chart Colors */
-  --chart-1: 255 149 0;
-  --chart-2: 0 122 255;
-  --chart-3: 52 199 89;
-  --chart-4: 175 82 222;
-  --chart-5: 255 59 48;
+  /* Chart Colors - Warm palette */
+  --chart-1: 255 138 61;  /* warm-500 */
+  --chart-2: 255 170 108; /* warm-400 */
+  --chart-3: 255 206 165; /* warm-300 */
+  --chart-4: 240 108 26; /* warm-600 */
+  --chart-5: 199 80 12; /* warm-700 */
 }
 
 /* =====================================================
-   Dark Mode (Senior Only)
+   Dark Mode - Warm Dark Theme
    ===================================================== */
 .dark {
-  --background: 0 0 0;        /* #000000 */
-  --foreground: 255 255 255;
-  --card: 28 28 30;          /* #1C1C1E */
-  --card-foreground: 255 255 255;
-  --popover: 28 28 30;
-  --popover-foreground: 255 255 255;
-  --primary: 255 255 255;
-  --primary-foreground: 0 0 0;
-  --secondary: 28 28 30;
-  --secondary-foreground: 255 255 255;
-  --muted: 28 28 30;
-  --muted-foreground: 152 152 157;
-  --accent: 28 28 30;
-  --accent-foreground: 255 255 255;
+  --background: 36 14 7;        /* warm-950 #481a07 */
+  --foreground: 255 243 235;   /* warm-100 */
+  --card: 72 26 14;            /* warm-900 #863713 */
+  --card-foreground: 255 243 235;
+  --popover: 72 26 14;
+  --popover-foreground: 255 243 235;
+  --primary: 255 170 108;     /* warm-400 */
+  --primary-foreground: 36 14 7;
+  --secondary: 72 26 14;
+  --secondary-foreground: 255 243 235;
+  --muted: 72 26 14;
+  --muted-foreground: 255 206 165; /* warm-300 */
+  --accent: 72 26 14;
+  --accent-foreground: 255 170 108;
   --destructive: 239 68 68;
-  --border: 255 255 255 / 0.1;
-  --input: 255 255 255 / 0.15;
-  --ring: 255 255 255;
+  --border: 255 228 209 / 0.15;
+  --input: 255 228 209 / 0.2;
+  --ring: 255 170 108;
 
-  /* Senior Dark Mode Accent */
-  --senior-accent: 10 132 255; /* #0A84FF */
-  --senior-accent-light: 28 28 30;
+  /* Warm accent for dark mode */
+  --junior-accent: 255 170 108;
+  --junior-accent-light: 72 26 14;
+  --senior-accent: 255 138 61;
+  --senior-accent-light: 72 26 14;
 }
 
 /* =====================================================
-   Theme-specific Classes
+   Theme-specific Classes - Unified Warm Theme
    ===================================================== */
 .theme-junior {
-  --primary: var(--junior-accent);
+  --primary: 255 138 61;      /* warm-500 */
   --primary-foreground: 255 255 255;
-  --accent: var(--junior-accent-light);
-  --accent-foreground: 230 81 0;
+  --accent: 255 243 235;    /* warm-100 */
+  --accent-foreground: 199 80 12; /* warm-700 */
 }
 
 .theme-junior.dark {
-  --junior-accent: 255 179 64; /* Slightly lighter orange for dark mode */
-  --junior-accent-light: 62 39 35;
+  --primary: 255 170 108;      /* warm-400 for better dark mode visibility */
+  --accent: 72 26 14;
+  --accent-foreground: 255 206 165;
 }
 
 .theme-senior {
-  --primary: var(--senior-accent);
+  --primary: 240 108 26;      /* warm-600 - slightly more mature */
   --primary-foreground: 255 255 255;
-  --accent: var(--senior-accent-light);
-  --accent-foreground: 0 51 204;
+  --accent: 255 228 209;    /* warm-200 */
+  --accent-foreground: 134 55 19; /* warm-900 */
 }
 
 .theme-senior.dark {
-  --senior-accent: 10 132 255;
-  --senior-accent-light: 28 28 30;
+  --primary: 255 138 61;      /* warm-500 */
+  --accent: 72 26 14;
+  --accent-foreground: 255 170 108;
 }
 
 /* =====================================================
@@ -184,13 +204,22 @@
   }
 }
 
-/* Apple-style shadows */
+/* Warm-style shadows */
+.shadow-warm {
+  box-shadow: 0 4px 24px rgba(255, 138, 61, 0.08);
+}
+
+.shadow-warm-hover {
+  box-shadow: 0 8px 32px rgba(255, 138, 61, 0.15);
+}
+
+/* Keep legacy class names for compatibility */
 .shadow-apple {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 24px rgba(255, 138, 61, 0.08);
 }
 
 .shadow-apple-hover {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 32px rgba(255, 138, 61, 0.15);
 }
 
 /* Apple-style transitions */
@@ -358,94 +387,19 @@
   }
 }
 
-/* Achievement card shimmer sweep effect */
-@keyframes achievement-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
-/* Achievement icon breathing effect */
-@keyframes achievement-breathe {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px 5px rgba(245, 158, 11, 0.3);
-  }
-}
-
-/* Slow pulse for glow effects */
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Sparkle twinkle effect */
-@keyframes sparkle-twinkle {
-  0%, 100% {
+@keyframes fade-in {
+  from {
     opacity: 0;
-    transform: scale(0);
+    transform: translateY(10px);
   }
-  50% {
+  to {
     opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Rotating glow border for unlocked achievements */
-@keyframes glow-rotate {
-  0% {
-    transform: rotate(0deg);
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 0.7;
-  }
-  100% {
-    transform: rotate(360deg);
-    opacity: 0.4;
-  }
-}
-
-/* Floating light sweep across card */
-@keyframes float-light {
-  0% {
-    transform: translateX(-150%) skewX(-15deg);
-  }
-  100% {
-    transform: translateX(150%) skewX(-15deg);
-  }
-}
-
-/* Twinkle for particles */
-@keyframes twinkle {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-/* Shimmer for hover effect */
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
+    transform: translateY(0);
   }
 }
 
@@ -482,46 +436,12 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
-/* Achievement animations */
-.animate-shimmer {
-  animation: achievement-shimmer 1.5s ease-in-out forwards;
+.animate-bounce-slow {
+  animation: bounce-slow 3s ease-in-out infinite;
 }
 
-.animate-breathe {
-  animation: achievement-breathe 2s ease-in-out infinite;
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 3s ease-in-out infinite;
-}
-
-.animate-glow-rotate {
-  animation: glow-rotate 8s linear infinite;
-}
-
-.animate-float-light {
-  animation: float-light 4s ease-in-out infinite;
-}
-
-.animate-twinkle {
-  animation: twinkle 2s ease-in-out infinite;
-}
-
-/* Animation delays */
-.animation-delay-200 {
-  animation-delay: 200ms;
-}
-
-.animation-delay-300 {
-  animation-delay: 300ms;
-}
-
-.animation-delay-400 {
-  animation-delay: 400ms;
-}
-
-.animation-delay-600 {
-  animation-delay: 600ms;
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
 }
 
 /* Stagger Animation Delays */
@@ -533,7 +453,7 @@
 .stagger-6 { animation-delay: 0.6s; }
 
 /* =====================================================
-   Apple-style Card Hover Effects
+   Card Hover Effects - Warm Theme
    ===================================================== */
 
 .card-hover {
@@ -542,14 +462,15 @@
 
 .card-hover:hover {
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.06),
-    0 2px 8px rgba(0, 0, 0, 0.03);
+    0 8px 24px rgba(255, 138, 61, 0.1),
+    0 2px 8px rgba(255, 138, 61, 0.05);
+  transform: scale(1.01);
 }
 
 .dark .card-hover:hover {
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.2),
-    0 2px 8px rgba(0, 0, 0, 0.1);
+    0 8px 24px rgba(255, 170, 108, 0.15),
+    0 2px 8px rgba(255, 170, 108, 0.1);
 }
 
 /* =====================================================
@@ -659,18 +580,18 @@
 }
 
 /* =====================================================
-   Gradient Text Effect
+   Gradient Text Effect - Warm Theme
    ===================================================== */
 
 .gradient-text {
-  background: linear-gradient(135deg, #1D1D1F 0%, #86868B 100%);
+  background: linear-gradient(135deg, #a3400e 0%, #ff8a3d 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .dark .gradient-text {
-  background: linear-gradient(135deg, #FFFFFF 0%, #86868B 100%);
+  background: linear-gradient(135deg, #ffaa6c 0%, #ff8a3d 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -678,10 +599,19 @@
 
 /* Primary gradient */
 .gradient-text-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  background: linear-gradient(135deg, #ff8a3d 0%, #f06c1a 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* Warm gradient for backgrounds */
+.gradient-warm {
+  background: linear-gradient(135deg, #fff9f5 0%, #fff3eb 100%);
+}
+
+.dark .gradient-warm {
+  background: linear-gradient(135deg, #481a07 0%, #863713 100%);
 }
 
 /* =====================================================
@@ -710,17 +640,17 @@
 }
 
 /* =====================================================
-   Focus Ring (Apple-style)
+   Focus Ring (Warm-style)
    ===================================================== */
 
 .focus-ring:focus {
   outline: none;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.25);
+  box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.3);
 }
 
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.25);
+  box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.3);
 }
 
 /* =====================================================
@@ -732,15 +662,15 @@ html {
 }
 
 /* =====================================================
-   Selection Style
+   Selection Style - Warm Theme
    ===================================================== */
 
 ::selection {
-  background: rgba(0, 122, 255, 0.2);
+  background: rgba(255, 138, 61, 0.25); /* warm-500 with opacity */
 }
 
 .dark ::selection {
-  background: rgba(10, 132, 255, 0.3);
+  background: rgba(255, 170, 108, 0.35); /* warm-400 for dark mode */
 }
 
 /* =====================================================

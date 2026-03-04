@@ -23,8 +23,7 @@ import {
   UserPlus,
   Sparkles,
   BookOpen,
-  Lock,
-  MessageCircle
+  Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -35,8 +34,6 @@ import { TodayStats, WeeklyStats } from '@/components/StudyTimeCards';
 import { Input } from '@/components/ui/input';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
-import { AnalysisDialog } from '@/components/AnalysisDialog';
-import { LinkStudentForm } from '@/components/LinkStudentForm';
 
 interface StudyTimeStats {
   total_sessions: number;
@@ -96,9 +93,6 @@ export default function DashboardPage() {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [analysisDateRange, setAnalysisDateRange] = useState<'7d' | '30d' | 'all'>('7d');
-  const [addStudentTab, setAddStudentTab] = useState<'create' | 'link'>('create');
 
   // 滚动动画 refs
   const statsAnimation = useScrollAnimation();
@@ -254,12 +248,12 @@ export default function DashboardPage() {
   }, [selectedStudent, loadStudyTimeStats]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/30">
+    <div className="min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100 dark:from-warm-950 dark:via-slate-900 dark:to-warm-900/30">
       {/* Decorative background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200/30 dark:bg-blue-900/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -left-40 w-96 h-96 bg-indigo-200/20 dark:bg-indigo-900/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-cyan-200/20 dark:bg-cyan-900/20 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-warm-200/40 dark:bg-warm-800/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -left-40 w-96 h-96 bg-warm-300/30 dark:bg-warm-700/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-warm-100/30 dark:bg-warm-800/20 rounded-full blur-3xl" />
       </div>
 
       {/* 页面标题卡片 */}
@@ -268,20 +262,11 @@ export default function DashboardPage() {
           title={selectedStudent ? `${selectedStudentName} 的学习报告` : '家长中心'}
           description={selectedStudent ? '查看详细学习数据和进度' : '管理学生账户，查看学习进度'}
           icon={Home}
-          iconColor="text-blue-500"
+          iconColor="text-warm-500"
           actions={
             <div className="flex items-center gap-2">
               {selectedStudent && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAnalysis(true)}
-                    className="gap-2 bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    AI分析
-                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -384,7 +369,7 @@ export default function DashboardPage() {
               <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <Clock className="w-5 h-5 text-blue-500" />
+                    <Clock className="w-5 h-5 text-warm-500" />
                     学习时长统计
                   </CardTitle>
                 </CardHeader>
@@ -542,16 +527,16 @@ export default function DashboardPage() {
               <Card className="border-border/50 transition-all duration-300 hover:shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-orange-500" />
+                    <Sparkles className="w-5 h-5 text-warm-500" />
                     最近活动
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {[
-                      { icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-100', name: '小明', action: '完成了数学题学习', time: '2 小时前' },
+                      { icon: BarChart3, color: 'text-warm-500', bg: 'bg-warm-100', name: '小明', action: '完成了数学题学习', time: '2 小时前' },
                       { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-100', name: '小红', action: '完成了化学方程式复习', time: '1 小时前' },
-                      { icon: Award, color: 'text-purple-500', bg: 'bg-purple-100', name: '小刚', action: '获得了学习达人徽章', time: '3 小时前' },
+                      { icon: Award, color: 'text-warm-600', bg: 'bg-warm-200', name: '小刚', action: '获得了学习达人徽章', time: '3 小时前' },
                     ].map((activity, index) => (
                       <div
                         key={index}
@@ -600,123 +585,85 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>添加学生</CardTitle>
-                <CardDescription>创建新账户或关联已有学生</CardDescription>
+                <CardDescription>创建新的学生账户</CardDescription>
               </div>
               <button
-                onClick={() => {
-                  setShowAddStudentModal(false);
-                  setAddStudentTab('create');
-                }}
+                onClick={() => setShowAddStudentModal(false)}
                 className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               >
                 ✕
               </button>
             </CardHeader>
             <CardContent>
-              {/* Tab 切换 */}
-              <div className="flex gap-2 mb-4 p-1 bg-muted/30 rounded-lg">
-                <button
-                  onClick={() => setAddStudentTab('create')}
-                  className={cn(
-                    "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
-                    addStudentTab === 'create'
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  创建新账号
-                </button>
-                <button
-                  onClick={() => setAddStudentTab('link')}
-                  className={cn(
-                    "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
-                    addStudentTab === 'link'
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  关联已有账号
-                </button>
-              </div>
+              <form onSubmit={handleAddStudent} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">学生姓名</label>
+                  <Input
+                    id="studentName"
+                    name="studentName"
+                    placeholder="请输入学生姓名"
+                    required
+                    className="transition-all duration-200 focus:ring-2"
+                  />
+                </div>
 
-              {/* Tab 内容 */}
-              {addStudentTab === 'create' ? (
-                <form onSubmit={handleAddStudent} className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">学生姓名</label>
-                    <Input
-                      id="studentName"
-                      name="studentName"
-                      placeholder="请输入学生姓名"
-                      required
-                      className="transition-all duration-200 focus:ring-2"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">手机号</label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="请输入手机号"
+                    pattern="[0-9]{11}"
+                    required
+                    className="transition-all duration-200 focus:ring-2"
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">手机号</label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="请输入手机号"
-                      pattern="[0-9]{11}"
-                      required
-                      className="transition-all duration-200 focus:ring-2"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">密码</label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="至少6位"
+                    minLength={6}
+                    required
+                    className="transition-all duration-200 focus:ring-2"
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">密码</label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="至少6位"
-                      minLength={6}
-                      required
-                      className="transition-all duration-200 focus:ring-2"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">年级</label>
+                  <select
+                    id="grade"
+                    name="grade"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">请选择</option>
+                    <option value="1">一年级</option>
+                    <option value="2">二年级</option>
+                    <option value="3">三年级</option>
+                    <option value="4">四年级</option>
+                    <option value="5">五年级</option>
+                    <option value="6">六年级</option>
+                  </select>
+                </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">年级</label>
-                    <select
-                      id="grade"
-                      name="grade"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                      <option value="">请选择</option>
-                      <option value="1">一年级</option>
-                      <option value="2">二年级</option>
-                      <option value="3">三年级</option>
-                      <option value="4">四年级</option>
-                      <option value="5">五年级</option>
-                      <option value="6">六年级</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setShowAddStudentModal(false)}
-                    >
-                      取消
-                    </Button>
-                    <Button type="submit" className="flex-1">
-                      添加学生
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <LinkStudentForm
-                  onSuccess={() => {
-                    // 可选：关闭模态框或刷新列表
-                  }}
-                />
-              )}
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowAddStudentModal(false)}
+                  >
+                    取消
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    添加学生
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -799,15 +746,6 @@ export default function DashboardPage() {
           </Card>
         </div>
       )}
-
-      {/* AI综合分析弹窗 */}
-      <AnalysisDialog
-        open={showAnalysis}
-        onOpenChange={setShowAnalysis}
-        studentId={selectedStudent || undefined}
-        dateRange={analysisDateRange}
-        subjects="all"
-      />
     </div>
   );
 }

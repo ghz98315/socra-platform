@@ -11,8 +11,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Brain, Target, ArrowLeft, Home } from 'lucide-react';
-import Image from 'next/image';
+import { Loader2, Trophy, Sparkles, Brain, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
@@ -52,22 +51,13 @@ export default function LoginPage() {
   ];
 
   return (
-    <div className="min-h-screen flex">
-      {/* 返回首页按钮 - 固定在左上角 */}
-      <a
-        href="https://socra.cn"
-        className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-border/50 shadow-sm hover:shadow-md transition-all text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="hidden sm:inline">返回首页</span>
-      </a>
-
+    <div className="min-h-screen flex bg-warm-50">
       {/* Left Side - Branding (Desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-warm-100 via-warm-50 to-warm-100 relative overflow-hidden">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-20 left-20 w-72 h-72 bg-warm-300/30 rounded-full blur-3xl animate-pulse-soft" />
+          <div className="absolute bottom-20 right-20 w-96 h-96 bg-warm-200/40 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
         </div>
 
         {/* Content */}
@@ -80,27 +70,23 @@ export default function LoginPage() {
           >
             {/* Logo */}
             <div className="flex items-center gap-4 mb-12">
-              <Image
-                src="/logo.png"
-                alt="Socrates"
-                width={64}
-                height={64}
-                className="rounded-2xl shadow-lg"
-              />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg shadow-warm-500/30">
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Socrates</h1>
-                <p className="text-muted-foreground">AI 学习助手</p>
+                <h1 className="text-3xl font-bold tracking-tight text-warm-900">Socrates</h1>
+                <p className="text-warm-600">AI 学习助手</p>
               </div>
             </div>
 
             {/* Hero Text */}
-            <h2 className="text-4xl font-bold leading-tight mb-6">
+            <h2 className="text-4xl font-bold leading-tight mb-6 text-warm-900">
               让学习成为
               <br />
-              <span className="text-primary">一场对话</span>
+              <span className="text-warm-500">一场对话</span>
             </h2>
 
-            <p className="text-lg text-muted-foreground mb-12 max-w-md">
+            <p className="text-lg text-warm-700 mb-12 max-w-md">
               基于苏格拉底式提问法，引导你主动思考，真正理解每一个知识点。
             </p>
 
@@ -115,12 +101,12 @@ export default function LoginPage() {
                   )}
                   style={{ transitionDelay: `${200 + index * 100}ms` }}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-background/80 flex items-center justify-center shadow-sm">
-                    <feature.icon className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm border border-warm-100">
+                    <feature.icon className="w-6 h-6 text-warm-500" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                    <h3 className="font-semibold text-warm-900">{feature.title}</h3>
+                    <p className="text-sm text-warm-600">{feature.desc}</p>
                   </div>
                 </div>
               ))}
@@ -130,7 +116,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-white">
         <div
           className={cn(
             "w-full max-w-md transition-all duration-700",
@@ -139,32 +125,28 @@ export default function LoginPage() {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <Image
-              src="/logo.png"
-              alt="Socrates"
-              width={48}
-              height={48}
-              className="rounded-xl shadow-lg"
-            />
-            <span className="text-2xl font-bold">Socrates</span>
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg shadow-warm-500/30">
+              <Trophy className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-warm-900">Socrates</span>
           </div>
 
           {/* Header */}
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2">欢迎回来</h2>
-            <p className="text-muted-foreground">登录你的学习账户</p>
+            <h2 className="text-2xl font-bold mb-2 text-warm-900">欢迎回来</h2>
+            <p className="text-warm-600">登录你的学习账户</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm border border-destructive/20">
+              <div className="p-4 rounded-2xl bg-red-50 text-red-600 text-sm border border-red-200">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label htmlFor="phone" className="text-sm font-medium">
+              <label htmlFor="phone" className="text-sm font-medium text-warm-800">
                 手机号
               </label>
               <Input
@@ -177,12 +159,12 @@ export default function LoginPage() {
                 maxLength={11}
                 required
                 disabled={loading}
-                className="rounded-xl h-12 text-base bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                className="rounded-2xl h-12 text-base bg-warm-50 border-warm-200 focus:border-warm-400 focus:ring-warm-400 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label htmlFor="password" className="text-sm font-medium text-warm-800">
                 密码
               </label>
               <Input
@@ -193,13 +175,13 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="rounded-xl h-12 text-base bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                className="rounded-2xl h-12 text-base bg-warm-50 border-warm-200 focus:border-warm-400 focus:ring-warm-400 transition-colors"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full h-12 rounded-xl text-base font-medium btn-press"
+              className="w-full h-12 rounded-full text-base font-medium bg-warm-500 hover:bg-warm-600 text-white shadow-lg shadow-warm-500/30 transition-all hover:shadow-xl hover:scale-[1.02] active:scale-95"
               disabled={loading}
             >
               {loading ? (
@@ -216,20 +198,20 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/50"></div>
+              <div className="w-full border-t border-warm-200"></div>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-3 text-muted-foreground">或</span>
+              <span className="bg-white px-3 text-warm-500">或</span>
             </div>
           </div>
 
           {/* Register Link */}
           <div className="text-center">
-            <p className="text-muted-foreground">
+            <p className="text-warm-600">
               还没有账户？{' '}
               <Link
                 href="/register"
-                className="text-primary font-medium hover:underline"
+                className="text-warm-600 font-semibold hover:text-warm-700 underline underline-offset-4"
               >
                 立即注册
               </Link>
@@ -237,7 +219,7 @@ export default function LoginPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-xs text-muted-foreground text-center mt-8">
+          <p className="text-xs text-warm-400 text-center mt-8">
             登录即表示同意我们的服务条款和隐私政策
           </p>
         </div>

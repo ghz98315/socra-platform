@@ -48,7 +48,7 @@ const notificationConfig: Record<NotificationType, { icon: React.ElementType; co
   review_reminder: { icon: Calendar, color: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/30' },
   achievement: { icon: Award, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30' },
   new_error: { icon: AlertCircle, color: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/30' },
-  mastery_update: { icon: TrendingUp, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/30' },
+  mastery_update: { icon: TrendingUp, color: 'text-warm-500', bgColor: 'bg-warm-100 dark:bg-warm-900/30' },
 };
 
 // 格式化时间

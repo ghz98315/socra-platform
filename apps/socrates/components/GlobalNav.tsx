@@ -18,8 +18,7 @@ import {
   X,
   Trophy,
   ChevronRight,
-  Bookmark,
-  Users
+  Bookmark
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -28,23 +27,20 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 // 导航项配置
 const parentNavItems = [
-  { href: '/dashboard', icon: Home, label: '仪表盘', shortLabel: '首页', color: 'text-blue-500' },
+  { href: '/dashboard', icon: Home, label: '仪表盘', shortLabel: '首页', color: 'text-warm-500' },
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
-  { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
-  { href: '/community', icon: Users, label: '社区', shortLabel: '分享', color: 'text-pink-500' },
-  { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '查看', color: 'text-purple-500' },
+  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-600' },
+  { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '查看', color: 'text-warm-400' },
 ];
 
 const studentNavItems = [
   { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
   { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-red-500' },
-  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-orange-500' },
-  { href: '/community', icon: Users, label: '社区', shortLabel: '分享', color: 'text-pink-500' },
+  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-600' },
   { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-yellow-500' },
 ];
 
@@ -71,16 +67,15 @@ export function GlobalNav() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 认证页面和选择角色页面不显示导航栏
-  const isAuthPage = pathname?.includes('/login') || pathname?.includes('/register') || pathname?.includes('/select-profile');
+  // 认证页面不显示导航栏
+  const isAuthPage = pathname?.includes('/login') || pathname?.includes('/register');
   if (!user || isAuthPage) {
     return null;
   }
 
   const handleSignOut = async () => {
-    setIsMobileMenuOpen(false); // 关闭移动端菜单
     await signOut();
-    // signOut 内部已经处理了重定向到 /login
+    router.push('/login');
   };
 
   const isParent = profile?.role === 'parent';
@@ -106,19 +101,22 @@ export function GlobalNav() {
       {/* 第一层：顶部栏 - Logo + 用户信息 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="h-14 flex items-center justify-between">
-          {/* Logo - 根据角色跳转到对应首页 */}
+          {/* Logo */}
           <Link
-            href={isParent ? '/dashboard' : '/workbench'}
+            href="/"
             className="flex items-center gap-3 group"
           >
             <div className="relative">
-              <Image
-                src="/logo.png"
-                alt="Socrates"
-                width={36}
-                height={36}
-                className="rounded-xl transition-transform duration-300 group-hover:scale-105"
-              />
+              <div
+                className={cn(
+                  "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300",
+                  "bg-gradient-to-br from-primary to-primary/80",
+                  "shadow-lg shadow-primary/25",
+                  "group-hover:shadow-primary/40"
+                )}
+              >
+                <Trophy className="w-5 h-5 text-white" />
+              </div>
             </div>
             <span
               className={cn(

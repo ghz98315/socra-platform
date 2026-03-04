@@ -160,7 +160,7 @@ export function ImageUploader({
         <div
           className={cn(
             "relative h-56 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden",
-            "bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-950/30 dark:via-slate-900 dark:to-purple-950/30",
+            "bg-gradient-to-br from-warm-50 via-white to-warm-100 dark:from-warm-950/30 dark:via-slate-900 dark:to-warm-900/30",
             dragActive && "scale-[1.02] ring-4 ring-primary/30",
             error && "ring-2 ring-red-400"
           )}
@@ -174,11 +174,11 @@ export function ImageUploader({
           <div className={cn(
             "absolute inset-0 rounded-2xl",
             "before:absolute before:inset-0 before:rounded-2xl before:p-[2px]",
-            "before:bg-gradient-to-r before:from-blue-400 before:via-purple-400 before:to-pink-400",
+            "before:bg-gradient-to-r before:from-warm-400 before:via-warm-300 before:to-warm-400",
             "before:animate-[gradient-rotate_3s_linear_infinite]",
             "after:absolute after:inset-[2px] after:rounded-xl after:bg-gradient-to-br",
-            "after:from-blue-50 after:via-white after:to-purple-50",
-            "dark:after:from-blue-950/30 dark:after:via-slate-900 dark:after:to-purple-950/30"
+            "after:from-warm-50 after:via-white after:to-warm-100",
+            "dark:after:from-warm-950/30 dark:after:via-slate-900 dark:after:to-warm-900/30"
           )} />
 
           <input
@@ -192,7 +192,7 @@ export function ImageUploader({
           <div className="relative z-10 text-center px-4">
             {dragActive ? (
               <>
-                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg">
                   <Upload className="w-8 h-8 text-white animate-bounce" />
                 </div>
                 <p className="text-base font-medium text-primary">
@@ -201,8 +201,8 @@ export function ImageUploader({
               </>
             ) : (
               <>
-                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/50 dark:to-purple-900/50 flex items-center justify-center shadow-inner">
-                  <Camera className="w-8 h-8 text-blue-500" />
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-warm-100 to-warm-200 dark:from-warm-900/50 dark:to-warm-800/50 flex items-center justify-center shadow-inner">
+                  <Camera className="w-8 h-8 text-warm-500" />
                 </div>
                 <p className="text-base font-medium text-foreground mb-1">
                   点击拍照或上传图片 📷
@@ -211,13 +211,13 @@ export function ImageUploader({
                   支持 JPG、PNG、WebP，最大 {maxSize}MB
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400">
+                  <span className="px-2 py-0.5 bg-warm-100 dark:bg-warm-900/30 rounded-full text-warm-600 dark:text-warm-400">
                     拍照
                   </span>
-                  <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 rounded-full text-purple-600 dark:text-purple-400">
+                  <span className="px-2 py-0.5 bg-warm-200 dark:bg-warm-800/30 rounded-full text-warm-700 dark:text-warm-300">
                     相册
                   </span>
-                  <span className="px-2 py-0.5 bg-pink-100 dark:bg-pink-900/30 rounded-full text-pink-600 dark:text-pink-400">
+                  <span className="px-2 py-0.5 bg-warm-100 dark:bg-warm-900/30 rounded-full text-warm-600 dark:text-warm-400">
                     拖拽
                   </span>
                 </div>

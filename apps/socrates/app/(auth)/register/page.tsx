@@ -11,8 +11,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Brain, Target, Check, ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
+import { Loader2, Trophy, Sparkles, Brain, Target, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {
@@ -96,22 +95,13 @@ export default function RegisterPage() {
   ];
 
   return (
-    <div className="min-h-screen flex">
-      {/* 返回首页按钮 - 固定在左上角 */}
-      <a
-        href="https://socra.cn"
-        className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-border/50 shadow-sm hover:shadow-md transition-all text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="hidden sm:inline">返回首页</span>
-      </a>
-
+    <div className="min-h-screen flex bg-warm-50">
       {/* Left Side - Branding (Desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-warm-100 via-warm-50 to-warm-100 relative overflow-hidden">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
-          <div className="absolute top-20 right-20 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
-          <div className="absolute bottom-20 left-20 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-20 right-20 w-72 h-72 bg-warm-300/30 rounded-full blur-3xl animate-pulse-soft" />
+          <div className="absolute bottom-20 left-20 w-96 h-96 bg-warm-200/40 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
         </div>
 
         {/* Content */}
@@ -124,27 +114,23 @@ export default function RegisterPage() {
           >
             {/* Logo */}
             <div className="flex items-center gap-4 mb-12">
-              <Image
-                src="/logo.png"
-                alt="Socrates"
-                width={64}
-                height={64}
-                className="rounded-2xl shadow-lg"
-              />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg shadow-warm-500/30">
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Socrates</h1>
-                <p className="text-muted-foreground">AI 学习助手</p>
+                <h1 className="text-3xl font-bold tracking-tight text-warm-900">Socrates</h1>
+                <p className="text-warm-600">AI 学习助手</p>
               </div>
             </div>
 
             {/* Hero Text */}
-            <h2 className="text-4xl font-bold leading-tight mb-6">
+            <h2 className="text-4xl font-bold leading-tight mb-6 text-warm-900">
               开启你的
               <br />
-              <span className="text-primary">AI学习之旅</span>
+              <span className="text-warm-500">AI学习之旅</span>
             </h2>
 
-            <p className="text-lg text-muted-foreground mb-12 max-w-md">
+            <p className="text-lg text-warm-700 mb-12 max-w-md">
               注册即可享受全方位的智能学习体验，让每一次学习都有所收获。
             </p>
 
@@ -159,27 +145,27 @@ export default function RegisterPage() {
                   )}
                   style={{ transitionDelay: `${200 + index * 100}ms` }}
                 >
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 text-primary" />
+                  <div className="w-6 h-6 rounded-full bg-warm-100 flex items-center justify-center border border-warm-200">
+                    <Check className="w-3.5 h-3.5 text-warm-500" />
                   </div>
-                  <span className="text-muted-foreground">{benefit}</span>
+                  <span className="text-warm-700">{benefit}</span>
                 </div>
               ))}
             </div>
 
             {/* Stats */}
-            <div className="mt-12 pt-8 border-t border-border/30 grid grid-cols-3 gap-6">
+            <div className="mt-12 pt-8 border-t border-warm-200 grid grid-cols-3 gap-6">
               <div>
-                <div className="text-3xl font-bold text-primary">10K+</div>
-                <div className="text-sm text-muted-foreground">活跃学生</div>
+                <div className="text-3xl font-bold text-warm-500">10K+</div>
+                <div className="text-sm text-warm-600">活跃学生</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-primary">50K+</div>
-                <div className="text-sm text-muted-foreground">错题已分析</div>
+                <div className="text-3xl font-bold text-warm-500">50K+</div>
+                <div className="text-sm text-warm-600">错题已分析</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-primary">98%</div>
-                <div className="text-sm text-muted-foreground">满意度</div>
+                <div className="text-3xl font-bold text-warm-500">98%</div>
+                <div className="text-sm text-warm-600">满意度</div>
               </div>
             </div>
           </div>
@@ -187,7 +173,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Right Side - Register Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-white">
         <div
           className={cn(
             "w-full max-w-md transition-all duration-700",
@@ -196,33 +182,29 @@ export default function RegisterPage() {
         >
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <Image
-              src="/logo.png"
-              alt="Socrates"
-              width={48}
-              height={48}
-              className="rounded-xl shadow-lg"
-            />
-            <span className="text-2xl font-bold">Socrates</span>
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center shadow-lg shadow-warm-500/30">
+              <Trophy className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-warm-900">Socrates</span>
           </div>
 
           {/* Header */}
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2">创建账户</h2>
-            <p className="text-muted-foreground">开启你的 AI 学习之旅</p>
+            <h2 className="text-2xl font-bold mb-2 text-warm-900">创建账户</h2>
+            <p className="text-warm-600">开启你的 AI 学习之旅</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm border border-destructive/20">
+              <div className="p-4 rounded-2xl bg-red-50 text-red-600 text-sm border border-red-200">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label htmlFor="displayName" className="text-sm font-medium">
-                昵称 <span className="text-muted-foreground font-normal">(可选)</span>
+              <label htmlFor="displayName" className="text-sm font-medium text-warm-800">
+                昵称 <span className="text-warm-400 font-normal">(可选)</span>
               </label>
               <Input
                 id="displayName"
@@ -231,12 +213,12 @@ export default function RegisterPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 disabled={loading}
-                className="rounded-xl h-12 text-base bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                className="rounded-2xl h-12 text-base bg-warm-50 border-warm-200 focus:border-warm-400 focus:ring-warm-400 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="phone" className="text-sm font-medium">
+              <label htmlFor="phone" className="text-sm font-medium text-warm-800">
                 手机号
               </label>
               <Input
@@ -249,12 +231,12 @@ export default function RegisterPage() {
                 maxLength={11}
                 required
                 disabled={loading}
-                className="rounded-xl h-12 text-base bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                className="rounded-2xl h-12 text-base bg-warm-50 border-warm-200 focus:border-warm-400 focus:ring-warm-400 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label htmlFor="password" className="text-sm font-medium text-warm-800">
                 密码
               </label>
               <Input
@@ -265,12 +247,12 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="rounded-xl h-12 text-base bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                className="rounded-2xl h-12 text-base bg-warm-50 border-warm-200 focus:border-warm-400 focus:ring-warm-400 transition-colors"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
+              <label htmlFor="confirmPassword" className="text-sm font-medium text-warm-800">
                 确认密码
               </label>
               <Input
@@ -281,13 +263,13 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="rounded-xl h-12 text-base bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                className="rounded-2xl h-12 text-base bg-warm-50 border-warm-200 focus:border-warm-400 focus:ring-warm-400 transition-colors"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full h-12 rounded-xl text-base font-medium btn-press mt-2"
+              className="w-full h-12 rounded-full text-base font-medium bg-warm-500 hover:bg-warm-600 text-white shadow-lg shadow-warm-500/30 transition-all hover:shadow-xl hover:scale-[1.02] active:scale-95 mt-2"
               disabled={loading}
             >
               {loading ? (
@@ -304,20 +286,20 @@ export default function RegisterPage() {
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/50"></div>
+              <div className="w-full border-t border-warm-200"></div>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-3 text-muted-foreground">或</span>
+              <span className="bg-white px-3 text-warm-500">或</span>
             </div>
           </div>
 
           {/* Login Link */}
           <div className="text-center">
-            <p className="text-muted-foreground">
+            <p className="text-warm-600">
               已有账户？{' '}
               <Link
                 href="/login"
-                className="text-primary font-medium hover:underline"
+                className="text-warm-600 font-semibold hover:text-warm-700 underline underline-offset-4"
               >
                 立即登录
               </Link>
@@ -325,7 +307,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-xs text-muted-foreground text-center mt-6">
+          <p className="text-xs text-warm-400 text-center mt-6">
             注册即表示同意我们的服务条款和隐私政策
           </p>
         </div>

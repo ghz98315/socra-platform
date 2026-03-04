@@ -1,12 +1,11 @@
 // =====================================================
 // Project Socrates - Error Book Page (错题本)
 // 错题本功能：筛选、排序、搜索、导出
-// v1.6.26 - 支持双维度难度评估显示
 // =====================================================
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,6 +17,7 @@ import {
   Eye,
   Calendar,
   Tag,
+  Star,
   RefreshCw,
   ChevronDown,
   FileText,
@@ -33,7 +33,6 @@ import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorBookPDF } from '@/lib/pdf/ErrorBookPDF';
-import { StarRating } from '@/components/DifficultyRating';
 
 type ErrorSession = {
   id: string;
@@ -42,9 +41,7 @@ type ErrorSession = {
   original_image_url: string | null;
   extracted_text: string | null;
   status: 'analyzing' | 'guided_learning' | 'mastered';
-  difficulty_rating: number | null; // AI 评估难度
-  student_difficulty_rating: number | null; // 学生自评难度
-  final_difficulty_rating: number | null; // 最终综合难度
+  difficulty_rating: number | null;
   concept_tags: string[] | null;
   created_at: string;
 };
@@ -85,31 +82,20 @@ export default function ErrorBookPage() {
   const [errors, setErrors] = useState<ErrorSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'difficulty'>('newest');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
-  // Debounce search input - 防抖优化
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Fetch error sessions
   useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    if (profile?.id) {
+      fetchErrors();
     }
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 300);
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchQuery]);
+  }, [profile?.id]);
 
-  // Fetch error sessions - 使用 useCallback 优化
-  const fetchErrors = useCallback(async () => {
+  const fetchErrors = async () => {
     if (!profile?.id) return;
     setLoading(true);
 
@@ -128,55 +114,36 @@ export default function ErrorBookPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.id]);
+  };
 
-  useEffect(() => {
-    if (profile?.id) {
-      fetchErrors();
-    }
-  }, [profile?.id, fetchErrors]);
-
-  // 使用 useMemo 优化过滤和排序 - 避免每次渲染都重新计算
-  const filteredErrors = useMemo(() => {
-    return errors
-      .filter((err) => {
-        // Search filter - 使用防抖后的搜索词
-        if (debouncedSearch) {
-          const query = debouncedSearch.toLowerCase();
-          const textMatch = err.extracted_text?.toLowerCase().includes(query);
-          const tagsMatch = err.concept_tags?.some(tag => tag.toLowerCase().includes(query));
-          if (!textMatch && !tagsMatch) return false;
-        }
-        // Subject filter
-        if (selectedSubject !== 'all' && err.subject !== selectedSubject) return false;
-        // Status filter
-        if (selectedStatus !== 'all' && err.status !== selectedStatus) return false;
-        return true;
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case 'newest':
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          case 'oldest':
-            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          case 'difficulty':
-            // 使用最终综合难度排序，如果没有则使用 AI 评估难度
-            return (b.final_difficulty_rating || b.difficulty_rating || 0) - (a.final_difficulty_rating || a.difficulty_rating || 0);
-          default:
-            return 0;
-        }
-      });
-  }, [errors, debouncedSearch, selectedSubject, selectedStatus, sortBy]);
-
-  // 使用 useMemo 优化状态计数 - 避免重复计算
-  const statusCounts = useMemo(() => {
-    return {
-      total: errors.length,
-      analyzing: errors.filter(e => e.status === 'analyzing').length,
-      guidedLearning: errors.filter(e => e.status === 'guided_learning').length,
-      mastered: errors.filter(e => e.status === 'mastered').length,
-    };
-  }, [errors]);
+  // Filter and sort errors
+  const filteredErrors = errors
+    .filter((err) => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const textMatch = err.extracted_text?.toLowerCase().includes(query);
+        const tagsMatch = err.concept_tags?.some(tag => tag.toLowerCase().includes(query));
+        if (!textMatch && !tagsMatch) return false;
+      }
+      // Subject filter
+      if (selectedSubject !== 'all' && err.subject !== selectedSubject) return false;
+      // Status filter
+      if (selectedStatus !== 'all' && err.status !== selectedStatus) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'difficulty':
+          return (b.difficulty_rating || 0) - (a.difficulty_rating || 0);
+        default:
+          return 0;
+      }
+    });
 
   // Toggle selection
   const toggleSelect = (id: string) => {
@@ -210,7 +177,7 @@ export default function ErrorBookPage() {
         errors: selectedErrors.map(e => ({
           subject: e.subject,
           extractedText: e.extracted_text || '',
-          difficultyRating: e.final_difficulty_rating || e.difficulty_rating,
+          difficultyRating: e.difficulty_rating,
           conceptTags: e.concept_tags,
           createdAt: e.created_at,
           imageUrl: e.original_image_url,
@@ -252,12 +219,12 @@ export default function ErrorBookPage() {
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
 
   return (
-    <div className={cn('min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-slate-950 dark:via-slate-900 dark:to-orange-950/30', themeClass)}>
+    <div className={cn('min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100', themeClass)}>
       {/* Decorative background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-orange-200/30 dark:bg-orange-900/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-red-200/20 dark:bg-red-900/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-72 h-72 bg-yellow-200/20 dark:bg-yellow-900/20 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-80 h-80 bg-warm-200/40 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-warm-300/30 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 w-72 h-72 bg-warm-100/30 rounded-full blur-3xl" />
       </div>
 
       {/* Page Header */}
@@ -266,12 +233,12 @@ export default function ErrorBookPage() {
           title="错题本"
           description="管理和复习你的错题记录"
           icon={BookOpen}
-          iconColor="text-orange-500"
+          iconColor="text-warm-500"
           actions={
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="gap-1">
                 <FileText className="w-3 h-3" />
-                {statusCounts.total} 条记录
+                {errors.length} 条记录
               </Badge>
               <Button
                 variant="outline"
@@ -289,27 +256,27 @@ export default function ErrorBookPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
         {/* Stats Cards - 移到顶部 */}
-        {!loading && statusCounts.total > 0 && (
+        {!loading && errors.length > 0 && (
           <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-950/30 border border-blue-200/50 dark:border-blue-800/50">
-              <p className="text-3xl font-bold text-blue-600">{statusCounts.total}</p>
+              <p className="text-3xl font-bold text-blue-600">{errors.length}</p>
               <p className="text-xs text-blue-600/70">总错题数</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-yellow-100 to-yellow-50 dark:from-yellow-900/30 dark:to-yellow-950/30 border border-yellow-200/50 dark:border-yellow-800/50">
               <p className="text-3xl font-bold text-yellow-600">
-                {statusCounts.analyzing}
+                {errors.filter(e => e.status === 'analyzing').length}
               </p>
               <p className="text-xs text-yellow-600/70">分析中</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-950/30 border border-purple-200/50 dark:border-purple-800/50">
               <p className="text-3xl font-bold text-purple-600">
-                {statusCounts.guidedLearning}
+                {errors.filter(e => e.status === 'guided_learning').length}
               </p>
               <p className="text-xs text-purple-600/70">学习中</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-950/30 border border-green-200/50 dark:border-green-800/50">
               <p className="text-3xl font-bold text-green-600">
-                {statusCounts.mastered}
+                {errors.filter(e => e.status === 'mastered').length}
               </p>
               <p className="text-xs text-green-600/70">已掌握 ✨</p>
             </div>
@@ -510,18 +477,11 @@ export default function ErrorBookPage() {
                             {statusLabels[error.status]?.label}
                           </Badge>
 
-                          {/* Difficulty - 显示最终综合难度 */}
-                          {(error.final_difficulty_rating || error.difficulty_rating) && (
-                            <div className="flex items-center gap-1">
-                              <StarRating
-                                rating={error.final_difficulty_rating || error.difficulty_rating || 0}
-                                size="sm"
-                              />
-                              {error.student_difficulty_rating && (
-                                <span className="text-[10px] text-muted-foreground ml-1">
-                                  (含自评)
-                                </span>
-                              )}
+                          {/* Difficulty */}
+                          {error.difficulty_rating && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              {error.difficulty_rating}
                             </div>
                           )}
 
@@ -562,12 +522,12 @@ export default function ErrorBookPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/error-book/${error.id}`);
+                            router.push(`/workbench?session=${error.id}`);
                           }}
                           className="gap-1"
                         >
                           <Eye className="w-4 h-4" />
-                          查看详情
+                          查看
                         </Button>
                       </div>
                     </div>
@@ -579,18 +539,18 @@ export default function ErrorBookPage() {
         )}
 
         {/* Summary Stats */}
-        {!loading && statusCounts.total > 0 && (
+        {!loading && errors.length > 0 && (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-primary">{statusCounts.total}</p>
+                <p className="text-2xl font-bold text-primary">{errors.length}</p>
                 <p className="text-xs text-muted-foreground">总错题数</p>
               </CardContent>
             </Card>
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-yellow-500">
-                  {statusCounts.analyzing}
+                  {errors.filter(e => e.status === 'analyzing').length}
                 </p>
                 <p className="text-xs text-muted-foreground">分析中</p>
               </CardContent>
@@ -598,7 +558,7 @@ export default function ErrorBookPage() {
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-blue-500">
-                  {statusCounts.guidedLearning}
+                  {errors.filter(e => e.status === 'guided_learning').length}
                 </p>
                 <p className="text-xs text-muted-foreground">学习中</p>
               </CardContent>
@@ -606,7 +566,7 @@ export default function ErrorBookPage() {
             <Card className="border-border/50">
               <CardContent className="p-4 text-center">
                 <p className="text-2xl font-bold text-green-500">
-                  {statusCounts.mastered}
+                  {errors.filter(e => e.status === 'mastered').length}
                 </p>
                 <p className="text-xs text-muted-foreground">已掌握</p>
               </CardContent>

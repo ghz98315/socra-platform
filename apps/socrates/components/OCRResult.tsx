@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud, Hexagon, BookOpen, FileQuestion } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Loader2, Check, RefreshCw, AlertCircle, Sparkles, Zap, Cloud } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { GeometryRenderer, type GeometryData, type GeometryRendererRef } from '@/components/GeometryRenderer';
 
 // Base64 conversion utility function
 function getBase64FromDataURL(dataUrl: string): string {
@@ -16,67 +15,25 @@ function getBase64FromDataURL(dataUrl: string): string {
   return dataUrl;
 }
 
-// OCR 识别结果扩展（包含科目和题型）
-export interface OCRDetectionResult {
-  text: string;
-  geometryData?: GeometryData | null;
-  geometrySvg?: string | null;
-  // 科目识别
-  subject?: {
-    type: 'math' | 'chinese' | 'english' | 'generic';
-    confidence: number;
-  } | null;
-  // 题型识别
-  questionType?: {
-    type: 'choice' | 'fill' | 'solution' | 'proof' | 'calculation' | 'reading' | 'writing' | 'unknown';
-    confidence: number;
-  } | null;
-}
-
 interface OCRResultProps {
   initialText: string;
   onTextChange: (text: string) => void;
-  onConfirm: (result: OCRDetectionResult) => void;
+  onConfirm: (text: string) => void;
   imageData?: string | null;
-  onGeometryChange?: (data: GeometryData) => void; // 几何数据变化回调
 }
 
 // 云端 OCR API
 const CLOUD_OCR_URL = '/api/ocr';
 const OCR_TIMEOUT = 60000; // 60秒超时（云端可能较慢）
 
-export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onGeometryChange }: OCRResultProps) {
+export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: OCRResultProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
   const [text, setText] = useState(initialText);
   const [error, setError] = useState<string>('');
   const [cloudOCRAvailable, setCloudOCRAvailable] = useState<boolean | null>(null);
-  const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
-  const [isParsingGeometry, setIsParsingGeometry] = useState(false);
-  const [showGeometry, setShowGeometry] = useState(true);
   const cancelRef = useRef<boolean>(false);
-  const geometryRendererRef = useRef<GeometryRendererRef>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // 自动调整 textarea 高度
-  const adjustTextareaHeight = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      const newHeight = Math.max(80, textarea.scrollHeight);
-      textarea.style.height = `${newHeight}px`;
-    }
-  }, []);
-
-  // 当文本变化时调整高度
-  useEffect(() => {
-    adjustTextareaHeight();
-  }, [text, adjustTextareaHeight]);
-
-  // 新增：科目和题型识别结果
-  const [subjectInfo, setSubjectInfo] = useState<OCRDetectionResult['subject']>(null);
-  const [questionTypeInfo, setQuestionTypeInfo] = useState<OCRDetectionResult['questionType']>(null);
 
   useEffect(() => {
     setText(initialText);
@@ -136,7 +93,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onG
         const response = await fetch(CLOUD_OCR_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Image, detectSubject: true }),
+          body: JSON.stringify({ image: base64Image }),
           signal: controller.signal,
         });
 
@@ -158,19 +115,6 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onG
           onTextChange(result.text);
           updateProgress(100, '识别完成!');
           setCloudOCRAvailable(true);
-
-          // 保存科目和题型识别结果
-          if (result.subject) {
-            setSubjectInfo(result.subject);
-            console.log('OCR detected subject:', result.subject);
-          }
-          if (result.questionType) {
-            setQuestionTypeInfo(result.questionType);
-            console.log('OCR detected question type:', result.questionType);
-          }
-
-          // 自动解析几何图形
-          parseGeometry(result.text);
         } else {
           throw new Error(result.error || '未识别到文字');
         }
@@ -208,42 +152,6 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onG
     setStatus('');
   };
 
-  // 解析几何图形
-  const parseGeometry = async (recognizedText: string) => {
-    if (!recognizedText.trim()) return;
-
-    setIsParsingGeometry(true);
-    console.log('Parsing geometry for text:', recognizedText.substring(0, 100));
-
-    try {
-      const response = await fetch('/api/geometry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: recognizedText }),
-      });
-
-      const result = await response.json();
-      console.log('Geometry API result:', result);
-
-      if (!response.ok) {
-        console.error('Geometry API error:', result.error);
-        setError(`几何解析失败: ${result.error || '未知错误'}`);
-        setGeometryData(null);
-      } else if (result.success && result.geometry && result.geometry.type !== 'unknown') {
-        setGeometryData(result.geometry);
-        setShowGeometry(true);
-      } else {
-        console.log('No geometry detected or unknown type');
-        setGeometryData(null);
-      }
-    } catch (err) {
-      console.error('Geometry parse error:', err);
-      setGeometryData(null);
-    } finally {
-      setIsParsingGeometry(false);
-    }
-  };
-
   // Auto-execute OCR when image is uploaded
   useEffect(() => {
     if (imageData && !initialText && !isProcessing) {
@@ -259,12 +167,12 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onG
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-500" />
+            <Sparkles className="w-5 h-5 text-warm-500" />
             题目识别
           </h3>
           <div className="flex items-center gap-2">
             {cloudOCRAvailable === true && (
-              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
+              <span className="text-xs px-2 py-1 rounded-full bg-warm-100 dark:bg-warm-900/30 text-warm-600 dark:text-warm-400 font-medium flex items-center gap-1">
                 <Cloud className="w-3 h-3" />
                 AI识别
               </span>
@@ -315,101 +223,19 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onG
           <>
             <div className="space-y-3">
               <textarea
-                ref={textareaRef}
                 value={text}
                 onChange={handleTextChange}
                 placeholder="上传图片后，AI将自动识别题目内容..."
                 className={cn(
-                  "w-full rounded-lg border bg-transparent px-3 py-2 text-sm leading-relaxed resize-none",
+                  "w-full h-32 rounded-xl border bg-transparent px-4 py-3 text-sm resize-none",
                   "transition-all duration-200",
                   "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50",
                   "placeholder:text-muted-foreground/60"
                 )}
-                style={{ minHeight: '80px', overflow: 'hidden' }}
               />
-
-              {/* 科目和题型识别结果标签 */}
-              {(subjectInfo || questionTypeInfo) && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {subjectInfo && (
-                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                      <BookOpen className="w-3 h-3" />
-                      {subjectInfo.type === 'math' ? '数学' :
-                       subjectInfo.type === 'chinese' ? '语文' :
-                       subjectInfo.type === 'english' ? '英语' : '通用'}
-                      <span className="opacity-60">({Math.round(subjectInfo.confidence * 100)}%)</span>
-                    </span>
-                  )}
-                  {questionTypeInfo && questionTypeInfo.type !== 'unknown' && (
-                    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                      <FileQuestion className="w-3 h-3" />
-                      {questionTypeInfo.type === 'choice' ? '选择题' :
-                       questionTypeInfo.type === 'fill' ? '填空题' :
-                       questionTypeInfo.type === 'solution' ? '解答题' :
-                       questionTypeInfo.type === 'proof' ? '证明题' :
-                       questionTypeInfo.type === 'calculation' ? '计算题' :
-                       questionTypeInfo.type === 'reading' ? '阅读理解' :
-                       questionTypeInfo.type === 'writing' ? '写作题' : '未知'}
-                      <span className="opacity-60">({Math.round(questionTypeInfo.confidence * 100)}%)</span>
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* 几何图形渲染区域 */}
-              {(geometryData || isParsingGeometry) && showGeometry && (
-                <div className="mt-3">
-                  {isParsingGeometry ? (
-                    <Card className="border-border/50">
-                      <CardContent className="py-4 flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                        <span className="text-sm text-muted-foreground">正在解析几何图形...</span>
-                      </CardContent>
-                    </Card>
-                  ) : geometryData ? (
-                    <GeometryRenderer
-                      ref={geometryRendererRef}
-                      geometryData={geometryData}
-                      rawText={text}
-                      size={400}
-                      onRedraw={() => parseGeometry(text)}
-                      onGeometryChange={onGeometryChange}
-                    />
-                  ) : null}
-                </div>
-              )}
-
-              {/* 当没有检测到几何图形时的提示 */}
-              {!isParsingGeometry && !geometryData && text && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                  <Hexagon className="w-3 h-3" />
-                  如需绘制几何图形，请点击"绘制图形"按钮
-                </p>
-              )}
             </div>
 
             <div className="flex gap-2 mt-4">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={() => {
-                  if (geometryData) {
-                    setShowGeometry(!showGeometry);
-                  } else {
-                    parseGeometry(text);
-                  }
-                }}
-                disabled={!text || isParsingGeometry}
-                title="根据题目内容自动绘制几何图形"
-              >
-                {isParsingGeometry ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Hexagon className="w-4 h-4" />
-                )}
-                {geometryData ? (showGeometry ? '隐藏图形' : '显示图形') : '绘制图形'}
-              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -423,16 +249,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData, onG
               <Button
                 size="sm"
                 className="flex-1 gap-2"
-                onClick={() => {
-                  const svgContent = geometryRendererRef.current?.getSVGContent() || null;
-                  onConfirm({
-                    text,
-                    geometryData,
-                    geometrySvg: svgContent,
-                    subject: subjectInfo,
-                    questionType: questionTypeInfo,
-                  });
-                }}
+                onClick={() => onConfirm(text)}
                 disabled={!text || isProcessing}
               >
                 <Check className="w-4 h-4" />

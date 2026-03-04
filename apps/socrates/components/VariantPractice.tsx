@@ -187,7 +187,7 @@ export function VariantPractice({
       <Card className="border-border/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Sparkles className="w-5 h-5 text-purple-500" />
+            <Sparkles className="w-5 h-5 text-warm-500" />
             变式练习
           </CardTitle>
           <CardDescription>

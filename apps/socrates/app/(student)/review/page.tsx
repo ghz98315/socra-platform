@@ -1,7 +1,6 @@
 // =====================================================
 // Project Socrates - Review List Page
 // 方案二：分层卡片设计 + 苹果风格动画
-// v1.6.19 - Added Zustand store for caching
 // =====================================================
 
 'use client';
@@ -24,7 +23,6 @@ import { createClient } from '@/lib/supabase/client';
 import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
-import { useReviewStore } from '@/lib/stores/review-store';
 
 // 滚动动画 Hook
 function useScrollAnimation(threshold = 0.1) {
@@ -62,7 +60,6 @@ interface ReviewItem {
   reviewStage: number;
   daysUntilDue: number;
   isOverdue: boolean;
-  extractedText?: string; // 题目文字
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,108 +69,48 @@ export default function ReviewPage() {
   const { profile } = useAuth();
   const supabase = createClient() as SupabaseClient;
 
-  // 使用 Zustand store 管理复习数据
-  const {
-    reviews,
-    loading,
-    setReviews,
-    setLoading,
-    shouldRefetch,
-    updateReviewStage,
-    removeReview
-  } = useReviewStore();
-
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'overdue'>('all');
-  const isLoadingRef = useRef(false); // 用 ref 追踪加载状态，避免闭包问题
 
   // 滚动动画 refs
   const filterAnimation = useScrollAnimation();
   const listAnimation = useScrollAnimation();
 
-  const loadReviews = useCallback(async (forceRefresh = false) => {
-    // 如果 profile 还没加载完成，等待
-    if (!profile?.id) {
-      console.log('Review page: waiting for profile...');
-      return;
-    }
-
-    // 检查是否需要重新获取数据（使用缓存机制）
-    if (!forceRefresh && !shouldRefetch()) {
-      console.log('[Review Page] Using cached data, skipping fetch');
-      return;
-    }
-
-    // 防止重复加载（使用 ref 追踪）
-    if (isLoadingRef.current) {
-      console.log('[Review Page] Already loading, skipping...');
-      return;
-    }
-
-    isLoadingRef.current = true;
-    console.log('[Review Page] Loading reviews for user:', profile.id);
+  const loadReviews = useCallback(async () => {
     setLoading(true);
 
     const { data: reviewData, error: reviewError } = await supabase
       .from('review_schedule')
       .select('*')
-      .eq('student_id', profile.id)
+      .eq('student_id', profile?.id || '')
       .eq('is_completed', false)
       .order('next_review_at', { ascending: true });
 
-    console.log('[Review Page] Query result:', { count: reviewData?.length, error: reviewError });
-
     if (reviewError) {
       console.error('Failed to load reviews:', reviewError);
-      isLoadingRef.current = false;
       setLoading(false);
       return;
     }
 
     const reviewSchedules = reviewData || [];
-    console.log('[Review Page] Review schedules found:', reviewSchedules.length);
-
-    // 检查 session_id 的情况
-    const withSessionId = reviewSchedules.filter((r: any) => r.session_id);
-    const withoutSessionId = reviewSchedules.filter((r: any) => !r.session_id);
-    console.log('[Review Page] With session_id:', withSessionId.length, ', Without:', withoutSessionId.length);
 
     // 关联错题会话信息
-    const sessionIds = reviewSchedules.map((r: any) => r.session_id).filter(Boolean);
-    console.log('[Review Page] Session IDs to fetch:', sessionIds.length, sessionIds.slice(0, 3));
+    const sessionIds = reviewSchedules.map((r: { session_id: string }) => r.session_id) || [];
 
     if (sessionIds.length > 0) {
-      const { data: sessionData, error: sessionError } = await supabase
+      const { data: sessionData } = await supabase
         .from('error_sessions')
         .select('*')
         .in('id', sessionIds);
 
-      if (sessionError) {
-        console.error('[Review Page] Error fetching sessions:', sessionError);
-      }
-
       const sessions = sessionData || [];
-      console.log('[Review Page] Sessions fetched:', sessions.length);
-
-      // 调试：检查ID匹配
-      const reviewSessionIds = new Set(reviewSchedules.map((r: any) => r.session_id));
-      const fetchedSessionIds = new Set(sessions.map((s: any) => s.id));
-      const matchingIds = [...reviewSessionIds].filter(id => fetchedSessionIds.has(id));
-      console.log('[Review Page] ID match check:', {
-        reviewSessionIds: reviewSessionIds.size,
-        fetchedSessionIds: fetchedSessionIds.size,
-        matchingIds: matchingIds.length,
-        sampleReviewId: [...reviewSessionIds].slice(0, 2),
-        sampleFetchedId: [...fetchedSessionIds].slice(0, 2)
-      });
 
       // 组合数据
-      const sessionMap = new Map(sessions.map((s: any) => [s.id, s]));
+      const sessionMap = new Map(sessions.map((s: { id: string }) => [s.id, s]));
 
       const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
-        const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number; extracted_text?: string } | undefined;
-        if (!session) {
-          console.warn('[Review Page] No session found for:', review.session_id);
-        }
+        const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
         const now = new Date();
         const nextReviewDate = new Date(review.next_review_at);
         const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -188,82 +125,50 @@ export default function ReviewPage() {
           reviewStage: review.review_stage,
           daysUntilDue: daysUntil,
           isOverdue: daysUntil <= 0,
-          extractedText: session?.extracted_text?.substring(0, 80) || '',
         };
       });
 
-      // 调试：检查 isOverdue 分布
-      const overdueReviews = enrichedReviews.filter(r => r.isOverdue);
-      const pendingReviews = enrichedReviews.filter(r => !r.isOverdue);
-      console.log('[Review Page] Overdue:', overdueReviews.length, ', Pending:', pendingReviews.length);
-
-      console.log('[Review Page] Enriched reviews:', enrichedReviews.length);
       setReviews(enrichedReviews);
-      console.log('[Review Page] setReviews called with', enrichedReviews.length, 'items');
     } else {
-      console.log('[Review Page] No session IDs found, setting empty reviews');
       setReviews([]);
     }
 
-    isLoadingRef.current = false;
     setLoading(false);
-    console.log('[Review Page] Loading complete');
-
-    // 检查过滤后的结果
-    console.log('[Review Page] Filter status:', filterStatus);
-    console.log('[Review Page] Reviews in state:', reviews.length);
   }, [profile?.id, supabase]);
 
   // 加载复习列表
   useEffect(() => {
-    if (profile?.id) {
-      loadReviews();
-    }
-  }, [profile?.id, loadReviews]);
-
-  // 监控 reviews 状态变化
-  useEffect(() => {
-    console.log('[Review Page] Reviews state changed:', reviews.length, 'items');
-  }, [reviews]);
-
-  // 页面可见性变化时刷新数据（从复习页面返回时）
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && profile?.id) {
-        console.log('[Review Page] Page visible, checking if refresh needed');
-        // 强制刷新以确保数据最新
-        loadReviews(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [profile?.id, loadReviews]);
-
-  console.log('[Review Page] Render - reviews:', reviews.length, ', filterStatus:', filterStatus, ', loading:', loading);
+    loadReviews();
+  }, [loadReviews]);
 
   const filteredReviews = reviews.filter(review => {
     if (filterStatus === 'pending') return !review.isOverdue;
     if (filterStatus === 'overdue') return review.isOverdue;
     return true;
   });
-  console.log('[Review Page] filteredReviews:', filteredReviews.length);
 
   const handleCompleteReview = async (reviewId: string) => {
-    // 获取当前复习项
-    const currentReview = reviews.find(r => r.id === reviewId);
-    if (!currentReview) return;
+    // 更新为下一阶段
+    const { data: currentReview, error: fetchError } = await supabase
+      .from('review_schedule')
+      .select('*')
+      .eq('id', reviewId)
+      .single();
+
+    if (fetchError || !currentReview) {
+      console.error('Failed to fetch review:', fetchError);
+      return;
+    }
+
+    const reviewSchedule = currentReview as { review_stage: number; next_review_at: string };
 
     // 计算下一阶段
-    const nextStage = Math.min(currentReview.reviewStage + 1, 4);
-    const currentDate = new Date(currentReview.nextReviewAt);
+    const nextStage = Math.min(reviewSchedule.review_stage + 1, 4);
+    const currentDate = new Date(reviewSchedule.next_review_at);
     const nextDays = REVIEW_STAGES.find(s => s.stage === nextStage)?.days || 30;
     currentDate.setDate(currentDate.getDate() + nextDays);
 
-    // 乐观更新 UI（立即反馈）
-    updateReviewStage(reviewId, nextStage);
-
-    // 后台更新数据库
+    // 更新
     const { error: updateError } = await supabase
       .from('review_schedule')
       .update({
@@ -274,12 +179,11 @@ export default function ReviewPage() {
 
     if (updateError) {
       console.error('Failed to complete review:', updateError);
-      // 如果更新失败，回滚并强制刷新
-      await loadReviews(true);
       return;
     }
 
-    console.log('[Review Page] Review completed:', reviewId, 'new stage:', nextStage);
+    // 重新加载列表
+    await loadReviews();
   };
 
   const getSubjectIcon = (subject: string) => {
@@ -299,15 +203,9 @@ export default function ReviewPage() {
   const overdueCount = reviews.filter(r => r.isOverdue).length;
   const pendingCount = reviews.filter(r => !r.isOverdue).length;
 
-  // 计算完成率：已掌握（stage 5）的数量 / 总数量
-  const completedCount = reviews.filter(r => r.reviewStage >= 5).length;
-  const completionRate = reviews.length > 0
-    ? Math.round((completedCount / reviews.length) * 100)
-    : 0;
-
   return (
     <div className={cn(
-      "min-h-screen bg-background",
+      "min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100",
       profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior'
     )}>
       {/* 页面标题卡片 */}
@@ -316,7 +214,7 @@ export default function ReviewPage() {
           title="复习计划"
           description="基于艾宾浩斯遗忘曲线的智能复习安排"
           icon={FileText}
-          iconColor="text-orange-500"
+          iconColor="text-warm-500"
           actions={
             <Button
               variant="outline"
@@ -353,7 +251,7 @@ export default function ReviewPage() {
             />
             <StatCard
               label="完成率"
-              value={`${completionRate}%`}
+              value="0%"
               icon={CheckCircle}
               color="text-green-500"
               delay={0.3}
@@ -461,8 +359,11 @@ export default function ReviewPage() {
             </Card>
           </div>
         ) : (
-          /* Review List */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          /* Review List - 带动画 */
+          <div
+            ref={listAnimation.ref}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
             {filteredReviews.map((review, index) => (
               <Card
                 key={review.id}
@@ -471,6 +372,11 @@ export default function ReviewPage() {
                   "hover:shadow-lg",
                   review.isOverdue && "border-l-4 border-l-red-500"
                 )}
+                style={{
+                  opacity: listAnimation.isVisible ? 1 : 0,
+                  transform: listAnimation.isVisible ? 'translateY(0)' : 'translateY(30px)',
+                  transition: `opacity 0.5s ease-out ${index * 0.1}s, transform 0.5s ease-out ${index * 0.1}s`,
+                }}
               >
                 <CardContent className="p-5">
                   {/* Header */}
@@ -497,14 +403,6 @@ export default function ReviewPage() {
                       </span>
                     </div>
                   </div>
-
-                  {/* Question Text */}
-                  {review.extractedText && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {review.extractedText}
-                      {review.extractedText.length >= 80 && '...'}
-                    </p>
-                  )}
 
                   {/* Details */}
                   <div className="space-y-3 text-sm mb-4">
@@ -544,7 +442,7 @@ export default function ReviewPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => window.location.href = `/review/session/${review.id}`}
+                      onClick={() => window.location.href = `/workbench?review=${review.sessionId}`}
                       className="flex-1 transition-all duration-200"
                     >
                       开始复习
@@ -566,6 +464,15 @@ export default function ReviewPage() {
           </div>
         )}
       </main>
+
+      {/* Development Notice */}
+      <div className="fixed bottom-4 left-0 right-0 p-4 pointer-events-none">
+        <div className="max-w-7xl mx-auto">
+          <div className="mx-auto bg-card/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-muted-foreground shadow-sm border border-border/50 w-fit">
+            复习系统开发中...艾宾浩斯算法即将上线
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

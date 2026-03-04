@@ -1,7 +1,6 @@
 // =====================================================
 // Project Socrates - Achievements Page
 // 成就页面 - 展示用户成就、等级、积分
-// v1.6.23 - 添加已解锁成就闪光效果和悬停呼吸感
 // =====================================================
 
 'use client';
@@ -18,8 +17,7 @@ import {
   Loader2,
   Clock,
   Zap,
-  Crown,
-  Sparkles
+  Crown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -121,12 +119,12 @@ export default function AchievementsPage() {
   }
 
   return (
-    <div className={cn('min-h-screen bg-gradient-to-br from-yellow-50 via-white to-amber-50 dark:from-slate-950 dark:via-slate-900 dark:to-yellow-950/30', themeClass)}>
+    <div className={cn('min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100', themeClass)}>
       {/* Decorative background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 right-1/4 w-80 h-80 bg-yellow-200/40 dark:bg-yellow-900/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-amber-200/30 dark:bg-amber-900/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 right-1/4 w-72 h-72 bg-orange-200/20 dark:bg-orange-900/20 rounded-full blur-3xl" />
+        <div className="absolute -top-40 right-1/4 w-80 h-80 bg-warm-200/40 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-warm-300/30 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 right-1/4 w-72 h-72 bg-warm-200/20 rounded-full blur-3xl" />
       </div>
 
       {/* 页面标题 */}
@@ -135,7 +133,7 @@ export default function AchievementsPage() {
           title="成就中心"
           description="查看你的学习成就和等级进度"
           icon={Trophy}
-          iconColor="text-yellow-500"
+          iconColor="text-warm-500"
         />
       </div>
 
@@ -143,10 +141,10 @@ export default function AchievementsPage() {
         {/* 等级和统计卡片 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* 等级卡片 - 带环形进度 */}
-          <Card className="border-border/50 md:col-span-2 bg-gradient-to-br from-yellow-50/50 via-white to-orange-50/50 dark:from-yellow-950/20 dark:via-slate-900 dark:to-orange-950/20 overflow-hidden relative">
+          <Card className="border-warm-200/50 md:col-span-2 bg-gradient-to-br from-warm-50/50 via-white to-warm-100/50 overflow-hidden relative">
             {/* 装饰光晕 */}
-            <div className="absolute -top-20 -right-20 w-40 h-40 bg-yellow-400/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-400/20 rounded-full blur-3xl" />
+            <div className="absolute -top-20 -right-20 w-40 h-40 bg-warm-400/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-warm-300/20 rounded-full blur-3xl" />
 
             <CardContent className="p-6 relative">
               <div className="flex items-center gap-6">
@@ -184,37 +182,37 @@ export default function AchievementsPage() {
                   </svg>
                   {/* 中心等级图标 */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg shadow-yellow-500/30 animate-[pulse-glow_2s_ease-in-out_infinite]">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-warm-400 to-warm-500 flex items-center justify-center shadow-lg shadow-warm-500/30">
                       <Crown className="w-8 h-8 text-white" />
                     </div>
                   </div>
                   {/* 等级数字 */}
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-card border-2 border-yellow-500 rounded-full">
-                    <span className="text-sm font-bold text-yellow-500">Lv.{level?.level || 1}</span>
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-white border-2 border-warm-500 rounded-full">
+                    <span className="text-sm font-bold text-warm-500">Lv.{level?.level || 1}</span>
                   </div>
                 </div>
 
                 {/* 等级信息 */}
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-orange-500 bg-clip-text text-transparent">
+                  <h2 className="text-2xl font-bold text-warm-600">
                     {level?.title || '初学者'}
                   </h2>
-                  <p className="text-muted-foreground text-sm mb-3">
-                    经验值: <span className="text-yellow-600 font-medium">{level?.total_xp || 0}</span> XP
+                  <p className="text-warm-500 text-sm mb-3">
+                    经验值: <span className="text-warm-600 font-medium">{level?.total_xp || 0}</span> XP
                   </p>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">升级进度</span>
-                      <span className="font-medium text-yellow-600">{Math.round(level?.progress || 0)}%</span>
+                      <span className="text-warm-500">升级进度</span>
+                      <span className="font-medium text-warm-600">{Math.round(level?.progress || 0)}%</span>
                     </div>
-                    <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                    <div className="h-3 bg-warm-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-500 rounded-full transition-all duration-1000"
+                        className="h-full bg-gradient-to-r from-warm-400 via-warm-400 to-warm-500 rounded-full transition-all duration-1000"
                         style={{ width: `${level?.progress || 0}%` }}
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      距离下一级还需 <span className="text-orange-500 font-medium">{((level?.next || 0) - (level?.total_xp || 0))}</span> XP
+                    <p className="text-xs text-warm-500">
+                      距离下一级还需 <span className="text-warm-600 font-medium">{((level?.next || 0) - (level?.total_xp || 0))}</span> XP
                     </p>
                   </div>
                 </div>
@@ -285,93 +283,48 @@ export default function AchievementsPage() {
                   <Card
                     key={achievement.id}
                     className={cn(
-                      "border-border/50 transition-all duration-500 relative overflow-hidden",
+                      "border-border/50 transition-all duration-300",
                       achievement.unlocked
-                        ? "hover:shadow-xl hover:shadow-yellow-500/20 hover:scale-[1.02] group bg-gradient-to-br from-yellow-50/30 via-card to-amber-50/20 dark:from-yellow-950/20 dark:via-card dark:to-amber-950/10"
-                        : "opacity-60 hover:opacity-80 bg-muted/30"
+                        ? "hover:shadow-lg"
+                        : "opacity-60"
                     )}
                   >
-                    {/* 已解锁成就的初始光效 - 持续显示 */}
-                    {achievement.unlocked && (
-                      <>
-                        {/* 持续的光晕边框 */}
-                        <div className="absolute inset-0 rounded-lg pointer-events-none">
-                          <div className="absolute inset-[-1px] bg-gradient-to-r from-yellow-400/40 via-amber-300/30 to-yellow-400/40 rounded-lg animate-glow-rotate" />
-                        </div>
-                        {/* 浮动光线循环划过 */}
-                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-200/20 to-transparent animate-float-light" />
-                        </div>
-                        {/* 悬停时的额外闪光效果 */}
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                        </div>
-                      </>
-                    )}
-
-                    <CardContent className="p-4 relative">
+                    <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         {/* 图标 */}
                         <div
                           className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center text-2xl relative",
+                            "w-12 h-12 rounded-xl flex items-center justify-center text-2xl",
                             achievement.unlocked
-                              ? cn(rarityConfig.bgColor, "shadow-lg shadow-yellow-500/20", rarityConfig.borderColor, "border-2")
+                              ? rarityConfig.bgColor
                               : "bg-muted"
                           )}
                         >
-                          {achievement.unlocked ? (
-                            <>
-                              <span className="relative z-10 group-hover:animate-breathe">{achievement.icon}</span>
-                              {/* 图标周围持续闪光粒子 */}
-                              <div className="absolute inset-0">
-                                <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-yellow-300/80 rounded-full animate-twinkle" />
-                                <div className="absolute -bottom-0.5 -left-0.5 w-1 h-1 bg-amber-300/80 rounded-full animate-twinkle animation-delay-300" />
-                                <div className="absolute top-1/2 -right-1 w-0.5 h-0.5 bg-orange-300/80 rounded-full animate-twinkle animation-delay-600" />
-                              </div>
-                            </>
-                          ) : (
-                            <Lock className="w-5 h-5 text-muted-foreground" />
-                          )}
+                          {achievement.unlocked ? achievement.icon : <Lock className="w-5 h-5 text-muted-foreground" />}
                         </div>
 
                         {/* 内容 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className={cn(
-                              "font-medium truncate",
-                              achievement.unlocked
-                                ? "text-yellow-700 dark:text-yellow-300 group-hover:text-yellow-600 dark:group-hover:text-yellow-200 transition-colors"
-                                : ""
-                            )}>
-                              {achievement.name}
-                            </h4>
+                            <h4 className="font-medium truncate">{achievement.name}</h4>
                             {achievement.unlocked && (
-                              <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/50 dark:to-amber-900/50 text-yellow-700 dark:text-yellow-300 border-yellow-300/50 shadow-sm">
+                              <Badge variant="secondary" className="text-xs">
                                 +{achievement.points} XP
                               </Badge>
                             )}
                           </div>
-                          <p className={cn(
-                            "text-sm line-clamp-2",
-                            achievement.unlocked ? "text-foreground/80" : "text-muted-foreground"
-                          )}>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
                             {achievement.description}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge
                               variant="outline"
-                              className={cn(
-                                "text-xs",
-                                achievement.unlocked
-                                  ? cn(rarityConfig.bgColor, rarityConfig.color, "border-current/30")
-                                  : rarityConfig.color
-                              )}
+                              className={cn("text-xs", rarityConfig.color)}
                             >
                               {rarityConfig.label}
                             </Badge>
                             {achievement.unlocked && achievement.unlocked_at && (
-                              <span className="text-xs text-yellow-600/70 dark:text-yellow-400/70 flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {new Date(achievement.unlocked_at).toLocaleDateString()}
                               </span>
