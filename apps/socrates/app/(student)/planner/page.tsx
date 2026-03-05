@@ -21,7 +21,11 @@ import {
   ChevronRight,
   Timer,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  X,
+  Play,
+  Pause,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -118,6 +122,13 @@ export default function PlannerPage() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [showOptimization, setShowOptimization] = useState(false);
+
+  // 专注模式状态
+  const [showFocusMode, setShowFocusMode] = useState(false);
+  const [currentTask, setCurrentTask] = useState<StudyTask | null>(null);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
   const [newTask, setNewTask] = useState({
     title: '',
     subject: 'math',
@@ -357,6 +368,67 @@ export default function PlannerPage() {
     return reasons.join('；') || '按最优顺序安排';
   };
 
+  // 专注模式功能
+  const startFocusMode = (task: StudyTask) => {
+    setCurrentTask(task);
+    setRemainingTime(task.duration_minutes * 60);
+    setShowFocusMode(true);
+    setIsPaused(false);
+  };
+
+  const exitFocusMode = () => {
+    setShowFocusMode(false);
+    setCurrentTask(null);
+    setRemainingTime(0);
+    setIsPaused(false);
+  };
+
+  const completeTask = () => {
+    if (!currentTask) return;
+
+    const updatedTasks = tasks.map(t =>
+      t.id === currentTask.id ? { ...t, status: 'completed' } : t
+    );
+    setTasks(updatedTasks);
+    saveToLocalStorage(updatedTasks);
+
+    // 找下一个任务
+    const nextTask = updatedTasks.find(t => t.status !== 'completed' && t.id !== currentTask?.id);
+    if (nextTask) {
+      setCurrentTask(nextTask);
+      setRemainingTime(nextTask.duration_minutes * 60);
+    } else {
+      exitFocusMode();
+    }
+  };
+
+  const skipTask = () => {
+    const nextTask = tasks.find(t => t.status !== 'completed' && t.id !== currentTask?.id);
+    if (nextTask) {
+      setCurrentTask(nextTask);
+      setRemainingTime(nextTask.duration_minutes * 60);
+    } else {
+      exitFocusMode();
+    }
+  };
+
+  // 专注计时器
+  useEffect(() => {
+    if (!showFocusMode || !currentTask || isPaused) return;
+
+    const timer = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 0) {
+          completeTask();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [showFocusMode, currentTask, isPaused]);
+
   // 添加任务
   const handleAddTask = async () => {
     if (!profile?.id || !newTask.title.trim()) return;
@@ -531,7 +603,7 @@ export default function PlannerPage() {
           />
         </StatsRow>
 
-        {/* 日期选择器 */}
+        {/* 日期选择器 + 学习开始时间 + AI优化 */}
         <div
           ref={calendarAnimation.ref}
           style={{
@@ -544,7 +616,8 @@ export default function PlannerPage() {
         >
           <Card className="border-warm-200/50">
             <CardContent className="py-4">
-              <div className="flex items-center justify-between">
+              {/* 日期选择 */}
+              <div className="flex items-center justify-between mb-4">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -601,9 +674,136 @@ export default function PlannerPage() {
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
+
+              {/* 学习开始时间 + AI优化按钮 */}
+              <div className="flex items-center justify-between pt-3 border-t border-warm-100">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-warm-500" />
+                    <span className="text-sm text-warm-600">学习开始时间:</span>
+                  </div>
+                  <input
+                    type="time"
+                    value={dayStartTime}
+                    onChange={(e) => setDayStartTime(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-warm-200 focus:outline-none focus:ring-2 focus:ring-warm-500 text-warm-900"
+                  />
+                </div>
+
+                {tasks.length > 0 && (
+                  <Button
+                    onClick={optimizeSchedule}
+                    disabled={isOptimizing}
+                    className="gap-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-full shadow-lg"
+                  >
+                    {isOptimizing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        AI优化中...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        AI智能优化
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* AI优化结果面板 */}
+        {showOptimization && optimizationResult && (
+          <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-900">
+                <Sparkles className="w-5 h-5 text-purple-500" />
+                AI优化建议
+              </CardTitle>
+              <CardDescription>
+                基于"要事优先"原则，已为您重新安排学习计划
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* 统计信息 */}
+              <div className="flex gap-4 mb-4 p-3 bg-white/50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-600">{optimizationResult.total_time}</p>
+                  <p className="text-xs text-purple-500">总时长(分钟)</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{optimizationResult.break_count}</p>
+                  <p className="text-xs text-blue-500">休息次数</p>
+                </div>
+                <div className="flex-1 flex items-center">
+                  <div className="text-sm text-purple-700">
+                    {optimizationResult.suggestions.map((s, i) => (
+                      <p key={i}>• {s}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 优化后的任务列表 */}
+              <div className="space-y-2 mb-4">
+                {optimizationResult.tasks.map((task, index) => (
+                  <div
+                    key={task.id}
+                    className={cn(
+                      'flex items-center gap-3 p-3 rounded-lg',
+                      task.is_break ? 'bg-blue-100/50 border border-blue-200' : 'bg-white border border-warm-200'
+                    )}
+                  >
+                    <div className="text-sm font-mono text-warm-500 w-12">
+                      {task.scheduled_time}
+                    </div>
+                    <div className={cn(
+                      'w-2 h-8 rounded-full',
+                      task.is_break ? 'bg-blue-400' : SUBJECT_COLORS[task.subject]
+                    )} />
+                    <div className="flex-1">
+                      <span className={cn('font-medium', task.is_break && 'text-blue-700')}>
+                        {task.title}
+                      </span>
+                      {!task.is_break && (
+                        <span className="text-xs text-warm-500 ml-2">
+                          {task.duration_minutes}分钟
+                        </span>
+                      )}
+                    </div>
+                    {task.reason && (
+                      <div className="text-xs text-warm-500 max-w-[200px] text-right">
+                        {task.reason}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowOptimization(false);
+                    setOptimizationResult(null);
+                  }}
+                  className="rounded-full"
+                >
+                  取消
+                </Button>
+                <Button
+                  onClick={applyOptimization}
+                  className="bg-purple-500 hover:bg-purple-600 text-white rounded-full"
+                >
+                  采用此计划
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 添加任务表单 */}
         {showAddTask && (
@@ -880,7 +1080,143 @@ export default function PlannerPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 开始专注按钮 */}
+        {tasks.filter(t => t.status !== 'completed').length > 0 && (
+          <Button
+            onClick={() => {
+              const firstPending = tasks.find(t => t.status !== 'completed');
+              if (firstPending) {
+                startFocusMode(firstPending);
+              }
+            }}
+            className="w-full py-4 text-lg bg-gradient-to-r from-warm-500 to-orange-500 hover:from-warm-600 hover:to-orange-600 text-white rounded-xl shadow-lg shadow-warm-500/30 gap-2"
+          >
+            <Timer className="w-5 h-5" />
+            开始专注学习
+          </Button>
+        )}
       </main>
+
+      {/* 专注计时模式 */}
+      {showFocusMode && currentTask && (
+        <div className="fixed inset-0 left-0 right-0 bottom-0 z-50 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+          <div className="w-full max-w-2xl mx-auto px-4">
+            {/* 顶部信息栏 */}
+            <div className="flex items-center justify-between mb-8">
+              <button
+                onClick={exitFocusMode}
+                className="p-2 rounded-full hover:bg-white/10 text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <h2 className="text-lg font-medium text-white">专注模式</h2>
+              <button
+                onClick={exitFocusMode}
+                className="p-2 rounded-full bg-white/10 text-red-400 hover:bg-red-500/20"
+              >
+                退出
+              </button>
+            </div>
+
+            {/* 倒计时器 */}
+            <div className="text-center mb-8">
+              <div className="text-9xl font-bold text-white font-mono tracking-wider">
+                {String(Math.floor(remainingTime / 60)).padStart(2, '0')}
+                <span className="text-5xl text-white/60">:</span>
+                {String(remainingTime % 60).padStart(2, '0')}
+              </div>
+              <p className="text-xl text-warm-200 mt-4">{currentTask.title}</p>
+              <div className="flex items-center justify-center gap-2 mt-2">
+                {currentTask.difficulty === 'hard' && <AlertTriangle className="w-5 h-5 text-orange-400" />}
+                <span className="text-warm-300">
+                  {currentTask.difficulty === 'hard' ? '困难' : currentTask.difficulty === 'medium' ? '中等' : '简单'}
+                </span>
+              </div>
+            </div>
+
+            {/* 控制按钮 */}
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={() => setIsPaused(!isPaused)}
+                className={cn(
+                  "px-8 py-4 rounded-full text-white font-medium transition-all",
+                  isPaused ? "bg-green-500 hover:bg-green-600" : "bg-warm-500 hover:bg-warm-600"
+                )}
+              >
+                {isPaused ? (
+                  <>
+                    <Play className="w-6 h-6 inline mr-1" />
+                    继续
+                  </>
+                ) : (
+                  <>
+                    <Pause className="w-6 h-6 inline mr-1" />
+                    暂停
+                  </>
+                )}
+              </button>
+              <button
+                onClick={skipTask}
+                className="px-8 py-4 rounded-full border-2 border-white/30 text-white/80 hover:bg-white/10 font-medium transition-all"
+              >
+                跳过
+              </button>
+              <button
+                onClick={completeTask}
+                className="px-8 py-4 rounded-full bg-green-500 hover:bg-green-600 text-white font-medium transition-all"
+              >
+                <CheckCircle className="w-6 h-6 inline mr-1" />
+                完成
+              </button>
+            </div>
+
+            {/* 任务列表 */}
+            <div className="mt-8 w-full max-w-md mx-auto">
+              <p className="text-sm text-warm-400 mb-3 text-center">今日计划</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {tasks.map((task, index) => (
+                  <div
+                    key={task.id}
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg transition-all",
+                      task.id === currentTask?.id
+                        ? "bg-white/20 border-2 border-warm-400"
+                        : task.status === "completed"
+                        ? "opacity-50"
+                        : "opacity-70 hover:bg-white/10"
+                    )}
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      task.status === "completed" ? "bg-green-500" : SUBJECT_COLORS[task.subject]
+                    )} />
+                    <span className={cn(
+                      "flex-1 text-sm",
+                      task.status === "completed" ? "line-through text-warm-400" : "text-white"
+                    )}>
+                      {task.title}
+                    </span>
+                    {task.status !== "completed" && task.id !== currentTask?.id && (
+                      <button
+                        onClick={() => {
+                          setCurrentTask(task);
+                          setRemainingTime(task.duration_minutes * 60);
+                          setIsPaused(false);
+                        }}
+                        className="text-xs text-warm-300 hover:text-warm-100"
+                      >
+                        开始
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
