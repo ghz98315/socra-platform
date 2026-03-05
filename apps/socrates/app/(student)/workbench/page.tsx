@@ -1,11 +1,11 @@
 // =====================================================
 // Project Socrates - Workbench Page (Student & Parent)
-// 方案二：分层卡片设计 + 苹果风格动画
+// 左右分栏布局 + 左侧面板可滚动
 // =====================================================
 
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -19,7 +19,8 @@ import {
   Download,
   FileText,
   Users,
-  ArrowLeft
+  ArrowLeft,
+  Hexagon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,6 +30,7 @@ import { OCRResult } from '@/components/OCRResult';
 import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { PageHeader } from '@/components/PageHeader';
+import { GeometryRenderer, type GeometryData } from '@/components/GeometryRenderer';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -95,6 +97,59 @@ function WorkbenchPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState('');
+
+  // Geometry state
+  const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
+  const [isGeometryLoading, setIsGeometryLoading] = useState(false);
+  const geometryAbortRef = useRef<boolean>(false);
+  const lastParsedTextRef = useRef<string>(''); // 跟踪已解析的文本，避免重复解析
+  const isGeometryLoadingRef = useRef(false); // 用ref跟踪加载状态
+  const shouldAutoParseRef = useRef(false); // 控制是否应该自动解析（仅在OCR完成时为true）
+
+  // Left panel scroll container ref
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+
+  // 同步加载状态到ref
+  useEffect(() => {
+    isGeometryLoadingRef.current = isGeometryLoading;
+  }, [isGeometryLoading]);
+
+  // Debug: Log geometry state changes
+  useEffect(() => {
+    console.log('[Workbench] Geometry state changed:', {
+      isLoading: isGeometryLoading,
+      hasData: !!geometryData,
+      dataType: geometryData?.type,
+      dataPoints: geometryData?.points?.length
+    });
+  }, [isGeometryLoading, geometryData]);
+
+  // 自动触发几何识别：仅在 shouldAutoParseRef 为 true 时触发
+  // 这避免了用户编辑文本时重复解析
+  useEffect(() => {
+    // 只有当标记为应该解析、文本不为空、不是正在加载、且与上次解析的文本不同时才触发
+    const shouldParse = shouldAutoParseRef.current &&
+        ocrText &&
+        ocrText.trim().length > 0 &&
+        ocrText !== lastParsedTextRef.current &&
+        !isGeometryLoadingRef.current;
+
+    console.log('[Workbench] Auto-parse check:', {
+      shouldAutoParse: shouldAutoParseRef.current,
+      hasText: !!ocrText,
+      textLength: ocrText?.length,
+      lastParsed: lastParsedTextRef.current?.substring(0, 50),
+      isLoading: isGeometryLoadingRef.current,
+      shouldParse
+    });
+
+    if (shouldParse) {
+      console.log('[Workbench] Auto-starting geometry parsing');
+      lastParsedTextRef.current = ocrText;
+      shouldAutoParseRef.current = false; // 解析后重置标志
+      parseGeometry(ocrText);
+    }
+  }, [ocrText]);
 
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -302,12 +357,103 @@ function WorkbenchPage() {
     setCurrentStep('ocr');
   };
 
+  // 解析几何图形
+  const parseGeometry = async (text: string) => {
+    console.log('[Workbench] parseGeometry called with text:', text?.substring(0, 100));
+
+    // 重置 abort 标志
+    geometryAbortRef.current = false;
+    console.log('[Workbench] Setting isGeometryLoading to true');
+    setIsGeometryLoading(true);
+
+    try {
+      // 使用 AbortController 实现超时 (30秒)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log('[Workbench] Geometry API request timed out after 30s');
+      }, 30000);
+
+      console.log('[Workbench] Calling /api/geometry...');
+      const response = await fetch('/api/geometry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, subject: 'math' }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // 检查是否已取消
+      if (geometryAbortRef.current) {
+        console.log('[Workbench] Geometry parsing was aborted');
+        return;
+      }
+
+      console.log('[Workbench] Geometry API response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[Workbench] Geometry API result:', JSON.stringify(result).substring(0, 500));
+
+        if (!geometryAbortRef.current) {
+          if (result.success && result.geometry) {
+            // 无论是否为 unknown 都设置数据，以便 UI 显示相应状态
+            console.log('[Workbench] Setting geometryData:', result.geometry.type, 'with', result.geometry.points?.length, 'points');
+            setGeometryData(result.geometry);
+            if (result.geometry.type !== 'unknown') {
+              console.log('[Workbench] Geometry parsed successfully, confidence:', result.geometry.confidence);
+            } else {
+              console.log('[Workbench] No geometry content detected (type: unknown)');
+            }
+          } else {
+            console.log('[Workbench] Geometry parsing failed');
+            setGeometryData({ type: 'unknown', points: [], lines: [], circles: [], curves: [], angles: [], labels: [], relations: [], confidence: 0 });
+          }
+        }
+      } else {
+        if (!geometryAbortRef.current) {
+          console.log('[Workbench] Geometry API response not OK:', response.status);
+          setGeometryData({ type: 'unknown', points: [], lines: [], circles: [], curves: [], angles: [], labels: [], relations: [], confidence: 0 });
+        }
+      }
+    } catch (error: any) {
+      if (!geometryAbortRef.current) {
+        if (error.name === 'AbortError') {
+          console.log('[Workbench] Geometry API request was aborted (timeout)');
+        } else {
+          console.error('[Workbench] Failed to parse geometry:', error);
+        }
+        setGeometryData(null);
+      }
+    } finally {
+      if (!geometryAbortRef.current) {
+        console.log('[Workbench] Setting isGeometryLoading to false');
+        setIsGeometryLoading(false);
+      }
+    }
+  };
+
+  // 处理 OCR 成功完成（仅在此触发几何分析，不在用户编辑时触发）
+  const handleOCRSuccess = (text: string) => {
+    console.log('[Workbench] OCR success, triggering geometry analysis');
+    shouldAutoParseRef.current = true;
+    // 重置上次解析的文本，以便新的解析可以触发
+    lastParsedTextRef.current = '';
+    // 此时 ocrText 已经通过 onTextChange 更新了
+  };
+
   const handleOCRComplete = async (text: string) => {
+    console.log('[Workbench] handleOCRComplete called with text:', text?.substring(0, 100));
+    // 更新 ocrText（用户可能在确认前编辑了文本）
+    // 注意：不要在这里调用 parseGeometry，因为：
+    // 1. 几何分析已经在 OCR 完成时通过 useEffect 自动触发了
+    // 2. 用户可能已经在画板上添加了辅助线或点，重新解析会丢失这些修改
     setOcrText(text);
     setCurrentStep('chat');
 
     if (!profile?.id) {
-      console.error('No profile ID, cannot save error session');
+      console.error('[Workbench] No profile ID, cannot save error session');
       return;
     }
 
@@ -326,6 +472,7 @@ function WorkbenchPage() {
           subject: 'math',
           original_image_url: imagePreview || null,
           extracted_text: text,
+          geometry_data: geometryData,
           theme_used: profile?.theme_preference || 'junior', // 记录对话时使用的主题模式
         }),
       });
@@ -344,9 +491,15 @@ function WorkbenchPage() {
   };
 
   const handleImageRemove = () => {
+    // 取消正在进行的几何解析
+    geometryAbortRef.current = true;
+    lastParsedTextRef.current = ''; // 重置已解析文本跟踪
+
     setSelectedImage(null);
     setImagePreview(null);
     setOcrText('');
+    setGeometryData(null);
+    setIsGeometryLoading(false);
     setCurrentStep('upload');
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
@@ -525,16 +678,16 @@ function WorkbenchPage() {
             icon={BookOpen}
             iconColor="text-warm-500"
             actions={
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 {/* Study Session Timer */}
                 {isStudying ? (
-                  <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-2 px-3 py-1">
+                  <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 text-xs sm:text-sm">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <Timer className="w-3.5 h-3.5" />
+                    <Timer className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     <span>{formatDuration(studyDuration)}</span>
                   </Badge>
                 ) : (
-                  <Badge className="bg-muted text-muted-foreground px-3 py-1">
+                  <Badge className="bg-muted text-muted-foreground px-2 sm:px-3 py-1 text-xs sm:text-sm">
                     未开始
                   </Badge>
                 )}
@@ -542,7 +695,7 @@ function WorkbenchPage() {
                   variant="outline"
                   size="sm"
                   onClick={toggleStudySession}
-                  className="gap-2 transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
+                  className="gap-1.5 sm:gap-2 transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full text-xs sm:text-sm"
                 >
                   {isStudying ? (
                     <>
@@ -562,188 +715,233 @@ function WorkbenchPage() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - 左右分栏布局 (桌面) / 上下堆叠 (移动端) */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left Panel - 40% */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Panel - 题目识别面板 */}
           <div
-            ref={leftPanelAnimation.ref}
-            className="lg:col-span-2 space-y-6"
-            style={{
-              opacity: leftPanelAnimation.isVisible ? 1 : 0,
-              transform: leftPanelAnimation.isVisible ? 'translateX(0)' : 'translateX(-30px)',
-              transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
-            }}
+            ref={leftPanelRef}
+            className="w-full lg:w-[420px] flex-shrink-0 lg:sticky lg:top-[140px] lg:self-start lg:max-h-[calc(100vh-180px)] overflow-y-auto lg:pr-2"
           >
-            {/* Image Upload Card */}
-            <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
-                  <Camera className="w-5 h-5 text-warm-500" />
-                  上传错题
-                </CardTitle>
-                <CardDescription className="text-warm-600">
-                  拍摄或上传你的错题图片
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ImageUploader
-                  onImageSelect={handleImageSelect}
-                  onImageRemove={handleImageRemove}
-                  currentImage={imagePreview}
-                  maxSize={10}
-                />
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              {/* Image Upload Card */}
+              <Card className="border-warm-200/50 transition-all duration-300 hover:shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg text-warm-900">
+                    <Camera className="w-5 h-5 text-warm-500" />
+                    上传错题
+                  </CardTitle>
+                  <CardDescription className="text-warm-600">
+                    拍摄或上传你的错题图片
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ImageUploader
+                    onImageSelect={handleImageSelect}
+                    onImageRemove={handleImageRemove}
+                    currentImage={imagePreview}
+                    maxSize={10}
+                  />
+                </CardContent>
+              </Card>
 
-            {/* OCR Result Card */}
-            {selectedImage && (
-              <div
-                className="animate-slide-up"
-                style={{
-                  animation: 'slideUp 0.4s ease-out forwards',
-                }}
-              >
-                <OCRResult
-                  initialText={ocrText}
-                  onTextChange={setOcrText}
-                  onConfirm={handleOCRComplete}
-                  imageData={imagePreview}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Right Panel - 60% - Chat Area */}
-          <div
-            ref={rightPanelAnimation.ref}
-            className="lg:col-span-3"
-            style={{
-              opacity: rightPanelAnimation.isVisible ? 1 : 0,
-              transform: rightPanelAnimation.isVisible ? 'translateX(0)' : 'translateX(30px)',
-              transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
-            }}
-          >
-            <Card className="border-warm-200/50 h-full flex flex-col min-h-[600px] transition-all duration-300 hover:shadow-lg">
-              {currentStep === 'upload' && (
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="text-center space-y-6">
-                    <div
-                      className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-warm-100 to-warm-50 flex items-center justify-center shadow-lg shadow-warm-500/20"
-                      style={{
-                        animation: 'float 6s ease-in-out infinite',
-                      }}
-                    >
-                      <Bot className="w-12 h-12 text-warm-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2 text-warm-900">
-                        {profile?.theme_preference === 'junior' ? '准备好学习了吗?' : '开始你的学习之旅'}
-                      </h3>
-                      <p className="text-warm-600 max-w-sm mx-auto">
-                        {profile?.theme_preference === 'junior'
-                          ? `${aiName} 会引导你理解问题，一步步找到答案`
-                          : `${aiName} 将通过苏格拉底式提问帮助你深入思考`}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-sm text-warm-600">
-                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      {aiName} 已就绪
-                    </div>
-                  </div>
+              {/* OCR Result Card */}
+              {selectedImage && (
+                <div
+                  className="animate-slide-up"
+                  style={{
+                    animation: 'slideUp 0.4s ease-out forwards',
+                  }}
+                >
+                  <OCRResult
+                    initialText={ocrText}
+                    onTextChange={setOcrText}
+                    onConfirm={handleOCRComplete}
+                    onOCRSuccess={(text) => {
+                      console.log('[Workbench] OCR success, triggering geometry analysis');
+                      shouldAutoParseRef.current = true;
+                      lastParsedTextRef.current = '';
+                    }}
+                    imageData={imagePreview}
+                  />
                 </div>
               )}
 
-              {currentStep === 'ocr' && (
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="text-center space-y-4">
-                    <div className="relative w-16 h-16 mx-auto">
-                      <div className="absolute inset-0 rounded-full border-4 border-warm-200"></div>
-                      <div className="absolute inset-0 rounded-full border-4 border-warm-500 border-t-transparent animate-spin"></div>
+              {/* Geometry Status Indicator */}
+              {ocrText && ocrText.trim().length > 0 && !isGeometryLoading && geometryData?.type === 'unknown' && (
+                <Card className="border-gray-200/50 bg-gradient-to-br from-gray-50 to-white transition-all duration-300">
+                  <CardContent className="py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                        <Hexagon className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-700">未检测到几何图形</p>
+                        <p className="text-sm text-gray-500">该题目可能不包含几何内容</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          lastParsedTextRef.current = '';
+                          parseGeometry(ocrText);
+                        }}
+                        className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        重试
+                      </Button>
                     </div>
-                    <h3 className="text-lg font-semibold text-warm-900">
-                      正在分析你的错题...
-                    </h3>
-                    <p className="text-sm text-warm-600">
-                      AI 正在识别题目内容
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Geometry Renderer Card */}
+              {(isGeometryLoading || (geometryData && geometryData.type !== 'unknown')) && (
+                <Card className="border-purple-200/50 bg-gradient-to-br from-purple-50 to-white transition-all duration-300 hover:shadow-lg animate-slide-up">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
+                      <Hexagon className="w-5 h-5 text-purple-500" />
+                      几何图形画板
+                      {isGeometryLoading && (
+                        <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-300">
+                          <span className="animate-pulse mr-1">●</span> 分析中...
+                        </Badge>
+                      )}
+                      {geometryData && !isGeometryLoading && (
+                        <Badge variant="outline" className="ml-2 bg-green-100 text-green-700 border-green-300">
+                          ✓ 已识别
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <p className="text-sm text-purple-600">
+                      AI 自动识别题目中的几何图形并绘制
                     </p>
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 'chat' && (
-                <div className="flex-1 flex flex-col">
-                  {/* Chat Header */}
-                  <CardHeader className="border-b border-warm-200/50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center text-white font-bold shadow-lg shadow-warm-500/30">
-                          {aiName.charAt(0)}
+                  </CardHeader>
+                  <CardContent>
+                    {isGeometryLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                        <div className="relative w-16 h-16">
+                          <div className="absolute inset-0 rounded-full border-4 border-purple-200"></div>
+                          <div className="absolute inset-0 rounded-full border-4 border-purple-500 border-t-transparent animate-spin"></div>
                         </div>
-                        <div>
-                          <p className="font-medium text-warm-900">{aiName}</p>
-                          <p className="text-xs text-warm-600">AI 学习导师</p>
+                        <div className="text-center">
+                          <p className="text-purple-700 font-medium">正在分析几何图形...</p>
+                          <p className="text-sm text-purple-500 mt-1">AI 正在识别图形类型和坐标</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {currentStep === 'chat' && messages.length > 0 && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleExportPDF}
-                            className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
-                          >
-                            <Download className="w-4 h-4" />
-                            导出PDF
-                          </Button>
-                        )}
+                    ) : geometryData ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm text-purple-600 bg-purple-100/50 px-3 py-2 rounded-lg">
+                          <span className="font-medium">
+                            {geometryData.type === 'triangle' ? '三角形' :
+                             geometryData.type === 'quadrilateral' ? '四边形' :
+                             geometryData.type === 'circle' ? '圆' :
+                             geometryData.type === 'function' ? '函数图像' :
+                             geometryData.type === 'composite' ? '组合图形' : geometryData.type}
+                          </span>
+                          <span className="text-purple-400">|</span>
+                          <span>置信度: {Math.round((geometryData.confidence || 0) * 100)}%</span>
+                          <span className="text-purple-400">|</span>
+                          <span>{geometryData.points?.length || 0} 个点</span>
+                        </div>
+                        <div className="border border-purple-200 rounded-xl overflow-hidden bg-white">
+                          <GeometryRenderer
+                            geometryData={geometryData}
+                            rawText={ocrText}
+                            size={400}
+                            onRedraw={() => parseGeometry(ocrText)}
+                          />
+                        </div>
                         <Button
+                          variant="outline"
                           size="sm"
-                          variant="ghost"
-                          onClick={handleResetChat}
-                          className="gap-2 transition-all duration-200 hover:rotate-180 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
+                          onClick={() => parseGeometry(ocrText)}
+                          className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
                         >
-                          <RefreshCw className="w-4 h-4" />
-                          重新开始
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          重新识别图形
                         </Button>
                       </div>
-                    </div>
-                  </CardHeader>
-
-                  {/* OCR Context */}
-                  {ocrText && (
-                    <div className="px-6 pt-4">
-                      <div className="p-4 rounded-xl bg-warm-100 border border-warm-200">
-                        <p className="text-xs text-warm-600 mb-1 font-medium">当前题目：</p>
-                        <p className="text-sm line-clamp-2 text-warm-900">{ocrText}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Messages */}
-                  <CardContent className="flex-1 overflow-auto px-6">
-                    <ChatMessageList
-                      messages={messages}
-                      theme={profile?.theme_preference || 'junior'}
-                      isLoading={isChatLoading}
-                    />
-                    <div ref={messagesEndRef} />
+                    ) : null}
                   </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
 
-                  {/* Input */}
-                  <div className="p-4 border-t border-warm-200/50">
-                    <ChatInput
-                      onSend={handleSendMessage}
-                      isLoading={isChatLoading}
-                      placeholder={
-                        profile?.theme_preference === 'junior'
-                          ? '告诉我你的想法...'
-                          : '描述你的问题或思路...'
-                      }
-                    />
+          {/* Right Panel - 聊天区域 (自适应宽度) */}
+          <div className="flex-1 min-w-0">
+            <Card className="border-warm-200/50 h-full flex flex-col min-h-[600px] transition-all duration-300 hover:shadow-lg">
+              {/* Chat Header */}
+              <CardHeader className="border-b border-warm-200/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-warm-500 to-warm-600 flex items-center justify-center text-white font-bold shadow-lg shadow-warm-500/30">
+                      {aiName.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-medium text-warm-900">{aiName}</p>
+                      <p className="text-xs text-warm-600">AI 学习导师</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {currentStep === 'chat' && messages.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleExportPDF}
+                        className="gap-2 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
+                      >
+                        <Download className="w-4 h-4" />
+                        导出PDF
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleResetChat}
+                      className="gap-2 transition-all duration-200 hover:rotate-180 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      重新开始
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+
+              {/* OCR Context in Chat */}
+              {ocrText && (
+                <div className="px-6 pt-4">
+                  <div className="p-4 rounded-xl bg-warm-100 border border-warm-200">
+                    <p className="text-xs text-warm-600 mb-1 font-medium">当前题目：</p>
+                    <p className="text-sm line-clamp-2 text-warm-900">{ocrText}</p>
                   </div>
                 </div>
               )}
+
+              {/* Messages */}
+              <CardContent className="flex-1 overflow-auto px-6">
+                <ChatMessageList
+                  messages={messages}
+                  theme={profile?.theme_preference || 'junior'}
+                  isLoading={isChatLoading}
+                />
+                <div ref={messagesEndRef} />
+              </CardContent>
+
+              {/* Input */}
+              <div className="p-4 border-t border-warm-200/50">
+                <ChatInput
+                  onSend={handleSendMessage}
+                  isLoading={isChatLoading}
+                  placeholder={
+                    profile?.theme_preference === 'junior'
+                      ? '告诉我你的想法...'
+                      : '描述你的问题或思路...'
+                  }
+                />
+              </div>
             </Card>
           </div>
         </div>
