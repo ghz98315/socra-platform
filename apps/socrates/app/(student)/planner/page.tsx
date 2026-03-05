@@ -394,7 +394,7 @@ export default function PlannerPage() {
     if (!currentTask) return;
 
     const updatedTasks = tasks.map(t =>
-      t.id === currentTask.id ? { ...t, status: 'completed' } : t
+      t.id === currentTask.id ? { ...t, status: 'completed' as const } : t
     );
     setTasks(updatedTasks);
     saveToLocalStorage(updatedTasks);
@@ -436,20 +436,47 @@ export default function PlannerPage() {
     return () => clearInterval(timer);
   }, [showFocusMode, currentTask, isPaused]);
 
+  // 计算新任务的开始时间（基于现有任务和学习开始时间）
+  const calculateNewTaskTime = () => {
+    if (tasks.length === 0) {
+      return dayStartTime;
+    }
+
+    // 找到最后一个任务，计算其结束时间
+    const lastTask = tasks.reduce((latest, task) => {
+      const taskTime = parseTime(task.scheduled_time);
+      const taskEnd = addMinutes(taskTime, task.duration_minutes);
+      const latestTime = parseTime(latest.scheduled_time);
+      const latestEnd = addMinutes(latestTime, latest.duration_minutes);
+
+      const taskEndMinutes = taskEnd.hours * 60 + taskEnd.minutes;
+      const latestEndMinutes = latestEnd.hours * 60 + latestEnd.minutes;
+
+      return taskEndMinutes > latestEndMinutes ? task : latest;
+    });
+
+    const lastTaskTime = parseTime(lastTask.scheduled_time);
+    const newStartTime = addMinutes(lastTaskTime, lastTask.duration_minutes);
+    return formatTime(newStartTime);
+  };
+
   // 添加任务
   const handleAddTask = async () => {
     if (!profile?.id || !newTask.title.trim()) return;
 
     const dateStr = selectedDate.toISOString().split('T')[0];
     const tempId = `local_${Date.now()}`;
+    const taskScheduledTime = calculateNewTaskTime();
 
     const newTaskItem: StudyTask = {
       id: tempId,
       title: newTask.title,
       subject: newTask.subject,
       duration_minutes: newTask.duration_minutes,
-      scheduled_time: newTask.scheduled_time,
+      scheduled_time: taskScheduledTime,
       status: 'pending',
+      difficulty: newTask.difficulty,
+      priority: newTask.priority,
       created_at: new Date().toISOString(),
     };
 
@@ -465,7 +492,8 @@ export default function PlannerPage() {
       title: '',
       subject: 'math',
       duration_minutes: 30,
-      scheduled_time: '16:00',
+      difficulty: 'medium',
+      priority: 2,
     });
     setShowAddTask(false);
 
@@ -479,8 +507,10 @@ export default function PlannerPage() {
           title: newTask.title,
           subject: newTask.subject,
           duration_minutes: newTask.duration_minutes,
-          scheduled_time: newTask.scheduled_time,
+          scheduled_time: taskScheduledTime,
           status: 'pending',
+          difficulty: newTask.difficulty,
+          priority: newTask.priority,
         });
 
       if (error) {
@@ -816,8 +846,8 @@ export default function PlannerPage() {
         {showAddTask && (
           <Card className="border-warm-200/50 border-2 border-dashed">
             <CardContent className="py-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="lg:col-span-2">
                   <label className="text-sm text-warm-600 mb-1 block">
                     任务名称
                   </label>
@@ -875,22 +905,46 @@ export default function PlannerPage() {
                     <option value={120}>2 小时</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-sm text-warm-600 mb-1 block">
+                    难度
+                  </label>
+                  <select
+                    value={newTask.difficulty}
+                    onChange={(e) =>
+                      setNewTask({
+                        ...newTask,
+                        difficulty: e.target.value as 'easy' | 'medium' | 'hard',
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-warm-200 focus:outline-none focus:ring-2 focus:ring-warm-500"
+                  >
+                    <option value="easy">简单</option>
+                    <option value="medium">中等</option>
+                    <option value="hard">困难</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAddTask(false)}
-                  className="rounded-full"
-                >
-                  取消
-                </Button>
-                <Button
-                  onClick={handleAddTask}
-                  disabled={!newTask.title.trim()}
-                  className="bg-warm-500 hover:bg-warm-600 text-white rounded-full"
-                >
-                  添加任务
-                </Button>
+              <div className="flex justify-between items-center mt-4">
+                <p className="text-xs text-warm-500">
+                  任务将自动安排在 {tasks.length > 0 ? '最后任务之后' : dayStartTime} 开始
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAddTask(false)}
+                    className="rounded-full"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleAddTask}
+                    disabled={!newTask.title.trim()}
+                    className="bg-warm-500 hover:bg-warm-600 text-white rounded-full"
+                  >
+                    添加任务
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
