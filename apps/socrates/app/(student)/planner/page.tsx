@@ -94,16 +94,24 @@ interface DayStats {
 
 const SUBJECT_COLORS: Record<string, string> = {
   math: 'bg-blue-500',
+  chinese: 'bg-red-500',
+  english: 'bg-cyan-500',
   physics: 'bg-purple-500',
   chemistry: 'bg-green-500',
+  science: 'bg-teal-500',
+  pe: 'bg-amber-500',
   review: 'bg-orange-500',
   other: 'bg-gray-500',
 };
 
 const SUBJECT_LABELS: Record<string, string> = {
   math: '数学',
+  chinese: '语文',
+  english: '英语',
   physics: '物理',
   chemistry: '化学',
+  science: '科学',
+  pe: '体育',
   review: '复习',
   other: '其他',
 };
@@ -835,8 +843,12 @@ export default function PlannerPage() {
                     className="w-full px-3 py-2 rounded-lg border border-warm-200 focus:outline-none focus:ring-2 focus:ring-warm-500"
                   >
                     <option value="math">数学</option>
+                    <option value="chinese">语文</option>
+                    <option value="english">英语</option>
                     <option value="physics">物理</option>
                     <option value="chemistry">化学</option>
+                    <option value="science">科学</option>
+                    <option value="pe">体育</option>
                     <option value="review">复习</option>
                     <option value="other">其他</option>
                   </select>
