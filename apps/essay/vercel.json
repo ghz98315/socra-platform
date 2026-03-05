@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --filter=@socra/essay build",
-  "installCommand": "pnpm install",
-  "outputDirectory": "apps/essay/dist",
+  "buildCommand": "cd ../.. && pnpm --filter=@socra/essay build",
+  "installCommand": "cd ../.. && pnpm install",
+  "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
