@@ -64,7 +64,21 @@ interface StudyTask {
   duration_minutes: number;
   scheduled_time: string;
   status: 'pending' | 'in_progress' | 'completed';
+  difficulty: 'easy' | 'medium' | 'hard';
+  priority: number; // 1-3, 3最高
   created_at: string;
+}
+
+interface OptimizedTask extends StudyTask {
+  is_break?: boolean;
+  reason?: string;
+}
+
+interface OptimizationResult {
+  tasks: OptimizedTask[];
+  total_time: number;
+  break_count: number;
+  suggestions: string[];
 }
 
 interface DayStats {
@@ -100,12 +114,23 @@ export default function PlannerPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddTask, setShowAddTask] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
+  const [dayStartTime, setDayStartTime] = useState('08:00'); // 每日学习开始时间
   const [newTask, setNewTask] = useState({
     title: '',
     subject: 'math',
     duration_minutes: 30,
     scheduled_time: '16:00',
+    difficulty: 'medium' as 'easy' | 'medium' | 'hard',
+    priority: 2,
   });
+
+  // AI优化相关状态
+  const [dayStartTime, setDayStartTime] = useState('08:00');
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
+  const [showOptimization, setShowOptimization] = useState(false);
 
   const calendarAnimation = useScrollAnimation();
   const tasksAnimation = useScrollAnimation();
@@ -132,6 +157,12 @@ export default function PlannerPage() {
     };
   };
 
+  // 本地存储键
+  const getStorageKey = useCallback(() => {
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    return `study_plans_${profile?.id}_${dateStr}`;
+  }, [profile?.id, selectedDate]);
+
   // 加载任务
   const loadTasks = useCallback(async () => {
     if (!profile?.id) return;
@@ -148,28 +179,225 @@ export default function PlannerPage() {
         .order('scheduled_time', { ascending: true });
 
       if (error) {
-        console.error('Error loading tasks:', error);
-        setTasks([]);
+        // 数据库失败，尝试从本地存储加载
+        console.log('Database not available, using localStorage');
+        const localData = localStorage.getItem(getStorageKey());
+        if (localData) {
+          setTasks(JSON.parse(localData));
+        } else {
+          setTasks([]);
+        }
       } else {
         setTasks((data || []) as StudyTask[]);
       }
     } finally {
       setLoading(false);
     }
-  }, [profile?.id, selectedDate, supabase]);
+  }, [profile?.id, selectedDate, supabase, getStorageKey]);
 
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
 
+  // 保存到本地存储
+  const saveToLocalStorage = (tasks: StudyTask[]) => {
+    localStorage.setItem(getStorageKey(), JSON.stringify(tasks));
+  };
+
+  // AI智能优化计划
+  const optimizeSchedule = useCallback(async () => {
+    if (tasks.length === 0) return;
+
+    setIsOptimizing(true);
+    setShowOptimization(true);
+
+    try {
+      // 调用AI优化API
+      const response = await fetch('/api/planner/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tasks,
+          start_time: dayStartTime,
+          date: selectedDate.toISOString().split('T')[0],
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setOptimizationResult(result.data);
+      } else {
+        // 如果API不可用，使用本地优化算法
+        const localResult = localOptimize(tasks, dayStartTime);
+        setOptimizationResult(localResult);
+      }
+    } catch (error) {
+      // 本地优化作为后备
+      const localResult = localOptimize(tasks, dayStartTime);
+      setOptimizationResult(localResult);
+    } finally {
+      setIsOptimizing(false);
+    }
+  }, [tasks, dayStartTime, selectedDate]);
+
+  // 本地优化算法（后备方案）
+  const localOptimize = (taskList: StudyTask[], startTime: string): OptimizationResult => {
+    const suggestions: string[] = [];
+    const optimizedTasks: OptimizedTask[] = [];
+
+    // 1. 按难度和优先级排序（要事优先：高难度任务放在精力最好的时段）
+    const difficultyWeight = { hard: 3, medium: 2, easy: 1 };
+    const sortedTasks = [...taskList].sort((a, b) => {
+      // 先按优先级排序，再按难度
+      const priorityDiff = (b.priority || 2) - (a.priority || 2);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      const diffA = difficultyWeight[a.difficulty || 'medium'];
+      const diffB = difficultyWeight[b.difficulty || 'medium'];
+      return diffB - diffA;
+    });
+
+    // 2. 计算时间安排
+    let currentTime = parseTime(startTime);
+    let totalBreakTime = 0;
+
+    sortedTasks.forEach((task, index) => {
+      // 添加任务
+      optimizedTasks.push({
+        ...task,
+        scheduled_time: formatTime(currentTime),
+        reason: getTaskReason(task, index, sortedTasks.length),
+      });
+
+      // 更新时间
+      currentTime = addMinutes(currentTime, task.duration_minutes);
+
+      // 添加休息时间（除了最后一个任务）
+      if (index < sortedTasks.length - 1) {
+        const breakDuration = calculateBreakDuration(task, sortedTasks[index + 1]);
+        optimizedTasks.push({
+          id: `break_${index}`,
+          title: '休息时间',
+          subject: 'break',
+          duration_minutes: breakDuration,
+          scheduled_time: formatTime(currentTime),
+          status: 'pending',
+          difficulty: 'easy',
+          priority: 0,
+          created_at: new Date().toISOString(),
+          is_break: true,
+          reason: `建议休息${breakDuration}分钟，让大脑恢复精力`,
+        });
+        currentTime = addMinutes(currentTime, breakDuration);
+        totalBreakTime += breakDuration;
+      }
+    });
+
+    // 3. 生成建议
+    const totalTime = taskList.reduce((sum, t) => sum + t.duration_minutes, 0) + totalBreakTime;
+    suggestions.push(`根据"要事优先"原则，已将高难度任务安排在前段时段`);
+    suggestions.push(`共安排了${totalBreakTime}分钟休息时间，帮助保持专注力`);
+    suggestions.push(`预计总学习时长：${totalTime}分钟（含休息）`);
+
+    const hardTasks = taskList.filter(t => t.difficulty === 'hard');
+    if (hardTasks.length > 2) {
+      suggestions.push(`今日有${hardTasks.length}个高难度任务，建议保持充足睡眠`);
+    }
+
+    return {
+      tasks: optimizedTasks,
+      total_time: totalTime,
+      break_count: sortedTasks.length - 1,
+      suggestions,
+    };
+  };
+
+  // 应用优化结果
+  const applyOptimization = () => {
+    if (!optimizationResult) return;
+
+    const realTasks = optimizationResult.tasks.filter(t => !t.is_break);
+    setTasks(realTasks);
+    saveToLocalStorage(realTasks);
+    setShowOptimization(false);
+    setOptimizationResult(null);
+  };
+
+  // 辅助函数
+  const parseTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return { hours, minutes };
+  };
+
+  const formatTime = (time: { hours: number; minutes: number }) => {
+    return `${String(time.hours).padStart(2, '0')}:${String(time.minutes).padStart(2, '0')}`;
+  };
+
+  const addMinutes = (time: { hours: number; minutes: number }, mins: number) => {
+    let totalMinutes = time.hours * 60 + time.minutes + mins;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return { hours, minutes };
+  };
+
+  const calculateBreakDuration = (currentTask: StudyTask, nextTask: StudyTask) => {
+    // 根据任务难度决定休息时长
+    if (currentTask.difficulty === 'hard' || nextTask.difficulty === 'hard') {
+      return 10; // 高难度后休息10分钟
+    }
+    return 5; // 默认休息5分钟
+  };
+
+  const getTaskReason = (task: StudyTask, index: number, total: number): string => {
+    const reasons: string[] = [];
+    if (index === 0) {
+      reasons.push('安排在第一个，精力最充沛');
+    }
+    if (task.difficulty === 'hard') {
+      reasons.push('高难度任务优先处理');
+    }
+    if (task.priority === 3) {
+      reasons.push('重要任务，优先安排');
+    }
+    return reasons.join('；') || '按最优顺序安排';
+  };
+
   // 添加任务
   const handleAddTask = async () => {
     if (!profile?.id || !newTask.title.trim()) return;
 
-    try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    const tempId = `local_${Date.now()}`;
 
-      const { data, error } = await supabase
+    const newTaskItem: StudyTask = {
+      id: tempId,
+      title: newTask.title,
+      subject: newTask.subject,
+      duration_minutes: newTask.duration_minutes,
+      scheduled_time: newTask.scheduled_time,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    // 先更新UI（乐观更新）
+    const updatedTasks = [...tasks, newTaskItem].sort((a, b) =>
+      a.scheduled_time.localeCompare(b.scheduled_time)
+    );
+    setTasks(updatedTasks);
+    saveToLocalStorage(updatedTasks);
+
+    // 重置表单
+    setNewTask({
+      title: '',
+      subject: 'math',
+      duration_minutes: 30,
+      scheduled_time: '16:00',
+    });
+    setShowAddTask(false);
+
+    // 尝试保存到数据库
+    try {
+      const { error } = await supabase
         .from('study_plans')
         .insert({
           student_id: profile.id,
@@ -179,26 +407,13 @@ export default function PlannerPage() {
           duration_minutes: newTask.duration_minutes,
           scheduled_time: newTask.scheduled_time,
           status: 'pending',
-        })
-        .select()
-        .single();
+        });
 
       if (error) {
-        console.error('Error adding task:', error);
-      } else if (data) {
-        setTasks(prev => [...prev, data as StudyTask].sort((a, b) =>
-          a.scheduled_time.localeCompare(b.scheduled_time)
-        ));
-        setNewTask({
-          title: '',
-          subject: 'math',
-          duration_minutes: 30,
-          scheduled_time: '16:00',
-        });
-        setShowAddTask(false);
+        console.log('Saved to localStorage (database unavailable)');
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.log('Saved to localStorage');
     }
   };
 
@@ -206,27 +421,39 @@ export default function PlannerPage() {
   const handleToggleTask = async (taskId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
 
-    const { error } = await supabase
-      .from('study_plans')
-      .update({ status: newStatus })
-      .eq('id', taskId);
+    // 乐观更新
+    const updatedTasks = tasks.map(t =>
+      t.id === taskId ? { ...t, status: newStatus } : t
+    );
+    setTasks(updatedTasks);
+    saveToLocalStorage(updatedTasks);
 
-    if (!error) {
-      setTasks(prev =>
-        prev.map(t => (t.id === taskId ? { ...t, status: newStatus } : t))
-      );
+    // 尝试更新数据库
+    try {
+      await supabase
+        .from('study_plans')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+    } catch (error) {
+      console.log('Updated in localStorage');
     }
   };
 
   // 删除任务
   const handleDeleteTask = async (taskId: string) => {
-    const { error } = await supabase
-      .from('study_plans')
-      .delete()
-      .eq('id', taskId);
+    // 乐观更新
+    const updatedTasks = tasks.filter(t => t.id !== taskId);
+    setTasks(updatedTasks);
+    saveToLocalStorage(updatedTasks);
 
-    if (!error) {
-      setTasks(prev => prev.filter(t => t.id !== taskId));
+    // 尝试从数据库删除
+    try {
+      await supabase
+        .from('study_plans')
+        .delete()
+        .eq('id', taskId);
+    } catch (error) {
+      console.log('Deleted from localStorage');
     }
   };
 
