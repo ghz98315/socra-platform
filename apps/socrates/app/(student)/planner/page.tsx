@@ -133,7 +133,6 @@ export default function PlannerPage() {
     title: '',
     subject: 'math',
     duration_minutes: 30,
-    scheduled_time: '16:00',
     difficulty: 'medium' as 'easy' | 'medium' | 'hard',
     priority: 2,
   });
@@ -863,19 +862,6 @@ export default function PlannerPage() {
                     <option value={90}>1.5 小时</option>
                     <option value={120}>2 小时</option>
                   </select>
-                </div>
-                <div>
-                  <label className="text-sm text-warm-600 mb-1 block">
-                    开始时间
-                  </label>
-                  <input
-                    type="time"
-                    value={newTask.scheduled_time}
-                    onChange={(e) =>
-                      setNewTask({ ...newTask, scheduled_time: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-lg border border-warm-200 focus:outline-none focus:ring-2 focus:ring-warm-500"
-                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
