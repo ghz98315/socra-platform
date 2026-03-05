@@ -114,9 +114,10 @@ export default function PlannerPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddTask, setShowAddTask] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
   const [dayStartTime, setDayStartTime] = useState('08:00'); // 每日学习开始时间
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
+  const [showOptimization, setShowOptimization] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
     subject: 'math',
@@ -125,12 +126,6 @@ export default function PlannerPage() {
     difficulty: 'medium' as 'easy' | 'medium' | 'hard',
     priority: 2,
   });
-
-  // AI优化相关状态
-  const [dayStartTime, setDayStartTime] = useState('08:00');
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
-  const [showOptimization, setShowOptimization] = useState(false);
 
   const calendarAnimation = useScrollAnimation();
   const tasksAnimation = useScrollAnimation();
