@@ -508,10 +508,10 @@ export default function PlannerPage() {
           subject: newTask.subject,
           duration_minutes: newTask.duration_minutes,
           scheduled_time: taskScheduledTime,
-          status: 'pending',
+          status: 'pending' as const,
           difficulty: newTask.difficulty,
           priority: newTask.priority,
-        });
+        } as any);
 
       if (error) {
         console.log('Saved to localStorage (database unavailable)');
