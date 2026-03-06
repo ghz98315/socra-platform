@@ -534,9 +534,9 @@ export default function PlannerPage() {
 
     // 尝试更新数据库
     try {
-      await supabase
+      await (supabase as any)
         .from('study_plans')
-        .update({ status: newStatus } as any)
+        .update({ status: newStatus })
         .eq('id', taskId);
     } catch (error) {
       console.log('Updated in localStorage');
@@ -552,7 +552,7 @@ export default function PlannerPage() {
 
     // 尝试从数据库删除
     try {
-      await supabase
+      await (supabase as any)
         .from('study_plans')
         .delete()
         .eq('id', taskId);
