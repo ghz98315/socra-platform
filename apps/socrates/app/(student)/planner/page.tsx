@@ -523,7 +523,7 @@ export default function PlannerPage() {
 
   // 更新任务状态
   const handleToggleTask = async (taskId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    const newStatus = (currentStatus === 'completed' ? 'pending' : 'completed') as 'pending' | 'completed';
 
     // 乐观更新
     const updatedTasks = tasks.map(t =>
@@ -536,7 +536,7 @@ export default function PlannerPage() {
     try {
       await supabase
         .from('study_plans')
-        .update({ status: newStatus })
+        .update({ status: newStatus } as any)
         .eq('id', taskId);
     } catch (error) {
       console.log('Updated in localStorage');
