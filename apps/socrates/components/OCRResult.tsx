@@ -19,6 +19,7 @@ interface OCRResultProps {
   initialText: string;
   onTextChange: (text: string) => void;
   onConfirm: (text: string) => void;
+  onOCRSuccess?: (text: string) => void; // 仅在 OCR 成功完成时调用（不包含用户编辑）
   imageData?: string | null;
 }
 
@@ -26,7 +27,7 @@ interface OCRResultProps {
 const CLOUD_OCR_URL = '/api/ocr';
 const OCR_TIMEOUT = 60000; // 60秒超时（云端可能较慢）
 
-export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: OCRResultProps) {
+export function OCRResult({ initialText, onTextChange, onConfirm, onOCRSuccess, imageData }: OCRResultProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
@@ -113,6 +114,10 @@ export function OCRResult({ initialText, onTextChange, onConfirm, imageData }: O
         if (result.success && result.text) {
           setText(result.text);
           onTextChange(result.text);
+          // 仅在 OCR 成功完成时调用 onOCRSuccess（用于触发几何分析）
+          if (onOCRSuccess) {
+            onOCRSuccess(result.text);
+          }
           updateProgress(100, '识别完成!');
           setCloudOCRAvailable(true);
         } else {
