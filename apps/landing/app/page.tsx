@@ -396,7 +396,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="py-12 px-6 bg-gray-900 text-gray-400">
-        <div className="max-w-6xl mx-auto text-center">
+        <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center gap-3 mb-6">
             <Image src="/logo.png" alt="Socrates" width={32} height={32} />
             <span className="font-bold text-xl text-white">Socrates</span>
@@ -407,7 +407,14 @@ export default function LandingPage() {
             <span>微信：ghz98315</span>
           </div>
 
-          <p className="text-sm">&copy; {new Date().getFullYear()} Socrates. All rights reserved.</p>
+          {/* Legal Links */}
+          <div className="flex justify-center gap-6 mb-6 text-sm">
+            <a href="/privacy" className="hover:text-white transition">隐私政策</a>
+            <a href="/terms" className="hover:text-white transition">服务条款</a>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">ICP备案</a>
+          </div>
+
+          <p className="text-sm text-center">&copy; {new Date().getFullYear()} Socrates. All rights reserved.</p>
         </div>
       </footer>
     </div>
