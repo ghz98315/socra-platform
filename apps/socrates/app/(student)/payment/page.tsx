@@ -34,6 +34,7 @@ const PLANS = {
     period: '月',
     discount: 40,
     popular: false,
+    bestValue: false,
   },
   quarterly: {
     id: 'pro_quarterly',
@@ -43,6 +44,7 @@ const PLANS = {
     period: '季',
     discount: 47,
     popular: true,
+    bestValue: false,
   },
   yearly: {
     id: 'pro_yearly',
@@ -51,8 +53,8 @@ const PLANS = {
     originalPrice: 598.8,
     period: '年',
     discount: 60,
-    bestValue: true,
     popular: false,
+    bestValue: true,
   },
 };
 
