@@ -129,15 +129,18 @@ function PaymentContent() {
 
     try {
       // 创建订单
+      const requestBody = {
+        user_id: user.id,
+        plan_code: plan.id,
+        coupon_code: couponStatus === 'valid' ? couponCode : null,
+        payment_method: paymentMethod,
+      };
+      console.log('[Payment] Sending request:', requestBody);
+
       const orderResponse = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: user.id,
-          plan_code: plan.id,
-          coupon_code: couponStatus === 'valid' ? couponCode : null,
-          payment_method: paymentMethod,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!orderResponse.ok) {
