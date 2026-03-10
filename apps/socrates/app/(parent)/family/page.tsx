@@ -86,9 +86,9 @@ export default function FamilyPage() {
         .from('family_groups')
         .insert({
           name: familyName.trim(),
-          created_by: user.id,
+          created_by: user!.id,
           invite_code: inviteCode,
-        })
+        } as any)
         .select()
         .single();
 
@@ -101,11 +101,11 @@ export default function FamilyPage() {
       const { error: memberError } = await supabase
         .from('family_members')
         .insert({
-          family_id: familyData.id,
-          user_id: user.id,
+          family_id: (familyData as any).id,
+          user_id: user!.id,
           role: 'parent',
-          nickname: user.user_metadata?.display_name || '家长'
-        });
+          nickname: (user!.user_metadata as any)?.display_name || '家长'
+        } as any);
 
       if (memberError) {
         console.error('[Family API] Error adding member:', memberError);
@@ -113,11 +113,11 @@ export default function FamilyPage() {
       }
 
       setFamily({
-        id: familyData.id,
-        name: familyData.name,
-        inviteCode: familyData.invite_code,
-        createdBy: familyData.created_by,
-        createdAt: familyData.created_at,
+        id: (familyData as any).id,
+        name: (familyData as any).name,
+        inviteCode: (familyData as any).invite_code,
+        createdBy: (familyData as any).created_by,
+        createdAt: (familyData as any).created_at,
         members: []
       });
       setFamilyName('');
@@ -158,7 +158,7 @@ export default function FamilyPage() {
           user_id: userId,
           role: role,
           nickname: nickname
-        });
+        } as any);
 
       if (error) throw error;
 
