@@ -5,19 +5,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  CheckCircle,
-  Crown,
-  Sparkles,
-  ArrowRight,
-  Gift,
-  Star
-} from 'lucide-react';
+import { CheckCircle, Crown, Sparkles, ArrowRight, Gift, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 // Pro会员权益
@@ -37,7 +30,8 @@ const standardBenefits = [
   '学习进度跟踪'
 ];
 
-export default function PaymentSuccessPage() {
+// 内部组件 - 使用 useSearchParams
+function PaymentSuccessContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -73,7 +67,6 @@ export default function PaymentSuccessPage() {
 
   // 庆祝动画
   useEffect(() => {
-    // 触发彩带动画
     const duration = 3 * 1000;
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
@@ -84,13 +77,10 @@ export default function PaymentSuccessPage() {
 
     const interval: NodeJS.Timeout = setInterval(function() {
       const timeLeft = animationEnd - Date.now();
-
       if (timeLeft <= 0) {
         return clearInterval(interval);
       }
-
       const particleCount = 50 * (timeLeft / duration);
-
       confetti({
         ...defaults,
         particleCount,
@@ -114,11 +104,9 @@ export default function PaymentSuccessPage() {
       router.push('/dashboard');
       return;
     }
-
     const timer = setTimeout(() => {
       setCountdown(countdown - 1);
     }, 1000);
-
     return () => clearTimeout(timer);
   }, [countdown, router]);
 
@@ -142,21 +130,12 @@ export default function PaymentSuccessPage() {
           </div>
 
           {/* 标题 */}
-          <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">
-            支付成功
-          </h1>
+          <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">支付成功</h1>
 
           <p className="text-gray-600 text-center mb-6">
             恭喜您已成为{' '}
             <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-100 to-orange-100 text-orange-600 px-3 py-1 rounded-full text-sm font-semibold">
-              {isPro ? (
-                <>
-                  <Crown className="w-4 h-4" />
-                  Pro
-                </>
-              ) : (
-                'Standard'
-              )}
+              {isPro ? (<><Crown className="w-4 h-4" />Pro</>) : ('Standard')}
             </span>{' '}
             会员
           </p>
@@ -166,15 +145,11 @@ export default function PaymentSuccessPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-sm text-gray-500">订阅方案</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {getPlanDisplayName()}
-                </p>
+                <p className="text-lg font-bold text-gray-900">{getPlanDisplayName()}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-500">支付金额</p>
-                <p className="text-lg font-bold text-orange-600">
-                  {formatPrice()}
-                </p>
+                <p className="text-lg font-bold text-orange-600">{formatPrice()}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -191,10 +166,7 @@ export default function PaymentSuccessPage() {
             </p>
             <div className="space-y-2">
               {benefits.map((benefit, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 text-gray-700"
-                >
+                <div key={index} className="flex items-center gap-3 text-gray-700">
                   <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                     <CheckCircle className="w-3 h-3 text-green-600" />
                   </div>
@@ -206,17 +178,10 @@ export default function PaymentSuccessPage() {
 
           {/* 操作按钮 */}
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/dashboard')}
-              className="flex-1"
-            >
+            <Button variant="outline" onClick={() => router.push('/dashboard')} className="flex-1">
               返回首页
             </Button>
-            <Button
-              onClick={() => router.push('/workbench')}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-warm-500 hover:from-orange-600 hover:to-warm-600 text-white"
-            >
+            <Button onClick={() => router.push('/workbench')} className="flex-1 bg-gradient-to-r from-orange-500 to-warm-500 hover:from-orange-600 hover:to-warm-600 text-white">
               开始学习
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
@@ -229,5 +194,26 @@ export default function PaymentSuccessPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// 加载中组件
+function PaymentSuccessLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-warm-50 via-white to-orange-50 flex items-center justify-center p-4">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <p className="text-gray-500">加载中...</p>
+      </div>
+    </div>
+  );
+}
+
+// 主导出组件 - 使用 Suspense 包装
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<PaymentSuccessLoading />}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
