@@ -238,13 +238,13 @@ export default function LoginPage() {
 
           {/* Back to Home */}
           <div className="text-center mt-6">
-            <Link
-              href="/landing"
+            <a
+              href="https://socra.cn"
               className="inline-flex items-center gap-2 text-sm text-warm-500 hover:text-warm-700 transition-colors"
             >
               <Home className="w-4 h-4" />
               返回首页
-            </Link>
+            </a>
           </div>
         </div>
       </div>
