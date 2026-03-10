@@ -101,7 +101,7 @@ export function NotificationCenter() {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/notifications?parent_id=${profile.id}&limit=10`);
+      const response = await fetch(`/api/notifications?user_id=${profile.id}&limit=10`);
       if (response.ok) {
         const result = await response.json();
         setNotifications(result.data || []);
@@ -117,8 +117,8 @@ export function NotificationCenter() {
   const markAsRead = async (notificationId?: string) => {
     try {
       const body = notificationId
-        ? { notification_id: notificationId }
-        : { mark_all_read: true, parent_id: profile?.id };
+        ? { user_id: profile?.id, notification_ids: [notificationId] }
+        : { user_id: profile?.id, mark_all_read: true };
 
       await fetch('/api/notifications', {
         method: 'PATCH',
@@ -142,7 +142,7 @@ export function NotificationCenter() {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications?id=${notificationId}`, { method: 'DELETE' });
+      await fetch(`/api/notifications?id=${notificationId}&user_id=${profile?.id}`, { method: 'DELETE' });
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
     } catch (error) {
       console.error('Failed to delete notification:', error);

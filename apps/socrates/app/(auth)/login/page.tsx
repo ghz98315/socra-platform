@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Brain, Target } from 'lucide-react';
+import { Loader2, Sparkles, Brain, Target, Home } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -235,6 +235,17 @@ export default function LoginPage() {
           <p className="text-xs text-warm-400 text-center mt-8">
             登录即表示同意我们的服务条款和隐私政策
           </p>
+
+          {/* Back to Home */}
+          <div className="text-center mt-6">
+            <Link
+              href="/landing"
+              className="inline-flex items-center gap-2 text-sm text-warm-500 hover:text-warm-700 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              返回首页
+            </Link>
+          </div>
         </div>
       </div>
     </div>
