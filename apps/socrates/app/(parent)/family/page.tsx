@@ -5,11 +5,11 @@
 
 'use client';
 
-import { useState, from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { Users, UserPlus, ChevronRight, from 'lucide-react';
+import { Users, UserPlus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface FamilyMember {
