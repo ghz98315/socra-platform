@@ -15,7 +15,9 @@ import {
   Clock,
   CheckCircle,
   Menu,
-  X
+  X,
+  Crown,
+  Zap
 } from 'lucide-react';
 import Image from 'next/image';
 import { FeaturedPostsCarousel } from '../components/FeaturedPostsCarousel';
@@ -76,6 +78,7 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-8">
             <a href="#products" className="text-gray-600 hover:text-orange-500 transition">产品</a>
+            <a href="#pricing" className="text-gray-600 hover:text-orange-500 transition">定价</a>
             <a href="#about" className="text-gray-600 hover:text-orange-500 transition">关于</a>
             <Button className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white" asChild>
               <a href="https://socrates.socra.cn">开始学习</a>
@@ -214,6 +217,132 @@ export default function LandingPage() {
 
       {/* 社区精选 */}
       <FeaturedPostsCarousel />
+
+      {/* Pricing */}
+      <section id="pricing" className="py-20 px-6 bg-white/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">会员订阅</h2>
+            <p className="text-gray-600">选择适合孩子的学习方案</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Standard */}
+            <div className="bg-white rounded-3xl p-8 shadow-lg">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-semibold mb-2">Standard</h3>
+                <div className="text-4xl font-bold text-gray-900">免费</div>
+                <p className="text-gray-500 text-sm mt-1">基础功能</p>
+              </div>
+
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  每日50次AI对话
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  数学/语文/英语支持
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  基础错题分析
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  学习进度跟踪
+                </li>
+              </ul>
+
+              <Button variant="outline" className="w-full rounded-full" asChild>
+                <a href="https://socrates.socra.cn/register">免费注册</a>
+              </Button>
+            </div>
+
+            {/* Pro - Popular */}
+            <div className="bg-gradient-to-b from-orange-50 to-pink-50 rounded-3xl p-8 shadow-xl relative border-2 border-orange-200">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-medium px-4 py-1 rounded-full flex items-center gap-1">
+                  <Zap className="w-3 h-3" />最受欢迎
+                </span>
+              </div>
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <h3 className="text-xl font-semibold">Pro</h3>
+                  <Crown className="w-5 h-5 text-yellow-500" />
+                </div>
+                <div className="text-4xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">¥79.9<span className="text-lg font-normal text-gray-500">/季</span></div>
+                <p className="text-gray-500 text-sm mt-1">季度会员</p>
+              </div>
+
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-orange-500" />
+                  无限AI对话次数
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-orange-500" />
+                  所有学科支持
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-orange-500" />
+                  高级错题分析
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-orange-500" />
+                  个性化学习报告
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-orange-500" />
+                  优先客服支持
+                </li>
+              </ul>
+
+              <Button className="w-full rounded-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white" asChild>
+                <a href="https://socrates.socra.cn/subscription">立即订阅</a>
+              </Button>
+            </div>
+
+            {/* Yearly */}
+            <div className="bg-white rounded-3xl p-8 shadow-lg">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-semibold mb-2">年度会员</h3>
+                <div className="text-4xl font-bold text-gray-900">¥239.9<span className="text-lg font-normal text-gray-500">/年</span></div>
+                <p className="text-green-600 text-sm mt-1">省¥100+</p>
+              </div>
+
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  包含Pro全部权益
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  专属学习规划顾问
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  优先新功能体验
+                </li>
+                <li className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  家庭共享(最多3人)
+                </li>
+              </ul>
+
+              <Button variant="outline" className="w-full rounded-full border-green-500 text-green-600 hover:bg-green-50" asChild>
+                <a href="https://socrates.socra.cn/subscription">选择年度</a>
+              </Button>
+            </div>
+          </div>
+
+          <div className="text-center mt-8">
+            <p className="text-gray-500 text-sm">
+              月度会员 ¥29.9/月 · 季度会员 ¥79.9/季 · 年度会员 ¥239.9/年
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* About */}
       <section id="about" className="py-20 px-6 bg-white/50">
