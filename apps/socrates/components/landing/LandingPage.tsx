@@ -34,7 +34,7 @@ function StyleA() {
       title: '苏格拉底 AI 辅导',
       description: '上传错题，AI 引导你独立思考，不是给答案，而是教你思路',
       features: ['智能题目识别', '苏格拉底式引导', '个性化学习路径'],
-      link: 'https://socrates.socra.cn',
+      link: 'https://socra.cn',
       color: 'bg-blue-500',
     },
     {
@@ -79,7 +79,7 @@ function StyleA() {
             <a href="#features" className="text-gray-600 hover:text-gray-900 transition">功能</a>
             <a href="#about" className="text-gray-600 hover:text-gray-900 transition">关于</a>
             <Button asChild>
-              <a href="https://socrates.socra.cn">开始使用</a>
+              <a href="https://socra.cn">开始使用</a>
             </Button>
           </div>
 
@@ -100,7 +100,7 @@ function StyleA() {
             <a href="#features" className="block text-gray-600 hover:text-gray-900">功能</a>
             <a href="#about" className="block text-gray-600 hover:text-gray-900">关于</a>
             <Button className="w-full" asChild>
-              <a href="https://socrates.socra.cn">开始使用</a>
+              <a href="https://socra.cn">开始使用</a>
             </Button>
           </div>
         )}
@@ -127,7 +127,7 @@ function StyleA() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="text-lg px-8" asChild>
-              <a href="https://socrates.socra.cn">
+              <a href="https://socra.cn">
                 免费开始
                 <ChevronRight className="w-5 h-5 ml-1" />
               </a>
@@ -218,7 +218,7 @@ function StyleA() {
                 </ul>
 
                 <Button variant="outline" className="w-full" asChild>
-                  <a href="https://socrates.socra.cn/register">免费注册</a>
+                  <a href="https://socra.cn/register">免费注册</a>
                 </Button>
               </CardContent>
             </Card>
@@ -264,7 +264,7 @@ function StyleA() {
                 </ul>
 
                 <Button className="w-full bg-blue-600 hover:bg-blue-700" asChild>
-                  <a href="https://socrates.socra.cn/subscription">立即订阅</a>
+                  <a href="https://socra.cn/subscription">立即订阅</a>
                 </Button>
               </CardContent>
             </Card>
@@ -298,7 +298,7 @@ function StyleA() {
                 </ul>
 
                 <Button variant="outline" className="w-full border-green-500 text-green-600 hover:bg-green-50" asChild>
-                  <a href="https://socrates.socra.cn/subscription">选择年度</a>
+                  <a href="https://socra.cn/subscription">选择年度</a>
                 </Button>
               </CardContent>
             </Card>
@@ -366,7 +366,7 @@ function StyleA() {
             免费注册，立即体验 AI 引导学习的魅力
           </p>
           <Button size="lg" variant="secondary" className="text-lg px-8" asChild>
-            <a href="https://socrates.socra.cn">
+            <a href="https://socra.cn">
               免费开始
               <ChevronRight className="w-5 h-5 ml-1" />
             </a>
@@ -389,7 +389,7 @@ function StyleA() {
             <div>
               <h4 className="font-semibold text-white mb-4">产品</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="https://socrates.socra.cn" className="hover:text-white transition">苏格拉底 AI 辅导</a></li>
+                <li><a href="https://socra.cn" className="hover:text-white transition">苏格拉底 AI 辅导</a></li>
                 <li><a href="https://essay.socra.cn" className="hover:text-white transition">作文批改</a></li>
                 <li><a href="https://planner.socra.cn" className="hover:text-white transition">学习规划</a></li>
               </ul>
@@ -427,7 +427,7 @@ function StyleB() {
       title: '苏格拉底 AI 辅导',
       description: '上传错题，AI 引导你独立思考，不是给答案，而是教你思路',
       features: ['智能题目识别', '苏格拉底式引导', '个性化学习路径', '复习计划生成'],
-      link: 'https://socrates.socra.cn',
+      link: 'https://socra.cn',
       gradient: 'from-orange-400 to-pink-500',
       status: 'online' as const,
     },
@@ -479,7 +479,7 @@ function StyleB() {
             <a href="#pricing" className="text-gray-600 hover:text-orange-500 transition">定价</a>
             <a href="#about" className="text-gray-600 hover:text-orange-500 transition">关于</a>
             <Button className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600" asChild>
-              <a href="https://socrates.socra.cn">开始学习</a>
+              <a href="https://socra.cn">开始学习</a>
             </Button>
           </div>
 
@@ -494,7 +494,7 @@ function StyleB() {
             <a href="#pricing" className="block text-gray-600">定价</a>
             <a href="#about" className="block text-gray-600">关于</a>
             <Button className="w-full bg-gradient-to-r from-orange-500 to-pink-500" asChild>
-              <a href="https://socrates.socra.cn">开始学习</a>
+              <a href="https://socra.cn">开始学习</a>
             </Button>
           </div>
         )}
@@ -523,7 +523,7 @@ function StyleB() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="text-lg px-8 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600" asChild>
-              <a href="https://socrates.socra.cn">
+              <a href="https://socra.cn">
                 立即体验
                 <ChevronRight className="w-5 h-5 ml-1" />
               </a>
@@ -651,7 +651,7 @@ function StyleB() {
               </ul>
 
               <Button variant="outline" className="w-full rounded-full" asChild>
-                <a href="https://socrates.socra.cn/register">免费注册</a>
+                <a href="https://socra.cn/register">免费注册</a>
               </Button>
             </div>
 
@@ -695,7 +695,7 @@ function StyleB() {
               </ul>
 
               <Button className="w-full rounded-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600" asChild>
-                <a href="https://socrates.socra.cn/subscription">立即订阅</a>
+                <a href="https://socra.cn/subscription">立即订阅</a>
               </Button>
             </div>
 
@@ -727,7 +727,7 @@ function StyleB() {
               </ul>
 
               <Button variant="outline" className="w-full rounded-full border-green-500 text-green-600 hover:bg-green-50" asChild>
-                <a href="https://socrates.socra.cn/subscription">选择年度</a>
+                <a href="https://socra.cn/subscription">选择年度</a>
               </Button>
             </div>
           </div>
@@ -779,7 +779,7 @@ function StyleB() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-6">开始孩子的智能学习之旅</h2>
           <Button size="lg" className="text-lg px-8 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600" asChild>
-            <a href="https://socrates.socra.cn">
+            <a href="https://socra.cn">
               免费体验
               <ChevronRight className="w-5 h-5 ml-1" />
             </a>
@@ -818,7 +818,7 @@ function StyleC() {
       icon: Brain,
       title: '苏格拉底 AI 辅导',
       description: '拍照上传错题，AI 引导你思考',
-      link: 'https://socrates.socra.cn',
+      link: 'https://socra.cn',
       emoji: '🧠',
     },
     {
@@ -858,7 +858,7 @@ function StyleC() {
             <a href="#pricing" className="text-gray-400 hover:text-white transition">定价</a>
             <a href="#about" className="text-gray-400 hover:text-white transition">关于</a>
             <Button className="bg-white text-black hover:bg-gray-200" asChild>
-              <a href="https://socrates.socra.cn">开始使用</a>
+              <a href="https://socra.cn">开始使用</a>
             </Button>
           </div>
 
@@ -873,7 +873,7 @@ function StyleC() {
             <a href="#pricing" className="block text-gray-400">定价</a>
             <a href="#about" className="block text-gray-400">关于</a>
             <Button className="w-full bg-white text-black" asChild>
-              <a href="https://socrates.socra.cn">开始使用</a>
+              <a href="https://socra.cn">开始使用</a>
             </Button>
           </div>
         )}
@@ -902,7 +902,7 @@ function StyleC() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="text-lg px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600" asChild>
-              <a href="https://socrates.socra.cn">
+              <a href="https://socra.cn">
                 立即开始
                 <ChevronRight className="w-5 h-5 ml-1" />
               </a>
@@ -984,7 +984,7 @@ function StyleC() {
               </ul>
 
               <Button variant="outline" className="w-full rounded-full border-white/20 text-white hover:bg-white/10" asChild>
-                <a href="https://socrates.socra.cn/register">免费注册</a>
+                <a href="https://socra.cn/register">免费注册</a>
               </Button>
             </div>
 
@@ -1028,7 +1028,7 @@ function StyleC() {
               </ul>
 
               <Button className="w-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600" asChild>
-                <a href="https://socrates.socra.cn/subscription">立即订阅</a>
+                <a href="https://socra.cn/subscription">立即订阅</a>
               </Button>
             </div>
 
@@ -1060,7 +1060,7 @@ function StyleC() {
               </ul>
 
               <Button variant="outline" className="w-full rounded-full border-green-500/50 text-green-400 hover:bg-green-500/10" asChild>
-                <a href="https://socrates.socra.cn/subscription">选择年度</a>
+                <a href="https://socra.cn/subscription">选择年度</a>
               </Button>
             </div>
           </div>
@@ -1114,7 +1114,7 @@ function StyleC() {
             免费开始，体验 AI 引导学习的力量
           </p>
           <Button size="lg" className="text-lg px-10 bg-white text-black hover:bg-gray-200" asChild>
-            <a href="https://socrates.socra.cn">
+            <a href="https://socra.cn">
               免费开始
               <ChevronRight className="w-5 h-5 ml-1" />
             </a>
@@ -1137,7 +1137,7 @@ function StyleC() {
             <div>
               <h4 className="font-semibold mb-4">产品</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="https://socrates.socra.cn" className="hover:text-white transition">苏格拉底 AI 辅导</a></li>
+                <li><a href="https://socra.cn" className="hover:text-white transition">苏格拉底 AI 辅导</a></li>
                 <li><a href="https://essay.socra.cn" className="hover:text-white transition">作文批改</a></li>
                 <li><a href="https://planner.socra.cn" className="hover:text-white transition">学习规划</a></li>
               </ul>
