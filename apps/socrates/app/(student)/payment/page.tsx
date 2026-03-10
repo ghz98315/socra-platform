@@ -133,9 +133,10 @@ function PaymentContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          planId: plan.id,
-          couponCode: couponStatus === 'valid' ? couponCode : null,
-          paymentMethod,
+          user_id: user.id,
+          plan_code: plan.id,
+          coupon_code: couponStatus === 'valid' ? couponCode : null,
+          payment_method: paymentMethod,
         }),
       });
 
