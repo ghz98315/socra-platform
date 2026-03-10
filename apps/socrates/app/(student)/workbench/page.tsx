@@ -20,7 +20,8 @@ import {
   FileText,
   Users,
   ArrowLeft,
-  Hexagon
+  Hexagon,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -31,6 +32,7 @@ import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { PageHeader } from '@/components/PageHeader';
 import { GeometryRenderer, type GeometryData } from '@/components/GeometryRenderer';
+import { SubjectTabs, type SubjectType, getSubjectConfig } from '@/components/SubjectTabs';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -92,6 +94,9 @@ function WorkbenchPage() {
 
   const isParent = profile?.role === 'parent';
   const effectiveStudentId = isParent ? selectedStudentId : profile?.id;
+
+  // Subject from URL params
+  const [activeSubject, setActiveSubject] = useState<SubjectType>('math');
 
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -175,6 +180,12 @@ function WorkbenchPage() {
     if (studentParam) {
       setSelectedStudentId(studentParam);
       setSelectedStudentName(studentNameParam || '学生');
+    }
+
+    // Check for subject param in URL
+    const subjectParam = searchParams.get('subject');
+    if (subjectParam && ['math', 'chinese', 'english', 'physics', 'chemistry'].includes(subjectParam)) {
+      setActiveSubject(subjectParam as SubjectType);
     }
   }, [isParent, profile?.id, searchParams]);
 
@@ -336,7 +347,7 @@ function WorkbenchPage() {
 
     try {
       await downloadErrorQuestionPDF({
-        subject: 'math', // Default subject
+        subject: activeSubject,
         createdAt: new Date().toISOString(),
         studentName: profile?.display_name,
         ocrText: ocrText || undefined,
@@ -378,7 +389,7 @@ function WorkbenchPage() {
       const response = await fetch('/api/geometry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, subject: 'math' }),
+        body: JSON.stringify({ text, subject: activeSubject }),
         signal: controller.signal,
       });
 
@@ -469,7 +480,7 @@ function WorkbenchPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: effectiveStudentId,
-          subject: 'math',
+          subject: activeSubject,
           original_image_url: imagePreview || null,
           extracted_text: text,
           geometry_data: geometryData,
@@ -525,7 +536,7 @@ function WorkbenchPage() {
           message: content,
           session_id: chatSessionRef.current,
           theme: profile?.theme_preference || 'junior',
-          subject: 'math',
+          subject: activeSubject,
           questionContent: ocrText,
         }),
       });
@@ -574,6 +585,7 @@ function WorkbenchPage() {
 
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
   const aiName = profile?.theme_preference === 'junior' ? 'Jasper' : 'Logic';
+  const currentSubjectConfig = getSubjectConfig(activeSubject);
 
   // Show student selector for parents without selected student
   if (isParent && !effectiveStudentId) {
@@ -674,9 +686,9 @@ function WorkbenchPage() {
         >
           <PageHeader
             title="学习工作台"
-            description={profile?.theme_preference === 'junior' ? '小学版 · AI引导学习' : '中学版 · AI推理分析'}
-            icon={BookOpen}
-            iconColor="text-warm-500"
+            description={`${currentSubjectConfig?.name || '学科'} · ${profile?.theme_preference === 'junior' ? '小学版 · AI引导学习' : '中学版 · AI推理分析'}`}
+            icon={currentSubjectConfig?.icon || BookOpen}
+            iconColor={currentSubjectConfig?.color || 'text-warm-500'}
             actions={
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 {/* Study Session Timer */}
@@ -712,6 +724,21 @@ function WorkbenchPage() {
               </div>
             }
           />
+
+          {/* Subject Tabs */}
+          <div className="mt-4">
+            <SubjectTabs
+              activeSubject={activeSubject}
+              onSubjectChange={(subject) => {
+                setActiveSubject(subject);
+                // Update URL without reload
+                const url = new URL(window.location.href);
+                url.searchParams.set('subject', subject);
+                window.history.replaceState({}, '', url.toString());
+              }}
+              showPro={false}
+            />
+          </div>
         </div>
       </div>
 
