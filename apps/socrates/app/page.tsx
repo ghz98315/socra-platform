@@ -1,11 +1,10 @@
 // =====================================================
-// Project Socrates - Home Page (Server Redirect)
+// Project Socrates - Home Page (Landing Page)
 // =====================================================
 
-import { redirect } from 'next/navigation';
+import LandingPage from '@/components/landing/LandingPage';
 
 export default function HomePage() {
-  // Redirect to login page for now
-  // In production, this would check session cookies
-  redirect('/login');
+  // Show landing page with Style A (tech minimal)
+  return <LandingPage initialStyle="A" />;
 }
