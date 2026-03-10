@@ -51,7 +51,7 @@ export default function FamilyPage() {
     async function fetchFamilyData() {
       try {
         setLoading(true);
-        const response = await fetch(`/api/family?user_id=${user.id}`);
+        const response = await fetch(`/api/family?user_id=${user!.id}`);
         const data = await response.json();
 
         if (data.family) {
