@@ -19,6 +19,8 @@ export type NotificationType =
   | 'task_completed'   // 任务完成
   | 'study_complete'   // 学习完成（家长端）
   | 'achievement'      // 成就达成
+  | 'mastery_update'   // 掌握度提升
+  | 'new_error'        // 新错题上传
   | 'points'           // 积分奖励
   | 'streak'           // 连续学习
   | 'subscription'     // 订阅相关
