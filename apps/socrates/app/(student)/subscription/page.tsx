@@ -170,8 +170,8 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="text-right">
                   <Badge className="bg-white/20 text-white border-white/30">
-                    有效期至 {subscription.current_period_end
-                      ? new Date(subscription.current_period_end).toLocaleDateString('zh-CN')
+                    有效期至 {subscription.current_plan?.expires_at
+                      ? new Date(subscription.current_plan.expires_at).toLocaleDateString('zh-CN')
                       : '永久'}
                   </Badge>
                 </div>
