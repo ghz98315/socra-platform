@@ -36,20 +36,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    if (!familyGroup) {
+      return NextResponse.json({
+        family: null,
+        members: []
+      });
+    }
+
     // 获取家庭成员
     const { data: members, error: membersError } = await supabase
       .from('family_members')
-      .select(`
-        id,
-        user_id,
-        role,
-        nickname,
-        joined_at
-      `)
-      .eq('family_id', familyGroup.id);
+      .select('id, user_id, role, nickname, joined_at')
+      .eq('family_id', (familyGroup as any).id);
 
     const familyMembers = members || [];
-    const children = familyMembers.filter(m => m.role === 'child').map(m => ({
+    const children = familyMembers.filter((m: any) => m.role === 'child').map((m: any) => ({
       id: m.id,
       userId: m.user_id,
       role: m.role,
@@ -58,12 +59,12 @@ export async function GET(req: NextRequest) {
     }));
 
     // 获取邀请码
-    const inviteCode = familyGroup?.invite_code;
+    const inviteCode = (familyGroup as any)?.invite_code;
 
     return NextResponse.json({
       family: {
-        id: familyGroup.id,
-        name: familyGroup.name,
+        id: (familyGroup as any).id,
+        name: (familyGroup as any).name,
         inviteCode,
         createdBy: userId,
         role: 'parent',
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     if (!name || !createdBy) {
       return NextResponse.json(
-        { error: 'name and created_by are required' },
+        { error: 'name and createdBy are required' },
         { status: 400 }
       );
     }
@@ -98,9 +99,9 @@ export async function POST(req: NextRequest) {
       .from('family_groups')
       .insert({
         name,
-        created_by,
-        invite_code
-      })
+        created_by: createdBy,
+        invite_code: inviteCode
+      } as any)
       .select()
       .single();
 
@@ -113,17 +114,17 @@ export async function POST(req: NextRequest) {
     await supabase
       .from('family_members')
       .insert({
-        family_id: familyGroup.id,
+        family_id: (familyGroup as any).id,
         user_id: createdBy,
         role: 'parent',
         nickname: '家长'
-      });
+      } as any);
 
     return NextResponse.json({
       success: true,
       family: {
-        id: familyGroup.id,
-        name: familyGroup.name,
+        id: (familyGroup as any).id,
+        name: (familyGroup as any).name,
         inviteCode,
         createdBy,
         role: 'parent',
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// POST - 加入家庭（通过邀请码)
+// PUT - 加入家庭（通过邀请码)
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
@@ -144,50 +145,37 @@ export async function PUT(req: NextRequest) {
 
     if (!inviteCode || !userId) {
       return NextResponse.json(
-        { error: 'invite_code and user_id are required' },
+        { error: 'inviteCode and userId are required' },
         { status: 400 }
       );
     }
 
-    // 查找邀请码
-    const { data: inviteData, error: inviteError } = await supabase
+    // 查找邀请码对应的家庭
+    const { data: familyGroup, error: familyError } = await supabase
       .from('family_groups')
       .select('*')
       .eq('invite_code', inviteCode)
       .single();
 
-    if (inviteError || !inviteData) {
+    if (familyError || !familyGroup) {
       return NextResponse.json(
         { error: '无效的邀请码' },
         { status: 400 }
       );
     }
 
-    // 检查用户是否已在其他家庭
+    // 检查用户是否已在家庭中
     const { data: existingMembership } = await supabase
       .from('family_members')
       .select('id')
       .eq('user_id', userId)
+      .eq('family_id', (familyGroup as any).id)
       .single();
 
     if (existingMembership) {
       return NextResponse.json(
-        { error: '您已经是其他家庭的成员' },
+        { error: '您已经是该家庭的成员' },
         { status: 400 }
-      );
-    }
-
-    // 获取家庭信息
-    const { data: familyGroup } = await supabase
-      .from('family_groups')
-      .select('*')
-      .eq('id', inviteData.family_id)
-      .single();
-
-    if (!familyGroup) {
-      return NextResponse.json(
-        { error: '家庭不存在' },
-        { status: 404 }
       );
     }
 
@@ -195,11 +183,11 @@ export async function PUT(req: NextRequest) {
     const { data: member, error: memberError } = await supabase
       .from('family_members')
       .insert({
-        family_id: familyGroup.id,
+        family_id: (familyGroup as any).id,
         user_id: userId,
         role: role || 'child',
         nickname: nickname || null
-      })
+      } as any)
       .select()
       .single();
 
@@ -212,14 +200,14 @@ export async function PUT(req: NextRequest) {
       success: true,
       message: '成功加入家庭',
       family: {
-        id: familyGroup.id,
-        name: familyGroup.name
+        id: (familyGroup as any).id,
+        name: (familyGroup as any).name
       },
       member: {
-        id: member.id,
-        userId: member.user_id,
-        role: member.role,
-        nickname: member.nickname
+        id: (member as any).id,
+        userId: (member as any).user_id,
+        role: (member as any).role,
+        nickname: (member as any).nickname
       }
     });
   } catch (error: any) {
@@ -233,32 +221,33 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const familyId = searchParams.get('family_id');
-    const userId = searchParams.get('user_id');
+    const targetUserId = searchParams.get('user_id');
+    const requestUserId = searchParams.get('request_user_id');
 
-    if (!familyId || !userId) {
+    if (!familyId || !targetUserId || !requestUserId) {
       return NextResponse.json(
-        { error: 'family_id and user_id are required' },
+        { error: 'family_id, user_id and request_user_id are required' },
         { status: 400 }
       );
     }
 
-    // 检查权限
-    const { data: membership, error: memberError } = await supabase
+    // 检查请求者权限
+    const { data: requester, error: requesterError } = await supabase
       .from('family_members')
-      .select('family_id, user_id')
+      .select('role')
       .eq('family_id', familyId)
-      .eq('user_id', userId)
+      .eq('user_id', requestUserId)
       .single();
 
-    if (memberError || !membership) {
+    if (requesterError || !requester) {
       return NextResponse.json(
-        { error: '成员不存在' },
-        { status: 404 }
+        { error: '无权限操作' },
+        { status: 403 }
       );
     }
 
     // 只有家长可以移除成员
-    if (membership.role !== 'parent') {
+    if ((requester as any).role !== 'parent') {
       return NextResponse.json(
         { error: '只有家长可以移除家庭成员' },
         { status: 403 }
@@ -270,7 +259,7 @@ export async function DELETE(req: NextRequest) {
       .from('family_members')
       .delete()
       .eq('family_id', familyId)
-      .eq('user_id', userId);
+      .eq('user_id', targetUserId);
 
     if (deleteError) {
       console.error('[Family API] Error deleting member:', deleteError);
