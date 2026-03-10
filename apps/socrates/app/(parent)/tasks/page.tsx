@@ -75,6 +75,13 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   cancelled: { label: '已取消', color: 'bg-red-100 text-red-600' },
 };
 
+// Format date helper function
+function formatDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+
 export default function ParentTasksPage() {
   const { profile } = useAuth();
   const [students, setStudents] = useState<ChildInfo[]>([]);
@@ -242,13 +249,6 @@ export default function ParentTasksPage() {
       return Math.min(100, (task.progress_duration / task.target_duration) * 100);
     }
     return 0;
-  };
-
-  // Format date
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   };
 
   return (
