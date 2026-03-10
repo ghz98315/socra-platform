@@ -14,8 +14,10 @@ const supabase = createClient(
 // 通知类型
 export type NotificationType =
   | 'review'           // 复习提醒
+  | 'review_reminder'  // 复习提醒（家长端）
   | 'task'             // 任务提醒
   | 'task_completed'   // 任务完成
+  | 'study_complete'   // 学习完成（家长端）
   | 'achievement'      // 成就达成
   | 'points'           // 积分奖励
   | 'streak'           // 连续学习
