@@ -41,9 +41,9 @@ const products = [
   {
     icon: Calendar,
     title: '学习规划',
-    description: '智能排期，要事优先，抓重点难点先完成',
-    features: ['智能排期', '要事优先', '进度跟踪', '提醒通知'],
-    link: 'https://planner.socra.cn',
+    description: '智能排期，要事优先，专注计时，养成高效学习习惯',
+    features: ['AI智能排期', '要事优先', '专注计时', '进度跟踪'],
+    link: 'https://socrates.socra.cn/planner',
     gradient: 'from-green-400 to-teal-500',
   },
 ];

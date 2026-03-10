@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import type { ThemeType } from '@/lib/supabase/types';
-import { GraduationCap, UserCircle, ChartBar, Loader2, Lock } from 'lucide-react';
+import { GraduationCap, UserCircle, ChartBar, Loader2, CheckCircle } from 'lucide-react';
 
 interface ProfileOption {
   id: string;
@@ -18,14 +18,15 @@ interface ProfileOption {
   theme: ThemeType;
   gradeLevel?: [number, number];
   role: 'student' | 'parent';
-  locked?: boolean; // 是否锁定（无权限访问）
+  description: string;
 }
 
-const getProfileOptions = (currentRole?: string): ProfileOption[] => [
+const getProfileOptions = (currentRole?: string, currentTheme?: string): ProfileOption[] => [
   {
     id: 'junior',
-    title: 'Junior',
-    subtitle: '3-6 Grade',
+    title: 'Junior 小学',
+    subtitle: '3-6年级',
+    description: '适合小学3-6年级学生，AI辅导错题学习',
     icon: <GraduationCap className="w-12 h-12" />,
     theme: 'junior',
     gradeLevel: [3, 6],
@@ -33,8 +34,9 @@ const getProfileOptions = (currentRole?: string): ProfileOption[] => [
   },
   {
     id: 'senior',
-    title: 'Senior',
-    subtitle: '7-9 Grade',
+    title: 'Senior 中学',
+    subtitle: '7-9年级',
+    description: '适合初中7-9年级学生，AI辅导错题学习',
     icon: <UserCircle className="w-12 h-12" />,
     theme: 'senior',
     gradeLevel: [7, 9],
@@ -42,13 +44,12 @@ const getProfileOptions = (currentRole?: string): ProfileOption[] => [
   },
   {
     id: 'parent',
-    title: 'Parent',
-    subtitle: 'Dashboard',
+    title: 'Parent 家长',
+    subtitle: '管理控制台',
+    description: '查看孩子学习报告，管理学习计划',
     icon: <ChartBar className="w-12 h-12" />,
     theme: 'senior',
     role: 'parent',
-    // 只有已经是 parent 角色的用户才能选择 parent
-    locked: currentRole !== 'parent',
   },
 ];
 
@@ -56,21 +57,19 @@ export default function SelectProfilePage() {
   const router = useRouter();
   const { profile, loading, refreshProfile, user, updateProfile, signOut } = useAuth();
   const [selecting, setSelecting] = useState<string | null>(null);
-  const [showAccessDenied, setShowAccessDenied] = useState(false);
 
-  // 根据 当前角色获取可用的选项
+  // 获取当前用户的角色选项
   const profileOptions = getProfileOptions(profile?.role);
 
-  // 只有当 profile 已经设置了 theme_preference 和 grade_level 时才自动跳转
-  // 如果这些字段为空，说明用户还没有选择角色，需要显示选择界面
-  // 修改：即使有角色，也显示选择界面，允许用户重新选择
-  useEffect(() => {
-    if (!loading && profile) {
-      // 检查是否已经设置过角色（有 theme_preference 或 grade_level）
-      // 注释掉自动跳转逻辑，始终显示角色选择界面
-      // const hasSelectedRole = profile.theme_preference || profile.grade_level;
-    }
-  }, [profile, loading, router]);
+  // 判断当前选中的角色
+  const getCurrentOptionId = () => {
+    if (profile?.role === 'parent') return 'parent';
+    if (profile?.grade_level && profile.grade_level <= 6) return 'junior';
+    if (profile?.grade_level && profile.grade_level >= 7) return 'senior';
+    return null;
+  };
+
+  const currentOptionId = getCurrentOptionId();
 
   // 如果用户已登录但没有 profile，重试获取
   useEffect(() => {
@@ -81,12 +80,6 @@ export default function SelectProfilePage() {
   }, [loading, user, profile, refreshProfile]);
 
   const handleSelectProfile = async (option: ProfileOption) => {
-    // 检查是否锁定（无权限）
-    if (option.locked) {
-      setShowAccessDenied(true);
-      return;
-    }
-
     if (!user) {
       console.error('No user found');
       return;
@@ -101,8 +94,6 @@ export default function SelectProfilePage() {
     setSelecting(option.id);
 
     try {
-      // 直接使用 updateProfile（从 AuthContext），无论 profile 是否存在
-      // AuthContext 的 updateProfile 会处理新创建或更新
       await updateProfile({
         role: option.role,
         theme_preference: option.theme,
@@ -112,7 +103,6 @@ export default function SelectProfilePage() {
 
       console.log('Profile updated, navigating to:', option.role === 'parent' ? '/dashboard' : '/workbench');
 
-      // 使用 replace 而不是 push，避免返回时重新触发
       const targetUrl = option.role === 'parent' ? '/dashboard' : '/workbench';
       router.push(targetUrl);
       router.refresh();
@@ -138,81 +128,88 @@ export default function SelectProfilePage() {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-warm-900">
-            Select your profile
+            选择角色
           </h1>
           <p className="text-warm-600">
-            选择你的学习空间
+            同一账号可自由切换角色
           </p>
         </div>
 
         {/* Profile Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {profileOptions.map((option) => (
-            <button
-              key={option.id}
-              onClick={() => handleSelectProfile(option)}
-              disabled={selecting !== null}
-              className={`
-                group relative bg-white rounded-2xl p-8
-                transition-all duration-300 ease-out
-                hover:shadow-lg hover:shadow-warm-500/10
-                active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-                border border-warm-100 hover:border-warm-200
-                ${option.locked ? 'opacity-60' : ''}
-              `}
-            >
-              {/* Lock overlay for locked options */}
-              {option.locked && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-2xl z-10">
-                  <div className="flex flex-col items-center gap-2 text-warm-500">
-                    <Lock className="w-8 h-8" />
-                    <span className="text-xs font-medium">需要家长权限</span>
+          {profileOptions.map((option) => {
+            const isCurrentRole = currentOptionId === option.id;
+
+            return (
+              <button
+                key={option.id}
+                onClick={() => handleSelectProfile(option)}
+                disabled={selecting !== null}
+                className={`
+                  group relative bg-white rounded-2xl p-8
+                  transition-all duration-300 ease-out
+                  hover:shadow-lg hover:shadow-warm-500/10
+                  active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+                  border-2
+                  ${isCurrentRole
+                    ? 'border-warm-500 shadow-lg shadow-warm-500/20'
+                    : 'border-warm-100 hover:border-warm-200'
+                  }
+                `}
+              >
+                {/* Current Role Badge */}
+                {isCurrentRole && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-warm-500 text-white text-xs font-medium rounded-full shadow-lg">
+                    <CheckCircle className="w-3 h-3 inline mr-1" />
+                    当前角色
                   </div>
-                </div>
-              )}
-
-              {/* Icon */}
-              <div className={`
-                w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center
-                transition-colors duration-200
-                ${option.theme === 'junior'
-                  ? 'bg-warm-100 text-warm-500 group-hover:bg-warm-200'
-                  : 'bg-warm-100 text-warm-600 group-hover:bg-warm-200'
-                }
-                ${option.locked ? 'opacity-50' : ''}
-              `}>
-                {option.icon}
-              </div>
-
-              {/* Title & Subtitle */}
-              <h3 className="text-center text-xl font-semibold mb-1 text-warm-900">
-                {option.title}
-              </h3>
-              <p className="text-center text-sm text-warm-500 mb-6">
-                {option.subtitle}
-              </p>
-
-              {/* Continue Button */}
-              <div className={`
-                py-3 rounded-full text-sm font-medium transition-all
-                ${option.locked
-                  ? 'bg-warm-100 text-warm-400'
-                  : 'bg-warm-500 text-white hover:bg-warm-600 hover:shadow-lg hover:shadow-warm-500/30'
-                }
-              `}>
-                {selecting === option.id ? (
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    切换中...
-                  </div>
-                ) : option.locked ? (
-                  '无权限'
-                ) : (
-                  'Continue'
                 )}
-              </div>
-            </button>
-          ))}
+
+                {/* Icon */}
+                <div className={`
+                  w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center
+                  transition-colors duration-200
+                  ${option.theme === 'junior'
+                    ? 'bg-warm-100 text-warm-500 group-hover:bg-warm-200'
+                    : 'bg-warm-100 text-warm-600 group-hover:bg-warm-200'
+                  }
+                `}>
+                  {option.icon}
+                </div>
+
+                {/* Title & Subtitle */}
+                <h3 className="text-center text-xl font-semibold mb-1 text-warm-900">
+                  {option.title}
+                </h3>
+                <p className="text-center text-sm text-warm-500 mb-2">
+                  {option.subtitle}
+                </p>
+                <p className="text-center text-xs text-warm-400 mb-6">
+                  {option.description}
+                </p>
+
+                {/* Button */}
+                <div className={`
+                  py-3 rounded-full text-sm font-medium transition-all
+                  ${isCurrentRole
+                    ? 'bg-green-500 text-white'
+                    : 'bg-warm-500 text-white hover:bg-warm-600 hover:shadow-lg hover:shadow-warm-500/30'
+                  }
+                `}>
+                  {selecting === option.id ? (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      切换中...
+                    </div>
+                  ) : isCurrentRole ? (
+                    '当前使用中'
+                  ) : (
+                    '切换角色'
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Sign Out */}
@@ -228,35 +225,6 @@ export default function SelectProfilePage() {
           </button>
         </div>
       </div>
-
-      {/* Access Denied Modal */}
-      {showAccessDenied && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl animate-scale-in border border-warm-100">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-warm-100 flex items-center justify-center">
-                <Lock className="w-8 h-8 text-warm-500" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-warm-900">温馨提示</h3>
-                <p className="text-sm text-warm-600">
-                  家长控制台需要使用家长账号登录。
-                  <br /><br />
-                  如果你是学生，请选择 Junior 或 Senior 学习空间。
-                  <br /><br />
-                  如果你需要管理学生账号，请联系管理员注册家长账号。
-                </p>
-              </div>
-              <button
-                onClick={() => setShowAccessDenied(false)}
-                className="w-full py-3 rounded-full bg-warm-500 text-white font-medium hover:bg-warm-600 transition-colors shadow-lg shadow-warm-500/30"
-              >
-                我知道了
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

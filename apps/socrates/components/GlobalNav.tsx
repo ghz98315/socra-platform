@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { PointsDisplay } from '@/components/points/PointsDisplay';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -35,8 +36,8 @@ import { cn } from '@/lib/utils';
 // 导航项配置
 const parentNavItems = [
   { href: '/dashboard', icon: Home, label: '仪表盘', shortLabel: '首页', color: 'text-warm-500' },
-  { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-green-500' },
-  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-600' },
+  { href: '/tasks', icon: ClipboardList, label: '任务', shortLabel: '布置', color: 'text-blue-500' },
+  { href: '/family', icon: Users, label: '家庭', shortLabel: '管理', color: 'text-purple-500' },
   { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '查看', color: 'text-warm-400' },
 ];
 
@@ -167,6 +168,9 @@ export function GlobalNav() {
 
             {/* 同步状态 */}
             <SyncStatusIndicator compact />
+
+            {/* 积分显示 */}
+            {isStudent && <PointsDisplay />}
 
             {/* 设置按钮 */}
             <Link href="/settings">
