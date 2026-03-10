@@ -28,6 +28,7 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
+import { RoleSwitcher, RoleSwitcherButton } from '@/components/RoleSwitcher';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -139,6 +140,9 @@ export function GlobalNav() {
               mounted ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
             )}
           >
+            {/* 角色切换按钮 */}
+            <RoleSwitcher compact />
+
             {/* 角色标签 - 学生显示名字，家长显示角色 */}
             <div
               className={cn(
@@ -436,6 +440,9 @@ export function GlobalNav() {
 
             {/* 分隔线 */}
             <div className="border-t border-border/50" />
+
+            {/* 角色切换按钮 */}
+            <RoleSwitcherButton className="w-full" />
 
             {/* 操作按钮 */}
             <div className="flex gap-2">
