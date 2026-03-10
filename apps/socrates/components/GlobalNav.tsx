@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Bookmark,
   Users,
-  Calendar
+  Calendar,
+  ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/NotificationCenter';
