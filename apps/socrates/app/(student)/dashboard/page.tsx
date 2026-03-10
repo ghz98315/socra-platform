@@ -38,6 +38,7 @@ const subjectConfig: Record<string, {
   color: string;
   bgColor: string;
   borderColor: string;
+  pro?: boolean;
 }> = {
   math: {
     name: '数学',
