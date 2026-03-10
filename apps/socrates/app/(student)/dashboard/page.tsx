@@ -27,6 +27,7 @@ import {
   Zap,
   Gift,
   Loader2,
+  Crown,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
@@ -183,7 +184,18 @@ export default function DashboardPage() {
               今天也要加油学习哦！
             </p>
           </div>
-          <PointsDisplay />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/subscription')}
+              className="text-yellow-600 border-yellow-300 hover:bg-yellow-50"
+            >
+              <Crown className="w-4 h-4 mr-1" />
+              升级 Pro
+            </Button>
+            <PointsDisplay />
+          </div>
         </div>
       </div>
 
