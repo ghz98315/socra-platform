@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
     const { data: members, error: membersError } = await supabase
       .from('family_members')
       .select(`
+        id,
         user_id,
         role,
         nickname,
