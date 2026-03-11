@@ -1,28 +1,19 @@
 // =====================================================
 // Project Socrates - Settings Page
-// 设置页面 - 包含 AI 模型选择
+// 设置页面 - 包含 AI 模型选择和青少年模式状态
 // =====================================================
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import {
-  Settings,
-  Cpu,
-  MessageSquare,
-  Eye,
-  Brain,
-  Check,
-  Loader2,
-  Sparkles,
-  RefreshCw,
-  Info,
-  ArrowLeft,
-  Users
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
@@ -30,6 +21,37 @@ import { cn } from '@/lib/utils';
 import { AVAILABLE_MODELS, PROVIDER_CONFIG, getModelsForPurpose } from '@/lib/ai-models/config';
 import type { AIModelConfig, UserModelPreference, ModelPurpose } from '@/lib/ai-models/types';
 import { LinkRequestsPanel } from '@/components/LinkRequestsPanel';
+import {
+  Shield, Clock, Timer, AlertTriangle, Info
+  ChevronRight, Moon
+  Sun
+  Calendar
+  RefreshCw
+  Sparkles
+  Users
+  ArrowLeft
+  Settings
+  Cpu
+  MessageSquare
+  Eye
+  Brain
+  Check
+  Loader2
+} from 'lucide-react';
+
+interface TeenModeData {
+  enabled: boolean;
+  settings: {
+    dailyTimeLimit: number;
+    restReminderInterval: number;
+    forceRestDuration: number;
+  };
+  usage: {
+    usedToday: number;
+    remaining: number;
+    isTimeExceeded: boolean;
+  };
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -43,9 +65,14 @@ export default function SettingsPage() {
     reasoning: '',
   });
 
+  const [teenModeData, setTeenModeData] = useState<TeenModeData | null>(null);
+  const [showRestModal, setShowRestModal] = useState(false);
+  const [restCountdown, setRestCountdown] = useState(0);
+
   useEffect(() => {
     if (profile?.id) {
       loadSettings();
+      fetchTeenModeStatus();
     }
   }, [profile?.id]);
 
@@ -101,6 +128,32 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchTeenModeStatus = async () => {
+    if (!profile?.id) return;
+
+    try {
+      const response = await fetch(`/api/teen-mode?user_id=${profile.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTeenModeData({
+          enabled: data.enabled || false,
+          settings: {
+            dailyTimeLimit: data.settings?.dailyTimeLimit || 120,
+            restReminderInterval: data.settings?.restReminderInterval || 45,
+            forceRestDuration: data.settings?.forceRestDuration || 15,
+          },
+          usage: {
+            usedToday: data.usage?.usedToday || 0,
+            remaining: data.usage?.remaining || 120,
+            isTimeExceeded: data.usage?.isTimeExceeded || false,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch teen mode status:', error);
+    }
+  };
+
   const purposeConfig: Record<ModelPurpose, { label: string; icon: React.ElementType; description: string }> = {
     chat: {
       label: '对话模型',
@@ -124,7 +177,6 @@ export default function SettingsPage() {
     const Icon = config.icon;
     const models = getModelsForPurpose(purpose);
     const selectedId = selectedModels[purpose];
-    const selectedModel = AVAILABLE_MODELS.find(m => m.id === selectedId);
 
     return (
       <Card key={purpose} className="border-border/50">
@@ -210,13 +262,12 @@ export default function SettingsPage() {
 
   return (
     <div className={cn('min-h-screen bg-gradient-to-br from-slate-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-gray-950', themeClass)}>
-      {/* Decorative background elements */}
+      {/* 装饰背景 */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gray-200/30 dark:bg-gray-900/20 rounded-full blur-3xl" />
         <div className="absolute top-1/2 -left-40 w-96 h-96 bg-slate-200/20 dark:bg-slate-900/20 rounded-full blur-3xl" />
       </div>
 
-      {/* 页面标题 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
         <PageHeader
           title="设置"
@@ -251,6 +302,65 @@ export default function SettingsPage() {
       </div>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pb-24 space-y-6">
+        {/* 青少年模式状态卡片 */}
+        {teenModeData?.enabled && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-amber-500" />
+                <CardTitle>青少年模式</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">今日已学习</span>
+                  <span className="font-medium">{teenModeData.usage.usedToday} 分钟</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">每日限制</span>
+                  <span className="font-medium">{teenModeData.settings.dailyTimeLimit} 分钟</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">剩余时间</span>
+                  <span className={cn(
+                    "font-medium",
+                    teenModeData.usage.remaining <= 30 ? "text-red-500" : "text-gray-900"
+                  )}>
+                    {teenModeData.usage.remaining} 分钟
+                  </span>
+                </div>
+
+                {/* 进度条 */}
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>0</span>
+                    <span>{teenModeData.settings.dailyTimeLimit} 分钟</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-300 rounded-full",
+                        teenModeData.usage.isTimeExceeded ? "bg-red-500" : "bg-amber-500"
+                      )}
+                      style={{ width: `${Math.min((teenModeData.usage.usedToday / teenModeData.settings.dailyTimeLimit) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-amber-100 rounded-lg">
+                  <p className="text-sm text-amber-700">
+                    {teenModeData.usage.isTimeExceeded
+                      ? "今日学习时长已用完，建议休息一下"
+                      : `连续学习后建议适当休息，保护眼睛健康`
+                    }
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* AI 模型设置 */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
