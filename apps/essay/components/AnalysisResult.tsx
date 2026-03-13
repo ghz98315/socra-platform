@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2, Medal } from 'lucide-react';
-import { EssayAnalysis } from '../types';
+import { EssayAnalysis, HighlightItem } from '../types';
 
 interface AnalysisResultProps {
   analysis: EssayAnalysis;
@@ -211,6 +211,53 @@ const generatePDFReport = async (analysis: EssayAnalysis, title: string): Promis
           margin-bottom: 15px;
           border: 1px solid #a7f3d0;
         }
+        .magic-box {
+          background: #fff7ed;
+          border: 1px solid #fed7aa;
+          border-radius: 14px;
+          padding: 18px;
+        }
+        .magic-label {
+          display: inline-block;
+          font-size: 12px;
+          font-weight: 700;
+          color: #9a3412;
+          background: #ffedd5;
+          border: 1px solid #fed7aa;
+          padding: 3px 10px;
+          border-radius: 999px;
+          margin-bottom: 8px;
+        }
+        .magic-para {
+          white-space: pre-wrap;
+          line-height: 2;
+          background: #fff;
+          border: 1px solid #ffedd5;
+          padding: 12px;
+          border-radius: 10px;
+          margin-bottom: 10px;
+        }
+        .magic-upgraded {
+          border-left: 4px solid #f97316;
+          background: #fff7ed;
+        }
+        .material-item {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 14px;
+          margin-bottom: 12px;
+        }
+        .material-quote {
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 8px;
+        }
+        .material-how {
+          color: #475569;
+          font-size: 14px;
+          line-height: 1.8;
+        }
         .golden-sentence {
           color: #065f46;
           font-weight: 500;
@@ -305,12 +352,18 @@ const generatePDFReport = async (analysis: EssayAnalysis, title: string): Promis
       ${analysis.highlights && analysis.highlights.length > 0 ? `
       <div class="section">
         <div class="section-title">✨ 闪光点</div>
-        ${analysis.highlights.map((point, idx) => `
-          <div class="highlight-item">
-            <span class="highlight-num">${idx + 1}</span>
-            ${point}
-          </div>
-        `).join('')}
+        ${analysis.highlights.map((point: any, idx) => {
+          const isObj = point && typeof point === 'object';
+          const dimension = isObj ? (point.dimension || '') : '';
+          const description = isObj ? (point.description || '') : (point || '');
+          const text = dimension ? `【${dimension}】${description}` : `${description}`;
+          return `
+            <div class="highlight-item">
+              <span class="highlight-num">${idx + 1}</span>
+              ${text}
+            </div>
+          `;
+        }).join('')}
       </div>
       ` : ''}
 
@@ -333,13 +386,38 @@ const generatePDFReport = async (analysis: EssayAnalysis, title: string): Promis
       </div>
       ` : ''}
 
+      ${analysis.magicModification && (analysis.magicModification.originalPara || analysis.magicModification.upgradedPara) ? `
+      <div class="section">
+        <div class="section-title">🧙 段落魔法升级</div>
+        <div class="magic-box">
+          <div class="magic-label">原段落（保持原样）</div>
+          <div class="magic-para">${analysis.magicModification.originalPara || ''}</div>
+          <div class="magic-label">升格示范（更生动/更高级）</div>
+          <div class="magic-para magic-upgraded">${analysis.magicModification.upgradedPara || ''}</div>
+          ${analysis.magicModification.secret ? `<div class="magic-label">修改秘籍</div><div class="material-how">${analysis.magicModification.secret}</div>` : ''}
+        </div>
+      </div>
+      ` : ''}
+
       ${analysis.goldenSentences && analysis.goldenSentences.length > 0 ? `
       <div class="section">
-        <div class="section-title">💎 金句赏析</div>
+        <div class="section-title">💎 原文金句赏析</div>
         ${analysis.goldenSentences.map((item, idx) => `
           <div class="golden-item">
             <div class="golden-sentence">"${item.sentence}"</div>
             <div class="golden-benefit">📖 ${item.benefit}</div>
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${analysis.materialBox && analysis.materialBox.length > 0 ? `
+      <div class="section">
+        <div class="section-title">📚 素材百宝箱</div>
+        ${(analysis.materialBox || []).map((item, idx) => `
+          <div class="material-item">
+            <div class="material-quote">素材${idx + 1}：${item.quote}</div>
+            <div class="material-how">怎么用：${item.howToUse}</div>
           </div>
         `).join('')}
       </div>
@@ -471,6 +549,11 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
 
   const rating = analysis.rating;
   const ratingStageLabel = rating?.stage === 'middle' ? '初中标准' : '小学标准';
+
+  const highlights = (analysis.highlights || []).map((h) => {
+    if (typeof h === 'string') return { dimension: '', description: h };
+    return h as HighlightItem;
+  });
 
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % imagePreviews.length);
@@ -632,13 +715,18 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             colorClass="bg-yellow-50 text-yellow-700"
           >
             <div className="space-y-4">
-              {(analysis.highlights || []).map((point, idx) => (
+              {highlights.map((point, idx) => (
                 <div key={idx} className="flex items-start gap-3 group">
                   <div className="mt-1 w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-xs font-bold flex-shrink-0 group-hover:bg-yellow-200 transition-colors">
                     {idx + 1}
                   </div>
                   <div className="bg-yellow-50/50 p-3 rounded-lg w-full text-gray-700 leading-relaxed border border-yellow-100/50 group-hover:bg-yellow-50 transition-colors">
-                    {point}
+                    {point.dimension ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-white border border-yellow-200 text-yellow-700 mr-2">
+                        {point.dimension}
+                      </span>
+                    ) : null}
+                    <span>{point.description}</span>
                   </div>
                 </div>
               ))}
@@ -683,9 +771,49 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             )}
           </Card>
 
+          {/* 2.5 Magic Modification */}
+          <Card
+            title="段落魔法升级 🧙"
+            icon={<Sparkles className="text-orange-500" size={24} />}
+            colorClass="bg-orange-50 text-orange-700"
+          >
+            {analysis.magicModification?.originalPara || analysis.magicModification?.upgradedPara ? (
+              <div className="bg-orange-50/50 border border-orange-100 rounded-2xl p-5">
+                <div className="space-y-4">
+                  <div>
+                    <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white border border-orange-200 text-orange-700">
+                      原段落（保持原样）
+                    </div>
+                    <div className="mt-2 whitespace-pre-wrap leading-loose bg-white border border-orange-100 rounded-xl p-4 text-gray-700">
+                      {analysis.magicModification?.originalPara || '暂无'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-600 text-white">
+                      升格示范（更生动/更高级）
+                    </div>
+                    <div className="mt-2 whitespace-pre-wrap leading-loose bg-gradient-to-br from-orange-50 to-white border border-orange-200 rounded-xl p-4 text-orange-900">
+                      {analysis.magicModification?.upgradedPara || '暂无'}
+                    </div>
+                  </div>
+                  {analysis.magicModification?.secret ? (
+                    <div className="bg-white/70 border border-orange-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed">
+                      <span className="font-bold text-orange-700 mr-2">修改秘籍</span>
+                      {analysis.magicModification.secret}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center p-6 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p>暂无段落魔法升级示范</p>
+              </div>
+            )}
+          </Card>
+
           {/* 3. Golden Sentences */}
           <Card
-            title="金句百宝箱 💎"
+            title="原文金句赏析 💎"
             icon={<Gem className="text-emerald-500" size={24} />}
             colorClass="bg-emerald-50 text-emerald-700"
           >
@@ -704,6 +832,39 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                  </div>
                ))}
              </div>
+          </Card>
+
+          {/* 3.5 Material Box */}
+          <Card
+            title="素材百宝箱 📚"
+            icon={<Quote className="text-slate-700" size={24} />}
+            colorClass="bg-slate-50 text-slate-800"
+          >
+            {(analysis.materialBox || []).length > 0 ? (
+              <div className="space-y-4">
+                {(analysis.materialBox || []).map((item, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        素材 {idx + 1}
+                      </span>
+                      <span className="text-xs text-slate-400">下次写作可直接迁移</span>
+                    </div>
+                    <div className="text-slate-900 font-bold leading-relaxed">
+                      {item.quote}
+                    </div>
+                    <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 leading-relaxed">
+                      <span className="font-bold text-slate-800 mr-2">怎么用</span>
+                      {item.howToUse}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center p-6 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p>暂无素材推荐</p>
+              </div>
+            )}
           </Card>
 
           {/* 4. Teacher's Comment */}

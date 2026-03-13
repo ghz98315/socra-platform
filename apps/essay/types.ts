@@ -13,6 +13,22 @@ export interface GoldenSentence {
   benefit: string;
 }
 
+export interface HighlightItem {
+  dimension: string;
+  description: string;
+}
+
+export interface MagicModification {
+  originalPara: string;
+  upgradedPara: string;
+  secret: string;
+}
+
+export interface MaterialBoxItem {
+  quote: string;
+  howToUse: string;
+}
+
 export interface RatingBreakdownItem {
   name: string;
   score: number;
@@ -33,9 +49,11 @@ export interface EssayAnalysis {
   body?: string;
   transcribedText?: string;
   rating?: EssayRating;
-  highlights?: string[];
+  highlights?: Array<string | HighlightItem>;
   corrections?: MagicCorrection[];
+  magicModification?: MagicModification;
   goldenSentences?: GoldenSentence[];
+  materialBox?: MaterialBoxItem[];
   overallComment?: string;
 }
 
