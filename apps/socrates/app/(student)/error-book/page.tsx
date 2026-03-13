@@ -87,6 +87,10 @@ export default function ErrorBookPage() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'difficulty'>('newest');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [reviewSessionIds, setReviewSessionIds] = useState<Set<string>>(new Set());
+  const [addingToReview, setAddingToReview] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Fetch error sessions
   useEffect(() => {
@@ -101,18 +105,67 @@ export default function ErrorBookPage() {
 
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('error_sessions')
-        .select('*')
-        .eq('student_id', profile.id)
-        .order('created_at', { ascending: false });
+      const [errorsResult, reviewResult] = await Promise.all([
+        supabase
+          .from('error_sessions')
+          .select('*')
+          .eq('student_id', profile.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('review_schedule')
+          .select('session_id')
+          .eq('student_id', profile.id),
+      ]);
 
-      if (error) throw error;
-      setErrors(data || []);
+      if (errorsResult.error) throw errorsResult.error;
+      setErrors(errorsResult.data || []);
+
+      if (reviewResult.error) {
+        console.error('Failed to load review schedule:', reviewResult.error);
+      } else {
+        const ids = new Set(
+          (reviewResult.data || []).map((row: { session_id: string }) => row.session_id)
+        );
+        setReviewSessionIds(ids);
+      }
     } catch (error) {
       console.error('Failed to fetch errors:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddToReview = async (sessionId: string) => {
+    if (!profile?.id) return;
+    if (reviewSessionIds.has(sessionId)) return;
+
+    setAddingToReview(sessionId);
+    setActionMessage(null);
+    setActionError(null);
+
+    try {
+      const response = await fetch('/api/review/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, student_id: profile.id }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '加入复习失败');
+      }
+
+      setReviewSessionIds((prev) => {
+        const next = new Set(prev);
+        next.add(sessionId);
+        return next;
+      });
+      setActionMessage('已加入复习清单。');
+    } catch (e: any) {
+      console.error('Failed to add to review:', e);
+      setActionError(e?.message || '加入复习失败');
+    } finally {
+      setAddingToReview(null);
     }
   };
 
@@ -255,6 +308,17 @@ export default function ErrorBookPage() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
+        {actionError ? (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {actionError}
+          </div>
+        ) : null}
+
+        {actionMessage ? (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {actionMessage}
+          </div>
+        ) : null}
         {/* Stats Cards - 移到顶部 */}
         {!loading && errors.length > 0 && (
           <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -522,12 +586,32 @@ export default function ErrorBookPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/workbench?session=${error.id}`);
+                            router.push(`/error-book/${error.id}`);
                           }}
                           className="gap-1 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
                         >
                           <Eye className="w-4 h-4" />
                           查看
+                        </Button>
+                        <Button
+                          variant={reviewSessionIds.has(error.id) ? 'secondary' : 'outline'}
+                          size="sm"
+                          disabled={reviewSessionIds.has(error.id) || addingToReview === error.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleAddToReview(error.id);
+                          }}
+                          className={cn(
+                            'gap-1 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full',
+                            reviewSessionIds.has(error.id) && 'bg-warm-100 text-warm-700 hover:bg-warm-100'
+                          )}
+                        >
+                          <RefreshCw className={cn('w-4 h-4', addingToReview === error.id && 'animate-spin')} />
+                          {reviewSessionIds.has(error.id)
+                            ? '已加入复习'
+                            : addingToReview === error.id
+                              ? '加入中...'
+                              : '加入复习'}
                         </Button>
                       </div>
                     </div>

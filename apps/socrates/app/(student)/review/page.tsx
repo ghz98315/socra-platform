@@ -57,6 +57,7 @@ interface ReviewItem {
   subject: 'math' | 'physics' | 'chemistry';
   conceptTags: string[] | null;
   difficultyRating: number | null;
+  previewText: string | null;
   nextReviewAt: string;
   reviewStage: number;
   daysUntilDue: number;
@@ -129,7 +130,7 @@ export default function ReviewPage() {
         const sessionMap = new Map(sessions.map((s: { id: string }) => [s.id, s]));
 
         const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
-          const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number } | undefined;
+          const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number; extracted_text?: string | null } | undefined;
           const now = new Date();
           const nextReviewDate = new Date(review.next_review_at);
           const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -140,6 +141,7 @@ export default function ReviewPage() {
             subject: session?.subject || 'math',
             conceptTags: session?.concept_tags ?? null,
             difficultyRating: session?.difficulty_rating ?? null,
+            previewText: session?.extracted_text ?? null,
             nextReviewAt: review.next_review_at,
             reviewStage: review.review_stage,
             daysUntilDue: daysUntil,
@@ -448,6 +450,12 @@ export default function ReviewPage() {
                       <span>难度: {getDifficultyStars(review.difficultyRating)}</span>
                     </div>
 
+                    {review.previewText ? (
+                      <p className="text-sm text-warm-800 line-clamp-2">
+                        {review.previewText}
+                      </p>
+                    ) : null}
+
                     <div className="flex flex-wrap gap-1.5">
                       {review.conceptTags?.slice(0, 2).map(tag => (
                         <Badge key={tag} variant="outline" className="text-xs font-normal border-warm-200 text-warm-700">
@@ -479,7 +487,7 @@ export default function ReviewPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => window.location.href = `/workbench?review=${review.sessionId}`}
+                      onClick={() => window.location.href = `/review/session/${review.id}`}
                       className="flex-1 transition-all duration-200 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full"
                     >
                       开始复习
