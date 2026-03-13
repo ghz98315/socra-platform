@@ -278,7 +278,7 @@ export function SharePoster({
     }
 
     // 调用原生分享 API（如果可用）
-    if (navigator.share && platform === 'native') {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && platform === 'native') {
       navigator.share({
         title: config.title,
         text: config.subtitle,
@@ -395,7 +395,7 @@ export function SharePoster({
           </div>
 
           {/* 原生分享（移动端） */}
-          {typeof navigator !== 'undefined' && navigator.share && (
+          {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
             <Button
               onClick={() => handleShare('native')}
               className="w-full"

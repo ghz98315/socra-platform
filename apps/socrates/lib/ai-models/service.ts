@@ -1,47 +1,43 @@
-// =====================================================
-// Project Socrates - AI Model Service
-// AI 模型调用服务 - 统一接口调用不同 AI 模型
-// =====================================================
-
-import { AVAILABLE_MODELS, getModelById, getDefaultModel } from './config';
+import { getDefaultModel, getModelById } from './config';
 import type { AIModelConfig, ModelPurpose, ModelResponse } from './types';
 
-// 模拟用户偏好存储（实际应从数据库获取）
-const userPreferencesCache = new Map<string, { chat: string; vision: string; reasoning: string }>();
+const userPreferencesCache = new Map<
+  string,
+  { chat: string; vision: string; reasoning: string }
+>();
 
-// 获取用户模型偏好
 export async function getUserModelPreference(
   userId: string,
   purpose: ModelPurpose
 ): Promise<AIModelConfig> {
-  // 先检查缓存
   const cached = userPreferencesCache.get(userId);
 
   if (cached) {
-    const modelId = cached[purpose];
-    const model = getModelById(modelId);
-    if (model && model.enabled) {
-      return model;
+    const cachedModel = getModelById(cached[purpose]);
+    if (cachedModel?.enabled) {
+      return cachedModel;
     }
   }
 
-  // 从 API 获取用户偏好
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/ai-settings?user_id=${userId}`);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const response = await fetch(`${baseUrl}/api/ai-settings?user_id=${userId}`);
+
     if (response.ok) {
       const result = await response.json();
-      if (result.data?.preference) {
-        const pref = result.data.preference;
+      const preference = result.data?.preference;
+
+      if (preference) {
         userPreferencesCache.set(userId, {
-          chat: pref.chat_model,
-          vision: pref.vision_model,
-          reasoning: pref.reasoning_model,
+          chat: preference.chat_model,
+          vision: preference.vision_model,
+          reasoning: preference.reasoning_model,
         });
 
-        const modelId = pref[`${purpose}_model`];
-        const model = getModelById(modelId);
-        if (model && model.enabled) {
-          return model;
+        const modelId = preference[`${purpose}_model` as const];
+        const selectedModel = getModelById(modelId);
+        if (selectedModel?.enabled) {
+          return selectedModel;
         }
       }
     }
@@ -49,18 +45,16 @@ export async function getUserModelPreference(
     console.error('Failed to fetch user model preference:', error);
   }
 
-  // 返回默认模型
   return getDefaultModel(purpose);
 }
 
-// 调用 AI 模型
 export async function callAIModel(
   model: AIModelConfig,
   messages: Array<{ role: string; content: string }>,
   options?: {
     temperature?: number;
     maxTokens?: number;
-    images?: string[]; // Base64 encoded images for vision models
+    images?: string[];
   }
 ): Promise<ModelResponse> {
   const apiKey = process.env[model.api_key_env];
@@ -68,47 +62,49 @@ export async function callAIModel(
   if (!apiKey || apiKey === 'your-api-key-here') {
     return {
       success: false,
-      error: `API Key not configured for model ${model.name}`,
+      error: `API key not configured for model ${model.name}`,
     };
   }
 
   try {
-    // 构建请求体
-    const requestBody: any = {
-      model: model.model_id,
-      messages,
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.maxTokens ?? model.max_tokens,
-    };
+    const requestMessages: Array<Record<string, unknown>> = messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
 
-    // 如果有图片，添加到消息中
-    if (options?.images && options.images.length > 0) {
-      const lastMessage = requestBody.messages[requestBody.messages.length - 1];
-      if (lastMessage.role === 'user') {
+    if (options?.images?.length) {
+      const lastMessage = requestMessages[requestMessages.length - 1];
+      if (lastMessage?.role === 'user') {
         lastMessage.content = [
-          { type: 'text', text: lastMessage.content },
-          ...options.images.map(img => ({
+          { type: 'text', text: String(lastMessage.content ?? '') },
+          ...options.images.map((image) => ({
             type: 'image_url',
-            image_url: { url: img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}` },
+            image_url: {
+              url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`,
+            },
           })),
         ];
       }
     }
 
+    const requestBody = {
+      model: model.model_id,
+      messages: requestMessages,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens ?? model.max_tokens,
+    };
+
     const response = await fetch(`${model.base_url}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
     });
 
-    console.log('API Response status:', response.status, response.statusText);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`AI API Error (${model.provider}):`, errorText);
       return {
         success: false,
         error: `API Error: ${response.status} - ${errorText}`,
@@ -119,7 +115,7 @@ export async function callAIModel(
 
     return {
       success: true,
-      content: data.choices[0]?.message?.content || '',
+      content: data.choices?.[0]?.message?.content || '',
       model: model.id,
       tokens_used: {
         input: data.usage?.prompt_tokens || 0,
@@ -127,15 +123,14 @@ export async function callAIModel(
       },
     };
   } catch (error: any) {
-    console.error('AI Model call failed:', error);
+    console.error('AI model call failed:', error);
     return {
       success: false,
-      error: error.message || 'AI 模型调用失败',
+      error: error?.message || 'AI model call failed',
     };
   }
 }
 
-// 便捷方法：调用聊天模型
 export async function callChatModel(
   userId: string,
   messages: Array<{ role: string; content: string }>,
@@ -145,7 +140,6 @@ export async function callChatModel(
   return callAIModel(model, messages, options);
 }
 
-// 便捷方法：调用视觉模型
 export async function callVisionModel(
   userId: string,
   messages: Array<{ role: string; content: string }>,
@@ -156,7 +150,6 @@ export async function callVisionModel(
   return callAIModel(model, messages, { ...options, images });
 }
 
-// 便捷方法：调用推理模型
 export async function callReasoningModel(
   userId: string,
   messages: Array<{ role: string; content: string }>,
@@ -166,7 +159,6 @@ export async function callReasoningModel(
   return callAIModel(model, messages, options);
 }
 
-// 直接使用指定模型 ID 调用
 export async function callModelById(
   modelId: string,
   messages: Array<{ role: string; content: string }>,
@@ -177,28 +169,23 @@ export async function callModelById(
   }
 ): Promise<ModelResponse> {
   const model = getModelById(modelId);
+
   if (!model) {
-    console.error('callModelById: Model not found:', modelId);
     return { success: false, error: `Model not found: ${modelId}` };
   }
+
   if (!model.enabled) {
-    console.error('callModelById: Model is disabled:', modelId);
     return { success: false, error: `Model is disabled: ${modelId}` };
   }
-
-  console.log('callModelById: Using model:', model.name, 'provider:', model.provider);
-  console.log('callModelById: API key env var:', model.api_key_env);
-  console.log('callModelById: API key exists:', !!process.env[model.api_key_env]);
-  console.log('callModelById: Base URL:', model.base_url);
 
   return callAIModel(model, messages, options);
 }
 
-// 清除用户偏好缓存
 export function clearUserPreferenceCache(userId?: string) {
   if (userId) {
     userPreferencesCache.delete(userId);
-  } else {
-    userPreferencesCache.clear();
+    return;
   }
+
+  userPreferencesCache.clear();
 }

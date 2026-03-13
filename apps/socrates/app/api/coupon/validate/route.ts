@@ -1,124 +1,168 @@
-// =====================================================
-// Project Socrates - Coupon Validate API
-// 优惠码验证 API
-// =====================================================
-
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// 测试优惠码配置
-const TEST_COUPONS: Record<string, { code: string; discount: number; description: string; expiresAt: string | null }> = {
-  // 10% 折扣
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const TEST_COUPONS: Record<
+  string,
+  { id: string; code: string; discount: number; description: string; expiresAt: string | null }
+> = {
   WELCOME10: {
+    id: 'coupon_welcome10',
     code: 'WELCOME10',
     discount: 10,
-    description: '新用户欢迎优惠',
+    description: 'New user welcome discount',
     expiresAt: '2026-12-31',
   },
-  // 20% 折扣
   SAVE20: {
+    id: 'coupon_save20',
     code: 'SAVE20',
     discount: 20,
-    description: '限时优惠',
+    description: 'Limited-time promotion',
     expiresAt: '2026-06-30',
   },
-  // 30% 折扣
   PRO30: {
+    id: 'coupon_pro30',
     code: 'PRO30',
     discount: 30,
-    description: 'Pro会员专享',
+    description: 'Pro membership promotion',
     expiresAt: null,
   },
 };
 
-// GET - 验证优惠码
+function buildCouponResponse(coupon: {
+  code: string;
+  discount: number;
+  description: string | null;
+  expiresAt: string | null;
+}) {
+  return {
+    valid: true,
+    code: coupon.code,
+    discount: coupon.discount,
+    description: coupon.description,
+    expiresAt: coupon.expiresAt,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
+    const rawCode = searchParams.get('code');
 
-    if (!code) {
-      return NextResponse.json(
-        { error: '请输入优惠码' },
-        { status: 400 }
-      );
+    if (!rawCode) {
+      return NextResponse.json({ error: 'Please provide a coupon code' }, { status: 400 });
     }
 
-    const upperCode = code.toUpperCase();
-    const coupon = TEST_COUPONS[upperCode];
+    const code = rawCode.toUpperCase();
 
-    if (!coupon) {
-      return NextResponse.json(
-        { valid: false, error: '优惠码无效' },
-        { status: 200 }
-      );
-    }
+    const { data: dbCoupon, error: dbError } = await supabase
+      .from('coupons')
+      .select('code, discount_type, discount_value, description, expires_at')
+      .eq('code', code)
+      .eq('is_active', true)
+      .maybeSingle();
 
-    // 检查是否过期
-    if (coupon.expiresAt) {
-      const expiresAt = new Date(coupon.expiresAt);
-      if (expiresAt < new Date()) {
-        return NextResponse.json(
-          { valid: false, error: '优惠码已过期' },
-          { status: 200 }
-        );
+    if (!dbError && dbCoupon) {
+      if (dbCoupon.expires_at && new Date(dbCoupon.expires_at) < new Date()) {
+        return NextResponse.json({ valid: false, error: 'Coupon code expired' });
       }
+
+      return NextResponse.json(
+        buildCouponResponse({
+          code: dbCoupon.code,
+          discount:
+            dbCoupon.discount_type === 'percentage'
+              ? Number(dbCoupon.discount_value)
+              : Number(dbCoupon.discount_value),
+          description: dbCoupon.description,
+          expiresAt: dbCoupon.expires_at,
+        })
+      );
     }
 
-    return NextResponse.json({
-      valid: true,
-      code: coupon.code,
-      discount: coupon.discount,
-      description: coupon.description,
-      expiresAt: coupon.expiresAt,
-    });
+    if (dbError) {
+      console.error('[coupon/validate] database fallback:', dbError);
+    }
+
+    const coupon = TEST_COUPONS[code];
+    if (!coupon) {
+      return NextResponse.json({ valid: false, error: 'Invalid coupon code' });
+    }
+
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+      return NextResponse.json({ valid: false, error: 'Coupon code expired' });
+    }
+
+    return NextResponse.json(buildCouponResponse(coupon));
   } catch (error: any) {
-    console.error('[Coupon Validate API] Error:', error);
-    return NextResponse.json(
-      { error: '验证失败' },
-      { status: 500 }
-    );
+    console.error('[coupon/validate] error:', error);
+    return NextResponse.json({ error: 'Coupon validation failed' }, { status: 500 });
   }
 }
 
-// POST - 创建优惠码 (管理员功能，测试用)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { code, discount, description, expiresAt } = body;
 
     if (!code || !discount) {
-      return NextResponse.json(
-        { error: 'code and discount are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'code and discount are required' }, { status: 400 });
     }
 
-    // 检查是否已存在
-    if (TEST_COUPONS[code.toUpperCase()]) {
-      return NextResponse.json(
-        { error: '优惠码已存在' },
-        { status: 400 }
-      );
+    const upperCode = String(code).toUpperCase();
+    const couponId = `coupon_${upperCode.toLowerCase()}`;
+    const payload = {
+      id: couponId,
+      code: upperCode,
+      discount_type: 'percentage',
+      discount_value: Number(discount),
+      description: description || '',
+      expires_at: expiresAt || null,
+      is_active: true,
+    };
+
+    const { data: dbCoupon, error: dbError } = await supabase
+      .from('coupons')
+      .upsert(payload)
+      .select('code, discount_value, description, expires_at')
+      .single();
+
+    if (!dbError && dbCoupon) {
+      return NextResponse.json({
+        success: true,
+        message: 'Coupon created successfully',
+        coupon: {
+          code: dbCoupon.code,
+          discount: Number(dbCoupon.discount_value),
+          description: dbCoupon.description,
+          expiresAt: dbCoupon.expires_at,
+        },
+      });
     }
 
-    // 添加优惠码
-    TEST_COUPONS[code.toUpperCase()] = {
-      code: code.toUpperCase(),
-      discount,
+    if (dbError) {
+      console.error('[coupon/create] database fallback:', dbError);
+    }
+
+    TEST_COUPONS[upperCode] = {
+      id: couponId,
+      code: upperCode,
+      discount: Number(discount),
       description: description || '',
       expiresAt: expiresAt || null,
     };
 
     return NextResponse.json({
       success: true,
-      message: '优惠码创建成功',
-      coupon: TEST_COUPONS[code.toUpperCase()],
+      message: 'Coupon created successfully',
+      coupon: TEST_COUPONS[upperCode],
     });
   } catch (error: any) {
-    console.error('[Coupon Create API] Error:', error);
-    return NextResponse.json(
-      { error: '创建失败' },
-      { status: 500 }
-    );
+    console.error('[coupon/create] error:', error);
+    return NextResponse.json({ error: 'Coupon creation failed' }, { status: 500 });
   }
 }

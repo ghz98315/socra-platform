@@ -1,8 +1,3 @@
-// =====================================================
-// Project Socrates - Family Management API
-// 家庭管理 API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,218 +6,230 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET - 获取用户的家庭信息
+function mapMember(member: any) {
+  return {
+    id: member.id,
+    userId: member.user_id,
+    role: member.role,
+    nickname: member.nickname ?? null,
+    joinedAt: member.joined_at ?? member.created_at ?? null,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('user_id');
+    const userId = req.nextUrl.searchParams.get('user_id');
 
     if (!userId) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
-    // 获取用户创建的家庭
     const { data: familyGroup, error: groupError } = await supabase
       .from('family_groups')
       .select('*')
       .eq('created_by', userId)
-      .single();
+      .maybeSingle();
 
-    if (groupError && groupError.code !== 'PGRST116') {
-      // 用户没有创建家庭，返回空家庭
-      return NextResponse.json({
-        family: null,
-        members: []
-      });
+    if (groupError) {
+      console.error('[family] group lookup error:', groupError);
+      return NextResponse.json({ family: null, members: [] });
     }
 
     if (!familyGroup) {
-      return NextResponse.json({
-        family: null,
-        members: []
-      });
+      return NextResponse.json({ family: null, members: [] });
     }
 
-    // 获取家庭成员
     const { data: members, error: membersError } = await supabase
       .from('family_members')
-      .select('id, user_id, role, nickname, joined_at')
-      .eq('family_id', (familyGroup as any).id);
+      .select('id, user_id, role, nickname, joined_at, created_at')
+      .eq('family_id', familyGroup.id);
 
-    const familyMembers = members || [];
-    const children = familyMembers.filter((m: any) => m.role === 'child').map((m: any) => ({
-      id: m.id,
-      userId: m.user_id,
-      role: m.role,
-      nickname: m.nickname,
-      joinedAt: m.joined_at
-    }));
+    if (membersError) {
+      console.error('[family] member lookup error:', membersError);
+    }
 
-    // 获取邀请码
-    const inviteCode = (familyGroup as any)?.invite_code;
+    const mappedMembers = (members ?? []).map(mapMember);
+    const children = mappedMembers.filter((member) => member.role === 'child');
 
     return NextResponse.json({
       family: {
-        id: (familyGroup as any).id,
-        name: (familyGroup as any).name,
-        inviteCode,
-        createdBy: userId,
+        id: familyGroup.id,
+        name: familyGroup.name,
+        inviteCode: familyGroup.invite_code,
+        createdBy: familyGroup.created_by,
+        createdAt: familyGroup.created_at ?? null,
         role: 'parent',
-        members: familyMembers,
-        children
-      }
+        members: mappedMembers,
+        children,
+      },
+      members: mappedMembers,
     });
   } catch (error: any) {
-    console.error('[Family API] Error:', error);
+    console.error('[family] GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST - 创建家庭
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { name, createdBy } = body;
 
     if (!name || !createdBy) {
-      return NextResponse.json(
-        { error: 'name and createdBy are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'name and createdBy are required' }, { status: 400 });
     }
 
-    // 生成邀请码
-    const inviteCode = 'FM' + createdBy.slice(0, 8).toUpperCase();
+    const inviteCode = `FM${String(createdBy).slice(0, 8).toUpperCase()}`;
 
-    // 创建家庭
     const { data: familyGroup, error: groupError } = await supabase
       .from('family_groups')
       .insert({
         name,
         created_by: createdBy,
-        invite_code: inviteCode
-      } as any)
+        invite_code: inviteCode,
+      })
       .select()
       .single();
 
     if (groupError) {
-      console.error('[Family API] Error creating family:', groupError);
+      console.error('[family] create family error:', groupError);
       throw groupError;
     }
 
-    // 创建者自动成为家长
-    await supabase
-      .from('family_members')
-      .insert({
-        family_id: (familyGroup as any).id,
-        user_id: createdBy,
-        role: 'parent',
-        nickname: '家长'
-      } as any);
+    const { error: memberError } = await supabase.from('family_members').insert({
+      family_id: familyGroup.id,
+      user_id: createdBy,
+      role: 'parent',
+      nickname: '家长',
+    });
+
+    if (memberError) {
+      console.error('[family] create owner membership error:', memberError);
+      throw memberError;
+    }
 
     return NextResponse.json({
       success: true,
       family: {
-        id: (familyGroup as any).id,
-        name: (familyGroup as any).name,
+        id: familyGroup.id,
+        name: familyGroup.name,
         inviteCode,
         createdBy,
+        createdAt: familyGroup.created_at ?? null,
         role: 'parent',
-        members: []
-      }
+        members: [],
+      },
+      members: [],
     });
   } catch (error: any) {
-    console.error('[Family API] Error:', error);
+    console.error('[family] POST error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// PUT - 加入家庭（通过邀请码)
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     const { inviteCode, userId, role, nickname } = body;
 
     if (!inviteCode || !userId) {
-      return NextResponse.json(
-        { error: 'inviteCode and userId are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'inviteCode and userId are required' }, { status: 400 });
     }
 
-    // 查找邀请码对应的家庭
     const { data: familyGroup, error: familyError } = await supabase
       .from('family_groups')
       .select('*')
       .eq('invite_code', inviteCode)
-      .single();
+      .maybeSingle();
 
     if (familyError || !familyGroup) {
-      return NextResponse.json(
-        { error: '无效的邀请码' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid invite code' }, { status: 400 });
     }
 
-    // 检查用户是否已在家庭中
     const { data: existingMembership } = await supabase
       .from('family_members')
       .select('id')
       .eq('user_id', userId)
-      .eq('family_id', (familyGroup as any).id)
-      .single();
+      .eq('family_id', familyGroup.id)
+      .maybeSingle();
 
     if (existingMembership) {
-      return NextResponse.json(
-        { error: '您已经是该家庭的成员' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'User is already in this family' }, { status: 400 });
     }
 
-    // 添加成员
+    if ((role || 'child') === 'child') {
+      const { data: childProfile, error: childProfileError } = await supabase
+        .from('profiles')
+        .select('id, role, parent_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (childProfileError || !childProfile) {
+        return NextResponse.json({ error: 'Child profile not found' }, { status: 404 });
+      }
+
+      if (childProfile.role !== 'student') {
+        return NextResponse.json({ error: 'Only student profiles can be added as children' }, { status: 400 });
+      }
+
+      if (childProfile.parent_id && childProfile.parent_id !== familyGroup.created_by) {
+        return NextResponse.json(
+          { error: 'This student is already linked to another parent' },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data: member, error: memberError } = await supabase
       .from('family_members')
       .insert({
-        family_id: (familyGroup as any).id,
+        family_id: familyGroup.id,
         user_id: userId,
         role: role || 'child',
-        nickname: nickname || null
-      } as any)
+        nickname: nickname || null,
+      })
       .select()
       .single();
 
     if (memberError) {
-      console.error('[Family API] Error adding member:', memberError);
+      console.error('[family] add member error:', memberError);
       throw memberError;
+    }
+
+    if ((role || 'child') === 'child') {
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({ parent_id: familyGroup.created_by })
+        .eq('id', userId);
+
+      if (profileUpdateError) {
+        console.error('[family] sync parent_id error:', profileUpdateError);
+        await supabase.from('family_members').delete().eq('id', member.id);
+        throw profileUpdateError;
+      }
     }
 
     return NextResponse.json({
       success: true,
-      message: '成功加入家庭',
+      message: 'Joined family successfully',
       family: {
-        id: (familyGroup as any).id,
-        name: (familyGroup as any).name
+        id: familyGroup.id,
+        name: familyGroup.name,
+        inviteCode: familyGroup.invite_code,
       },
-      member: {
-        id: (member as any).id,
-        userId: (member as any).user_id,
-        role: (member as any).role,
-        nickname: (member as any).nickname
-      }
+      member: mapMember(member),
     });
   } catch (error: any) {
-    console.error('[Family API] Error:', error);
+    console.error('[family] PUT error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// DELETE - 移除家庭成员
 export async function DELETE(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const familyId = searchParams.get('family_id');
-    const targetUserId = searchParams.get('user_id');
-    const requestUserId = searchParams.get('request_user_id');
+    const familyId = req.nextUrl.searchParams.get('family_id');
+    const targetUserId = req.nextUrl.searchParams.get('user_id');
+    const requestUserId = req.nextUrl.searchParams.get('request_user_id');
 
     if (!familyId || !targetUserId || !requestUserId) {
       return NextResponse.json(
@@ -231,30 +238,21 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // 检查请求者权限
     const { data: requester, error: requesterError } = await supabase
       .from('family_members')
       .select('role')
       .eq('family_id', familyId)
       .eq('user_id', requestUserId)
-      .single();
+      .maybeSingle();
 
     if (requesterError || !requester) {
-      return NextResponse.json(
-        { error: '无权限操作' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'No permission to modify this family' }, { status: 403 });
     }
 
-    // 只有家长可以移除成员
-    if ((requester as any).role !== 'parent') {
-      return NextResponse.json(
-        { error: '只有家长可以移除家庭成员' },
-        { status: 403 }
-      );
+    if (requester.role !== 'parent') {
+      return NextResponse.json({ error: 'Only parents can remove family members' }, { status: 403 });
     }
 
-    // 移除成员
     const { error: deleteError } = await supabase
       .from('family_members')
       .delete()
@@ -262,16 +260,35 @@ export async function DELETE(req: NextRequest) {
       .eq('user_id', targetUserId);
 
     if (deleteError) {
-      console.error('[Family API] Error deleting member:', deleteError);
+      console.error('[family] delete member error:', deleteError);
       throw deleteError;
     }
 
-    return NextResponse.json({
-      success: true,
-      message: '成员已移除'
-    });
+    const { data: removedProfile } = await supabase
+      .from('profiles')
+      .select('id, role, parent_id')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    if (
+      removedProfile &&
+      removedProfile.role === 'student' &&
+      removedProfile.parent_id === requestUserId
+    ) {
+      const { error: clearParentError } = await supabase
+        .from('profiles')
+        .update({ parent_id: null })
+        .eq('id', targetUserId);
+
+      if (clearParentError) {
+        console.error('[family] clear parent_id error:', clearParentError);
+        throw clearParentError;
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'Member removed successfully' });
   } catch (error: any) {
-    console.error('[Family API] Error:', error);
+    console.error('[family] DELETE error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

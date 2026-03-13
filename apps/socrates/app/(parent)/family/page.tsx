@@ -1,24 +1,19 @@
-// =====================================================
-// Project Socrates - Family Management Page
-// 家庭管理页面
-// =====================================================
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, UserPlus, Users } from 'lucide-react';
+
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { Users, UserPlus, ChevronRight, Loader2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { createClient } from '@/lib/supabase/client';
 
 interface FamilyMember {
   id: string;
   userId: string;
   role: 'parent' | 'child';
-  nickname?: string;
-  joinedAt: string;
+  nickname?: string | null;
+  joinedAt?: string | null;
 }
 
 interface FamilyGroup {
@@ -26,388 +21,382 @@ interface FamilyGroup {
   name: string;
   inviteCode: string;
   createdBy: string;
-  createdAt: string;
+  createdAt?: string | null;
   members: FamilyMember[];
+}
+
+interface SearchUser {
+  id: string;
+  display_name: string;
+  phone: string | null;
+  role: string;
 }
 
 export default function FamilyPage() {
   const { user } = useAuth();
-  const supabase = createClient();
-
   const [family, setFamily] = useState<FamilyGroup | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [loading, setLoading] = useState(true);
   const [familyName, setFamilyName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [submittingUserId, setSubmittingUserId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 获取家庭数据
-  useEffect(() => {
-    if (!user) return;
+  const memberIds = useMemo(() => new Set(members.map((member) => member.userId)), [members]);
 
-    async function fetchFamilyData() {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/family?user_id=${user!.id}`);
-        const data = await response.json();
-
-        if (data.family) {
-          setFamily(data.family);
-          setMembers(data.members || []);
-        } else {
-          setFamily(null);
-          setMembers([]);
-        }
-      } catch (error) {
-        console.error('Failed to fetch family:', error);
-      } finally {
-        setLoading(false);
-      }
+  const fetchFamily = async () => {
+    if (!user?.id) {
+      return;
     }
 
-    fetchFamilyData();
-  }, [user]);
-
-  // 创建家庭
-  const createFamily = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !familyName.trim()) return;
+    setLoading(true);
+    setErrorMessage(null);
 
     try {
-      setCreating(true);
-      // 生成邀请码
-      const inviteCode = 'FM' + Math.random().toString(36).slice(2, 8).toUpperCase();
+      const response = await fetch(`/api/family?user_id=${user.id}`);
+      const data = await response.json();
 
-      // 创建家庭
-      const { data: familyData, error: createError } = await supabase
-        .from('family_groups')
-        .insert({
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load family');
+      }
+
+      setFamily(data.family || null);
+      setMembers(data.members || data.family?.members || []);
+    } catch (error: any) {
+      console.error('Failed to fetch family:', error);
+      setErrorMessage(error.message || 'Failed to load family');
+      setFamily(null);
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchFamily();
+  }, [user?.id]);
+
+  const createFamily = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user?.id || !familyName.trim()) {
+      return;
+    }
+
+    setCreating(true);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch('/api/family', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: familyName.trim(),
-          created_by: user!.id,
-          invite_code: inviteCode,
-        } as any)
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('[Family API] Error creating family:', createError);
-        throw createError;
-      }
-
-      // 添加创建者为家长
-      const { error: memberError } = await supabase
-        .from('family_members')
-        .insert({
-          family_id: (familyData as any).id,
-          user_id: user!.id,
-          role: 'parent',
-          nickname: (user!.user_metadata as any)?.display_name || '家长'
-        } as any);
-
-      if (memberError) {
-        console.error('[Family API] Error adding member:', memberError);
-        throw memberError;
-      }
-
-      setFamily({
-        id: (familyData as any).id,
-        name: (familyData as any).name,
-        inviteCode: (familyData as any).invite_code,
-        createdBy: (familyData as any).created_by,
-        createdAt: (familyData as any).created_at,
-        members: []
+          createdBy: user.id,
+        }),
       });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create family');
+      }
+
       setFamilyName('');
-    } catch (error) {
-      console.error('[Family API] Error:', error);
-      alert('创建家庭失败，请重试');
+      setStatusMessage('Family created successfully.');
+      await fetchFamily();
+    } catch (error: any) {
+      console.error('Create family error:', error);
+      setErrorMessage(error.message || 'Failed to create family');
     } finally {
       setCreating(false);
     }
   };
 
-  // 搜索用户
-  const searchUsers = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const searchUsers = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!searchQuery.trim()) {
+      return;
+    }
+
+    setSearching(true);
+    setErrorMessage(null);
 
     try {
-      setSearching(true);
-      const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`);
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Search failed');
+      }
+
       setSearchResults(data.users || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search failed:', error);
+      setErrorMessage(error.message || 'Search failed');
+      setSearchResults([]);
     } finally {
       setSearching(false);
     }
   };
 
-  // 添加成员
-  const addMember = async (userId: string, nickname: string, role: 'parent' | 'child' = 'child') => {
-    if (!family) return;
+  const addMember = async (candidate: SearchUser) => {
+    if (!family?.inviteCode) {
+      return;
+    }
+
+    setSubmittingUserId(candidate.id);
+    setStatusMessage(null);
+    setErrorMessage(null);
 
     try {
-      const { error } = await supabase
-        .from('family_members')
-        .insert({
-          family_id: family.id,
-          user_id: userId,
-          role: role,
-          nickname: nickname
-        } as any);
+      const response = await fetch('/api/family', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inviteCode: family.inviteCode,
+          userId: candidate.id,
+          role: 'child',
+          nickname: candidate.display_name,
+        }),
+      });
+      const data = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add member');
+      }
 
-      // 刷新成员列表
-      setMembers([...members, {
-        id: `member_${Date.now()}`,
-        userId,
-        role,
-        nickname,
-        joinedAt: new Date().toISOString()
-      }]);
-      setSearchResults([]);
+      setStatusMessage(`${candidate.display_name} added to family.`);
       setSearchQuery('');
-    } catch (error) {
-      console.error('Failed to add member:', error);
-      alert('添加成员失败');
+      setSearchResults([]);
+      await fetchFamily();
+    } catch (error: any) {
+      console.error('Add member failed:', error);
+      setErrorMessage(error.message || 'Failed to add member');
+    } finally {
+      setSubmittingUserId(null);
     }
   };
 
-  // 移除成员
-  const handleRemoveMember = async (memberId: string) => {
-    if (!family) return;
+  const removeMember = async (member: FamilyMember) => {
+    if (!family?.id || !user?.id) {
+      return;
+    }
+
+    setSubmittingUserId(member.userId);
+    setStatusMessage(null);
+    setErrorMessage(null);
 
     try {
-      const { error } = await supabase
-        .from('family_members')
-        .delete()
-        .eq('id', memberId);
+      const params = new URLSearchParams({
+        family_id: family.id,
+        user_id: member.userId,
+        request_user_id: user.id,
+      });
+      const response = await fetch(`/api/family?${params}`, { method: 'DELETE' });
+      const data = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove member');
+      }
 
-      setMembers(members.filter(m => m.id !== memberId));
-      setSelectedMember(null);
-    } catch (error) {
-      console.error('Failed to remove member:', error);
-      alert('移除成员失败');
+      setStatusMessage(`${member.nickname || 'Member'} removed.`);
+      await fetchFamily();
+    } catch (error: any) {
+      console.error('Remove member failed:', error);
+      setErrorMessage(error.message || 'Failed to remove member');
+    } finally {
+      setSubmittingUserId(null);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-warm-500" />
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-warm-500" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      {/* 页面标题 */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-warm-100 flex items-center justify-center">
-          <Users className="w-5 h-5 text-warm-600" />
+    <div className="mx-auto max-w-2xl px-4 py-6">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warm-100">
+          <Users className="h-5 w-5 text-warm-600" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">家庭管理</h1>
-          <p className="text-sm text-gray-500">创建家庭组，管理家庭成员</p>
+          <h1 className="text-xl font-bold text-gray-900">Family management</h1>
+          <p className="text-sm text-gray-500">Create a family, search users, and manage members.</p>
         </div>
       </div>
 
-      {/* 创建家庭 */}
-      {!family && (
+      {errorMessage ? (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {statusMessage ? (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {statusMessage}
+        </div>
+      ) : null}
+
+      {!family ? (
         <Card className="mb-6">
           <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-900 mb-4">创建新家庭</h3>
+            <h3 className="mb-4 font-semibold text-gray-900">Create a new family</h3>
             <form onSubmit={createFamily} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  家庭名称
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Family name</label>
                 <Input
                   type="text"
                   value={familyName}
-                  onChange={(e) => setFamilyName(e.target.value)}
-                  placeholder="例如：温馨小家"
+                  onChange={(event) => setFamilyName(event.target.value)}
+                  placeholder="For example: Wang Family"
                   required
                 />
               </div>
               <Button type="submit" className="w-full" disabled={creating}>
                 {creating ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    创建中...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
                   </>
                 ) : (
                   <>
-                    <Users className="w-4 h-4 mr-2" />
-                    创建家庭
+                    <Users className="mr-2 h-4 w-4" />
+                    Create family
                   </>
                 )}
               </Button>
             </form>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {/* 家庭信息 */}
-      {family && (
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-gray-900">{family.name}</h3>
-                <p className="text-sm text-gray-500">
-                  邀请码：<span className="font-mono font-medium">{family.inviteCode}</span>
-                </p>
+      {family ? (
+        <>
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900">{family.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    Invite code: <span className="font-mono font-medium">{family.inviteCode}</span>
+                  </p>
+                </div>
+                <div className="text-sm text-gray-500">{members.length} members</div>
               </div>
-              <div className="text-sm text-gray-500">
-                {members.length} 位成员
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
 
-      {/* 添加成员 */}
-      {family && (
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <UserPlus className="w-5 h-5 text-warm-500" />
-              <h3 className="font-semibold text-gray-900">添加成员</h3>
-            </div>
-
-            <form onSubmit={searchUsers} className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="输入用户手机号或昵称搜索"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" disabled={searching}>
-                  {searching ? '搜索中...' : '搜索'}
-                </Button>
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="mb-4 flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-warm-500" />
+                <h3 className="font-semibold text-gray-900">Add member</h3>
               </div>
 
-              {/* 搜索结果 */}
-              {searchResults.length > 0 && (
+              <form onSubmit={searchUsers} className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Search by display name or phone"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={searching}>
+                    {searching ? 'Searching...' : 'Search'}
+                  </Button>
+                </div>
+
+                {searchResults.length > 0 ? (
+                  <div className="space-y-2">
+                    {searchResults
+                      .filter((candidate) => !memberIds.has(candidate.id))
+                      .map((candidate) => (
+                        <div
+                          key={candidate.id}
+                          className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warm-100">
+                              <span className="text-sm font-medium text-warm-700">
+                                {candidate.display_name?.[0] || '?'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{candidate.display_name}</p>
+                              <p className="text-sm text-gray-500">{candidate.phone || 'No phone'}</p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => addMember(candidate)}
+                            disabled={submittingUserId === candidate.id}
+                          >
+                            {submittingUserId === candidate.id ? 'Adding...' : 'Add as child'}
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                ) : null}
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <h3 className="mb-4 font-semibold text-gray-900">Family members</h3>
+              {members.length > 0 ? (
                 <div className="space-y-2">
-                  {searchResults.map((result) => (
+                  {members.map((member) => (
                     <div
-                      key={result.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      key={member.id}
+                      className="flex items-center justify-between rounded-lg border bg-white p-3 hover:bg-gray-50"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-warm-100 flex items-center justify-center">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warm-100">
                           <span className="text-sm font-medium text-warm-700">
-                            {result.display_name?.[0] || '?'}
+                            {member.nickname?.[0] || '?'}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{result.display_name}</p>
-                          <p className="text-sm text-gray-500">{result.phone}</p>
+                          <p className="font-medium text-gray-900">{member.nickname || 'Unnamed member'}</p>
+                          <p className="text-sm text-gray-500">
+                            {member.role === 'parent' ? 'Parent' : 'Child'}
+                          </p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => addMember(result.id, result.display_name, 'child')}
-                        >
-                          添加为孩子
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                        onClick={() => removeMember(member)}
+                        disabled={submittingUserId === member.userId || member.userId === user?.id}
+                      >
+                        {submittingUserId === member.userId ? 'Removing...' : 'Remove'}
+                      </Button>
                     </div>
                   ))}
                 </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 成员列表 */}
-      {family && members.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <h3 className="font-semibold text-gray-900 mb-4">家庭成员</h3>
-            <div className="space-y-2">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-3 bg-white rounded-lg border hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-warm-100 flex items-center justify-center">
-                      <span className="text-sm font-medium text-warm-700">
-                        {member.nickname?.[0] || '?'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{member.nickname}</p>
-                      <p className="text-sm text-gray-500">
-                        {member.role === 'parent' ? '家长' : '孩子'}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => setSelectedMember(member)}
-                  >
-                    移除
-                  </Button>
+              ) : (
+                <div className="py-8 text-center text-gray-500">
+                  <Users className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+                  <p>No members yet.</p>
+                  <p className="text-sm">Search for a user above to add them into this family.</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 移除成员确认 */}
-      {selectedMember && (
-        <Card className="mb-4 border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <p className="text-gray-700 mb-4">
-              确定要移除 <strong>{selectedMember.nickname}</strong> 吗？此操作不可撤销。
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleRemoveMember(selectedMember.id)}
-              >
-                确认移除
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedMember(null)}
-              >
-                取消
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 空状态 */}
-      {family && members.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p>还没有家庭成员</p>
-          <p className="text-sm">搜索并添加成员开始管理</p>
-        </div>
-      )}
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

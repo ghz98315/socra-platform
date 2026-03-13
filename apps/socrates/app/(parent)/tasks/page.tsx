@@ -311,7 +311,7 @@ export default function ParentTasksPage() {
               <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">还没有添加孩子</h3>
               <p className="text-gray-500 mb-4">请先添加孩子再布置任务</p>
-              <Button onClick={() => (window.location.href = '/dashboard')}>
+              <Button onClick={() => (window.location.href = '/family')}>
                 去添加孩子
               </Button>
             </CardContent>

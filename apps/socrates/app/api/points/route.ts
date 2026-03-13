@@ -1,8 +1,3 @@
-// =====================================================
-// Project Socrates - Points API
-// 积分系统 API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,12 +6,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// =====================================================
-// GET - 获取当前用户积分信息
-// =====================================================
+function normalizeRpcRow<T>(data: T | T[] | null): T | null {
+  if (Array.isArray(data)) {
+    return data[0] ?? null;
+  }
+
+  return data ?? null;
+}
+
 export async function GET(req: NextRequest) {
   try {
-    // 从查询参数或请求头获取用户ID
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('user_id') || req.headers.get('x-user-id');
 
@@ -24,31 +23,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 401 });
     }
 
-    // 调用数据库函数获取积分信息
-    const { data, error } = await supabase
-      .rpc('get_user_points', { p_user_id: userId });
+    const { data, error } = await supabase.rpc('get_user_points', { p_user_id: userId });
 
     if (error) {
       console.error('[Points API] Error fetching points:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(
+      normalizeRpcRow(data) || {
+        balance: 0,
+        total_earned: 0,
+        total_spent: 0,
+        level: 1,
+        level_name: 'Bronze',
+        streak_days: 0,
+        longest_streak: 0,
+        next_level_points: 100,
+        progress_to_next: 0,
+      }
+    );
   } catch (error: any) {
     console.error('[Points API] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// =====================================================
-// POST - 添加积分 (内部调用)
-// =====================================================
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { user_id, amount, source, transaction_type, related_id, related_type, description, metadata } = body;
 
-    // 参数验证
     if (!user_id || !amount || !source) {
       return NextResponse.json(
         { error: 'user_id, amount and source are required' },
@@ -57,13 +62,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (amount <= 0) {
-      return NextResponse.json(
-        { error: 'amount must be positive' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'amount must be positive' }, { status: 400 });
     }
 
-    // 调用数据库函数添加积分
     const { data, error } = await supabase.rpc('add_points', {
       p_user_id: user_id,
       p_amount: amount,
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
       p_related_id: related_id,
       p_related_type: related_type,
       p_description: description,
-      p_metadata: metadata || {}
+      p_metadata: metadata || {},
     });
 
     if (error) {
@@ -80,7 +81,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    const result = normalizeRpcRow(data);
+    return NextResponse.json({
+      success: Boolean(result?.success),
+      new_balance: result?.new_balance ?? null,
+      new_level: result?.new_level ?? null,
+    });
   } catch (error: any) {
     console.error('[Points API] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

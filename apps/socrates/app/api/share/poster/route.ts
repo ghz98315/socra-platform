@@ -1,8 +1,3 @@
-// =====================================================
-// Project Socrates - Share Poster API
-// 分享海报配置 API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,7 +6,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// 分享海报配置
 interface PosterConfig {
   title: string;
   subtitle: string;
@@ -25,105 +19,104 @@ interface PosterConfig {
   theme: string;
 }
 
-// GET - 获取分享海报配置
+function buildInviteCode(userId: string) {
+  return `SC${userId.slice(0, 8).toUpperCase()}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('user_id');
-    const type = searchParams.get('type') || 'invite'; // invite, achievement, study
+    const type = searchParams.get('type') || 'invite';
 
     if (!userId) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
-    // 获取用户信息
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('name, avatar_url')
-      .eq('id', userId)
-      .single();
+    const [{ data: profile }, { data: points }, { data: inviteCode }, { data: inviteRecords }] =
+      await Promise.all([
+        supabase
+          .from('profiles')
+          .select('display_name, name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle(),
+        supabase
+          .from('socra_points')
+          .select('balance, level, streak_days')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('invite_codes')
+          .select('code')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('invite_records')
+          .select('id')
+          .eq('inviter_id', userId)
+          .eq('status', 'completed'),
+      ]);
 
-    // 获取用户积分
-    const { data: points } = await supabase
-      .from('socra_points')
-      .select('balance, level, streak_days')
-      .eq('user_id', userId)
-      .single();
-
-    // 获取邀请码
-    const { data: inviteCode } = await supabase
-      .from('invite_codes')
-      .select('code')
-      .eq('user_id', userId)
-      .single();
-
-    // 获取邀请统计
-    const { data: inviteRecords } = await supabase
-      .from('invite_records')
-      .select('id')
-      .eq('inviter_id', userId)
-      .eq('status', 'completed');
-
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://socrates.socra.cn';
-    const code = inviteCode?.code || `SC${userId.slice(0, 8).toUpperCase()}`;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://socrates.socra.cn';
+    const code = inviteCode?.code || buildInviteCode(userId);
+    const userName = profile?.display_name || profile?.name || undefined;
 
     let config: PosterConfig;
 
     switch (type) {
       case 'achievement':
         config = {
-          title: '学习成就达成！',
-          subtitle: '我在 Socrates 错题本平台取得了新成就',
+          title: '学习成就达成',
+          subtitle: '我在 Socrates 解锁了新的学习里程碑',
           stats: [
-            { label: '积分', value: points?.balance || 0 },
-            { label: '等级', value: `Lv.${points?.level || 1}` },
-            { label: '连续学习', value: `${points?.streak_days || 0}天` }
+            { label: '当前积分', value: points?.balance || 0 },
+            { label: '当前等级', value: `Lv.${points?.level || 1}` },
+            { label: '连续学习', value: `${points?.streak_days || 0}天` },
           ],
           qrCodeUrl: `${siteUrl}/register?ref=${code}`,
           avatarUrl: profile?.avatar_url || undefined,
-          userName: profile?.name || undefined,
-          theme: 'achievement'
+          userName,
+          theme: 'achievement',
         };
         break;
-
       case 'study':
         config = {
           title: '今日学习打卡',
-          subtitle: '坚持学习，不断进步',
+          subtitle: '保持节奏，持续进步',
           stats: [
-            { label: '积分', value: points?.balance || 0 },
+            { label: '当前积分', value: points?.balance || 0 },
             { label: '连续学习', value: `${points?.streak_days || 0}天` },
-            { label: '等级', value: `Lv.${points?.level || 1}` }
+            { label: '当前等级', value: `Lv.${points?.level || 1}` },
           ],
           qrCodeUrl: `${siteUrl}/register?ref=${code}`,
           avatarUrl: profile?.avatar_url || undefined,
-          userName: profile?.name || undefined,
-          theme: 'study'
+          userName,
+          theme: 'study',
         };
         break;
-
       case 'invite':
       default:
         config = {
           title: '邀请你一起学习',
-          subtitle: '加入 Socrates，开启智能学习之旅',
+          subtitle: '加入 Socrates，一起建立更稳定的学习节奏',
           stats: [
             { label: '已邀请好友', value: inviteRecords?.length || 0 },
-            { label: '积分奖励', value: '50分/人' },
-            { label: '我的等级', value: `Lv.${points?.level || 1}` }
+            { label: '邀请奖励', value: '50积分/人' },
+            { label: '我的等级', value: `Lv.${points?.level || 1}` },
           ],
           qrCodeUrl: `${siteUrl}/register?ref=${code}`,
           avatarUrl: profile?.avatar_url || undefined,
-          userName: profile?.name || undefined,
-          theme: 'invite'
+          userName,
+          theme: 'invite',
         };
+        break;
     }
 
     return NextResponse.json({
       success: true,
       config,
       inviteCode: code,
-      inviteUrl: `${siteUrl}/register?ref=${code}`
+      inviteUrl: `${siteUrl}/register?ref=${code}`,
     });
   } catch (error: any) {
     console.error('[Share Poster API] Error:', error);
@@ -131,7 +124,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - 记录分享行为并发放奖励
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -144,41 +136,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 分享奖励配置
     const shareRewards: Record<string, number> = {
       wechat: 2,
       moments: 3,
       weibo: 2,
       qq: 2,
-      link: 1
+      link: 1,
     };
 
     const reward = shareRewards[platform] || 1;
-
-    // 每日分享奖励上限检查
     const today = new Date().toISOString().split('T')[0];
-    const { data: todayShares } = await supabase
+
+    const { data: todayShares, error: shareCountError } = await supabase
       .from('point_transactions')
       .select('id')
       .eq('user_id', user_id)
-      .eq('source', 'share_reward')
+      .eq('source', 'share')
       .gte('created_at', today);
 
-    // 每日最多获得 3 次分享奖励
+    if (shareCountError) {
+      console.error('[Share Poster API] count error:', shareCountError);
+    }
+
     if ((todayShares?.length || 0) < 3 && reward > 0) {
-      await supabase.rpc('add_points', {
+      const addPointsResult = await supabase.rpc('add_points', {
         p_user_id: user_id,
         p_amount: reward,
-        p_source: 'share_reward',
+        p_source: 'share',
         p_transaction_type: 'reward',
-        p_description: `分享到${platform || '其他平台'}奖励`
+        p_description: `Share reward from ${platform || 'other'} platform`,
+        p_metadata: {
+          share_type,
+          platform: platform || null,
+        },
       });
+
+      if (addPointsResult.error) {
+        console.error('[Share Poster API] add points error:', addPointsResult.error);
+      }
     }
 
     return NextResponse.json({
       success: true,
-      reward: reward,
-      message: '分享成功'
+      reward,
+      message: 'Share recorded successfully',
     });
   } catch (error: any) {
     console.error('[Share Poster API] Error:', error);

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "check:env": "node scripts/check-env.mjs",
+    "smoke:socrates": "node scripts/smoke-socrates.mjs",
     "lint": "turbo lint",
     "clean": "turbo clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",

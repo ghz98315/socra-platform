@@ -1,33 +1,27 @@
-// =====================================================
-// Project Socrates - Points Badge Component
-// 积分等级徽章组件
-// =====================================================
-
 'use client';
 
 import { cn } from '@/lib/utils';
 
-// 等级配置
 const LEVEL_BADGES = [
-  { level: 1, name: '学习新手', icon: '🌱', color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  { level: 2, name: '学习达人', icon: '🌿', color: 'text-green-600', bgColor: 'bg-green-100' },
-  { level: 3, name: '学霸', icon: '🌳', color: 'text-green-500', bgColor: 'bg-green-50' },
-  { level: 4, name: '学霸达人', icon: '⭐', color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
-  { level: 5, name: '学霸之星', icon: '🌟', color: 'text-yellow-600', bgColor: 'bg-yellow-50' },
-  { level: 6, name: '学习精英', icon: '💫', color: 'text-purple-500', bgColor: 'bg-purple-100' },
-  { level: 7, name: '知识达人', icon: '🔥', color: 'text-orange-500', bgColor: 'bg-orange-100' },
-  { level: 8, name: '智慧之星', icon: '💎', color: 'text-blue-500', bgColor: 'bg-blue-100' },
-  { level: 9, name: '学霸王者', icon: '👑', color: 'text-amber-500', bgColor: 'bg-amber-100' },
-  { level: 10, name: '学神预备', icon: '🏆', color: 'text-warm-500', bgColor: 'bg-warm-100' },
-  { level: 11, name: '学神新秀', icon: '🎖️', color: 'text-warm-600', bgColor: 'bg-warm-100' },
-  { level: 12, name: '学神达人', icon: '🏅', color: 'text-warm-700', bgColor: 'bg-warm-100' },
-  { level: 13, name: '学神大师', icon: '🥇', color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
-  { level: 14, name: '学神传奇', icon: '🌈', color: 'text-pink-500', bgColor: 'bg-pink-100' },
-  { level: 15, name: '学神至尊', icon: '🎓', color: 'text-warm-600', bgColor: 'bg-warm-100' },
+  { level: 1, name: 'Starter', icon: '1', color: 'text-slate-600', bgColor: 'bg-slate-100' },
+  { level: 2, name: 'Learner', icon: '2', color: 'text-green-600', bgColor: 'bg-green-100' },
+  { level: 3, name: 'Builder', icon: '3', color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
+  { level: 4, name: 'Explorer', icon: '4', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  { level: 5, name: 'Achiever', icon: '5', color: 'text-amber-600', bgColor: 'bg-amber-100' },
+  { level: 6, name: 'Scholar', icon: '6', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  { level: 7, name: 'Expert', icon: '7', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  { level: 8, name: 'Strategist', icon: '8', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  { level: 9, name: 'Champion', icon: '9', color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  { level: 10, name: 'Elite', icon: '10', color: 'text-rose-600', bgColor: 'bg-rose-100' },
+  { level: 11, name: 'Master', icon: '11', color: 'text-pink-600', bgColor: 'bg-pink-100' },
+  { level: 12, name: 'Grandmaster', icon: '12', color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-100' },
+  { level: 13, name: 'Legend', icon: '13', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  { level: 14, name: 'Sage', icon: '14', color: 'text-violet-600', bgColor: 'bg-violet-100' },
+  { level: 15, name: 'Philosopher', icon: '15', color: 'text-red-600', bgColor: 'bg-red-100' },
 ];
 
 function getLevelBadge(level: number) {
-  return LEVEL_BADGES.find(b => b.level === level) || LEVEL_BADGES[0];
+  return LEVEL_BADGES.find((badge) => badge.level === level) ?? LEVEL_BADGES[0];
 }
 
 interface PointsBadgeProps {
@@ -41,33 +35,30 @@ export function PointsBadge({
   level,
   size = 'md',
   showName = false,
-  className
+  className,
 }: PointsBadgeProps) {
   const badge = getLevelBadge(level);
 
   const sizeClasses = {
-    sm: 'w-6 h-6 text-xs',
-    md: 'w-8 h-8 text-sm',
-    lg: 'w-12 h-12 text-lg'
+    sm: 'h-6 min-w-6 px-1 text-[10px]',
+    md: 'h-8 min-w-8 px-2 text-xs',
+    lg: 'h-10 min-w-10 px-3 text-sm',
   };
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn('flex items-center gap-2', className)}>
       <div
         className={cn(
-          "flex items-center justify-center rounded-full",
+          'flex items-center justify-center rounded-full font-semibold',
           sizeClasses[size],
-          badge.bgColor
+          badge.bgColor,
+          badge.color
         )}
         title={badge.name}
       >
-        <span>{badge.icon}</span>
+        {badge.icon}
       </div>
-      {showName && (
-        <span className={cn("font-medium", badge.color)}>
-          {badge.name}
-        </span>
-      )}
+      {showName ? <span className={cn('font-medium', badge.color)}>{badge.name}</span> : null}
     </div>
   );
 }
@@ -87,35 +78,31 @@ export function PointsBadgeWithProgress({
   levelStartXp,
   levelEndXp,
   size = 'md',
-  className
+  className,
 }: PointsBadgeWithProgressProps) {
-  const progress = levelEndXp > levelStartXp
-    ? Math.round(((currentXp - levelStartXp) / (levelEndXp - levelStartXp)) * 100)
-    : 100;
-
   const badge = getLevelBadge(level);
+  const progress =
+    levelEndXp > levelStartXp
+      ? Math.max(
+          0,
+          Math.min(100, Math.round(((currentXp - levelStartXp) / (levelEndXp - levelStartXp)) * 100))
+        )
+      : 100;
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn('flex items-center gap-3', className)}>
       <PointsBadge level={level} size={size} />
-
-      {size === 'lg' && (
+      {size === 'lg' ? (
         <div className="flex-1">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
             <span>{badge.name}</span>
             <span>{progress}%</span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                badge.bgColor.replace('-100', '-400')
-              )}
-              style={{ width: `${progress}%` }}
-            />
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

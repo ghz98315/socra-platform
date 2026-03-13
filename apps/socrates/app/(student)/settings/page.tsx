@@ -1,43 +1,29 @@
-// =====================================================
-// Project Socrates - Settings Page
-// 设置页面 - 包含 AI 模型选择和青少年模式状态
-// =====================================================
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/contexts/AuthContext';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { PageHeader } from '@/components/PageHeader';
-import { cn } from '@/lib/utils';
-import { AVAILABLE_MODELS, PROVIDER_CONFIG, getModelsForPurpose } from '@/lib/ai-models/config';
-import type { AIModelConfig, UserModelPreference, ModelPurpose } from '@/lib/ai-models/types';
-import { LinkRequestsPanel } from '@/components/LinkRequestsPanel';
-import {
-  Shield, Clock, Timer, AlertTriangle, Info
-  ChevronRight, Moon
-  Sun
-  Calendar
-  RefreshCw
-  Sparkles
-  Users
-  ArrowLeft
-  Settings
-  Cpu
-  MessageSquare
-  Eye
-  Brain
-  Check
-  Loader2
+  ArrowLeft,
+  Brain,
+  Check,
+  Cpu,
+  Eye,
+  Info,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Shield,
+  Sparkles,
+  Users,
 } from 'lucide-react';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { AVAILABLE_MODELS, PROVIDER_CONFIG, getModelsForPurpose } from '@/lib/ai-models/config';
+import type { ModelPurpose, UserModelPreference } from '@/lib/ai-models/types';
+import { LinkRequestsPanel } from '@/components/LinkRequestsPanel';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface TeenModeData {
   enabled: boolean;
@@ -53,58 +39,117 @@ interface TeenModeData {
   };
 }
 
+const PURPOSE_META: Record<
+  ModelPurpose,
+  { label: string; description: string; icon: ElementType }
+> = {
+  chat: {
+    label: 'Chat model',
+    description: 'Used for daily tutoring and general dialogue.',
+    icon: MessageSquare,
+  },
+  vision: {
+    label: 'Vision model',
+    description: 'Used for OCR and image understanding.',
+    icon: Eye,
+  },
+  reasoning: {
+    label: 'Reasoning model',
+    description: 'Used for harder multi-step problem solving.',
+    icon: Brain,
+  },
+};
+
 export default function SettingsPage() {
   const router = useRouter();
   const { profile } = useAuth();
-  const [preference, setPreference] = useState<UserModelPreference | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [selectedModels, setSelectedModels] = useState({
+  const [preference, setPreference] = useState<UserModelPreference | null>(null);
+  const [teenModeData, setTeenModeData] = useState<TeenModeData | null>(null);
+  const [selectedModels, setSelectedModels] = useState<Record<ModelPurpose, string>>({
     chat: '',
     vision: '',
     reasoning: '',
   });
 
-  const [teenModeData, setTeenModeData] = useState<TeenModeData | null>(null);
-  const [showRestModal, setShowRestModal] = useState(false);
-  const [restCountdown, setRestCountdown] = useState(0);
-
   useEffect(() => {
-    if (profile?.id) {
-      loadSettings();
-      fetchTeenModeStatus();
+    if (!profile?.id) {
+      setLoading(false);
+      return;
     }
+
+    const loadPageData = async () => {
+      setLoading(true);
+      await Promise.all([loadSettings(profile.id), loadTeenMode(profile.id)]);
+      setLoading(false);
+    };
+
+    void loadPageData();
   }, [profile?.id]);
 
-  const loadSettings = async () => {
-    if (!profile?.id) return;
-    setLoading(true);
-
+  async function loadSettings(userId: string) {
     try {
-      const response = await fetch(`/api/ai-settings?user_id=${profile.id}`);
-      if (response.ok) {
-        const result = await response.json();
-        setPreference(result.data.preference);
-
-        if (result.data.preference) {
-          setSelectedModels({
-            chat: result.data.preference.chat_model,
-            vision: result.data.preference.vision_model,
-            reasoning: result.data.preference.reasoning_model,
-          });
-        }
+      const response = await fetch(`/api/ai-settings?user_id=${userId}`);
+      if (!response.ok) {
+        return;
       }
+
+      const result = await response.json();
+      const nextPreference = result.data?.preference ?? null;
+      setPreference(nextPreference);
+
+      if (nextPreference) {
+        setSelectedModels({
+          chat: nextPreference.chat_model,
+          vision: nextPreference.vision_model,
+          reasoning: nextPreference.reasoning_model,
+        });
+        return;
+      }
+
+      setSelectedModels({
+        chat: getModelsForPurpose('chat')[0]?.id ?? '',
+        vision: getModelsForPurpose('vision')[0]?.id ?? '',
+        reasoning: getModelsForPurpose('reasoning')[0]?.id ?? '',
+      });
     } catch (error) {
       console.error('Failed to load settings:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }
 
-  const saveSettings = async () => {
-    if (!profile?.id) return;
+  async function loadTeenMode(userId: string) {
+    try {
+      const response = await fetch(`/api/teen-mode?user_id=${userId}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      setTeenModeData({
+        enabled: Boolean(data.enabled),
+        settings: {
+          dailyTimeLimit: data.settings?.dailyTimeLimit ?? 120,
+          restReminderInterval: data.settings?.restReminderInterval ?? 45,
+          forceRestDuration: data.settings?.forceRestDuration ?? 15,
+        },
+        usage: {
+          usedToday: data.usage?.usedToday ?? 0,
+          remaining: data.usage?.remaining ?? 120,
+          isTimeExceeded: Boolean(data.usage?.isTimeExceeded),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to load teen mode:', error);
+    }
+  }
+
+  async function saveSettings() {
+    if (!profile?.id) {
+      return;
+    }
+
     setSaving(true);
-
     try {
       const response = await fetch('/api/ai-settings', {
         method: 'POST',
@@ -117,325 +162,233 @@ export default function SettingsPage() {
         }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setPreference(result.data);
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
       }
+
+      const result = await response.json();
+      setPreference(result.data);
     } catch (error) {
       console.error('Failed to save settings:', error);
     } finally {
       setSaving(false);
     }
-  };
-
-  const fetchTeenModeStatus = async () => {
-    if (!profile?.id) return;
-
-    try {
-      const response = await fetch(`/api/teen-mode?user_id=${profile.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTeenModeData({
-          enabled: data.enabled || false,
-          settings: {
-            dailyTimeLimit: data.settings?.dailyTimeLimit || 120,
-            restReminderInterval: data.settings?.restReminderInterval || 45,
-            forceRestDuration: data.settings?.forceRestDuration || 15,
-          },
-          usage: {
-            usedToday: data.usage?.usedToday || 0,
-            remaining: data.usage?.remaining || 120,
-            isTimeExceeded: data.usage?.isTimeExceeded || false,
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch teen mode status:', error);
-    }
-  };
-
-  const purposeConfig: Record<ModelPurpose, { label: string; icon: React.ElementType; description: string }> = {
-    chat: {
-      label: '对话模型',
-      icon: MessageSquare,
-      description: '用于日常对话和苏格拉底式引导学习',
-    },
-    vision: {
-      label: '视觉模型',
-      icon: Eye,
-      description: '用于图片识别、OCR文字提取',
-    },
-    reasoning: {
-      label: '推理模型',
-      icon: Brain,
-      description: '用于复杂数学物理问题的深度推理',
-    },
-  };
-
-  const renderModelSelector = (purpose: ModelPurpose) => {
-    const config = purposeConfig[purpose];
-    const Icon = config.icon;
-    const models = getModelsForPurpose(purpose);
-    const selectedId = selectedModels[purpose];
-
-    return (
-      <Card key={purpose} className="border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon className="w-5 h-5 text-primary" />
-            {config.label}
-          </CardTitle>
-          <CardDescription>{config.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            {models.map((model) => {
-              const providerConfig = PROVIDER_CONFIG[model.provider];
-              const isSelected = selectedId === model.id;
-
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => setSelectedModels(prev => ({ ...prev, [purpose]: model.id }))}
-                  className={cn(
-                    "p-4 rounded-xl border-2 text-left transition-all",
-                    isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-border/50 hover:border-primary/50"
-                  )}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{model.name}</span>
-                        {model.recommended && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            推荐
-                          </Badge>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className={cn("text-xs", providerConfig.color)}
-                        >
-                          {providerConfig.name}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {model.description}
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {model.features.map((feature, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {feature}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
+  }
 
   if (loading) {
     return (
-      <div className={cn('min-h-screen bg-background flex items-center justify-center', themeClass)}>
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">加载设置...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className={cn('min-h-screen bg-gradient-to-br from-slate-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-gray-950', themeClass)}>
-      {/* 装饰背景 */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gray-200/30 dark:bg-gray-900/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-slate-200/20 dark:bg-slate-900/20 rounded-full blur-3xl" />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
-        <PageHeader
-          title="设置"
-          description="配置你的学习偏好和 AI 模型"
-          icon={Settings}
-          iconColor="text-gray-500"
-          actions={
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => router.back()}
-                className="gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                返回
-              </Button>
-              <Button
-                onClick={saveSettings}
-                disabled={saving}
-                className="gap-2"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                保存设置
-              </Button>
+              <Cpu className="h-5 w-5 text-primary" />
+              <h1 className="text-2xl font-semibold">Settings</h1>
             </div>
-          }
-        />
-      </div>
+            <p className="text-sm text-muted-foreground">
+              Manage AI model preferences, teen mode status, and parent link requests.
+            </p>
+          </div>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pb-24 space-y-6">
-        {/* 青少年模式状态卡片 */}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <Button onClick={saveSettings} disabled={saving}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Save
+            </Button>
+          </div>
+        </div>
+
         {teenModeData?.enabled && (
           <Card className="border-amber-200 bg-amber-50">
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-amber-500" />
-                <CardTitle>青少年模式</CardTitle>
-              </div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Shield className="h-5 w-5 text-amber-600" />
+                Teen mode
+              </CardTitle>
+              <CardDescription>
+                Usage is currently being limited by teen mode settings.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">今日已学习</span>
-                  <span className="font-medium">{teenModeData.usage.usedToday} 分钟</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">每日限制</span>
-                  <span className="font-medium">{teenModeData.settings.dailyTimeLimit} 分钟</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">剩余时间</span>
-                  <span className={cn(
-                    "font-medium",
-                    teenModeData.usage.remaining <= 30 ? "text-red-500" : "text-gray-900"
-                  )}>
-                    {teenModeData.usage.remaining} 分钟
-                  </span>
-                </div>
-
-                {/* 进度条 */}
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>0</span>
-                    <span>{teenModeData.settings.dailyTimeLimit} 分钟</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full transition-all duration-300 rounded-full",
-                        teenModeData.usage.isTimeExceeded ? "bg-red-500" : "bg-amber-500"
-                      )}
-                      style={{ width: `${Math.min((teenModeData.usage.usedToday / teenModeData.settings.dailyTimeLimit) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-amber-100 rounded-lg">
-                  <p className="text-sm text-amber-700">
-                    {teenModeData.usage.isTimeExceeded
-                      ? "今日学习时长已用完，建议休息一下"
-                      : `连续学习后建议适当休息，保护眼睛健康`
-                    }
-                  </p>
-                </div>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Used today</span>
+                <span>{teenModeData.usage.usedToday} min</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Daily limit</span>
+                <span>{teenModeData.settings.dailyTimeLimit} min</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Remaining</span>
+                <span
+                  className={cn(
+                    teenModeData.usage.remaining <= 30 ? 'text-red-600' : 'text-foreground'
+                  )}
+                >
+                  {teenModeData.usage.remaining} min
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-amber-100">
+                <div
+                  className={cn(
+                    'h-full rounded-full',
+                    teenModeData.usage.isTimeExceeded ? 'bg-red-500' : 'bg-amber-500'
+                  )}
+                  style={{
+                    width: `${Math.min(
+                      (teenModeData.usage.usedToday / teenModeData.settings.dailyTimeLimit) * 100,
+                      100
+                    )}%`,
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* AI 模型设置 */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold">AI 模型设置</h2>
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Info className="h-5 w-5 text-blue-500" />
+              AI model preferences
+            </CardTitle>
+            <CardDescription>
+              Pick a default model for chat, vision, and reasoning tasks.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(['chat', 'vision', 'reasoning'] as ModelPurpose[]).map((purpose) => {
+              const meta = PURPOSE_META[purpose];
+              const Icon = meta.icon;
+              const models = getModelsForPurpose(purpose);
+              const selectedId = selectedModels[purpose];
 
-          <div className="p-4 bg-muted/30 rounded-xl flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-muted-foreground">
-              <p>选择适合你的 AI 模型。不同模型有不同的特点：</p>
-              <ul className="mt-2 space-y-1 list-disc list-inside">
-                <li><strong>DeepSeek</strong> - 推理能力强，适合数学物理</li>
-                <li><strong>通义千问</strong> - 中文能力强，支持图片识别</li>
-                <li><strong>豆包</strong> - 响应快，中文对话自然</li>
-              </ul>
-            </div>
-          </div>
+              return (
+                <Card key={purpose} className="border-border/60">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Icon className="h-4 w-4 text-primary" />
+                      {meta.label}
+                    </CardTitle>
+                    <CardDescription>{meta.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    {models.map((model) => {
+                      const provider = PROVIDER_CONFIG[model.provider];
+                      const isSelected = selectedId === model.id;
 
-          {(['chat', 'vision', 'reasoning'] as ModelPurpose[]).map(renderModelSelector)}
-        </div>
+                      return (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedModels((current) => ({ ...current, [purpose]: model.id }))
+                          }
+                          className={cn(
+                            'rounded-xl border-2 p-4 text-left transition-colors',
+                            isSelected
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border/60 hover:border-primary/40'
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{model.name}</span>
+                                {model.recommended && (
+                                  <Badge variant="secondary">
+                                    <Sparkles className="mr-1 h-3 w-3" />
+                                    Recommended
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className={provider.color}>
+                                  {provider.name}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{model.description}</p>
+                              <div className="flex flex-wrap gap-1">
+                                {model.features.map((feature) => (
+                                  <Badge key={feature} variant="secondary" className="text-xs">
+                                    {feature}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
 
-        {/* 家长关联 */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold">家长关联</h2>
-          </div>
+                            {isSelected && (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </CardContent>
+        </Card>
 
-          <div className="p-4 bg-muted/30 rounded-xl flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-muted-foreground">
-              <p>家长可以请求与您关联，关联后家长可以：</p>
-              <ul className="mt-2 space-y-1 list-disc list-inside">
-                <li>查看您的学习数据和进度报告</li>
-                <li>接收学习提醒和周报</li>
-                <li>为您提供更好的学习支持</li>
-              </ul>
-            </div>
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Users className="h-5 w-5 text-primary" />
+              Parent link requests
+            </CardTitle>
+            <CardDescription>
+              Review pending parent link requests and current relationship status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LinkRequestsPanel />
+          </CardContent>
+        </Card>
 
-          <LinkRequestsPanel />
-        </div>
-
-        {/* 当前配置摘要 */}
         {preference && (
-          <Card className="border-border/50">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg">当前配置</CardTitle>
+              <CardTitle className="text-lg">Current selection</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">对话模型</span>
-                  <span className="font-medium">{AVAILABLE_MODELS.find(m => m.id === preference.chat_model)?.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">视觉模型</span>
-                  <span className="font-medium">{AVAILABLE_MODELS.find(m => m.id === preference.vision_model)?.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">推理模型</span>
-                  <span className="font-medium">{AVAILABLE_MODELS.find(m => m.id === preference.reasoning_model)?.name}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">最后更新</span>
-                  <span className="text-muted-foreground">
-                    {new Date(preference.updated_at).toLocaleString('zh-CN')}
-                  </span>
-                </div>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Chat</span>
+                <span>{AVAILABLE_MODELS.find((model) => model.id === preference.chat_model)?.name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Vision</span>
+                <span>{AVAILABLE_MODELS.find((model) => model.id === preference.vision_model)?.name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Reasoning</span>
+                <span>
+                  {AVAILABLE_MODELS.find((model) => model.id === preference.reasoning_model)?.name}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Updated</span>
+                <span>{new Date(preference.updated_at).toLocaleString('zh-CN')}</span>
               </div>
             </CardContent>
           </Card>
         )}
-      </main>
+      </div>
     </div>
   );
 }

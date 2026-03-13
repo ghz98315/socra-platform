@@ -1,473 +1,264 @@
-// =====================================================
-// Project Socrates - Global Navigation Bar
-// 全局导航栏 - 方案二：分层卡片设计 + 苹果风格动画
-// =====================================================
-
 'use client';
 
-import { useAuth } from '@/lib/contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-  LogOut,
-  Home,
-  BookOpen,
-  FileText,
   BarChart3,
-  Settings,
-  User,
-  Menu,
-  X,
-  Trophy,
-  ChevronRight,
+  BookOpen,
   Bookmark,
-  Users,
   Calendar,
-  ClipboardList
+  ClipboardList,
+  Home,
+  LogOut,
+  Menu,
+  Settings,
+  Trophy,
+  User,
+  Users,
+  X,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
 import { RoleSwitcher, RoleSwitcherButton } from '@/components/RoleSwitcher';
-import { useRouter, usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// 导航项配置
-const parentNavItems = [
-  { href: '/dashboard', icon: Home, label: '仪表盘', shortLabel: '首页', color: 'text-warm-500' },
-  { href: '/tasks', icon: ClipboardList, label: '任务', shortLabel: '布置', color: 'text-blue-500' },
-  { href: '/family', icon: Users, label: '家庭', shortLabel: '管理', color: 'text-purple-500' },
-  { href: '/reports', icon: BarChart3, label: '报告', shortLabel: '查看', color: 'text-warm-400' },
+type NavItem = {
+  href: string;
+  icon: React.ElementType;
+  label: string;
+  color: string;
+};
+
+const parentNavItems: NavItem[] = [
+  { href: '/tasks', icon: Home, label: 'Dashboard', color: 'text-warm-500' },
+  { href: '/tasks', icon: ClipboardList, label: 'Tasks', color: 'text-blue-500' },
+  { href: '/family', icon: Users, label: 'Family', color: 'text-purple-500' },
+  { href: '/reports', icon: BarChart3, label: 'Reports', color: 'text-warm-400' },
 ];
 
-const studentNavItems = [
-  { href: '/workbench', icon: BookOpen, label: '学习', shortLabel: '工作', color: 'text-warm-500' },
-  { href: '/planner', icon: Calendar, label: '计划', shortLabel: '时间', color: 'text-blue-500' },
-  { href: '/error-book', icon: Bookmark, label: '错题本', shortLabel: '本子', color: 'text-warm-600' },
-  { href: '/review', icon: FileText, label: '复习', shortLabel: '计划', color: 'text-warm-500' },
-  { href: '/achievements', icon: Trophy, label: '成就', shortLabel: '荣誉', color: 'text-warm-500' },
-  { href: '/community', icon: Users, label: '社区', shortLabel: '交流', color: 'text-warm-500' },
+const studentNavItems: NavItem[] = [
+  { href: '/workbench', icon: BookOpen, label: 'Study', color: 'text-warm-500' },
+  { href: '/planner', icon: Calendar, label: 'Planner', color: 'text-blue-500' },
+  { href: '/error-book', icon: Bookmark, label: 'Errors', color: 'text-warm-600' },
+  { href: '/review', icon: ClipboardList, label: 'Review', color: 'text-warm-500' },
+  { href: '/achievements', icon: Trophy, label: 'Achievements', color: 'text-warm-500' },
+  { href: '/community', icon: Users, label: 'Community', color: 'text-warm-500' },
 ];
 
 export function GlobalNav() {
   const { profile, user, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // 预览页面和落地页不显示全局导航
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (pathname?.startsWith('/preview') || pathname?.startsWith('/landing')) {
     return null;
   }
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  // 滚动效果
-  useEffect(() => {
-    setMounted(true);
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // 认证页面不显示导航栏
-  const isAuthPage = pathname?.includes('/login') || pathname?.includes('/register');
-  if (!user || isAuthPage) {
+  if (!user || pathname?.includes('/login') || pathname?.includes('/register')) {
     return null;
   }
+
+  const isParent = profile?.role === 'parent';
+  const isStudent = profile?.role === 'student';
+  const navItems = isParent ? parentNavItems : studentNavItems;
+  const displayName = profile?.display_name || 'User';
+
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
   };
 
-  const isParent = profile?.role === 'parent';
-  const isStudent = profile?.role === 'student';
-  const navItems = isParent ? parentNavItems : studentNavItems;
-  const displayName = profile?.display_name || '同学';
-
-  // 检查当前路径是否激活
-  const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard';
-    return pathname?.startsWith(href);
-  };
-
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50 transition-all duration-500 border-b border-warm-100",
-        isScrolled
-          ? "bg-white/90 backdrop-blur-xl shadow-sm"
-          : "bg-white/80 backdrop-blur-md"
-      )}
-    >
-      {/* 第一层：顶部栏 - Logo + 用户信息 */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="h-14 flex items-center justify-between">
-          {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center gap-3 group"
-          >
-            <div className="relative">
-              <Image
-                src="/logo.png"
-                alt="Socrates Logo"
-                width={36}
-                height={36}
-                className="transition-transform duration-300 group-hover:scale-105"
-              />
-            </div>
-            <span
-              className={cn(
-                "font-bold text-xl tracking-tight hidden sm:block transition-all duration-300 text-warm-900",
-                "group-hover:text-warm-600"
-              )}
-            >
+    <>
+      <header className="sticky top-0 z-50 border-b border-warm-100 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <Image src="/logo.png" alt="Socrates Logo" width={36} height={36} />
+            <span className="hidden text-xl font-bold tracking-tight text-warm-900 sm:block">
               Socrates
             </span>
           </Link>
 
-          {/* 用户信息区域 (桌面端) */}
           <div
             className={cn(
-              "hidden sm:flex items-center gap-3 transition-all duration-500",
-              mounted ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+              'hidden items-center gap-3 transition-all duration-300 sm:flex',
+              mounted ? 'opacity-100' : 'opacity-0'
             )}
           >
-            {/* 角色切换按钮 */}
             <RoleSwitcher compact />
-
-            {/* 角色标签 - 学生显示名字，家长显示角色 */}
-            <div
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-full",
-                "bg-warm-50 hover:bg-warm-100 transition-colors duration-300",
-                "cursor-default border border-warm-200"
-              )}
-            >
-              <div className="w-7 h-7 rounded-full bg-warm-500/20 flex items-center justify-center">
-                <User className="w-4 h-4 text-warm-600" />
+            <div className="flex items-center gap-2 rounded-full border border-warm-200 bg-warm-50 px-4 py-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-warm-500/20">
+                <User className="h-4 w-4 text-warm-600" />
               </div>
               <div className="flex flex-col">
-                <span className="font-medium text-sm leading-tight">{displayName}</span>
-                {isStudent && (
-                  <span className="text-[10px] text-muted-foreground">同学</span>
-                )}
+                <span className="text-sm font-medium leading-tight">{displayName}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {isParent ? 'Parent' : 'Student'}
+                </span>
               </div>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium">
-                {isParent ? '家长' : '学生'}
-              </span>
             </div>
-
-            {/* 通知中心 */}
             <NotificationCenter />
-
-            {/* 离线状态 */}
             <OfflineIndicator compact />
-
-            {/* 同步状态 */}
             <SyncStatusIndicator compact />
-
-            {/* 积分显示 */}
-            {isStudent && <PointsDisplay />}
-
-            {/* 设置按钮 */}
+            {isStudent ? <PointsDisplay /> : null}
             <Link href="/settings">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full hover:bg-muted hover:rotate-90 transition-all duration-300"
-              >
-                <Settings className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Settings className="h-5 w-5" />
               </Button>
             </Link>
-
-            {/* 退出按钮 */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSignOut}
-              className="rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-300"
-            >
-              <LogOut className="w-5 h-5" />
+            <Button variant="ghost" size="icon" onClick={handleSignOut} className="rounded-full">
+              <LogOut className="h-5 w-5" />
             </Button>
           </div>
 
-          {/* 移动端菜单按钮 */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="sm:hidden min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-muted transition-all duration-300 active:scale-95"
-            aria-label="打开菜单"
+            onClick={() => setMobileOpen((current) => !current)}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors hover:bg-muted sm:hidden"
+            aria-label="Toggle menu"
           >
-            <div className="w-6 h-6 relative">
-              <span
-                className={cn(
-                  "absolute left-0 w-6 h-0.5 bg-foreground transition-all duration-300",
-                  isMobileMenuOpen ? "top-[11px] rotate-45" : "top-1"
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute left-0 w-6 h-0.5 bg-foreground transition-all duration-300 top-[11px]",
-                  isMobileMenuOpen ? "opacity-0" : "opacity-100"
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute left-0 w-6 h-0.5 bg-foreground transition-all duration-300",
-                  isMobileMenuOpen ? "top-[11px] -rotate-45" : "top-5"
-                )}
-              />
-            </div>
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
-      </div>
 
-      {/* 第二层：导航卡片栏 (桌面端) */}
-      <div
-        className={cn(
-          "hidden sm:block border-t border-warm-100 transition-all duration-500",
-          isScrolled ? "bg-warm-50" : "bg-warm-100/50"
-        )}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <nav className="flex items-center gap-2 py-2">
-            {navItems.map((item, index) => {
+        <div className="hidden border-t border-warm-100 bg-warm-50 sm:block">
+          <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 sm:px-6">
+            {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
 
               return (
                 <Link
-                  key={item.href}
+                  key={`${item.href}-${item.label}`}
                   href={item.href}
                   className={cn(
-                    "group relative flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-300",
-                    "animate-fade-in",
+                    'flex items-center gap-2 rounded-xl border px-4 py-2 text-sm transition-all',
                     active
-                      ? "bg-white shadow-sm border border-warm-200"
-                      : "hover:bg-white/50 border border-transparent"
+                      ? 'border-warm-200 bg-white shadow-sm'
+                      : 'border-transparent hover:bg-white/60'
                   )}
-                  style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  {/* Active indicator */}
-                  {active && (
-                    <span
-                      className={cn(
-                        "absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full",
-                        "bg-warm-500 transition-all duration-300"
-                      )}
-                    />
-                  )}
-
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300",
-                      active
-                        ? "bg-warm-100"
-                        : "bg-warm-50 group-hover:bg-warm-100"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "w-4 h-4 transition-colors duration-300",
-                        active ? item.color : "text-warm-600 group-hover:text-warm-900"
-                      )}
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span
-                      className={cn(
-                        "text-sm font-medium transition-colors duration-300",
-                        active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-                      )}
-                    >
-                      {item.label}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground leading-tight">
-                      {item.shortLabel}
-                    </span>
-                  </div>
-
-                  {/* Hover arrow */}
-                  <ChevronRight
-                    className={cn(
-                      "w-4 h-4 text-muted-foreground transition-all duration-300",
-                      "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
-                    )}
-                  />
+                  <Icon className={cn('h-4 w-4', active ? item.color : 'text-warm-600')} />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
-
-            {/* 添加更多占位卡片 (可扩展) */}
             <div className="flex-1" />
-
-            {/* 快捷操作提示 */}
-            <div
-              className={cn(
-                "text-xs text-muted-foreground hidden lg:flex items-center gap-2",
-                "px-4 py-2 rounded-full bg-muted/50 transition-all duration-300",
-                "hover:bg-muted"
-              )}
-            >
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              在线学习中
-            </div>
           </nav>
         </div>
-      </div>
+      </header>
 
-      {/* 移动端底部导航栏 */}
-      <nav
-        className={cn(
-          "sm:hidden fixed bottom-0 left-0 right-0 z-50",
-          "bg-white/95 backdrop-blur-xl",
-          "border-t border-warm-100",
-          "pb-[env(safe-area-inset-bottom)]"
-        )}
-      >
-        <div className="flex items-center justify-around h-16">
-          {navItems.map((item) => {
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-warm-100 bg-white/95 backdrop-blur-xl sm:hidden">
+        <div className="flex h-16 items-center justify-around">
+          {navItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
 
             return (
               <Link
-                key={item.href}
+                key={`${item.href}-${item.label}-mobile`}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg transition-all duration-200",
-                  "min-w-[60px] min-h-[44px]",
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  'flex min-h-[44px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-[10px] font-medium',
+                  active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
-                <Icon className={cn("w-5 h-5", active && item.color)} />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <Icon className={cn('h-5 w-5', active && item.color)} />
+                <span>{item.label}</span>
               </Link>
             );
           })}
-          {/* 更多菜单按钮 */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => setMobileOpen((current) => !current)}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg transition-all duration-200",
-              "min-w-[60px] min-h-[44px]",
-              isMobileMenuOpen ? "text-primary" : "text-muted-foreground"
+              'flex min-h-[44px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-[10px] font-medium',
+              mobileOpen ? 'text-primary' : 'text-muted-foreground'
             )}
           >
-            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            <span className="text-[10px] font-medium">更多</span>
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span>More</span>
           </button>
         </div>
       </nav>
 
-      {/* 移动端展开菜单 */}
-      <div
-        className={cn(
-          "sm:hidden overflow-hidden transition-all duration-500 ease-out",
-          isMobileMenuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
-        )}
-      >
-        <div className="border-t border-warm-100 bg-white/95 backdrop-blur-xl">
-          {/* 移动端导航卡片 */}
-          <div className="p-4 space-y-4">
-            {/* 用户信息 */}
-            <div
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/50",
-                "animate-slide-up"
-              )}
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">{displayName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isParent ? '家长账号' : '学生账号'}
-                </p>
-              </div>
+      {mobileOpen ? (
+        <div className="border-t border-warm-100 bg-white/95 p-4 pb-24 backdrop-blur-xl sm:hidden">
+          <div className="mb-4 flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <User className="h-5 w-5 text-primary" />
             </div>
-
-            {/* 导航卡片网格 */}
-            <div className="grid grid-cols-3 gap-2">
-              {navItems.map((item, index) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={cn(
-                      "flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-300",
-                      "animate-scale-in",
-                      active
-                        ? "bg-primary/10 border border-primary/20"
-                        : "bg-muted/50 hover:bg-muted border border-transparent"
-                    )}
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <div
-                      className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center",
-                        active ? "bg-primary/10" : "bg-background"
-                      )}
-                    >
-                      <Icon className={cn("w-5 h-5", active ? item.color : "text-muted-foreground")} />
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-medium",
-                        active ? "text-foreground" : "text-muted-foreground"
-                      )}
-                    >
-                      {item.label}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* 分隔线 */}
-            <div className="border-t border-border/50" />
-
-            {/* 角色切换按钮 */}
-            <RoleSwitcherButton className="w-full" />
-
-            {/* 操作按钮 */}
-            <div className="flex gap-2">
-              <Link href="/settings" className="flex-1">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Settings className="w-4 h-4" />
-                  设置
-                </Button>
-              </Link>
-              <Button
-                variant="ghost"
-                className="flex-1 justify-start gap-2 text-muted-foreground"
-                onClick={handleSignOut}
-              >
-                <LogOut className="w-4 h-4" />
-                退出登录
-              </Button>
+            <div className="flex-1">
+              <p className="font-medium">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{isParent ? 'Parent' : 'Student'}</p>
             </div>
           </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+
+              return (
+                <Link
+                  key={`${item.href}-${item.label}-drawer`}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    'flex flex-col items-center gap-2 rounded-xl border p-3 text-center transition-all',
+                    active
+                      ? 'border-primary/20 bg-primary/10'
+                      : 'border-transparent bg-muted/40 hover:bg-muted'
+                  )}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background">
+                    <Icon className={cn('h-5 w-5', active ? item.color : 'text-muted-foreground')} />
+                  </div>
+                  <span className="text-xs font-medium">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 border-t border-border/50 pt-4">
+            <RoleSwitcherButton className="w-full" />
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <Link href="/settings" className="flex-1">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+                onClick={() => setMobileOpen(false)}
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              className="flex-1 justify-start gap-2 text-muted-foreground"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </div>
-      </div>
-    </header>
+      ) : null}
+    </>
   );
 }

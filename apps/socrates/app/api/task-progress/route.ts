@@ -1,8 +1,3 @@
-// =====================================================
-// Project Socrates - Task Progress API
-// 任务进度更新 API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,7 +6,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// POST - 更新任务进度
+function isTaskCompleted(task: any, progressCount: number, progressDuration: number) {
+  if (task.target_count > 0 && progressCount >= task.target_count) {
+    return true;
+  }
+
+  if (task.target_duration && progressDuration >= task.target_duration) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -24,7 +30,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 获取任务信息
     const { data: task, error: taskError } = await supabase
       .from('parent_tasks')
       .select('*')
@@ -35,114 +40,135 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    // 检查任务进度记录是否存在
-    const { data: existingProgress } = await supabase
+    const { data: existingProgress, error: progressError } = await supabase
       .from('task_completions')
       .select('*')
       .eq('task_id', taskId)
       .eq('child_id', childId)
-      .single();
+      .maybeSingle();
+
+    if (progressError) {
+      throw progressError;
+    }
 
     const now = new Date().toISOString();
-    let isCompleted = false;
+    const nextProgressCount = progressCount ?? existingProgress?.progress_count ?? 0;
+    const nextProgressDuration = progressDuration ?? existingProgress?.progress_duration ?? 0;
+    const completed = isTaskCompleted(task, nextProgressCount, nextProgressDuration);
+
+    let completionId = existingProgress?.id as string | undefined;
+    let alreadyRewarded = Boolean(existingProgress?.rewarded_at);
 
     if (existingProgress) {
-      // 更新进度
-      const updateData: any = {
-        progress_count: progressCount ?? existingProgress.progress_count,
-        progress_duration: progressDuration ?? existingProgress.progress_duration,
+      const updateData: Record<string, unknown> = {
+        progress_count: nextProgressCount,
+        progress_duration: nextProgressDuration,
         updated_at: now,
       };
 
-      if (notes) {
+      if (notes !== undefined) {
         updateData.notes = notes;
       }
 
-      const { error: updateError } = await supabase
+      if (completed && !existingProgress.completed_at) {
+        updateData.completed_at = now;
+      }
+
+      const { data: updatedProgress, error: updateError } = await supabase
         .from('task_completions')
         .update(updateData)
-        .eq('id', existingProgress.id);
+        .eq('id', existingProgress.id)
+        .select('id, rewarded_at')
+        .single();
 
-      if (updateError) throw updateError;
-
-      // 检查是否完成
-      if (task.target_count > 0 && updateData.progress_count >= task.target_count) {
-        isCompleted = true;
-      } else if (task.target_duration && updateData.progress_duration >= task.target_duration) {
-        isCompleted = true;
+      if (updateError) {
+        throw updateError;
       }
+
+      completionId = updatedProgress.id;
+      alreadyRewarded = Boolean(updatedProgress.rewarded_at);
     } else {
-      // 创建进度记录
-      const { error: insertError } = await supabase
+      const { data: insertedProgress, error: insertError } = await supabase
         .from('task_completions')
         .insert({
           task_id: taskId,
           child_id: childId,
-          progress_count: progressCount || 0,
-          progress_duration: progressDuration || 0,
-          notes: notes || null,
-        });
+          progress_count: nextProgressCount,
+          progress_duration: nextProgressDuration,
+          notes: notes ?? null,
+          completed_at: completed ? now : null,
+        })
+        .select('id')
+        .single();
 
-      if (insertError) throw insertError;
-
-      // 检查是否完成
-      if (task.target_count > 0 && (progressCount || 0) >= task.target_count) {
-        isCompleted = true;
-      } else if (task.target_duration && (progressDuration || 0) >= task.target_duration) {
-        isCompleted = true;
+      if (insertError) {
+        throw insertError;
       }
+
+      completionId = insertedProgress.id;
     }
 
-    // 如果完成，更新任务状态
-    if (isCompleted) {
-      await supabase
+    let rewardPoints = 0;
+
+    if (completed) {
+      const { error: taskUpdateError } = await supabase
         .from('parent_tasks')
         .update({
           status: 'completed',
-          completed_at: now,
+          completed_at: task.completed_at ?? now,
+          updated_at: now,
         })
         .eq('id', taskId);
 
-      // 发放积分奖励
-      if (task.reward_points > 0) {
-        // 获取当前积分
-        const { data: currentPoints } = await supabase
-          .from('user_points')
-          .select('total_points')
-          .eq('user_id', childId)
-          .single();
+      if (taskUpdateError) {
+        throw taskUpdateError;
+      }
 
-        const newTotal = (currentPoints?.total_points || 0) + task.reward_points;
-
-        await supabase
-          .from('user_points')
-          .upsert({
-            user_id: childId,
-            total_points: newTotal,
-            updated_at: now,
-          });
-
-        // 添加积分记录
-        await supabase.from('point_transactions').insert({
-          user_id: childId,
-          points: task.reward_points,
-          transaction_type: 'task_reward',
-          description: `完成任务: ${task.title}`,
-          related_id: taskId,
+      if (task.reward_points > 0 && completionId && !alreadyRewarded) {
+        const addPointsResult = await supabase.rpc('add_points', {
+          p_user_id: childId,
+          p_amount: task.reward_points,
+          p_source: 'task',
+          p_transaction_type: 'reward',
+          p_related_id: taskId,
+          p_related_type: 'parent_task',
+          p_description: `Task reward: ${task.title}`,
+          p_metadata: {
+            task_id: taskId,
+            completion_id: completionId,
+          },
         });
+
+        if (addPointsResult.error) {
+          throw addPointsResult.error;
+        }
+
+        const { error: rewardMarkError } = await supabase
+          .from('task_completions')
+          .update({ rewarded_at: now, updated_at: now })
+          .eq('id', completionId);
+
+        if (rewardMarkError) {
+          throw rewardMarkError;
+        }
+
+        rewardPoints = task.reward_points;
       }
     } else if (task.status === 'pending') {
-      // 如果任务还没开始，更新为进行中
-      await supabase
+      const { error: taskUpdateError } = await supabase
         .from('parent_tasks')
-        .update({ status: 'in_progress' })
+        .update({ status: 'in_progress', updated_at: now })
         .eq('id', taskId);
+
+      if (taskUpdateError) {
+        throw taskUpdateError;
+      }
     }
 
     return NextResponse.json({
       success: true,
-      completed: isCompleted,
-      rewardPoints: isCompleted ? task.reward_points : 0,
+      completed,
+      rewardPoints,
     });
   } catch (error: any) {
     console.error('[Task Progress API] Error:', error);
@@ -150,7 +176,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET - 获取任务进度
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -169,9 +194,9 @@ export async function GET(req: NextRequest) {
       .select('*')
       .eq('task_id', taskId)
       .eq('child_id', childId)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       throw error;
     }
 

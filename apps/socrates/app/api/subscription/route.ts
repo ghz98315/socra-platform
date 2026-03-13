@@ -1,8 +1,3 @@
-// =====================================================
-// Project Socrates - Subscription API
-// 订阅系统 API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,78 +6,125 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// =====================================================
-// GET - 获取用户订阅信息
-// =====================================================
+const FREE_FEATURES = {
+  daily_ai_chats: 50,
+  subjects: ['math', 'chinese', 'english'],
+  advanced_analysis: false,
+  priority_support: false,
+};
+
+const PRO_FEATURES = {
+  daily_ai_chats: -1,
+  subjects: ['math', 'chinese', 'english', 'physics', 'chemistry'],
+  advanced_analysis: true,
+  priority_support: true,
+};
+
+function getFallbackPlanName(planCode: string | null | undefined) {
+  switch (planCode) {
+    case 'pro_monthly':
+      return 'Monthly Pro';
+    case 'pro_quarterly':
+      return 'Quarterly Pro';
+    case 'pro_yearly':
+      return 'Yearly Pro';
+    default:
+      return 'Free';
+  }
+}
+
+function buildFreeResponse() {
+  return {
+    has_subscription: false,
+    is_pro: false,
+    current_plan: null,
+    subscription_history: [],
+    plan: 'free',
+    status: 'free',
+    expires_at: null,
+    features: FREE_FEATURES,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('user_id') || req.headers.get('x-user-id');
+    const userId = req.nextUrl.searchParams.get('user_id') || req.headers.get('x-user-id');
 
     if (!userId) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
-    // 尝试从 user_subscriptions 表获取订阅信息
-    const { data: subscription, error } = await supabase
+    const { data: subscriptions, error } = await supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .order('started_at', { ascending: false });
 
-    // 如果表不存在或没有订阅记录，返回默认的免费用户状态
-    if (error) {
-      console.log('[Subscription API] No subscription found, returning default free tier');
-      return NextResponse.json({
-        is_pro: false,
-        plan: 'free',
-        status: 'active',
-        expires_at: null,
-        features: {
-          daily_ai_chats: 50,
-          subjects: ['math', 'chinese', 'english'],
-          advanced_analysis: false,
-          priority_support: false,
-        }
-      });
+    if (error || !subscriptions?.length) {
+      if (error) {
+        console.error('[subscription] falling back to free tier:', error);
+      }
+      return NextResponse.json(buildFreeResponse());
     }
 
-    // 如果有订阅记录，返回订阅信息
-    const isPro = (subscription as any)?.plan === 'pro' &&
-                   (subscription as any)?.status === 'active' &&
-                   new Date((subscription as any)?.expires_at) > new Date();
+    const history = subscriptions.map((subscription: any) => ({
+      plan_name: subscription.plan_name || getFallbackPlanName(subscription.plan_code),
+      status: subscription.status || 'inactive',
+      started_at: subscription.started_at || subscription.created_at || new Date(0).toISOString(),
+      expires_at: subscription.expires_at || null,
+    }));
+
+    const currentSubscription =
+      subscriptions.find(
+        (subscription: any) =>
+          subscription.status === 'active' &&
+          (!subscription.expires_at || new Date(subscription.expires_at) > new Date())
+      ) ?? subscriptions[0];
+
+    let planFeatures =
+      currentSubscription.plan_code?.startsWith('pro') ? PRO_FEATURES : FREE_FEATURES;
+    let planName =
+      currentSubscription.plan_name || getFallbackPlanName(currentSubscription.plan_code);
+
+    if (currentSubscription.plan_id || currentSubscription.plan_code) {
+      const planQuery = currentSubscription.plan_id
+        ? supabase.from('subscription_plans').select('*').eq('id', currentSubscription.plan_id).maybeSingle()
+        : supabase
+            .from('subscription_plans')
+            .select('*')
+            .eq('plan_code', currentSubscription.plan_code)
+            .maybeSingle();
+
+      const { data: planData, error: planError } = await planQuery;
+      if (!planError && planData) {
+        planFeatures = planData.features || planFeatures;
+        planName = planData.plan_name || planName;
+      }
+    }
+
+    const isPro =
+      currentSubscription.plan_code?.startsWith('pro') === true &&
+      currentSubscription.status === 'active' &&
+      (!currentSubscription.expires_at || new Date(currentSubscription.expires_at) > new Date());
 
     return NextResponse.json({
+      has_subscription: true,
       is_pro: isPro,
-      plan: (subscription as any)?.plan || 'free',
-      status: (subscription as any)?.status || 'active',
-      expires_at: (subscription as any)?.expires_at || null,
-      features: isPro ? {
-        daily_ai_chats: -1, // unlimited
-        subjects: ['math', 'chinese', 'english', 'physics', 'chemistry'],
-        advanced_analysis: true,
-        priority_support: true,
-      } : {
-        daily_ai_chats: 50,
-        subjects: ['math', 'chinese', 'english'],
-        advanced_analysis: false,
-        priority_support: false,
-      }
+      current_plan: {
+        plan_code: currentSubscription.plan_code || 'free',
+        plan_name: planName,
+        features: planFeatures,
+        started_at: currentSubscription.started_at || currentSubscription.created_at || new Date().toISOString(),
+        expires_at: currentSubscription.expires_at || null,
+      },
+      subscription_history: history,
+      plan: currentSubscription.plan_code || 'free',
+      status: currentSubscription.status || 'inactive',
+      expires_at: currentSubscription.expires_at || null,
+      features: planFeatures,
     });
   } catch (error: any) {
-    console.error('[Subscription API] Error:', error);
-    // 返回默认免费用户状态，避免前端报错
-    return NextResponse.json({
-      is_pro: false,
-      plan: 'free',
-      status: 'active',
-      expires_at: null,
-      features: {
-        daily_ai_chats: 50,
-        subjects: ['math', 'chinese', 'english'],
-        advanced_analysis: false,
-        priority_support: false,
-      }
-    });
+    console.error('[subscription] error:', error);
+    return NextResponse.json(buildFreeResponse());
   }
 }

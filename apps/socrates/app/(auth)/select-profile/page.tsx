@@ -101,9 +101,9 @@ export default function SelectProfilePage() {
         display_name: profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
       });
 
-      console.log('Profile updated, navigating to:', option.role === 'parent' ? '/dashboard' : '/workbench');
+      console.log('Profile updated, navigating to:', option.role === 'parent' ? '/tasks' : '/workbench');
 
-      const targetUrl = option.role === 'parent' ? '/dashboard' : '/workbench';
+      const targetUrl = option.role === 'parent' ? '/tasks' : '/workbench';
       router.push(targetUrl);
       router.refresh();
     } catch (error) {

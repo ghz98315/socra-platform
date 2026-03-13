@@ -1,8 +1,3 @@
-// =====================================================
-// Project Socrates - Payment Callback API
-// 支付回调 API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -11,150 +6,148 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// POST - 处理支付回调
+const FALLBACK_PLAN_DURATION: Record<string, number> = {
+  pro_monthly: 30,
+  pro_quarterly: 90,
+  pro_yearly: 365,
+};
+
+function xmlResponse(returnCode: 'SUCCESS' | 'FAIL', returnMsg: string) {
+  return new NextResponse(
+    `<xml><return_code><![CDATA[${returnCode}]]></return_code><return_msg><![CDATA[${returnMsg}]]></return_msg></xml>`,
+    { headers: { 'Content-Type': 'application/xml' } }
+  );
+}
+
+function extractXmlValue(xml: string, field: string) {
+  const cdataMatch = xml.match(new RegExp(`<${field}><!\\[CDATA\\[(.*?)\\]\\]><\\/${field}>`));
+  if (cdataMatch) {
+    return cdataMatch[1];
+  }
+
+  const plainMatch = xml.match(new RegExp(`<${field}>(.*?)<\\/${field}>`));
+  return plainMatch?.[1] ?? null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
+    const orderNo = extractXmlValue(body, 'out_trade_no');
+    const transactionId = extractXmlValue(body, 'transaction_id');
+    const resultCode = extractXmlValue(body, 'result_code') || 'FAIL';
 
-    // 解析微信支付回调 XML
-    // 注意：实际项目中需要验证签名
-    const orderNoMatch = body.match(/<out_trade_no><!\[CDATA\[(.*?)\]\]><\/out_trade_no>/);
-    const transactionIdMatch = body.match(/<transaction_id><!\[CDATA\[(.*?)\]\]><\/transaction_id>/);
-    const resultCodeMatch = body.match(/<result_code><!\[CDATA\[(.*?)\]\]><\/result_code>/);
-
-    if (!orderNoMatch) {
-      return new NextResponse(
-        '<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[缺少订单号]]></return_msg></xml>',
-        { headers: { 'Content-Type': 'application/xml' } }
-      );
+    if (!orderNo) {
+      return xmlResponse('FAIL', 'Missing order number');
     }
 
-    const orderNo = orderNoMatch[1];
-    const transactionId = transactionIdMatch ? transactionIdMatch[1] : null;
-    const resultCode = resultCodeMatch ? resultCodeMatch[1] : 'FAIL';
-
-    // 查询订单
     const { data: order, error: orderError } = await supabase
       .from('payment_orders')
       .select('*')
       .eq('order_no', orderNo)
-      .single();
+      .maybeSingle();
 
     if (orderError || !order) {
-      console.error('[Payment Callback] Order not found:', orderNo);
-      return new NextResponse(
-        '<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[订单不存在]]></return_msg></xml>',
-        { headers: { 'Content-Type': 'application/xml' } }
-      );
+      console.error('[payment/callback] order not found:', orderNo, orderError);
+      return xmlResponse('FAIL', 'Order not found');
     }
 
-    // 检查订单是否已处理
     if (order.payment_status === 'paid') {
-      return new NextResponse(
-        '<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>',
-        { headers: { 'Content-Type': 'application/xml' } }
-      );
+      return xmlResponse('SUCCESS', 'OK');
     }
 
-    if (resultCode === 'SUCCESS') {
-      // 支付成功
-      // 1. 更新订单状态
-      const { error: updateOrderError } = await supabase
-        .from('payment_orders')
-        .update({
-          payment_status: 'paid',
-          out_trade_no: transactionId,
-          paid_at: new Date().toISOString(),
-          callback_data: { raw: body },
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', order.id);
-
-      if (updateOrderError) {
-        console.error('[Payment Callback] Failed to update order:', updateOrderError);
-        throw updateOrderError;
-      }
-
-      // 2. 获取计划信息
-      const { data: plan, error: planError } = await supabase
-        .from('subscription_plans')
-        .select('*')
-        .eq('plan_code', order.plan_code)
-        .single();
-
-      if (planError || !plan) {
-        console.error('[Payment Callback] Plan not found:', order.plan_code);
-        throw new Error('Plan not found');
-      }
-
-      // 3. 创建或更新用户订阅
-      const expiresAt = plan.duration_days
-        ? new Date(Date.now() + plan.duration_days * 24 * 60 * 60 * 1000).toISOString()
-        : null;
-
-      const { error: subscriptionError } = await supabase
-        .from('user_subscriptions')
-        .upsert({
-          user_id: order.user_id,
-          plan_id: plan.id,
-          plan_code: plan.plan_code,
-          status: 'active',
-          started_at: new Date().toISOString(),
-          expires_at: expiresAt,
-          payment_method: order.payment_method,
-          payment_id: transactionId,
-          paid_amount: order.paid_amount,
-          coupon_id: order.coupon_id,
-          coupon_code: order.coupon_code,
-          discount_amount: order.discount_amount,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,plan_id'
-        });
-
-      if (subscriptionError) {
-        console.error('[Payment Callback] Failed to create subscription:', subscriptionError);
-        throw subscriptionError;
-      }
-
-      // 4. 如果有赠送积分，添加积分
-      const bonusPoints = plan.features?.bonus_points;
-      if (bonusPoints && bonusPoints > 0) {
-        await supabase.rpc('add_points', {
-          p_user_id: order.user_id,
-          p_amount: bonusPoints,
-          p_source: 'subscription',
-          p_transaction_type: 'reward',
-          p_description: `订阅 ${plan.plan_name} 赠送积分`,
-          p_related_id: order.id,
-          p_related_type: 'payment_order'
-        });
-      }
-
-      console.log('[Payment Callback] Payment success:', orderNo);
-    } else {
-      // 支付失败
+    if (resultCode !== 'SUCCESS') {
       await supabase
         .from('payment_orders')
         .update({
           payment_status: 'failed',
           callback_data: { raw: body },
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', order.id);
 
-      console.log('[Payment Callback] Payment failed:', orderNo);
+      return xmlResponse('SUCCESS', 'OK');
     }
 
-    return new NextResponse(
-      '<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>',
-      { headers: { 'Content-Type': 'application/xml' } }
-    );
+    await supabase
+      .from('payment_orders')
+      .update({
+        payment_status: 'paid',
+        out_trade_no: transactionId,
+        paid_at: new Date().toISOString(),
+        callback_data: { raw: body },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    const { data: planData } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .eq('plan_code', order.plan_code)
+      .maybeSingle();
+
+    const durationDays = planData?.duration_days ?? FALLBACK_PLAN_DURATION[order.plan_code] ?? 30;
+    const startedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const existingSubResult = await supabase
+      .from('user_subscriptions')
+      .select('id')
+      .eq('user_id', order.user_id)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const subscriptionPayload = {
+      user_id: order.user_id,
+      plan_id: planData?.id ?? order.plan_id ?? null,
+      plan_code: order.plan_code,
+      plan_name: planData?.plan_name ?? order.plan_name ?? order.plan_code,
+      status: 'active',
+      started_at: startedAt,
+      expires_at: expiresAt,
+      payment_method: order.payment_method,
+      payment_id: transactionId,
+      paid_amount: order.paid_amount,
+      coupon_id: order.coupon_id,
+      coupon_code: order.coupon_code,
+      discount_amount: order.discount_amount,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (!existingSubResult.error && existingSubResult.data?.id) {
+      await supabase
+        .from('user_subscriptions')
+        .update(subscriptionPayload)
+        .eq('id', existingSubResult.data.id);
+    } else {
+      await supabase.from('user_subscriptions').insert(subscriptionPayload);
+    }
+
+    const bonusPoints = planData?.features?.bonus_points;
+    if (bonusPoints && bonusPoints > 0) {
+      const addPointsResult = await supabase.rpc('add_points', {
+        p_user_id: order.user_id,
+        p_amount: bonusPoints,
+        p_source: 'subscription',
+        p_transaction_type: 'reward',
+        p_description: `Subscription bonus for ${subscriptionPayload.plan_name}`,
+        p_related_id: null,
+        p_related_type: 'payment_order',
+        p_metadata: {
+          payment_order_id: order.id,
+          order_no: order.order_no,
+          plan_code: order.plan_code,
+        },
+      });
+
+      if (addPointsResult.error) {
+        console.error('[payment/callback] bonus points failed:', addPointsResult.error);
+      }
+    }
+
+    return xmlResponse('SUCCESS', 'OK');
   } catch (error: any) {
-    console.error('[Payment Callback] Error:', error);
-    return new NextResponse(
-      '<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[处理失败]]></return_msg></xml>',
-      { headers: { 'Content-Type': 'application/xml' } }
-    );
+    console.error('[payment/callback] error:', error);
+    return xmlResponse('FAIL', 'Processing failed');
   }
 }

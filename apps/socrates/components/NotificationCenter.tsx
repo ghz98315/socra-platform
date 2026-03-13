@@ -1,57 +1,77 @@
-// =====================================================
-// Project Socrates - Notification Center Component
-// 通知中心组件 - 家长端
-// =====================================================
-
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/lib/contexts/AuthContext';
+import { useEffect, useRef, useState } from 'react';
 import {
+  AlertCircle,
+  Award,
   Bell,
   BellOff,
-  Check,
-  CheckCheck,
-  Trash2,
   BookOpen,
   Calendar,
-  Award,
-  AlertCircle,
+  Check,
+  CheckCheck,
+  Loader2,
+  Trash2,
   TrendingUp,
-  X,
-  Loader2
 } from 'lucide-react';
+
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-// 通知类型
-type NotificationType = 'study_complete' | 'review_reminder' | 'achievement' | 'new_error' | 'mastery_update';
-
-interface Notification {
+interface NotificationItem {
   id: string;
-  parent_id: string;
-  student_id: string;
-  student_name?: string;
-  type: NotificationType;
+  user_id: string;
+  type: string;
   title: string;
-  message: string;
-  data?: Record<string, any>;
-  read: boolean;
+  content: string | null;
+  action_url: string | null;
+  action_text: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
-// 通知类型配置
-const notificationConfig: Record<NotificationType, { icon: React.ElementType; color: string; bgColor: string }> = {
-  study_complete: { icon: BookOpen, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/30' },
-  review_reminder: { icon: Calendar, color: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/30' },
-  achievement: { icon: Award, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30' },
-  new_error: { icon: AlertCircle, color: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/30' },
-  mastery_update: { icon: TrendingUp, color: 'text-warm-500', bgColor: 'bg-warm-100 dark:bg-warm-900/30' },
+const notificationConfig: Record<
+  string,
+  { icon: React.ElementType; color: string; bgColor: string }
+> = {
+  study_complete: {
+    icon: BookOpen,
+    color: 'text-green-500',
+    bgColor: 'bg-green-100 dark:bg-green-900/30',
+  },
+  review_reminder: {
+    icon: Calendar,
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+  },
+  achievement: {
+    icon: Award,
+    color: 'text-yellow-500',
+    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+  },
+  new_error: {
+    icon: AlertCircle,
+    color: 'text-red-500',
+    bgColor: 'bg-red-100 dark:bg-red-900/30',
+  },
+  mastery_update: {
+    icon: TrendingUp,
+    color: 'text-warm-500',
+    bgColor: 'bg-warm-100 dark:bg-warm-900/30',
+  },
+  subscription: {
+    icon: Award,
+    color: 'text-yellow-500',
+    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+  },
+  system: {
+    icon: Bell,
+    color: 'text-warm-600',
+    bgColor: 'bg-warm-100 dark:bg-warm-900/30',
+  },
 };
 
-// 格式化时间
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -60,53 +80,55 @@ function formatTime(dateStr: string): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24) return `${hours}小时前`;
-  if (days < 7) return `${days}天前`;
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
   return date.toLocaleDateString('zh-CN');
 }
 
 export function NotificationCenter() {
   const { profile } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 只有家长才能看到通知
   const isParent = profile?.role === 'parent';
 
-  // 获取通知
   useEffect(() => {
-    if (isParent && profile?.id) {
-      fetchNotifications();
+    if (!isParent || !profile?.id) {
+      return;
     }
+
+    void fetchNotifications();
   }, [isParent, profile?.id]);
 
-  // 点击外部关闭下拉框
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchNotifications = async () => {
     if (!profile?.id) return;
-    setLoading(true);
 
+    setLoading(true);
     try {
       const response = await fetch(`/api/notifications?user_id=${profile.id}&limit=10`);
-      if (response.ok) {
-        const result = await response.json();
-        setNotifications(result.data || []);
-        setUnreadCount(result.unread_count || 0);
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
       }
+
+      const result = await response.json();
+      setNotifications(result.data || []);
+      setUnreadCount(result.unread_count || 0);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -115,24 +137,32 @@ export function NotificationCenter() {
   };
 
   const markAsRead = async (notificationId?: string) => {
+    if (!profile?.id) return;
+
     try {
       const body = notificationId
-        ? { user_id: profile?.id, notification_ids: [notificationId] }
-        : { user_id: profile?.id, mark_all_read: true };
+        ? { user_id: profile.id, notification_ids: [notificationId] }
+        : { user_id: profile.id, mark_all_read: true };
 
-      await fetch('/api/notifications', {
+      const response = await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
+      if (!response.ok) {
+        throw new Error('Failed to update notifications');
+      }
+
       if (notificationId) {
-        setNotifications(prev =>
-          prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        setNotifications((current) =>
+          current.map((item) =>
+            item.id === notificationId ? { ...item, is_read: true } : item
+          )
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        setUnreadCount((current) => Math.max(0, current - 1));
       } else {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
         setUnreadCount(0);
       }
     } catch (error) {
@@ -141,9 +171,25 @@ export function NotificationCenter() {
   };
 
   const deleteNotification = async (notificationId: string) => {
+    if (!profile?.id) return;
+
     try {
-      await fetch(`/api/notifications?id=${notificationId}&user_id=${profile?.id}`, { method: 'DELETE' });
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      const response = await fetch(
+        `/api/notifications?id=${notificationId}&user_id=${profile.id}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete notification');
+      }
+
+      setNotifications((current) => {
+        const target = current.find((item) => item.id === notificationId);
+        if (target && !target.is_read) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return current.filter((item) => item.id !== notificationId);
+      });
     } catch (error) {
       console.error('Failed to delete notification:', error);
     }
@@ -153,134 +199,139 @@ export function NotificationCenter() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* 通知按钮 */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen((current) => !current);
+          if (!isOpen) {
+            void fetchNotifications();
+          }
+        }}
         className={cn(
-          "relative min-w-[44px] min-h-[44px] flex items-center justify-center",
-          "rounded-full hover:bg-warm-100 transition-all duration-300",
-          "focus:outline-none focus:ring-2 focus:ring-warm-500/50"
+          'relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full',
+          'transition-all duration-300 hover:bg-warm-100 focus:outline-none focus:ring-2 focus:ring-warm-500/50'
         )}
-        aria-label="通知"
+        aria-label="Notifications"
       >
-        <Bell className={cn("w-5 h-5", unreadCount > 0 ? "text-warm-500" : "text-warm-600")} />
-        {unreadCount > 0 && (
+        <Bell className={cn('h-5 w-5', unreadCount > 0 ? 'text-warm-500' : 'text-warm-600')} />
+        {unreadCount > 0 ? (
           <span
             className={cn(
-              "absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px]",
-              "flex items-center justify-center",
-              "bg-red-500 text-white text-[10px] font-bold",
-              "rounded-full animate-pulse"
+              'absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full',
+              'bg-red-500 text-[10px] font-bold text-white'
             )}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
-        )}
+        ) : null}
       </button>
 
-      {/* 通知下拉框 */}
-      {isOpen && (
+      {isOpen ? (
         <div
           className={cn(
-            "absolute right-0 top-full mt-2 w-80 sm:w-96",
-            "bg-card/95 backdrop-blur-xl rounded-2xl",
-            "border border-border/50 shadow-xl",
-            "overflow-hidden z-50",
-            "animate-slide-down"
+            'absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border/50 bg-card/95 shadow-xl backdrop-blur-xl',
+            'sm:w-96'
           )}
         >
-          {/* 头部 */}
-          <div className="flex items-center justify-between p-4 border-b border-border/50">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Bell className="w-4 h-4" />
-              通知中心
+          <div className="flex items-center justify-between border-b border-border/50 p-4">
+            <h3 className="flex items-center gap-2 font-semibold">
+              <Bell className="h-4 w-4" />
+              Notification center
             </h3>
-            {unreadCount > 0 && (
+            {unreadCount > 0 ? (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => markAsRead()}
-                className="text-xs gap-1 h-7"
+                className="h-7 gap-1 text-xs"
               >
-                <CheckCheck className="w-3 h-3" />
-                全部已读
+                <CheckCheck className="h-3 w-3" />
+                Mark all read
               </Button>
-            )}
+            ) : null}
           </div>
 
-          {/* 通知列表 */}
           <div className="max-h-[400px] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-warm-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-warm-600" />
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-warm-600">
-                <BellOff className="w-10 h-10 mb-2 opacity-50" />
-                <p className="text-sm">暂无通知</p>
+                <BellOff className="mb-2 h-10 w-10 opacity-50" />
+                <p className="text-sm">No notifications</p>
               </div>
             ) : (
               <div className="divide-y divide-border/30">
                 {notifications.map((notification) => {
-                  const config = notificationConfig[notification.type];
+                  const config =
+                    notificationConfig[notification.type] || notificationConfig.system;
                   const Icon = config.icon;
 
                   return (
                     <div
                       key={notification.id}
                       className={cn(
-                        "p-4 hover:bg-warm-100/30 transition-colors",
-                        !notification.read && "bg-warm-100"
+                        'p-4 transition-colors hover:bg-warm-100/30',
+                        !notification.is_read && 'bg-warm-100'
                       )}
                     >
                       <div className="flex gap-3">
-                        {/* 图标 */}
                         <div
                           className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl',
                             config.bgColor
                           )}
                         >
-                          <Icon className={cn("w-5 h-5", config.color)} />
+                          <Icon className={cn('h-5 w-5', config.color)} />
                         </div>
 
-                        {/* 内容 */}
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium line-clamp-1">
+                            <div className="min-w-0">
+                              <p className="line-clamp-1 text-sm font-medium">
                                 {notification.title}
                               </p>
-                              <p className="text-xs text-warm-600 mt-0.5 line-clamp-2">
-                                {notification.message}
+                              <p className="mt-0.5 line-clamp-2 text-xs text-warm-600">
+                                {notification.content || 'No additional details'}
                               </p>
                             </div>
-                            {!notification.read && (
-                              <span className="w-2 h-2 rounded-full bg-warm-500 flex-shrink-0 mt-1.5" />
-                            )}
+                            {!notification.is_read ? (
+                              <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-warm-500" />
+                            ) : null}
                           </div>
 
-                          {/* 时间和操作 */}
-                          <div className="flex items-center justify-between mt-2">
+                          <div className="mt-2 flex items-center justify-between">
                             <span className="text-xs text-warm-600">
                               {formatTime(notification.created_at)}
                             </span>
                             <div className="flex items-center gap-1">
-                              {!notification.read && (
+                              {!notification.is_read ? (
                                 <button
                                   onClick={() => markAsRead(notification.id)}
-                                  className="p-1.5 rounded-full hover:bg-warm-100 transition-colors"
-                                  title="标记已读"
+                                  className="rounded-full p-1.5 transition-colors hover:bg-warm-100"
+                                  title="Mark as read"
                                 >
-                                  <Check className="w-3.5 h-3.5 text-warm-600" />
+                                  <Check className="h-3.5 w-3.5 text-warm-600" />
                                 </button>
-                              )}
+                              ) : null}
+                              {notification.action_url ? (
+                                <button
+                                  onClick={() => {
+                                    setIsOpen(false);
+                                    window.location.href = notification.action_url!;
+                                  }}
+                                  className="rounded-full p-1.5 transition-colors hover:bg-warm-100"
+                                  title={notification.action_text || 'Open'}
+                                >
+                                  <Calendar className="h-3.5 w-3.5 text-warm-600" />
+                                </button>
+                              ) : null}
                               <button
                                 onClick={() => deleteNotification(notification.id)}
-                                className="p-1.5 rounded-full hover:bg-warm-100 transition-colors"
-                                title="删除"
+                                className="rounded-full p-1.5 transition-colors hover:bg-warm-100"
+                                title="Delete"
                               >
-                                <Trash2 className="w-3.5 h-3.5 text-warm-600" />
+                                <Trash2 className="h-3.5 w-3.5 text-warm-600" />
                               </button>
                             </div>
                           </div>
@@ -293,24 +344,23 @@ export function NotificationCenter() {
             )}
           </div>
 
-          {/* 底部 */}
-          {notifications.length > 0 && (
-            <div className="p-3 border-t border-warm-200 text-center">
+          {notifications.length > 0 ? (
+            <div className="border-t border-warm-200 p-3 text-center">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs w-full rounded-full"
+                className="w-full rounded-full text-xs"
                 onClick={() => {
                   setIsOpen(false);
-                  // TODO: Navigate to full notification page
+                  window.location.href = '/notifications';
                 }}
               >
-                查看全部通知
+                View all notifications
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
