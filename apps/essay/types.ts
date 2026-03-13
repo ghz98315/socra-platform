@@ -13,10 +13,26 @@ export interface GoldenSentence {
   benefit: string;
 }
 
+export interface RatingBreakdownItem {
+  name: string;
+  score: number;
+  max: number;
+  comment: string;
+}
+
+export interface EssayRating {
+  stage: 'primary' | 'middle';
+  level: string; // primary: A+|A|B+|B, middle: A|B|C|D
+  score: number; // 0-100
+  breakdown: RatingBreakdownItem[];
+  oneLineSummary: string;
+}
+
 export interface EssayAnalysis {
   title?: string;
   body?: string;
   transcribedText?: string;
+  rating?: EssayRating;
   highlights?: string[];
   corrections?: MagicCorrection[];
   goldenSentences?: GoldenSentence[];

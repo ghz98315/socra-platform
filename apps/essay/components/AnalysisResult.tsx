@@ -3,7 +3,7 @@
 // =====================================================
 
 import React, { useState } from 'react';
-import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2 } from 'lucide-react';
+import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2, Medal } from 'lucide-react';
 import { EssayAnalysis } from '../types';
 
 interface AnalysisResultProps {
@@ -79,6 +79,89 @@ const generatePDFReport = async (analysis: EssayAnalysis, title: string): Promis
           border-radius: 8px;
           margin-bottom: 10px;
           border-left: 3px solid #fbbf24;
+        }
+        .rating-box {
+          background: #f0f9ff;
+          border: 1px solid #bae6fd;
+          border-radius: 14px;
+          padding: 18px;
+        }
+        .rating-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 10px;
+        }
+        .rating-score {
+          font-size: 28px;
+          font-weight: 800;
+          color: #0c4a6e;
+        }
+        .rating-meta {
+          text-align: right;
+          color: #075985;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        .rating-level {
+          display: inline-block;
+          background: #0284c7;
+          color: #fff;
+          padding: 3px 10px;
+          border-radius: 999px;
+          font-weight: 700;
+          margin-left: 8px;
+        }
+        .rating-summary {
+          color: #075985;
+          background: #e0f2fe;
+          border: 1px solid #bae6fd;
+          padding: 10px 12px;
+          border-radius: 10px;
+          margin-bottom: 14px;
+        }
+        .breakdown-item {
+          background: #ffffff;
+          border: 1px solid #e0f2fe;
+          border-radius: 12px;
+          padding: 12px 12px;
+          margin-bottom: 10px;
+        }
+        .breakdown-row {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 8px;
+        }
+        .breakdown-name {
+          font-weight: 700;
+          color: #0c4a6e;
+        }
+        .breakdown-score {
+          font-weight: 700;
+          color: #0c4a6e;
+          font-size: 13px;
+          white-space: nowrap;
+        }
+        .breakdown-bar {
+          height: 8px;
+          background: #e0f2fe;
+          border-radius: 999px;
+          overflow: hidden;
+          border: 1px solid #bae6fd;
+          margin-bottom: 8px;
+        }
+        .breakdown-bar > span {
+          display: block;
+          height: 100%;
+          background: linear-gradient(to right, #38bdf8, #0284c7);
+          width: 0%;
+        }
+        .breakdown-comment {
+          color: #64748b;
+          font-size: 13px;
         }
         .highlight-num {
           display: inline-block;
@@ -187,6 +270,37 @@ const generatePDFReport = async (analysis: EssayAnalysis, title: string): Promis
         ${analysis.title ? `<div class="essay-title">《${analysis.title}》</div>` : ''}
         <div class="essay-body">${analysis.body || '未能识别到正文内容'}</div>
       </div>
+
+      ${analysis.rating ? `
+      <div class="section">
+        <div class="section-title">🎖️ 等级评定</div>
+        <div class="rating-box">
+          <div class="rating-top">
+            <div class="rating-score">${analysis.rating.score} 分</div>
+            <div class="rating-meta">
+              <div>${analysis.rating.stage === 'primary' ? '小学标准' : '初中标准'}</div>
+              <div>等级<span class="rating-level">${analysis.rating.level}</span></div>
+            </div>
+          </div>
+          ${analysis.rating.oneLineSummary ? `<div class="rating-summary">${analysis.rating.oneLineSummary}</div>` : ''}
+          ${(analysis.rating.breakdown || []).map((item) => {
+            const max = Number(item?.max) || 0;
+            const score = Number(item?.score) || 0;
+            const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((score / max) * 100))) : 0;
+            return `
+              <div class="breakdown-item">
+                <div class="breakdown-row">
+                  <div class="breakdown-name">${item?.name || ''}</div>
+                  <div class="breakdown-score">${score} / ${max}</div>
+                </div>
+                <div class="breakdown-bar"><span style="width:${pct}%"></span></div>
+                ${item?.comment ? `<div class="breakdown-comment">${item.comment}</div>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      ` : ''}
 
       ${analysis.highlights && analysis.highlights.length > 0 ? `
       <div class="section">
@@ -355,6 +469,9 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
 
+  const rating = analysis.rating;
+  const ratingStageLabel = rating?.stage === 'middle' ? '初中标准' : '小学标准';
+
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % imagePreviews.length);
   };
@@ -446,6 +563,67 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
 
         {/* Right Column: Analysis Cards */}
         <div className="w-full lg:w-7/12">
+
+          {/* 0. Rating */}
+          <Card
+            title="等级评定 🎖️"
+            icon={<Medal className="text-sky-600" size={24} />}
+            colorClass="bg-sky-50 text-sky-800"
+          >
+            {rating ? (
+              <div className="bg-sky-50/60 border border-sky-100 rounded-2xl p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white border border-sky-200 text-sky-700">
+                      {ratingStageLabel}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-600 text-white">
+                      等级 {rating.level}
+                    </span>
+                  </div>
+                  <div className="text-sky-900 font-extrabold text-3xl">
+                    {rating.score}<span className="text-base font-bold text-sky-700 ml-1">分</span>
+                  </div>
+                </div>
+
+                {rating.oneLineSummary ? (
+                  <div className="mt-4 bg-white/70 border border-sky-100 rounded-xl p-4 text-sky-900 leading-relaxed">
+                    {rating.oneLineSummary}
+                  </div>
+                ) : null}
+
+                {(rating.breakdown || []).length > 0 ? (
+                  <div className="mt-5 space-y-3">
+                    {(rating.breakdown || []).map((item, idx) => {
+                      const max = Number(item?.max) || 0;
+                      const score = Number(item?.score) || 0;
+                      const pct = max > 0 ? Math.max(0, Math.min(100, Math.round((score / max) * 100))) : 0;
+                      return (
+                        <div key={idx} className="bg-white rounded-xl border border-sky-100 p-4">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <div className="font-bold text-sky-900">{item.name}</div>
+                            <div className="text-sm font-bold text-sky-900 whitespace-nowrap">
+                              {score} / {max}
+                            </div>
+                          </div>
+                          <div className="mt-2 h-2.5 bg-sky-100 rounded-full overflow-hidden border border-sky-200">
+                            <div className="h-full bg-gradient-to-r from-sky-400 to-sky-600" style={{ width: `${pct}%` }} />
+                          </div>
+                          {item.comment ? (
+                            <div className="mt-2 text-sm text-slate-600 leading-relaxed">{item.comment}</div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-center p-6 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p>暂无等级评定</p>
+              </div>
+            )}
+          </Card>
 
           {/* 1. Highlights */}
           <Card
