@@ -545,6 +545,7 @@ const FormattedComment: React.FC<{ text?: string }> = ({ text }) => {
 
 type AnnotationKind = 'correction' | 'highlight' | 'golden' | 'magic';
 type AnnotationFilter = 'all' | AnnotationKind;
+type AnnotationDecision = 'pending' | 'accepted' | 'later';
 
 interface AnnotationDraft {
   id: string;
@@ -756,6 +757,24 @@ const getAnnotationSidebarClasses = (kind: AnnotationKind, isSelected: boolean) 
   }`;
 };
 
+const getDecisionBadgeClasses = (decision: AnnotationDecision) => {
+  if (decision === 'accepted') {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+
+  if (decision === 'later') {
+    return 'bg-amber-100 text-amber-700';
+  }
+
+  return 'bg-slate-100 text-slate-500';
+};
+
+const getDecisionLabel = (decision: AnnotationDecision) => {
+  if (decision === 'accepted') return '已采纳';
+  if (decision === 'later') return '稍后处理';
+  return '待处理';
+};
+
 const getAnnotationPreview = (annotation: EssayAnnotation) => {
   if (annotation.kind === 'correction') {
     return {
@@ -891,6 +910,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [reviewedAnnotationIds, setReviewedAnnotationIds] = useState<string[]>([]);
+  const [annotationDecisions, setAnnotationDecisions] = useState<Record<string, AnnotationDecision>>({});
   const annotationRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const sidebarRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -973,6 +993,18 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
   const reviewProgressPct = visibleAnnotations.length
     ? Math.round((reviewedVisibleCount / visibleAnnotations.length) * 100)
     : 0;
+  const pendingVisibleCount = visibleAnnotations.filter(
+    (item) => (annotationDecisions[item.id] || 'pending') === 'pending'
+  ).length;
+  const acceptedVisibleCount = visibleAnnotations.filter(
+    (item) => annotationDecisions[item.id] === 'accepted'
+  ).length;
+  const laterVisibleCount = visibleAnnotations.filter(
+    (item) => annotationDecisions[item.id] === 'later'
+  ).length;
+  const selectedDecision = selectedAnnotation
+    ? annotationDecisions[selectedAnnotation.id] || 'pending'
+    : 'pending';
 
   useEffect(() => {
     if (!visibleAnnotations.length) {
@@ -1049,6 +1081,39 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
     selectAnnotation(visibleAnnotations[targetIndex].id, 'sidebar');
   };
 
+  const jumpToNextPendingAnnotation = () => {
+    if (!visibleAnnotations.length) return;
+
+    const currentIndex = selectedAnnotation
+      ? visibleAnnotations.findIndex((item) => item.id === selectedAnnotation.id)
+      : -1;
+
+    for (let offset = 1; offset <= visibleAnnotations.length; offset++) {
+      const idx = (currentIndex + offset + visibleAnnotations.length) % visibleAnnotations.length;
+      const item = visibleAnnotations[idx];
+      if ((annotationDecisions[item.id] || 'pending') === 'pending') {
+        selectAnnotation(item.id, 'sidebar');
+        return;
+      }
+    }
+
+    selectAnnotation(visibleAnnotations[0].id, 'sidebar');
+  };
+
+  const updateAnnotationDecision = (id: string, decision: AnnotationDecision) => {
+    setAnnotationDecisions((current) => {
+      if (decision === 'pending') {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      }
+
+      if (current[id] === decision) return current;
+      return { ...current, [id]: decision };
+    });
+    setReviewedAnnotationIds((current) => (current.includes(id) ? current : [...current, id]));
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -1069,11 +1134,26 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
         event.preventDefault();
         jumpToAdjacentAnnotation('prev');
       }
+
+      if (selectedAnnotation?.id && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        updateAnnotationDecision(selectedAnnotation.id, 'accepted');
+      }
+
+      if (selectedAnnotation?.id && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        updateAnnotationDecision(selectedAnnotation.id, 'later');
+      }
+
+      if (event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        jumpToNextPendingAnnotation();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleAnnotations, selectedAnnotation, annotationFilter]);
+  }, [visibleAnnotations, selectedAnnotation, annotationFilter, annotationDecisions]);
 
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % imagePreviews.length);
@@ -1230,6 +1310,17 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                             style={{ width: `${reviewProgressPct}%` }}
                           />
                         </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                            已采纳 {acceptedVisibleCount}
+                          </span>
+                          <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
+                            稍后处理 {laterVisibleCount}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                            待处理 {pendingVisibleCount}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -1247,6 +1338,13 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                         >
                           下一条
                           <ChevronRight size={14} className="ml-1" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={jumpToNextPendingAnnotation}
+                          className="inline-flex items-center rounded-full border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
+                        >
+                          下一条待处理
                         </button>
                       </div>
                     </div>
@@ -1297,7 +1395,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                         <div>
                           <span className="text-warm-700 font-bold text-base">正文标注</span>
                           <div className="mt-1 text-xs text-slate-500">
-                            键盘可用 `←/→` 或 `K/J` 连续翻阅批注。
+                            键盘可用 `←/→` 或 `K/J` 翻阅，`A` 采纳，`L` 稍后，`N` 跳到下一条待处理。
                           </div>
                         </div>
                         <span className="rounded-full bg-warm-50 px-3 py-1 text-xs font-bold text-warm-700 border border-warm-100">
@@ -1383,6 +1481,9 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                               <div className="mt-1 text-xs text-slate-500">
                                 已审阅 {reviewedVisibleCount} 条，完成度 {reviewProgressPct}%
                               </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                当前状态：{getDecisionLabel(selectedDecision)}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -1401,6 +1502,13 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                               >
                                 <ChevronRight size={16} />
                               </button>
+                              <button
+                                type="button"
+                                onClick={jumpToNextPendingAnnotation}
+                                className="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-800"
+                              >
+                                下一条待处理
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1412,6 +1520,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                             const isSelected = focusedAnnotationId === annotation.id;
                             const order = annotationOrder.get(annotation.id);
                             const isReviewed = reviewedAnnotationIds.includes(annotation.id);
+                            const decision = annotationDecisions[annotation.id] || 'pending';
 
                             return (
                               <button
@@ -1447,15 +1556,12 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                                         当前
                                       </span>
                                     ) : null}
-                                    {isReviewed ? (
-                                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                                        已阅
-                                      </span>
-                                    ) : (
-                                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
-                                        待看
-                                      </span>
-                                    )}
+                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getDecisionBadgeClasses(decision)}`}>
+                                      {getDecisionLabel(decision)}
+                                    </span>
+                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${isReviewed ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>
+                                      {isReviewed ? '已阅' : '待看'}
+                                    </span>
                                   </div>
                                 </div>
                                 <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
@@ -1481,6 +1587,44 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                       <div className="mt-4 border-t border-warm-100 pt-4">
                         <div className="text-sm font-bold text-warm-800 mb-2">当前批注详情</div>
                         <AnnotationDetail annotation={selectedAnnotation} />
+                        {selectedAnnotation ? (
+                          <div className="mt-4 space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateAnnotationDecision(selectedAnnotation.id, 'accepted')}
+                                className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+                                  selectedDecision === 'accepted'
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                }`}
+                              >
+                                采纳这条
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateAnnotationDecision(selectedAnnotation.id, 'later')}
+                                className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+                                  selectedDecision === 'later'
+                                    ? 'bg-amber-500 text-white'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                                }`}
+                              >
+                                稍后处理
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateAnnotationDecision(selectedAnnotation.id, 'pending')}
+                                className="rounded-full px-4 py-2 text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                              >
+                                清除状态
+                              </button>
+                            </div>
+                            <div className="rounded-2xl border border-warm-100 bg-warm-50/70 p-3 text-xs leading-relaxed text-slate-600 xl:hidden">
+                              处理建议：先把“错别字”和“段落升级”标为已采纳，再回看闪光点和金句，适合在手机上快速过一遍。
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
