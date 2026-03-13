@@ -3,7 +3,7 @@
 // =====================================================
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2, Medal } from 'lucide-react';
+import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2, Medal, X } from 'lucide-react';
 import { EssayAnalysis, HighlightItem } from '../types';
 
 interface AnalysisResultProps {
@@ -911,6 +911,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
   const [reviewedAnnotationIds, setReviewedAnnotationIds] = useState<string[]>([]);
   const [annotationDecisions, setAnnotationDecisions] = useState<Record<string, AnnotationDecision>>({});
+  const [isMobileAnnotationPanelOpen, setIsMobileAnnotationPanelOpen] = useState(false);
   const annotationRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const sidebarRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -1049,7 +1050,14 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
 
     setSelectedAnnotationId(id);
 
+    const isDesktopSidebarVisible =
+      typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches;
+
     if (source === 'text') {
+      if (!isDesktopSidebarVisible) {
+        setIsMobileAnnotationPanelOpen(true);
+      }
+
       const sidebarEl = sidebarRefs.current[id];
       if (sidebarEl) {
         sidebarEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1059,6 +1067,13 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
       const detailCardEl = cardRefs.current[id];
       if (detailCardEl) {
         detailCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    if (source === 'sidebar' && !isDesktopSidebarVisible) {
+      const textEl = annotationRefs.current[id];
+      if (textEl) {
+        textEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       }
     }
   };
@@ -1176,7 +1191,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-4 pb-24">
+    <div className="w-full max-w-7xl mx-auto p-4 pb-36 xl:pb-24">
       <div className="flex flex-col lg:flex-row gap-8">
 
         {/* Left Column: Image & OCR Text */}
@@ -1455,7 +1470,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                       </div>
                     </div>
                   </div>
-                  <div className="min-w-0">
+                  <div className="hidden xl:block min-w-0">
                     <div className="rounded-2xl border border-warm-100 bg-white/85 p-4 xl:sticky xl:top-4">
                       <div className="flex items-start justify-between gap-3 mb-4">
                         <div>
@@ -1629,6 +1644,30 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                     </div>
                   </div>
                 </div>
+                {selectedAnnotation ? (
+                  <div className="mt-4 xl:hidden rounded-2xl border border-warm-100 bg-white/80 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-[0.18em] text-warm-500">
+                          Mobile Review
+                        </div>
+                        <div className="mt-1 truncate text-sm font-bold text-slate-900">
+                          {selectedAnnotation.title}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          当前状态：{getDecisionLabel(selectedDecision)}，待处理 {pendingVisibleCount} 条
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsMobileAnnotationPanelOpen(true)}
+                        className="inline-flex items-center rounded-full border border-warm-200 bg-warm-500 px-4 py-2 text-sm font-bold text-white shadow-sm"
+                      >
+                        打开批注面板
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
              </div>
            </div>
         </div>
@@ -1921,7 +1960,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
       </div>
 
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50 flex items-center gap-3">
+      <div className="hidden xl:flex fixed bottom-6 right-6 lg:bottom-10 lg:right-10 z-50 items-center gap-3">
         {/* Export Button */}
         <button
           onClick={handleExport}
@@ -1945,6 +1984,227 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
           批改下一篇
         </button>
       </div>
+
+      <div className="xl:hidden fixed inset-x-0 bottom-0 z-40 border-t border-warm-100 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsMobileAnnotationPanelOpen(true)}
+            className="flex-1 rounded-2xl bg-warm-500 px-4 py-3 text-left text-white shadow-sm"
+          >
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-warm-100">
+              批注面板
+            </div>
+            <div className="mt-1 text-sm font-bold">
+              {selectedAnnotation ? selectedAnnotation.title : '打开移动端批注工作台'}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={jumpToNextPendingAnnotation}
+            className="rounded-2xl border border-slate-200 bg-slate-900 px-3 py-3 text-xs font-bold text-white"
+          >
+            待处理
+            <div className="mt-1 text-[11px] text-slate-300">{pendingVisibleCount} 条</div>
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting}
+            className="rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-slate-700 disabled:opacity-50"
+          >
+            {isExporting ? '导出中' : '导出'}
+          </button>
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded-2xl border border-warm-200 bg-warm-50 px-3 py-3 text-xs font-bold text-warm-700"
+          >
+            下一篇
+          </button>
+        </div>
+      </div>
+
+      {isMobileAnnotationPanelOpen ? (
+        <div className="xl:hidden fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="关闭批注面板"
+            onClick={() => setIsMobileAnnotationPanelOpen(false)}
+            className="absolute inset-0 bg-slate-900/40"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] rounded-t-[28px] border-t border-warm-100 bg-white shadow-[0_-24px_60px_rgba(15,23,42,0.18)]">
+            <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-slate-200" />
+            <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
+              <div>
+                <div className="text-sm font-bold text-warm-800">移动端批注工作台</div>
+                <div className="text-xs text-slate-500">
+                  正文在上，批注在这里集中处理。
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileAnnotationPanelOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="border-y border-warm-100 bg-warm-50/60 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-[0.18em] text-warm-500">
+                    Review Flow
+                  </div>
+                  <div className="mt-1 text-sm font-bold text-slate-900">
+                    {selectedAnnotation ? `第 ${selectedAnnotationIndex + 1} / ${visibleAnnotations.length} 条批注` : '暂无批注'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => jumpToAdjacentAnnotation('prev')}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-200 bg-white text-warm-700"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => jumpToAdjacentAnnotation('next')}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-200 bg-white text-warm-700"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full border border-warm-100 bg-white">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-warm-400 to-warm-600 transition-all duration-300"
+                  style={{ width: `${reviewProgressPct}%` }}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                  已采纳 {acceptedVisibleCount}
+                </span>
+                <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
+                  稍后处理 {laterVisibleCount}
+                </span>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                  待处理 {pendingVisibleCount}
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-4 overflow-y-auto px-4 py-4" style={{ maxHeight: 'calc(82vh - 168px)' }}>
+              <div className="rounded-2xl border border-warm-100 bg-white p-4">
+                <div className="mb-2 text-sm font-bold text-warm-800">当前批注详情</div>
+                <AnnotationDetail annotation={selectedAnnotation} />
+                {selectedAnnotation ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateAnnotationDecision(selectedAnnotation.id, 'accepted')}
+                      className={`rounded-full px-4 py-2 text-sm font-bold ${
+                        selectedDecision === 'accepted'
+                          ? 'bg-emerald-600 text-white'
+                          : 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      采纳
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateAnnotationDecision(selectedAnnotation.id, 'later')}
+                      className={`rounded-full px-4 py-2 text-sm font-bold ${
+                        selectedDecision === 'later'
+                          ? 'bg-amber-500 text-white'
+                          : 'border border-amber-200 bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      稍后
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateAnnotationDecision(selectedAnnotation.id, 'pending')}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700"
+                    >
+                      清除
+                    </button>
+                    <button
+                      type="button"
+                      onClick={jumpToNextPendingAnnotation}
+                      className="rounded-full border border-slate-200 bg-slate-900 px-4 py-2 text-sm font-bold text-white"
+                    >
+                      下一条待处理
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              {visibleAnnotations.length > 0 ? (
+                <div className="space-y-3 pb-4">
+                  {visibleAnnotations.map((annotation) => {
+                    const preview = getAnnotationPreview(annotation);
+                    const isSelected = focusedAnnotationId === annotation.id;
+                    const order = annotationOrder.get(annotation.id);
+                    const isReviewed = reviewedAnnotationIds.includes(annotation.id);
+                    const decision = annotationDecisions[annotation.id] || 'pending';
+
+                    return (
+                      <button
+                        key={annotation.id}
+                        type="button"
+                        ref={(el) => {
+                          sidebarRefs.current[annotation.id] = el;
+                        }}
+                        onClick={() => selectAnnotation(annotation.id, 'sidebar')}
+                        className={getAnnotationSidebarClasses(annotation.kind, isSelected)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {order ? (
+                                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 text-[11px] font-black text-white">
+                                  {order}
+                                </span>
+                              ) : null}
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${getAnnotationBadgeClasses(annotation.kind)}`}>
+                                {annotation.chipLabel}
+                              </span>
+                            </div>
+                            <div className="mt-3 line-clamp-2 text-sm font-bold text-slate-900">
+                              {preview.heading}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {isSelected ? (
+                              <span className="rounded-full bg-slate-900 px-2 py-1 text-[10px] font-bold text-white">
+                                当前
+                              </span>
+                            ) : null}
+                            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getDecisionBadgeClasses(decision)}`}>
+                              {getDecisionLabel(decision)}
+                            </span>
+                            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${isReviewed ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {isReviewed ? '已阅' : '待看'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+                          {preview.detail}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/60 p-5 text-sm leading-relaxed text-slate-500">
+                  当前筛选下没有可显示的批注，切回“全部批注”查看完整联动。
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
