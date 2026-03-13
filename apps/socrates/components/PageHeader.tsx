@@ -14,6 +14,7 @@ interface PageHeaderProps {
   description?: string;
   icon?: LucideIcon;
   iconColor?: string;
+  showSiteLogo?: boolean;
   actions?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
@@ -24,6 +25,7 @@ export function PageHeader({
   description,
   icon: Icon,
   iconColor = 'text-warm-500',
+  showSiteLogo = true,
   actions,
   children,
   className,
@@ -74,7 +76,20 @@ export function PageHeader({
               </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-warm-900">{title}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-warm-900">
+                <span className="inline-flex items-center gap-2">
+                  {showSiteLogo ? (
+                    <img
+                      src="/logo.png"
+                      alt="Socra"
+                      className="h-6 w-6 rounded-md shadow-sm"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : null}
+                  <span>{title}</span>
+                </span>
+              </h1>
               {description && (
                 <p className="text-warm-600 mt-1">{description}</p>
               )}

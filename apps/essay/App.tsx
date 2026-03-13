@@ -174,8 +174,14 @@ const App: React.FC = () => {
       <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-warm-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={handleReset}>
-            <div className="bg-warm-500 p-2 rounded-lg shadow-sm">
-              <BookOpenCheck className="text-white" size={24} />
+            <div className="bg-white p-1.5 rounded-lg shadow-sm border border-warm-100">
+              <img
+                src="/logo.png"
+                alt="Socra"
+                className="h-7 w-7 rounded-md"
+                loading="lazy"
+                decoding="async"
+              />
             </div>
             <h1 className="text-xl font-bold text-warm-900">AI 作文批改器</h1>
           </div>

@@ -300,27 +300,41 @@ const FormattedComment: React.FC<{ text?: string }> = ({ text }) => {
   return (
     <div className="space-y-6">
       {lines.map((line, idx) => {
-        const match = line.match(/^.*?【(.*?)】(.*?)[：:](.*)$/);
-        const simpleMatch = !match ? line.match(/^.*?【(.*?)】(.*)$/) : null;
+        const bracket = line.match(/^\s*【([^】]+)】\s*(.*)$/);
 
-        if (match || simpleMatch) {
-          const m = match || simpleMatch!;
-          const title = m[1];
-          const decoration = m[2] || '';
-          const content = m[match ? 3 : 2];
+        if (bracket) {
+          const title = bracket[1].trim();
+          let rest = (bracket[2] || '').trim();
 
-          let iconChar = '';
-          if (title.includes('温暖抱抱')) iconChar = '🌟';
-          else if (title.includes('成长小贴士')) iconChar = '🚀';
-          else if (title.includes('未来寄语')) iconChar = '🌈';
+          // Support both formats:
+          // 1) 【温暖抱抱】🌟：内容...
+          // 2) 【温暖抱抱】内容...
+          let decoration = '';
+          if (rest) {
+            const firstChar = rest[0];
+            if (['🌟', '🚀', '🌈', '✨', '⭐'].includes(firstChar)) {
+              decoration = firstChar;
+              rest = rest.slice(1).trim();
+            }
+          }
+          rest = rest.replace(/^[:：]\s*/, '');
 
-          const displayIcon = decoration.trim() || iconChar;
+          let fallbackIcon = '';
+          if (title.includes('温暖抱抱')) fallbackIcon = '🌟';
+          else if (title.includes('成长小贴士')) fallbackIcon = '🚀';
+          else if (title.includes('未来寄语')) fallbackIcon = '🌈';
+
+          const displayIcon = decoration || fallbackIcon;
+          const content = rest;
+          if (!content) {
+            return <p key={idx} className="mb-2 leading-loose text-gray-700">{line}</p>;
+          }
 
           return (
             <div key={idx} className="block group">
               <div className="flex items-center gap-2 mb-2">
                 <div className="bg-warm-100 text-warm-600 px-3 py-1 rounded-full font-bold text-base shadow-sm border border-warm-200 flex items-center gap-1">
-                   <span>{displayIcon}</span>
+                   {displayIcon ? <span>{displayIcon}</span> : null}
                    <span>{title}</span>
                 </div>
               </div>
