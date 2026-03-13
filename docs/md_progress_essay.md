@@ -4,13 +4,23 @@
 
 ---
 
-## 最新节点: 2026-03-13 v1.4.2
+## 最新节点: 2026-03-13 v1.4.3
 
 ### 当前状态
-- **版本**: v1.4.2
+- **版本**: v1.4.3
 - **仓库**: socra-platform monorepo
 - **部署地址**: https://essay.socra.cn
 - **本地路径**: D:\github\Socrates_ analysis\socra-platform\apps\essay
+
+### v1.4.3 - 部署稳定性收口 (2026-03-13)
+- ✅ 根目录 `package.json` 明确固定 `node: 20.x`，避免 Vercel 因 `>=18` 在未来自动漂移到新的大版本
+- ✅ 为 `apps/essay`、`apps/landing`、`apps/socrates` 明确补充 `packageManager: pnpm@9.0.0`
+- ✅ 收口 Vercel 包管理器识别，减少 `pnpm` / `npm` 检测不一致导致的缓存跳过和安装路径分叉
+- ✅ 本地重新验证 `pnpm --filter @socra/essay build` 通过，确认批注工作台改造未因部署配置调整回退
+
+**本轮目标**
+- 让 GitHub -> Vercel 的发布链路更稳定，而不是只在本地可构建
+- 降低后续继续迭代批注工作台时，被部署环境漂移打断的概率
 
 ### v1.4.2 - 移动端批注工作台 (2026-03-13)
 - ✅ 为移动端新增独立的批注工作台交互，不再强行复用桌面侧边栏布局
@@ -333,4 +343,4 @@ VITE_SUPABASE_ANON_KEY=
 
 ---
 
-*文档最后更新: 2026-03-13 v1.4.2*
+*文档最后更新: 2026-03-13 v1.4.3*
