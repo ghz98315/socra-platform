@@ -2,7 +2,7 @@
 // AnalysisResult - 结果展示组件
 // =====================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Star, Wand2, Gem, Quote, MessageCircle, RotateCcw, ChevronLeft, ChevronRight, HeartHandshake, Sparkles, Download, Loader2, Medal } from 'lucide-react';
 import { EssayAnalysis, HighlightItem } from '../types';
 
@@ -543,17 +543,537 @@ const FormattedComment: React.FC<{ text?: string }> = ({ text }) => {
   );
 };
 
+type AnnotationKind = 'correction' | 'highlight' | 'golden' | 'magic';
+type AnnotationFilter = 'all' | AnnotationKind;
+
+interface AnnotationDraft {
+  id: string;
+  kind: AnnotationKind;
+  anchorText: string;
+  title: string;
+  chipLabel: string;
+  priority: number;
+  item: any;
+}
+
+interface EssayAnnotation extends AnnotationDraft {
+  start: number;
+  end: number;
+}
+
+interface TextSegment {
+  key: string;
+  text: string;
+  annotation?: EssayAnnotation;
+}
+
+const hasOccupiedRange = (occupied: boolean[], start: number, end: number) => {
+  for (let i = start; i < end; i++) {
+    if (occupied[i]) return true;
+  }
+  return false;
+};
+
+const markOccupiedRange = (occupied: boolean[], start: number, end: number) => {
+  for (let i = start; i < end; i++) occupied[i] = true;
+};
+
+const buildEssayAnnotations = (body: string, drafts: AnnotationDraft[]): EssayAnnotation[] => {
+  if (!body) return [];
+
+  const occupied = new Array(body.length).fill(false);
+  const searchState = new Map<string, number>();
+  const matched: EssayAnnotation[] = [];
+
+  const orderedDrafts = [...drafts].sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return b.anchorText.length - a.anchorText.length;
+  });
+
+  for (const draft of orderedDrafts) {
+    const anchorText = draft.anchorText.trim();
+    if (!anchorText) continue;
+
+    let from = searchState.get(anchorText) ?? 0;
+    while (from < body.length) {
+      const start = body.indexOf(anchorText, from);
+      if (start < 0) break;
+
+      const end = start + anchorText.length;
+      if (!hasOccupiedRange(occupied, start, end)) {
+        markOccupiedRange(occupied, start, end);
+        searchState.set(anchorText, end);
+        matched.push({ ...draft, anchorText, start, end });
+        break;
+      }
+
+      from = start + 1;
+    }
+  }
+
+  return matched.sort((a, b) => a.start - b.start || a.end - b.end);
+};
+
+const buildTextSegments = (
+  body: string,
+  annotations: EssayAnnotation[]
+): TextSegment[] => {
+  if (!body) return [];
+
+  if (annotations.length === 0) {
+    return [{ key: 'plain', text: body }];
+  }
+
+  const segments: TextSegment[] = [];
+  let cursor = 0;
+
+  annotations.forEach((annotation, idx) => {
+    if (annotation.start > cursor) {
+      segments.push({
+        key: `plain-${idx}-${cursor}`,
+        text: body.slice(cursor, annotation.start),
+      });
+    }
+
+    segments.push({
+      key: annotation.id,
+      text: body.slice(annotation.start, annotation.end),
+      annotation,
+    });
+
+    cursor = annotation.end;
+  });
+
+  if (cursor < body.length) {
+    segments.push({
+      key: `plain-tail-${cursor}`,
+      text: body.slice(cursor),
+    });
+  }
+
+  return segments;
+};
+
+const getAnnotationClasses = (kind: AnnotationKind, isSelected: boolean) => {
+  if (kind === 'correction') {
+    return isSelected
+      ? 'bg-rose-100 text-rose-950 underline decoration-rose-500 decoration-wavy underline-offset-4 shadow-[inset_0_-2px_0_0_rgba(244,63,94,0.45)]'
+      : 'bg-rose-50/80 text-slate-800 underline decoration-rose-400 decoration-wavy underline-offset-4 hover:bg-rose-100/90';
+  }
+
+  if (kind === 'golden') {
+    return isSelected
+      ? 'bg-emerald-100 text-emerald-950 shadow-[inset_0_-2px_0_0_rgba(16,185,129,0.45)]'
+      : 'bg-emerald-50/90 text-slate-800 hover:bg-emerald-100/90';
+  }
+
+  if (kind === 'highlight') {
+    return isSelected
+      ? 'bg-yellow-100 text-yellow-950 shadow-[inset_0_-2px_0_0_rgba(234,179,8,0.45)]'
+      : 'bg-yellow-50/90 text-slate-800 hover:bg-yellow-100/90';
+  }
+
+  return isSelected
+    ? 'bg-orange-100 text-orange-950 border-b-2 border-orange-500 shadow-[inset_0_-2px_0_0_rgba(249,115,22,0.4)]'
+    : 'bg-orange-50/90 text-slate-800 border-b-2 border-orange-300 hover:bg-orange-100/80';
+};
+
+const getFilterButtonClasses = (
+  buttonFilter: AnnotationFilter,
+  activeFilter: AnnotationFilter
+) => {
+  const isActive = buttonFilter === activeFilter;
+  const base =
+    'px-3 py-1.5 rounded-full text-xs font-bold border transition-colors';
+
+  if (buttonFilter === 'correction') {
+    return `${base} ${isActive ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'}`;
+  }
+
+  if (buttonFilter === 'golden') {
+    return `${base} ${isActive ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`;
+  }
+
+  if (buttonFilter === 'highlight') {
+    return `${base} ${isActive ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white text-yellow-700 border-yellow-200 hover:bg-yellow-50'}`;
+  }
+
+  if (buttonFilter === 'magic') {
+    return `${base} ${isActive ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-700 border-orange-200 hover:bg-orange-50'}`;
+  }
+
+  return `${base} ${isActive ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
+};
+
+const getAnnotationBadgeClasses = (kind: AnnotationKind) => {
+  if (kind === 'correction') {
+    return 'bg-rose-100 text-rose-700 border border-rose-200';
+  }
+
+  if (kind === 'highlight') {
+    return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+  }
+
+  if (kind === 'golden') {
+    return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+  }
+
+  return 'bg-orange-100 text-orange-700 border border-orange-200';
+};
+
+const getAnnotationSidebarClasses = (kind: AnnotationKind, isSelected: boolean) => {
+  const base =
+    'w-full rounded-2xl border p-4 text-left transition-all duration-200';
+
+  if (kind === 'correction') {
+    return `${base} ${
+      isSelected
+        ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-100 shadow-sm'
+        : 'bg-white border-rose-100 hover:border-rose-200 hover:bg-rose-50/50'
+    }`;
+  }
+
+  if (kind === 'highlight') {
+    return `${base} ${
+      isSelected
+        ? 'bg-yellow-50 border-yellow-300 ring-2 ring-yellow-100 shadow-sm'
+        : 'bg-white border-yellow-100 hover:border-yellow-200 hover:bg-yellow-50/50'
+    }`;
+  }
+
+  if (kind === 'golden') {
+    return `${base} ${
+      isSelected
+        ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-100 shadow-sm'
+        : 'bg-white border-emerald-100 hover:border-emerald-200 hover:bg-emerald-50/50'
+    }`;
+  }
+
+  return `${base} ${
+    isSelected
+      ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-100 shadow-sm'
+      : 'bg-white border-orange-100 hover:border-orange-200 hover:bg-orange-50/50'
+  }`;
+};
+
+const getAnnotationPreview = (annotation: EssayAnnotation) => {
+  if (annotation.kind === 'correction') {
+    return {
+      heading: annotation.item.improved || annotation.item.original || annotation.anchorText,
+      detail: annotation.item.reason || '建议替换为更准确、更通顺的表达。',
+      anchor: annotation.item.original || annotation.anchorText,
+    };
+  }
+
+  if (annotation.kind === 'highlight') {
+    return {
+      heading: annotation.item.dimension || annotation.chipLabel || '闪光点',
+      detail: annotation.item.description || '这里是这篇作文最出彩的表达。',
+      anchor: annotation.item.anchorText || annotation.anchorText,
+    };
+  }
+
+  if (annotation.kind === 'golden') {
+    return {
+      heading: annotation.item.sentence || annotation.anchorText,
+      detail: annotation.item.benefit || '这句话值得保留并积累为自己的表达素材。',
+      anchor: annotation.item.sentence || annotation.anchorText,
+    };
+  }
+
+  return {
+    heading: annotation.item.upgradedPara || annotation.item.originalPara || annotation.anchorText,
+    detail: annotation.item.secret || '这一段已经给出更生动、更完整的升格示范。',
+    anchor: annotation.item.originalPara || annotation.anchorText,
+  };
+};
+
+const AnnotationDetail: React.FC<{ annotation?: EssayAnnotation }> = ({ annotation }) => {
+  if (!annotation) {
+    return (
+      <div className="text-sm text-slate-500 leading-relaxed">
+        点击正文中的高亮片段，查看对应批注。
+      </div>
+    );
+  }
+
+  if (annotation.kind === 'correction') {
+    return (
+      <div className="space-y-3 text-sm leading-relaxed">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">原句</div>
+          <div className="bg-white border border-rose-100 rounded-xl p-3 text-slate-700">
+            {annotation.item.original}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-rose-600 mb-1">修改后</div>
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-rose-900 font-medium">
+            {annotation.item.improved}
+          </div>
+        </div>
+        <div className="bg-white/80 border border-rose-100 rounded-xl p-3 text-slate-600">
+          <span className="font-bold text-rose-700 mr-2">修改理由</span>
+          {annotation.item.reason}
+        </div>
+      </div>
+    );
+  }
+
+  if (annotation.kind === 'golden') {
+    return (
+      <div className="space-y-3 text-sm leading-relaxed">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">原文金句</div>
+          <div className="bg-white border border-emerald-100 rounded-xl p-3 text-emerald-900 font-medium">
+            {annotation.item.sentence}
+          </div>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-700">
+          <span className="font-bold mr-2">赏析</span>
+          {annotation.item.benefit}
+        </div>
+      </div>
+    );
+  }
+
+  if (annotation.kind === 'highlight') {
+    return (
+      <div className="space-y-3 text-sm leading-relaxed">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">原文锚点</div>
+          <div className="bg-white border border-yellow-100 rounded-xl p-3 text-slate-700">
+            {annotation.item.anchorText || annotation.anchorText}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-yellow-700 mb-1">闪光维度</div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-yellow-900 font-medium">
+            {annotation.item.dimension || '闪光点'}
+          </div>
+        </div>
+        <div className="bg-white/80 border border-yellow-100 rounded-xl p-3 text-slate-600">
+          <span className="font-bold text-yellow-700 mr-2">亮点说明</span>
+          {annotation.item.description}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 text-sm leading-relaxed">
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">原段落</div>
+        <div className="bg-white border border-orange-100 rounded-xl p-3 text-slate-700 whitespace-pre-wrap">
+          {annotation.item.originalPara}
+        </div>
+      </div>
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-1">升格示范</div>
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-orange-900 whitespace-pre-wrap">
+          {annotation.item.upgradedPara}
+        </div>
+      </div>
+      {annotation.item.secret ? (
+        <div className="bg-white/80 border border-orange-100 rounded-xl p-3 text-slate-600">
+          <span className="font-bold text-orange-700 mr-2">修改秘籍</span>
+          {annotation.item.secret}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews, onReset }) => {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [annotationFilter, setAnnotationFilter] = useState<AnnotationFilter>('all');
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
+  const [reviewedAnnotationIds, setReviewedAnnotationIds] = useState<string[]>([]);
+  const annotationRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const sidebarRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const rating = analysis.rating;
   const ratingStageLabel = rating?.stage === 'middle' ? '初中标准' : '小学标准';
+  const essayBody = analysis.body || '';
 
   const highlights = (analysis.highlights || []).map((h) => {
     if (typeof h === 'string') return { dimension: '', description: h };
     return h as HighlightItem;
   });
+
+  const correctionDrafts: AnnotationDraft[] = (analysis.corrections || []).map((item, idx) => ({
+    id: `correction-${idx}`,
+    kind: 'correction',
+    anchorText: item.original || '',
+    title: `错别字 / 病句 ${idx + 1}`,
+    chipLabel: '错别字',
+    priority: 1,
+    item,
+  }));
+
+  const goldenDrafts: AnnotationDraft[] = (analysis.goldenSentences || []).map((item, idx) => ({
+    id: `golden-${idx}`,
+    kind: 'golden',
+    anchorText: item.sentence || '',
+    title: `原文金句 ${idx + 1}`,
+    chipLabel: '金句',
+    priority: 2,
+    item,
+  }));
+
+  const magicDrafts: AnnotationDraft[] =
+    analysis.magicModification?.originalPara?.trim()
+      ? [{
+          id: 'magic-0',
+          kind: 'magic',
+          anchorText: analysis.magicModification.originalPara,
+          title: '段落魔法升级',
+          chipLabel: '段落升级',
+          priority: 3,
+          item: analysis.magicModification,
+        }]
+      : [];
+
+  const highlightAnnotationDrafts: AnnotationDraft[] = highlights
+    .map((item, idx) => ({
+      id: `highlight-${idx}`,
+      kind: 'highlight' as const,
+      anchorText: item.anchorText || '',
+      title: `闪光点 ${idx + 1}`,
+      chipLabel: item.dimension || '闪光点',
+      priority: 2,
+      item,
+    }))
+    .filter((item) => item.anchorText.trim());
+
+  const allAnnotations = buildEssayAnnotations(essayBody, [
+    ...correctionDrafts,
+    ...highlightAnnotationDrafts,
+    ...goldenDrafts,
+    ...magicDrafts,
+  ]);
+  const visibleAnnotations =
+    annotationFilter === 'all'
+      ? allAnnotations
+      : allAnnotations.filter((item) => item.kind === annotationFilter);
+  const annotationSegments = buildTextSegments(essayBody, visibleAnnotations);
+  const annotationOrder = new Map(allAnnotations.map((item, idx) => [item.id, idx + 1]));
+  const selectedAnnotation =
+    visibleAnnotations.find((item) => item.id === selectedAnnotationId) || visibleAnnotations[0];
+  const focusedAnnotationId = hoveredAnnotationId || selectedAnnotation?.id || null;
+  const selectedAnnotationIndex = selectedAnnotation
+    ? visibleAnnotations.findIndex((item) => item.id === selectedAnnotation.id)
+    : -1;
+  const reviewedVisibleCount = visibleAnnotations.filter((item) =>
+    reviewedAnnotationIds.includes(item.id)
+  ).length;
+  const reviewProgressPct = visibleAnnotations.length
+    ? Math.round((reviewedVisibleCount / visibleAnnotations.length) * 100)
+    : 0;
+
+  useEffect(() => {
+    if (!visibleAnnotations.length) {
+      if (selectedAnnotationId !== null) setSelectedAnnotationId(null);
+      return;
+    }
+
+    const selectedStillExists = visibleAnnotations.some((item) => item.id === selectedAnnotationId);
+    if (!selectedStillExists) {
+      setSelectedAnnotationId(visibleAnnotations[0].id);
+    }
+  }, [visibleAnnotations, selectedAnnotationId]);
+
+  useEffect(() => {
+    if (!selectedAnnotationId) return;
+    const el = annotationRefs.current[selectedAnnotationId];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+  }, [selectedAnnotationId]);
+
+  useEffect(() => {
+    if (!selectedAnnotation?.id) return;
+
+    setReviewedAnnotationIds((current) => {
+      if (current.includes(selectedAnnotation.id)) return current;
+      return [...current, selectedAnnotation.id];
+    });
+  }, [selectedAnnotation]);
+
+  useEffect(() => {
+    setHoveredAnnotationId(null);
+  }, [annotationFilter]);
+
+  const selectAnnotation = (id: string, source: 'text' | 'card' | 'sidebar') => {
+    const targetAnnotation = allAnnotations.find((item) => item.id === id);
+    if (!targetAnnotation) return;
+
+    if (annotationFilter !== 'all' && targetAnnotation.kind !== annotationFilter) {
+      setAnnotationFilter(targetAnnotation.kind);
+    }
+
+    setSelectedAnnotationId(id);
+
+    if (source === 'text') {
+      const sidebarEl = sidebarRefs.current[id];
+      if (sidebarEl) {
+        sidebarEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+
+      const detailCardEl = cardRefs.current[id];
+      if (detailCardEl) {
+        detailCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
+  const jumpToAdjacentAnnotation = (direction: 'prev' | 'next') => {
+    if (!visibleAnnotations.length) return;
+
+    const fallbackIndex = direction === 'next' ? 0 : visibleAnnotations.length - 1;
+    const currentIndex = selectedAnnotation
+      ? visibleAnnotations.findIndex((item) => item.id === selectedAnnotation.id)
+      : fallbackIndex;
+
+    if (currentIndex < 0) {
+      selectAnnotation(visibleAnnotations[fallbackIndex].id, 'sidebar');
+      return;
+    }
+
+    const delta = direction === 'next' ? 1 : -1;
+    const targetIndex = (currentIndex + delta + visibleAnnotations.length) % visibleAnnotations.length;
+    selectAnnotation(visibleAnnotations[targetIndex].id, 'sidebar');
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTyping =
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        target?.isContentEditable;
+
+      if (isTyping || !visibleAnnotations.length) return;
+
+      if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'j') {
+        event.preventDefault();
+        jumpToAdjacentAnnotation('next');
+      }
+
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        jumpToAdjacentAnnotation('prev');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [visibleAnnotations, selectedAnnotation, annotationFilter]);
 
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % imagePreviews.length);
@@ -621,23 +1141,348 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
               )}
            </div>
 
-           {/* OCR Result */}
+           {/* Annotated Essay */}
            <div className="bg-white rounded-2xl shadow-sm p-4 border border-warm-100">
-             <h3 className="font-bold text-warm-800 mb-3 flex items-center">
-               <MessageCircle size={18} className="mr-2" />
-               识别内容
-             </h3>
-             <div className="bg-orange-50/30 p-5 rounded-xl text-gray-700 leading-loose min-h-[200px] max-h-[60vh] overflow-y-auto border border-orange-100 text-base">
-                {analysis.title && (
-                  <div className="mb-4">
-                    <span className="text-warm-600 font-bold text-lg mr-2">🔸 标题：</span>
-                    <span className="font-bold text-gray-900 text-lg border-b-2 border-warm-100 pb-1">{analysis.title}</span>
+             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+               <div>
+                 <h3 className="font-bold text-warm-800 flex items-center">
+                   <MessageCircle size={18} className="mr-2" />
+                   原文批注工作台
+                 </h3>
+                 <p className="mt-1 text-sm text-slate-500">
+                   像 Word 一样直接点正文高亮，看对应的错别字、闪光点和段落升级。
+                 </p>
+               </div>
+               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                 <div className="rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-rose-700">
+                   <div className="font-bold text-base leading-none">{correctionDrafts.length}</div>
+                   <div className="mt-1">错别字</div>
+                 </div>
+                 <div className="rounded-2xl border border-yellow-100 bg-yellow-50 px-3 py-2 text-yellow-700">
+                   <div className="font-bold text-base leading-none">{highlightAnnotationDrafts.length}</div>
+                   <div className="mt-1">闪光点</div>
+                 </div>
+                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
+                   <div className="font-bold text-base leading-none">{goldenDrafts.length}</div>
+                   <div className="mt-1">金句</div>
+                 </div>
+                 <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-orange-700">
+                   <div className="font-bold text-base leading-none">{magicDrafts.length}</div>
+                   <div className="mt-1">段落升级</div>
+                 </div>
+               </div>
+             </div>
+             <div className="bg-orange-50/30 p-5 rounded-xl text-gray-700 leading-loose border border-orange-100 text-base">
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    type="button"
+                    className={getFilterButtonClasses('all', annotationFilter)}
+                    onClick={() => setAnnotationFilter('all')}
+                  >
+                    全部批注
+                  </button>
+                  <button
+                    type="button"
+                    className={getFilterButtonClasses('correction', annotationFilter)}
+                    onClick={() => setAnnotationFilter('correction')}
+                  >
+                    错别字 {correctionDrafts.length}
+                  </button>
+                  <button
+                    type="button"
+                    className={getFilterButtonClasses('highlight', annotationFilter)}
+                    onClick={() => setAnnotationFilter('highlight')}
+                  >
+                    闪光点 {highlightAnnotationDrafts.length}
+                  </button>
+                  <button
+                    type="button"
+                    className={getFilterButtonClasses('golden', annotationFilter)}
+                    onClick={() => setAnnotationFilter('golden')}
+                  >
+                    金句 {goldenDrafts.length}
+                  </button>
+                  <button
+                    type="button"
+                    className={getFilterButtonClasses('magic', annotationFilter)}
+                    onClick={() => setAnnotationFilter('magic')}
+                  >
+                    段落升级 {magicDrafts.length}
+                  </button>
+                </div>
+                {visibleAnnotations.length > 0 ? (
+                  <div className="mb-4 rounded-2xl border border-warm-100 bg-white/80 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-warm-800">批注导航</div>
+                        <div className="text-xs text-slate-500">
+                          先看总览，再逐条审阅。点击编号可直接跳转到原文对应位置。
+                        </div>
+                      </div>
+                      <div className="min-w-[180px]">
+                        <div className="mb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.18em] text-warm-500">
+                          <span>Review Progress</span>
+                          <span>{reviewedVisibleCount}/{visibleAnnotations.length}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full border border-warm-100 bg-warm-50">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-warm-400 to-warm-600 transition-all duration-300"
+                            style={{ width: `${reviewProgressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => jumpToAdjacentAnnotation('prev')}
+                          className="inline-flex items-center rounded-full border border-warm-200 bg-white px-3 py-1.5 text-xs font-bold text-warm-700 hover:bg-warm-50"
+                        >
+                          <ChevronLeft size={14} className="mr-1" />
+                          上一条
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => jumpToAdjacentAnnotation('next')}
+                          className="inline-flex items-center rounded-full border border-warm-200 bg-white px-3 py-1.5 text-xs font-bold text-warm-700 hover:bg-warm-50"
+                        >
+                          下一条
+                          <ChevronRight size={14} className="ml-1" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                      {visibleAnnotations.map((annotation) => {
+                        const order = annotationOrder.get(annotation.id);
+                        const isCurrent = focusedAnnotationId === annotation.id;
+
+                        return (
+                          <button
+                            key={annotation.id}
+                            type="button"
+                            onClick={() => selectAnnotation(annotation.id, 'sidebar')}
+                            onMouseEnter={() => setHoveredAnnotationId(annotation.id)}
+                            onMouseLeave={() => setHoveredAnnotationId((current) => current === annotation.id ? null : current)}
+                            className={`flex min-w-fit items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold transition-all ${
+                              isCurrent
+                                ? 'border-slate-800 bg-slate-800 text-white shadow-sm'
+                                : 'border-warm-200 bg-white text-slate-700 hover:border-warm-300 hover:bg-warm-50'
+                            }`}
+                          >
+                            {order ? (
+                              <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black ${
+                                isCurrent ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'
+                              }`}>
+                                {order}
+                              </span>
+                            ) : null}
+                            <span>{annotation.chipLabel}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
-                <div>
-                  <span className="text-warm-600 font-bold text-lg mr-2 block mb-2">🔹 正文：</span>
-                  <div className="whitespace-pre-wrap pl-4 border-l-2 border-warm-200 text-justify">
-                    {analysis.body || "未能识别到正文内容。"}
+                ) : null}
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_320px]">
+                  <div className="min-w-0">
+                    {analysis.title && (
+                      <div className="mb-4 rounded-2xl border border-warm-100 bg-white/80 p-4">
+                        <span className="text-warm-600 font-bold text-sm tracking-wide">作文标题</span>
+                        <div className="mt-2 font-bold text-gray-900 text-xl border-b border-warm-100 pb-2">
+                          《{analysis.title}》
+                        </div>
+                      </div>
+                    )}
+                    <div className="rounded-[28px] border border-[#ead7c6] bg-[#fffdfa] p-4 shadow-[0_18px_50px_rgba(140,89,40,0.08)]">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <span className="text-warm-700 font-bold text-base">正文标注</span>
+                          <div className="mt-1 text-xs text-slate-500">
+                            键盘可用 `←/→` 或 `K/J` 连续翻阅批注。
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-warm-50 px-3 py-1 text-xs font-bold text-warm-700 border border-warm-100">
+                          当前显示 {visibleAnnotations.length} 条批注
+                        </span>
+                      </div>
+                      <div
+                        className="relative min-h-[260px] max-h-[72vh] overflow-y-auto rounded-[24px] border border-[#f1dfcf] bg-[#fffaf5] pr-2"
+                        style={{
+                          backgroundImage:
+                            'repeating-linear-gradient(to bottom, transparent 0, transparent 34px, rgba(233, 213, 191, 0.45) 34px, rgba(233, 213, 191, 0.45) 35px)',
+                          backgroundSize: '100% 35px',
+                        }}
+                      >
+                        <div className="pointer-events-none absolute bottom-0 right-0 h-14 w-14 rounded-tl-[22px] bg-gradient-to-tl from-[#f6e4d2] to-transparent opacity-70" />
+                        <div className="pointer-events-none absolute left-5 top-0 h-full w-px bg-rose-200/80" />
+                        <div className="pl-9 pr-4 py-5">
+                        {essayBody ? (
+                          <div className="whitespace-pre-wrap text-justify leading-loose text-[15px]">
+                            {annotationSegments.map((segment) => {
+                              if (!segment.annotation) {
+                                return <span key={segment.key}>{segment.text}</span>;
+                              }
+
+                              const isSelected = focusedAnnotationId === segment.annotation.id;
+                              const isBlock = segment.text.includes('\n');
+                              const badgeNumber = annotationOrder.get(segment.annotation.id);
+
+                              return (
+                                <button
+                                  key={segment.key}
+                                  type="button"
+                                  ref={(el) => {
+                                    annotationRefs.current[segment.annotation!.id] = el;
+                                  }}
+                                  onClick={() => selectAnnotation(segment.annotation!.id, 'text')}
+                                  onMouseEnter={() => setHoveredAnnotationId(segment.annotation!.id)}
+                                  onMouseLeave={() => setHoveredAnnotationId((current) => current === segment.annotation!.id ? null : current)}
+                                  className={`${isBlock ? 'block w-full my-2 text-left' : 'inline text-left'} rounded-md px-1 transition-all duration-200 ${getAnnotationClasses(segment.annotation.kind, isSelected)}`}
+                                >
+                                  {segment.text}
+                                  {badgeNumber ? (
+                                    <span className={`ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full align-super text-[10px] font-black ${
+                                      isSelected ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 border border-slate-200'
+                                    }`}>
+                                      {badgeNumber}
+                                    </span>
+                                  ) : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div>未能识别到正文内容。</div>
+                        )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="rounded-2xl border border-warm-100 bg-white/85 p-4 xl:sticky xl:top-4">
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div>
+                          <div className="text-sm font-bold text-warm-800">侧边批注栏</div>
+                          <div className="text-xs text-slate-500">
+                            高亮和批注一一对应，点击任一条会自动定位原文。
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-warm-50 px-2.5 py-1 text-xs font-bold text-warm-700 border border-warm-100">
+                          {annotationFilter === 'all' ? '全部' : selectedAnnotation?.chipLabel || '筛选中'}
+                        </span>
+                      </div>
+                      {selectedAnnotation ? (
+                        <div className="mb-4 rounded-2xl border border-warm-100 bg-warm-50/70 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-xs font-bold uppercase tracking-[0.18em] text-warm-500">
+                                Review Flow
+                              </div>
+                              <div className="mt-1 text-sm font-bold text-warm-900">
+                                第 {selectedAnnotationIndex + 1} / {visibleAnnotations.length} 条批注
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                已审阅 {reviewedVisibleCount} 条，完成度 {reviewProgressPct}%
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => jumpToAdjacentAnnotation('prev')}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-200 bg-white text-warm-700 hover:bg-warm-100"
+                                aria-label="上一条批注"
+                              >
+                                <ChevronLeft size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => jumpToAdjacentAnnotation('next')}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-warm-200 bg-white text-warm-700 hover:bg-warm-100"
+                                aria-label="下一条批注"
+                              >
+                                <ChevronRight size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      {visibleAnnotations.length > 0 ? (
+                        <div className="space-y-3 max-h-[56vh] overflow-y-auto pr-1">
+                          {visibleAnnotations.map((annotation) => {
+                            const preview = getAnnotationPreview(annotation);
+                            const isSelected = focusedAnnotationId === annotation.id;
+                            const order = annotationOrder.get(annotation.id);
+                            const isReviewed = reviewedAnnotationIds.includes(annotation.id);
+
+                            return (
+                              <button
+                                key={annotation.id}
+                                type="button"
+                                ref={(el) => {
+                                  sidebarRefs.current[annotation.id] = el;
+                                }}
+                                onClick={() => selectAnnotation(annotation.id, 'sidebar')}
+                                onMouseEnter={() => setHoveredAnnotationId(annotation.id)}
+                                onMouseLeave={() => setHoveredAnnotationId((current) => current === annotation.id ? null : current)}
+                                className={getAnnotationSidebarClasses(annotation.kind, isSelected)}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {order ? (
+                                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 text-[11px] font-black text-white">
+                                          {order}
+                                        </span>
+                                      ) : null}
+                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${getAnnotationBadgeClasses(annotation.kind)}`}>
+                                        {annotation.chipLabel}
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 line-clamp-2 text-sm font-bold text-slate-900">
+                                      {preview.heading}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1">
+                                    {isSelected ? (
+                                      <span className="rounded-full bg-slate-900 px-2 py-1 text-[10px] font-bold text-white">
+                                        当前
+                                      </span>
+                                    ) : null}
+                                    {isReviewed ? (
+                                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                                        已阅
+                                      </span>
+                                    ) : (
+                                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                                        待看
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+                                  {preview.detail}
+                                </div>
+                                <div className="mt-3 border-t border-slate-100 pt-3">
+                                  <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                                    对应原文
+                                  </div>
+                                  <div className="mt-1 line-clamp-3 text-sm leading-relaxed text-slate-700">
+                                    {preview.anchor}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/60 p-5 text-sm leading-relaxed text-slate-500">
+                          当前筛选下没有可显示的批注，切回“全部批注”可以查看完整联动。
+                        </div>
+                      )}
+                      <div className="mt-4 border-t border-warm-100 pt-4">
+                        <div className="text-sm font-bold text-warm-800 mb-2">当前批注详情</div>
+                        <AnnotationDetail annotation={selectedAnnotation} />
+                      </div>
+                    </div>
                   </div>
                 </div>
              </div>
@@ -716,17 +1561,37 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
           >
             <div className="space-y-4">
               {highlights.map((point, idx) => (
-                <div key={idx} className="flex items-start gap-3 group">
+                <div
+                  key={idx}
+                  ref={(el) => {
+                    cardRefs.current[`highlight-${idx}`] = el;
+                  }}
+                  onClick={() => {
+                    if (highlightAnnotationDrafts.some((item) => item.id === `highlight-${idx}`)) {
+                      selectAnnotation(`highlight-${idx}`, 'card');
+                    }
+                  }}
+                  className={`flex items-start gap-3 group ${point.anchorText ? 'cursor-pointer' : ''}`}
+                >
                   <div className="mt-1 w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-xs font-bold flex-shrink-0 group-hover:bg-yellow-200 transition-colors">
                     {idx + 1}
                   </div>
-                  <div className="bg-yellow-50/50 p-3 rounded-lg w-full text-gray-700 leading-relaxed border border-yellow-100/50 group-hover:bg-yellow-50 transition-colors">
+                  <div
+                    className={`bg-yellow-50/50 p-3 rounded-lg w-full text-gray-700 leading-relaxed border group-hover:bg-yellow-50 transition-colors ${
+                      selectedAnnotation?.id === `highlight-${idx}` ? 'border-yellow-300 ring-2 ring-yellow-100' : 'border-yellow-100/50'
+                    }`}
+                  >
                     {point.dimension ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-white border border-yellow-200 text-yellow-700 mr-2">
                         {point.dimension}
                       </span>
                     ) : null}
                     <span>{point.description}</span>
+                    {point.anchorText ? (
+                      <div className="mt-2 text-xs text-yellow-700 bg-white/70 border border-yellow-100 rounded-lg px-2.5 py-2">
+                        对应原文：{point.anchorText}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -742,7 +1607,16 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             {(analysis.corrections || []).length > 0 ? (
               <div className="space-y-6">
                 {(analysis.corrections || []).map((item, idx) => (
-                  <div key={idx} className="relative bg-white border border-purple-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden">
+                  <div
+                    key={idx}
+                    ref={(el) => {
+                      cardRefs.current[`correction-${idx}`] = el;
+                    }}
+                    onClick={() => selectAnnotation(`correction-${idx}`, 'card')}
+                    className={`relative bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden cursor-pointer ${
+                      selectedAnnotation?.id === `correction-${idx}` ? 'border-purple-300 ring-2 ring-purple-100' : 'border-purple-100'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:opacity-100 transition-opacity"></div>
 
                     <div className="mb-3 pl-3 border-l-4 border-gray-200">
@@ -778,7 +1652,15 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             colorClass="bg-orange-50 text-orange-700"
           >
             {analysis.magicModification?.originalPara || analysis.magicModification?.upgradedPara ? (
-              <div className="bg-orange-50/50 border border-orange-100 rounded-2xl p-5">
+              <div
+                ref={(el) => {
+                  cardRefs.current['magic-0'] = el;
+                }}
+                onClick={() => selectAnnotation('magic-0', 'card')}
+                className={`bg-orange-50/50 border rounded-2xl p-5 cursor-pointer transition-colors ${
+                  selectedAnnotation?.id === 'magic-0' ? 'border-orange-300 ring-2 ring-orange-100' : 'border-orange-100'
+                }`}
+              >
                 <div className="space-y-4">
                   <div>
                     <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white border border-orange-200 text-orange-700">
@@ -819,7 +1701,16 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
           >
              <div className="grid grid-cols-1 gap-4">
                {(analysis.goldenSentences || []).map((item, idx) => (
-                 <div key={idx} className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-4 hover:border-emerald-300 transition-all shadow-sm group">
+                 <div
+                   key={idx}
+                   ref={(el) => {
+                     cardRefs.current[`golden-${idx}`] = el;
+                   }}
+                   onClick={() => selectAnnotation(`golden-${idx}`, 'card')}
+                   className={`bg-gradient-to-br from-emerald-50 to-white border rounded-xl p-4 hover:border-emerald-300 transition-all shadow-sm group cursor-pointer ${
+                     selectedAnnotation?.id === `golden-${idx}` ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-emerald-100'
+                   }`}
+                 >
                    <div className="text-emerald-900 font-medium text-base mb-3 relative pl-6 leading-relaxed">
                      <Quote size={16} className="absolute left-0 top-1 text-emerald-400/50" />
                      {item.sentence}

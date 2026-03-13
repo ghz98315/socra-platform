@@ -16,6 +16,7 @@ export interface GoldenSentence {
 export interface HighlightItem {
   dimension: string;
   description: string;
+  anchorText?: string;
 }
 
 export interface MagicModification {

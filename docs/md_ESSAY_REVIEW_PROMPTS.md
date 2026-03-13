@@ -54,7 +54,7 @@
        ]
      },
      "highlights": [
-       {"dimension": "如：用词精准/修辞巧妙/细节生动/情感真挚/结构清晰", "description": "一句话说明好在哪里（必须结合文章细节）"}
+       {"dimension": "如：用词精准/修辞巧妙/细节生动/情感真挚/结构清晰", "description": "一句话说明好在哪里（必须结合文章细节）", "anchorText": "对应的原文句子或短语（必须逐字来自body）"}
      ],
      "corrections": [
        {"original": "原句（必须来自body且为完整一句话）", "improved": "修改后的句子", "reason": "修改原因（1句）"}
@@ -74,7 +74,7 @@
    }
 
 5. **强约束（非常重要）**：
-   - highlights 必须**正好3条**（每条必须包含 dimension 与 description）。
+   - highlights 必须**正好3条**（每条必须包含 dimension、description、anchorText，且 anchorText 必须逐字来自 body）。
    - corrections（错别字与病句）输出 **1-4条**（若文章几乎无错误，可只输出 1 条：此时 improved 与 original 相同，reason 用于表扬基础扎实）。
    - magicModification 必须输出且字段齐全（originalPara 必须逐字出自 body）。
    - goldenSentences（原文金句赏析）输出 **1-3条**（sentence 必须逐字出自 body）。
@@ -118,7 +118,7 @@
 1. **基础规范（corrections）**：精准抓出错别字、漏字、标点错误和病句（温柔说法）。
 2. **段落魔法（magicModification）**：挑出一段最像流水账的段落，用“五感法”+简单修辞帮它变得更生动。
 3. **素材百宝箱（materialBox）**：推荐贴近孩子生活的新鲜素材或诗句，下次写作可直接用。
-4. **闪光点（highlights）**：每条必须标注 dimension，并结合文章细节夸到点上。
+4. **闪光点（highlights）**：每条必须标注 dimension，并结合文章细节夸到点上；同时提供对应原文锚点 anchorText，便于前端直接挂到学生原文上。
 
 **总评风格（小学 - 情绪价值优先）**：
 - 温暖抱抱部分要更充分、更具体，优点必须落到作文细节。
@@ -156,7 +156,7 @@
 1. **基础规范（corrections）**：错别字、搭配不当、病句、标点与表达歧义。
 2. **段落升格（magicModification）**：必须提供 1 段“原段落 -> 升格段落”的示范，提升逻辑与表达张力。
 3. **素材百宝箱（materialBox）**：给出可直接迁移到下次写作的素材（不要陈旧套路），并说明如何落到段落里。
-4. **闪光点（highlights）**：强调立意/结构/语言等维度，并结合文章细节说明。
+4. **闪光点（highlights）**：强调立意/结构/语言等维度，并结合文章细节说明；同时提供对应原文锚点 anchorText。
 
 **总评风格（初中 - 可操作建议优先）**：
 - 语气专业、具体，避免低幼化夸奖。
@@ -195,7 +195,7 @@
 1. **基础规范（corrections）**：精准捕捉错别字、漏字和语病。
 2. **魔法修改（magicModification）**：必须挑出一段缺乏细节的流水账，运用“五感法”（视听嗅味触）和修辞手法进行段落升格示范。
 3. **百宝箱（materialBox）**：根据学生作文主题，推荐贴近当代小学生生活的课外名言/诗句/新鲜素材，并告诉下次怎么用。
-4. **闪光点（highlights）**：每条标注维度（dimension）并结合文章细节说明。
+4. **闪光点（highlights）**：每条标注维度（dimension）并结合文章细节说明，同时提供对应原文锚点 anchorText。
 
 **总评风格（小学 - 情绪价值优先）**：
 - 先夸具体优点，再给2条可执行建议，最后鼓励。
