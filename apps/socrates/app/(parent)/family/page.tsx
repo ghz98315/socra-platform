@@ -61,14 +61,14 @@ export default function FamilyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to load family');
+        throw new Error(data.error || '加载家庭信息失败');
       }
 
       setFamily(data.family || null);
       setMembers(data.members || data.family?.members || []);
     } catch (error: any) {
       console.error('Failed to fetch family:', error);
-      setErrorMessage(error.message || 'Failed to load family');
+      setErrorMessage(error.message || '加载家庭信息失败');
       setFamily(null);
       setMembers([]);
     } finally {
@@ -102,15 +102,15 @@ export default function FamilyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create family');
+        throw new Error(data.error || '创建家庭失败');
       }
 
       setFamilyName('');
-      setStatusMessage('Family created successfully.');
+      setStatusMessage('家庭创建成功。');
       await fetchFamily();
     } catch (error: any) {
       console.error('Create family error:', error);
-      setErrorMessage(error.message || 'Failed to create family');
+      setErrorMessage(error.message || '创建家庭失败');
     } finally {
       setCreating(false);
     }
@@ -130,13 +130,13 @@ export default function FamilyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Search failed');
+        throw new Error(data.error || '搜索失败');
       }
 
       setSearchResults(data.users || []);
     } catch (error: any) {
       console.error('Search failed:', error);
-      setErrorMessage(error.message || 'Search failed');
+      setErrorMessage(error.message || '搜索失败');
       setSearchResults([]);
     } finally {
       setSearching(false);
@@ -166,16 +166,16 @@ export default function FamilyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add member');
+        throw new Error(data.error || '添加成员失败');
       }
 
-      setStatusMessage(`${candidate.display_name} added to family.`);
+      setStatusMessage(`${candidate.display_name} 已加入家庭。`);
       setSearchQuery('');
       setSearchResults([]);
       await fetchFamily();
     } catch (error: any) {
       console.error('Add member failed:', error);
-      setErrorMessage(error.message || 'Failed to add member');
+      setErrorMessage(error.message || '添加成员失败');
     } finally {
       setSubmittingUserId(null);
     }
@@ -200,14 +200,14 @@ export default function FamilyPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to remove member');
+        throw new Error(data.error || '移除成员失败');
       }
 
-      setStatusMessage(`${member.nickname || 'Member'} removed.`);
+      setStatusMessage(`${member.nickname || '成员'} 已移除。`);
       await fetchFamily();
     } catch (error: any) {
       console.error('Remove member failed:', error);
-      setErrorMessage(error.message || 'Failed to remove member');
+      setErrorMessage(error.message || '移除成员失败');
     } finally {
       setSubmittingUserId(null);
     }
@@ -228,8 +228,8 @@ export default function FamilyPage() {
           <Users className="h-5 w-5 text-warm-600" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Family management</h1>
-          <p className="text-sm text-gray-500">Create a family, search users, and manage members.</p>
+          <h1 className="text-xl font-bold text-gray-900">家庭管理</h1>
+          <p className="text-sm text-gray-500">创建家庭、搜索用户并管理成员。</p>
         </div>
       </div>
 
@@ -248,15 +248,15 @@ export default function FamilyPage() {
       {!family ? (
         <Card className="mb-6">
           <CardContent className="p-4">
-            <h3 className="mb-4 font-semibold text-gray-900">Create a new family</h3>
+            <h3 className="mb-4 font-semibold text-gray-900">创建家庭</h3>
             <form onSubmit={createFamily} className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Family name</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">家庭名称</label>
                 <Input
                   type="text"
                   value={familyName}
                   onChange={(event) => setFamilyName(event.target.value)}
-                  placeholder="For example: Wang Family"
+                  placeholder="例如：王家"
                   required
                 />
               </div>
@@ -264,12 +264,12 @@ export default function FamilyPage() {
                 {creating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
+                    创建中...
                   </>
                 ) : (
                   <>
                     <Users className="mr-2 h-4 w-4" />
-                    Create family
+                    创建家庭
                   </>
                 )}
               </Button>
@@ -286,10 +286,10 @@ export default function FamilyPage() {
                 <div>
                   <h3 className="font-semibold text-gray-900">{family.name}</h3>
                   <p className="text-sm text-gray-500">
-                    Invite code: <span className="font-mono font-medium">{family.inviteCode}</span>
+                    邀请码: <span className="font-mono font-medium">{family.inviteCode}</span>
                   </p>
                 </div>
-                <div className="text-sm text-gray-500">{members.length} members</div>
+                <div className="text-sm text-gray-500">{members.length} 位成员</div>
               </div>
             </CardContent>
           </Card>
@@ -298,20 +298,20 @@ export default function FamilyPage() {
             <CardContent className="p-4">
               <div className="mb-4 flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-warm-500" />
-                <h3 className="font-semibold text-gray-900">Add member</h3>
+                <h3 className="font-semibold text-gray-900">添加成员</h3>
               </div>
 
               <form onSubmit={searchUsers} className="space-y-4">
                 <div className="flex gap-2">
                   <Input
                     type="text"
-                    placeholder="Search by display name or phone"
+                    placeholder="按昵称或手机号搜索"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     className="flex-1"
                   />
                   <Button type="submit" disabled={searching}>
-                    {searching ? 'Searching...' : 'Search'}
+                    {searching ? '搜索中...' : '搜索'}
                   </Button>
                 </div>
 
@@ -332,7 +332,9 @@ export default function FamilyPage() {
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">{candidate.display_name}</p>
-                              <p className="text-sm text-gray-500">{candidate.phone || 'No phone'}</p>
+                              <p className="text-sm text-gray-500">
+                                {candidate.phone || '未设置手机号'}
+                              </p>
                             </div>
                           </div>
                           <Button
@@ -341,7 +343,7 @@ export default function FamilyPage() {
                             onClick={() => addMember(candidate)}
                             disabled={submittingUserId === candidate.id}
                           >
-                            {submittingUserId === candidate.id ? 'Adding...' : 'Add as child'}
+                            {submittingUserId === candidate.id ? '添加中...' : '添加为孩子'}
                           </Button>
                         </div>
                       ))}
@@ -353,7 +355,7 @@ export default function FamilyPage() {
 
           <Card className="mb-6">
             <CardContent className="p-4">
-              <h3 className="mb-4 font-semibold text-gray-900">Family members</h3>
+              <h3 className="mb-4 font-semibold text-gray-900">家庭成员</h3>
               {members.length > 0 ? (
                 <div className="space-y-2">
                   {members.map((member) => (
@@ -368,9 +370,11 @@ export default function FamilyPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{member.nickname || 'Unnamed member'}</p>
+                          <p className="font-medium text-gray-900">
+                            {member.nickname || '未命名成员'}
+                          </p>
                           <p className="text-sm text-gray-500">
-                            {member.role === 'parent' ? 'Parent' : 'Child'}
+                            {member.role === 'parent' ? '家长' : '孩子'}
                           </p>
                         </div>
                       </div>
@@ -381,7 +385,7 @@ export default function FamilyPage() {
                         onClick={() => removeMember(member)}
                         disabled={submittingUserId === member.userId || member.userId === user?.id}
                       >
-                        {submittingUserId === member.userId ? 'Removing...' : 'Remove'}
+                        {submittingUserId === member.userId ? '移除中...' : '移除'}
                       </Button>
                     </div>
                   ))}
@@ -389,8 +393,8 @@ export default function FamilyPage() {
               ) : (
                 <div className="py-8 text-center text-gray-500">
                   <Users className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-                  <p>No members yet.</p>
-                  <p className="text-sm">Search for a user above to add them into this family.</p>
+                  <p>暂无成员。</p>
+                  <p className="text-sm">请在上方搜索用户并添加为家庭成员。</p>
                 </div>
               )}
             </CardContent>

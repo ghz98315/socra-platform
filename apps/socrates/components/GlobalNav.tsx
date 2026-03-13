@@ -30,27 +30,46 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type NavItem = {
+  id: string;
   href: string;
   icon: React.ElementType;
-  label: string;
+  label: { zh: string; en: string };
   color: string;
 };
 
 const parentNavItems: NavItem[] = [
-  { href: '/tasks', icon: Home, label: 'Dashboard', color: 'text-warm-500' },
-  { href: '/tasks', icon: ClipboardList, label: 'Tasks', color: 'text-blue-500' },
-  { href: '/family', icon: Users, label: 'Family', color: 'text-purple-500' },
-  { href: '/reports', icon: BarChart3, label: 'Reports', color: 'text-warm-400' },
+  { id: 'dashboard', href: '/tasks', icon: Home, label: { zh: '总览', en: 'Dashboard' }, color: 'text-warm-500' },
+  { id: 'tasks', href: '/tasks', icon: ClipboardList, label: { zh: '任务', en: 'Tasks' }, color: 'text-blue-500' },
+  { id: 'family', href: '/family', icon: Users, label: { zh: '家庭', en: 'Family' }, color: 'text-purple-500' },
+  { id: 'reports', href: '/reports', icon: BarChart3, label: { zh: '报告', en: 'Reports' }, color: 'text-warm-400' },
 ];
 
 const studentNavItems: NavItem[] = [
-  { href: '/workbench', icon: BookOpen, label: 'Study', color: 'text-warm-500' },
-  { href: '/planner', icon: Calendar, label: 'Planner', color: 'text-blue-500' },
-  { href: '/error-book', icon: Bookmark, label: 'Errors', color: 'text-warm-600' },
-  { href: '/review', icon: ClipboardList, label: 'Review', color: 'text-warm-500' },
-  { href: '/achievements', icon: Trophy, label: 'Achievements', color: 'text-warm-500' },
-  { href: '/community', icon: Users, label: 'Community', color: 'text-warm-500' },
+  { id: 'study', href: '/workbench', icon: BookOpen, label: { zh: '学习', en: 'Study' }, color: 'text-warm-500' },
+  { id: 'planner', href: '/planner', icon: Calendar, label: { zh: '计划', en: 'Planner' }, color: 'text-blue-500' },
+  { id: 'errors', href: '/error-book', icon: Bookmark, label: { zh: '错题', en: 'Errors' }, color: 'text-warm-600' },
+  { id: 'review', href: '/review', icon: ClipboardList, label: { zh: '复习', en: 'Review' }, color: 'text-warm-500' },
+  { id: 'achievements', href: '/achievements', icon: Trophy, label: { zh: '成就', en: 'Achievements' }, color: 'text-warm-500' },
+  { id: 'community', href: '/community', icon: Users, label: { zh: '社区', en: 'Community' }, color: 'text-warm-500' },
 ];
+
+function BilingualInlineLabel({ label }: { label: { zh: string; en: string } }) {
+  return (
+    <span className="flex items-baseline gap-1">
+      <span>{label.zh}</span>
+      <span className="text-[11px] text-muted-foreground">{label.en}</span>
+    </span>
+  );
+}
+
+function BilingualStackLabel({ label }: { label: { zh: string; en: string } }) {
+  return (
+    <span className="flex flex-col items-center leading-tight">
+      <span className="text-[10px] font-medium">{label.zh}</span>
+      <span className="text-[9px] text-muted-foreground">{label.en}</span>
+    </span>
+  );
+}
 
 export function GlobalNav() {
   const { profile, user, signOut } = useAuth();
@@ -75,6 +94,7 @@ export function GlobalNav() {
   const isStudent = profile?.role === 'student';
   const navItems = isParent ? parentNavItems : studentNavItems;
   const displayName = profile?.display_name || 'User';
+  const roleLabel = isParent ? { zh: '家长', en: 'Parent' } : { zh: '孩子', en: 'Student' };
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
@@ -108,7 +128,7 @@ export function GlobalNav() {
               <div className="flex flex-col">
                 <span className="text-sm font-medium leading-tight">{displayName}</span>
                 <span className="text-[10px] text-muted-foreground">
-                  {isParent ? 'Parent' : 'Student'}
+                  {roleLabel.zh} {roleLabel.en}
                 </span>
               </div>
             </div>
@@ -143,7 +163,7 @@ export function GlobalNav() {
 
               return (
                 <Link
-                  key={`${item.href}-${item.label}`}
+                  key={item.id}
                   href={item.href}
                   className={cn(
                     'flex items-center gap-2 rounded-xl border px-4 py-2 text-sm transition-all',
@@ -153,7 +173,7 @@ export function GlobalNav() {
                   )}
                 >
                   <Icon className={cn('h-4 w-4', active ? item.color : 'text-warm-600')} />
-                  <span>{item.label}</span>
+                  <BilingualInlineLabel label={item.label} />
                 </Link>
               );
             })}
@@ -170,27 +190,27 @@ export function GlobalNav() {
 
             return (
               <Link
-                key={`${item.href}-${item.label}-mobile`}
+                key={`${item.id}-mobile`}
                 href={item.href}
                 className={cn(
-                  'flex min-h-[44px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-[10px] font-medium',
+                  'flex min-h-[44px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2',
                   active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
                 <Icon className={cn('h-5 w-5', active && item.color)} />
-                <span>{item.label}</span>
+                <BilingualStackLabel label={item.label} />
               </Link>
             );
           })}
           <button
             onClick={() => setMobileOpen((current) => !current)}
             className={cn(
-              'flex min-h-[44px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-[10px] font-medium',
+              'flex min-h-[44px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2',
               mobileOpen ? 'text-primary' : 'text-muted-foreground'
             )}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            <span>More</span>
+            <BilingualStackLabel label={{ zh: '更多', en: 'More' }} />
           </button>
         </div>
       </nav>
@@ -203,7 +223,9 @@ export function GlobalNav() {
             </div>
             <div className="flex-1">
               <p className="font-medium">{displayName}</p>
-              <p className="text-xs text-muted-foreground">{isParent ? 'Parent' : 'Student'}</p>
+              <p className="text-xs text-muted-foreground">
+                {roleLabel.zh} {roleLabel.en}
+              </p>
             </div>
           </div>
 
@@ -214,7 +236,7 @@ export function GlobalNav() {
 
               return (
                 <Link
-                  key={`${item.href}-${item.label}-drawer`}
+                  key={`${item.id}-drawer`}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
@@ -227,7 +249,7 @@ export function GlobalNav() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background">
                     <Icon className={cn('h-5 w-5', active ? item.color : 'text-muted-foreground')} />
                   </div>
-                  <span className="text-xs font-medium">{item.label}</span>
+                  <BilingualStackLabel label={item.label} />
                 </Link>
               );
             })}
@@ -245,7 +267,7 @@ export function GlobalNav() {
                 onClick={() => setMobileOpen(false)}
               >
                 <Settings className="h-4 w-4" />
-                Settings
+                设置 Settings
               </Button>
             </Link>
             <Button
@@ -254,7 +276,7 @@ export function GlobalNav() {
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
-              Sign out
+              退出登录 Sign out
             </Button>
           </div>
         </div>

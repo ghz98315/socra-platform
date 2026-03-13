@@ -38,16 +38,16 @@ function getViewMode(pathname: string | null, role?: string | null): ViewMode {
 function getTargetConfig(isParent: boolean) {
   if (isParent) {
     return {
-      label: 'Student view',
-      description: 'Go to the learning workspace',
+      label: '孩子模式 Student',
+      description: '进入学习工作台 Go to the learning workspace',
       icon: GraduationCap,
       href: '/workbench',
     };
   }
 
   return {
-    label: 'Parent view',
-    description: 'Go to tasks and family controls',
+    label: '家长模式 Parent',
+    description: '查看任务与家庭管理 Go to tasks and family controls',
     icon: UserCircle,
     href: '/tasks',
   };
@@ -88,7 +88,7 @@ export function RoleSwitcher({ compact = false }: RoleSwitcherProps) {
       >
         <ArrowRightLeft className="h-4 w-4 text-warm-500" />
         <span className="hidden text-sm text-warm-700 sm:inline">{targetRole.label}</span>
-        <span className="text-xs text-warm-600 sm:hidden">{isParent ? 'Student' : 'Parent'}</span>
+        <span className="text-xs text-warm-600 sm:hidden">{isParent ? '孩子' : '家长'}</span>
       </Button>
     );
   }
@@ -117,13 +117,13 @@ export function RoleSwitcher({ compact = false }: RoleSwitcherProps) {
             )}
           </div>
           <span className="text-sm font-medium text-warm-700">
-            {currentView === 'parent' ? 'Parent' : 'Student'}
+            {currentView === 'parent' ? '家长 Parent' : '孩子 Student'}
           </span>
           <ArrowRightLeft className="h-3.5 w-3.5 text-warm-400" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 rounded-xl border-warm-200 shadow-lg">
-        <DropdownMenuLabel className="text-warm-600">Switch view</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-warm-600">切换视图 Switch view</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-warm-100" />
 
         <DropdownMenuItem disabled className="flex items-center gap-3 py-3 opacity-60">
@@ -141,9 +141,9 @@ export function RoleSwitcher({ compact = false }: RoleSwitcherProps) {
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium">
-              {currentView === 'parent' ? 'Parent view' : 'Student view'}
+              {currentView === 'parent' ? '家长视图 Parent view' : '孩子视图 Student view'}
             </p>
-            <p className="text-xs text-muted-foreground">Current</p>
+            <p className="text-xs text-muted-foreground">当前 Current</p>
           </div>
         </DropdownMenuItem>
 
@@ -196,7 +196,7 @@ export function RoleSwitcherButton({ className }: { className?: string }) {
     >
       <ArrowRightLeft className="h-4 w-4 text-warm-500" />
       <span className="text-sm text-warm-700">
-        {isParent ? 'Switch to student' : 'Switch to parent'}
+        {isParent ? '切换到孩子模式 Switch to student' : '切换到家长模式 Switch to parent'}
       </span>
     </button>
   );
