@@ -6,6 +6,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 const AI_URL = process.env.AI_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+const AI_REQUEST_TIMEOUT_MS = 12000;
 
 interface GeometryParseResponse {
   success: boolean;
@@ -325,6 +326,91 @@ const buildFallbackGeometry = (text: string): GeometryData => {
   const hasCircle = /⊙|圆|直径|半径|圆心|切线/.test(text);
   const hasQuadrilateral = /四边形|矩形|正方形|平行四边形|梯形|菱形/.test(text);
   const hasTriangle = /△|三角形|等腰|等边|勾股|直角三角形/.test(text);
+
+  const hasRectangleProjectionPattern =
+    /矩形/.test(text) &&
+    /E[为在].*AD|AD边上一点.*E|E为AD边上一点/.test(text) &&
+    /BE/.test(text) &&
+    /CF/.test(text) &&
+    /交BE于点F|交.*于点F|点F/.test(text);
+
+  if (hasRectangleProjectionPattern) {
+    const width = 6;
+    const height = 8;
+    const A = { id: 'A', name: 'A', x: -width / 2, y: -height / 2 };
+    const B = { id: 'B', name: 'B', x: width / 2, y: -height / 2 };
+    const C = { id: 'C', name: 'C', x: width / 2, y: height / 2 };
+    const D = { id: 'D', name: 'D', x: -width / 2, y: height / 2 };
+
+    let eY = -height / 2 + Math.sqrt(height * height - width * width);
+    const ratioMatch = text.match(/AE\s*:\s*ED\s*=\s*(\d+)\s*:\s*(\d+)/i);
+    if (ratioMatch) {
+      const ae = Number(ratioMatch[1]);
+      const ed = Number(ratioMatch[2]);
+      if (ae > 0 && ed > 0) {
+        eY = A.y + height * (ae / (ae + ed));
+      }
+    }
+
+    const E = { id: 'E', name: 'E', x: A.x, y: Number(eY.toFixed(3)) };
+    const beVector = { x: E.x - B.x, y: E.y - B.y };
+    const t = ((C.x - B.x) * beVector.x + (C.y - B.y) * beVector.y) /
+      (beVector.x * beVector.x + beVector.y * beVector.y);
+    const F = {
+      id: 'F',
+      name: 'F',
+      x: Number((B.x + t * beVector.x).toFixed(3)),
+      y: Number((B.y + t * beVector.y).toFixed(3)),
+    };
+
+    return normalizeGeometry({
+      type: 'composite',
+      points: [A, B, C, D, E, F],
+      lines: [
+        { id: 'AB', start: 'A', end: 'B', type: 'segment' },
+        { id: 'BC', start: 'B', end: 'C', type: 'segment' },
+        { id: 'CD', start: 'C', end: 'D', type: 'segment' },
+        { id: 'DA', start: 'D', end: 'A', type: 'segment' },
+        { id: 'BE', start: 'B', end: 'E', type: 'segment' },
+        { id: 'CF', start: 'C', end: 'F', type: 'segment' },
+      ],
+      circles: [],
+      curves: [],
+      angles: [
+        { id: 'angleA', vertex: 'A', point1: 'B', point2: 'D', value: 90, showArc: true },
+        { id: 'angleB', vertex: 'B', point1: 'A', point2: 'C', value: 90, showArc: true },
+        { id: 'angleC', vertex: 'C', point1: 'B', point2: 'D', value: 90, showArc: true },
+        { id: 'angleD', vertex: 'D', point1: 'A', point2: 'C', value: 90, showArc: true },
+        { id: 'angleBFC', vertex: 'F', point1: 'B', point2: 'C', value: 90, showArc: true },
+      ],
+      labels: [
+        { targetId: 'A', text: 'A', position: 'bottom' },
+        { targetId: 'B', text: 'B', position: 'bottom' },
+        { targetId: 'C', text: 'C', position: 'top' },
+        { targetId: 'D', text: 'D', position: 'top' },
+        { targetId: 'E', text: 'E', position: 'left' },
+        { targetId: 'F', text: 'F', position: 'bottom' },
+      ],
+      relations: unique([
+        ...relations,
+        { type: 'perpendicular', targets: ['AB', 'BC'], description: '矩形四角为直角' },
+        { type: 'perpendicular', targets: ['AB', 'AD'], description: '矩形四角为直角' },
+        { type: 'perpendicular', targets: ['CF', 'BE'], description: 'CF⊥BE' },
+        { type: 'parallel', targets: ['AB', 'CD'], description: '矩形对边平行' },
+        { type: 'parallel', targets: ['AD', 'BC'], description: '矩形对边平行' },
+        { type: 'intersect', targets: ['CF', 'BE'], description: 'CF与BE相交于F' },
+      ].map((relation) => JSON.stringify(relation))).map((relation) => JSON.parse(relation)),
+      conditions: {
+        ...conditions,
+        angles: unique([...(conditions.angles || []), '∠A=90°', '∠B=90°', '∠C=90°', '∠D=90°']),
+        parallels: unique([...(conditions.parallels || []), 'AB//CD', 'AD//BC']),
+        perpendiculars: unique([...(conditions.perpendiculars || []), 'AB⊥AD', 'AB⊥BC', 'CF⊥BE']),
+        intersections: unique([...(conditions.intersections || []), 'CF与BE相交于F']),
+        others: unique([...(conditions.others || []), '四边形ABCD是矩形', 'E在AD边上']),
+      },
+      confidence: 0.9,
+    });
+  }
 
   if (hasFunction) {
     const points = coordinatePoints.length > 0 ? coordinatePoints : [
@@ -1032,28 +1118,48 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
 
     // 调用AI解析几何图形
     console.log('Calling AI for geometry parsing...');
-    const response = await fetch(AI_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'qwen-plus',
-        messages: [
-          {
-            role: 'system',
-            content: GEOMETRY_PARSE_PROMPT,
-          },
-          {
-            role: 'user',
-            content: `请分析以下题目中的几何图形：\n\n${text}`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(AI_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'qwen-plus',
+          messages: [
+            {
+              role: 'system',
+              content: GEOMETRY_PARSE_PROMPT,
+            },
+            {
+              role: 'user',
+              content: `请分析以下题目中的几何图形：\n\n${text}`,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 2000,
+        }),
+        signal: controller.signal,
+      });
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error?.name === 'AbortError') {
+        console.warn(`Geometry AI request timed out after ${AI_REQUEST_TIMEOUT_MS}ms, using fallback`);
+        return NextResponse.json({
+          success: true,
+          geometry: buildFallbackGeometry(text),
+          error: `AI parse timeout after ${AI_REQUEST_TIMEOUT_MS}ms, returned fallback geometry.`,
+        });
+      }
+      throw error;
+    }
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();

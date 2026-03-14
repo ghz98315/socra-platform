@@ -47,13 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Track last fetched user ID to prevent duplicate fetches
   const lastFetchedUserId = React.useRef<string | null>(null);
+  const profileFetchInFlight = React.useRef<Promise<UserProfile | null> | null>(null);
+  const profileFetchUserId = React.useRef<string | null>(null);
 
-  // Fetch user profile from database with retry logic
-  const fetchProfile = async (userId: string, retries = 2): Promise<UserProfile | null> => {
+  const fetchProfileInternal = async (userId: string, retries = 2): Promise<UserProfile | null> => {
     try {
       console.log('[AuthContext] Fetching profile for user:', userId);
 
-      // 使用 Promise.race 添加超时机制 (增加到10秒)
       const queryPromise = supabase
         .from('profiles')
         .select('*')
@@ -68,11 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('[AuthContext] Error fetching profile:', JSON.stringify(error, null, 2));
-        // 如果还有重试次数，等待后重试
         if (retries > 0) {
           console.log(`[AuthContext] Retrying profile fetch (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchProfile(userId, retries - 1);
+          return fetchProfileInternal(userId, retries - 1);
         }
         return null;
       }
@@ -83,16 +82,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       if (error?.message?.includes('timeout')) {
         console.error('[AuthContext] Profile fetch timeout');
-        // 如果还有重试次数，等待后重试
         if (retries > 0) {
           console.log(`[AuthContext] Retrying profile fetch after timeout (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchProfile(userId, retries - 1);
+          return fetchProfileInternal(userId, retries - 1);
         }
         return null;
       }
       console.error('[AuthContext] Exception fetching profile:', error?.message || error);
       return null;
+    }
+  };
+
+  // Fetch user profile from database with retry logic
+  const fetchProfile = async (userId: string, retries = 2): Promise<UserProfile | null> => {
+    if (profileFetchInFlight.current && profileFetchUserId.current === userId) {
+      console.log('[AuthContext] Reusing in-flight profile fetch for user:', userId);
+      return profileFetchInFlight.current;
+    }
+
+    const fetchPromise = fetchProfileInternal(userId, retries);
+    profileFetchInFlight.current = fetchPromise;
+    profileFetchUserId.current = userId;
+
+    try {
+      return await fetchPromise;
+    } finally {
+      if (profileFetchInFlight.current === fetchPromise) {
+        profileFetchInFlight.current = null;
+        profileFetchUserId.current = null;
+      }
     }
   };
 
