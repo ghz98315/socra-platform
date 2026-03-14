@@ -315,14 +315,14 @@ function HeroPreview() {
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-[#cfbeb5] bg-[linear-gradient(180deg,#ab9890_0%,#96827a_100%)] p-4 text-white shadow-[0_12px_24px_rgba(118,98,90,0.11)]">
+            <div className="rounded-[1.5rem] border border-orange-100/80 bg-[linear-gradient(180deg,#fffdfa_0%,#fff8f1_100%)] p-4 text-stone-800 shadow-[0_14px_32px_rgba(45,30,20,0.045)]">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-100">错题引导</p>
-                <span className="rounded-full bg-white/14 px-3 py-1 text-[11px] font-medium text-stone-50">先想思路</span>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">错题引导</p>
+                <span className="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-stone-600 shadow-sm">先想思路</span>
               </div>
-              <div className="mt-3 space-y-2 text-sm leading-6 text-stone-100">
-                <div className="rounded-2xl border border-white/14 bg-white/14 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
-                <div className="rounded-2xl border border-orange-100/14 bg-orange-200/14 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-stone-700">
+                <div className="rounded-2xl border border-white/80 bg-white/92 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
+                <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2.5 text-orange-700">我好像没看懂“相对速度”这一步。</div>
               </div>
             </div>
           </div>
@@ -407,7 +407,7 @@ export default function LandingPage() {
                         <span>孩子并不是</span>
                         <span>不会学，</span>
                       </span>
-                      <span className="mt-2.5 flex flex-col gap-0.5 text-[0.93em] leading-[1.04] text-orange-600">
+                      <span className="mt-2.5 flex flex-col gap-0.5 leading-[1.03] text-orange-600">
                         <span>只是缺一个</span>
                         <span>会引导思考</span>
                         <span>的学习助手</span>
@@ -547,17 +547,17 @@ export default function LandingPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-[1.45rem] border border-[#cfbeb5] bg-[linear-gradient(180deg,#ac9991_0%,#97837b_100%)] p-4 text-white shadow-[0_12px_24px_rgba(118,98,90,0.11)]">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-100">家长最能感知的变化</p>
+                      <div className="rounded-[1.45rem] border border-orange-100 bg-[linear-gradient(180deg,#fffaf4_0%,#fffdf9_100%)] p-4 text-stone-800 shadow-[0_14px_28px_rgba(45,30,20,0.04)]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">家长最能感知的变化</p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           {[
                             ['当天看懂', '不是直接给答案'],
                             ['后面记住', '自动进复习清单'],
                             ['持续看到变化', '不是一次性讲题'],
                           ].map(([title, copy]) => (
-                            <div key={title} className="rounded-2xl border border-white/14 bg-white/14 px-3 py-3">
-                              <p className="text-sm font-medium">{title}</p>
-                              <p className="mt-1 text-xs leading-5 text-stone-50/85">{copy}</p>
+                            <div key={title} className="rounded-2xl border border-white/80 bg-white px-3 py-3 shadow-sm">
+                              <p className="text-sm font-medium text-stone-800">{title}</p>
+                              <p className="mt-1 text-xs leading-5 text-stone-600">{copy}</p>
                             </div>
                           ))}
                         </div>
