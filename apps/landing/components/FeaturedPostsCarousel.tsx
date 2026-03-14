@@ -136,23 +136,23 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
 
   if (isLoading) {
     return (
-      <div className={cn('py-16 px-6', className)}>
+      <div className={cn('px-6 py-12', className)}>
         <div className="max-w-4xl mx-auto">
-          <div className="h-48 bg-white/50 rounded-3xl animate-pulse" />
+          <div className="h-40 rounded-[1.75rem] bg-white/50 animate-pulse" />
         </div>
       </div>
     );
   }
 
   return (
-    <section className={cn('py-16 px-6 bg-gradient-to-r from-orange-50 to-amber-50', className)}>
+    <section className={cn('px-6 py-12 bg-gradient-to-r from-orange-50 to-amber-50', className)}>
       <div className="max-w-4xl mx-auto">
         {/* 标题 */}
-        <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-bold mb-3">
+        <div className="mb-7 text-center">
+          <h2 className="mb-2 text-2xl font-semibold text-stone-900 md:text-[2rem]">
             <span className="text-amber-500">⭐</span> 社区精选
           </h2>
-          <p className="text-gray-600">来自真实用户的学习故事</p>
+          <p className="text-sm text-stone-600 md:text-base">来自真实用户的学习故事</p>
         </div>
 
         {/* 轮播容器 */}
@@ -162,14 +162,14 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
           onMouseLeave={() => setIsPaused(false)}
         >
           {/* 主卡片 */}
-          <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 overflow-hidden">
+          <div className="overflow-hidden rounded-[1.9rem] bg-white p-6 shadow-[0_18px_45px_rgba(45,30,20,0.055)] md:p-8">
             <div className="flex items-start gap-4">
               {/* 引号装饰 */}
-              <Quote className="w-10 h-10 text-orange-200 flex-shrink-0 -mt-2 -ml-2" />
+              <Quote className="h-9 w-9 shrink-0 -ml-1 -mt-1 text-orange-200" />
 
               <div className="flex-1">
                 {/* 内容 */}
-                <p className="text-lg md:text-xl text-gray-700 leading-relaxed mb-6 min-h-[4rem]">
+                <p className="mb-5 min-h-[4rem] text-base leading-8 text-stone-700 md:text-[1.05rem]">
                   {posts[currentIndex]?.content}
                 </p>
 
@@ -179,7 +179,7 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
                     <span className="text-3xl">{posts[currentIndex]?.author.avatar}</span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-800">
+                        <span className="font-medium text-stone-800">
                           {posts[currentIndex]?.author.nickname}
                         </span>
                         {posts[currentIndex]?.author.isParent && (
@@ -189,13 +189,13 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
                         )}
                       </div>
                       {posts[currentIndex]?.grade && (
-                        <span className="text-sm text-gray-500">{posts[currentIndex].grade}</span>
+                        <span className="text-sm text-stone-500">{posts[currentIndex].grade}</span>
                       )}
                     </div>
                   </div>
 
                   {/* 互动数据 */}
-                  <div className="flex items-center gap-4 text-gray-500">
+                  <div className="flex items-center gap-4 text-stone-500">
                     <span className="flex items-center gap-1">
                       <Heart className="w-4 h-4 text-red-400" />
                       {posts[currentIndex]?.likes}
@@ -215,13 +215,13 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
             <>
               <button
                 onClick={goToPrev}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-orange-500 hover:scale-110 transition-all"
+                className="absolute left-0 top-1/2 -translate-x-3 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-stone-600 shadow-lg transition-all hover:scale-110 hover:text-orange-500"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={goToNext}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-orange-500 hover:scale-110 transition-all"
+                className="absolute right-0 top-1/2 flex h-9 w-9 translate-x-3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-stone-600 shadow-lg transition-all hover:scale-110 hover:text-orange-500"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -230,7 +230,7 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
 
           {/* 指示器 */}
           {posts.length > 1 && (
-            <div className="flex justify-center gap-2 mt-6">
+            <div className="mt-5 flex justify-center gap-2">
               {posts.map((_, index) => (
                 <button
                   key={index}
@@ -248,10 +248,10 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
         </div>
 
         {/* CTA */}
-        <div className="text-center mt-8">
+        <div className="mt-6 text-center">
           <a
             href="https://socrates.socra.cn"
-            className="inline-flex items-center gap-2 text-orange-500 hover:text-orange-600 font-medium transition"
+            className="inline-flex items-center gap-2 font-medium text-orange-500 transition hover:text-orange-600"
           >
             加入社区，分享你的故事
             <ChevronRight className="w-4 h-4" />

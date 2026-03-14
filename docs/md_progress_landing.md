@@ -64,11 +64,35 @@ Landing 不再只是产品总览页，而是承担 3 个职责：
 - ✅ 构建验证通过
   - `pnpm --filter @socra/landing build`
 
+### 第二轮精修
+
+- ✅ 页面密度收紧
+  - 收紧 Hero、痛点区、场景区、FAQ、最终 CTA 的垂直节奏
+  - 减少部分卡片厚度，降低页面“松散感”
+
+- ✅ 首屏聚焦增强
+  - Hero 下方 3 张结果卡改为一条结果条
+  - 首屏文本区更聚焦，信息主次更清楚
+
+- ✅ 中段模块主次强化
+  - 三大场景改成“1 张主卡 + 2 张副卡”的布局
+  - 前后对比区改成更强的左右对照结构
+  - 学习闭环区压缩为更紧凑的流程带
+
+- ✅ 信任层与收口区优化
+  - 社区精选区整体压缩
+  - 定价区增强 Pro 主推关系，并补充“适合谁”
+  - FAQ 与最终 CTA 收紧版式
+
+- ✅ 本轮构建通过
+  - `pnpm --filter @socra/landing build`
+
 ### 本轮产出文档
 
 - `docs/md_landing_homepage_options.md`
 - `docs/md_landing_blueprint.md`
 - `docs/md_landing_copy_v1.md`
+- `docs/md_landing_refinement_plan.md`
 
 ---
 

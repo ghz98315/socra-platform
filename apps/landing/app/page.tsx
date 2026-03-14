@@ -125,11 +125,14 @@ const searchEntries = [
   },
 ];
 
+const heroHighlights = ['不是替孩子思考', '作文批注直达原文', '错题自动进入复习'];
+
 const pricingPlans = [
   {
     name: '免费版',
     price: '免费',
     note: '先体验核心能力',
+    audience: '适合第一次使用，先感受是否真的有帮助',
     features: ['每日基础 AI 使用额度', '错题辅导与作文批改体验', '学习记录与基础追踪'],
     href: 'https://socrates.socra.cn/register',
     cta: '免费注册',
@@ -140,6 +143,7 @@ const pricingPlans = [
     price: '¥79.9',
     unit: '/季',
     note: '适合高频使用',
+    audience: '适合每周高频使用的家庭',
     features: ['更完整的 AI 学习支持', '高级错题分析与复习安排', '更丰富的学习反馈与报告'],
     href: 'https://socrates.socra.cn/subscription',
     cta: '查看 Pro 权益',
@@ -150,6 +154,7 @@ const pricingPlans = [
     price: '¥239.9',
     unit: '/年',
     note: '适合长期规划',
+    audience: '适合按学期和年度持续陪学',
     features: ['包含 Pro 全部权益', '适合学期或年度连续使用', '家庭长期学习管理更划算'],
     href: 'https://socrates.socra.cn/subscription',
     cta: '选择年度方案',
@@ -352,26 +357,26 @@ export default function LandingPage() {
       </nav>
 
       <main>
-        <section className="relative overflow-hidden px-5 pb-[4.5rem] pt-32 sm:px-6 lg:px-8 lg:pb-24 lg:pt-36">
+        <section className="relative overflow-hidden px-5 pb-14 pt-28 sm:px-6 lg:px-8 lg:pb-20 lg:pt-32">
           <div className="absolute left-1/2 top-14 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(248,180,96,0.25),_transparent_62%)]" />
-          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.02fr_0.98fr]">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.94fr_1.06fr]">
             <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/85 px-4 py-2 text-sm font-medium text-orange-700 shadow-[0_10px_30px_rgba(245,123,55,0.08)]">
+              <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/90 px-4 py-2 text-[13px] font-medium text-orange-700 shadow-[0_10px_30px_rgba(245,123,55,0.08)]">
                 <Sparkles className="h-4 w-4" />
                 陪孩子学会思考的 AI 学习助手
               </span>
 
-              <h1 className="mt-7 text-4xl font-semibold leading-tight text-stone-950 sm:text-5xl lg:text-6xl [font-family:var(--font-display)]">
+              <h1 className="mt-6 text-[2.5rem] font-semibold leading-[1.04] text-stone-950 sm:text-[3.4rem] lg:text-[4.25rem] [font-family:var(--font-display)]">
                 孩子不是不会学，
                 <span className="block text-orange-600">只是缺一个会引导思考的学习助手</span>
               </h1>
 
-              <p className="mt-6 max-w-xl text-lg leading-8 text-stone-600">
+              <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-stone-600 sm:text-lg">
                 错题辅导、作文批改、智能复习、学习规划，一套系统帮孩子真正学会思路，而不是只记答案。
               </p>
 
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                <Button size="lg" className="rounded-full bg-stone-900 px-8 text-base text-white hover:bg-stone-800" asChild>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <Button size="lg" className="rounded-full bg-stone-900 px-7 text-base text-white hover:bg-stone-800" asChild>
                   <a href="https://socrates.socra.cn">
                     免费体验苏格拉底辅导
                     <ChevronRight className="ml-1 h-5 w-5" />
@@ -380,7 +385,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="rounded-full border-orange-200 bg-white/70 px-8 text-base text-orange-700 hover:bg-orange-50"
+                  className="rounded-full border-orange-200 bg-white/75 px-7 text-base text-orange-700 hover:bg-orange-50"
                   asChild
                 >
                   <a href="https://essay.socra.cn">
@@ -390,19 +395,19 @@ export default function LandingPage() {
                 </Button>
               </div>
 
-              <p className="mt-4 text-sm text-stone-500">先免费体验，再决定是否升级会员。</p>
+              <p className="mt-3 text-sm text-stone-500">先免费体验，再决定是否升级会员。</p>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                {[
-                  ['不是替孩子思考', '而是带着孩子把思路想明白'],
-                  ['作文批改更直观', '问题和亮点直接回到原文位置'],
-                  ['复习真正被串起来', '从不会到记住，不再断开'],
-                ].map(([title, text]) => (
-                  <div key={title} className="rounded-[1.5rem] border border-white/80 bg-white/75 p-4 shadow-[0_14px_30px_rgba(45,30,20,0.06)]">
-                    <p className="font-medium text-stone-900">{title}</p>
-                    <p className="mt-2 text-sm leading-6 text-stone-600">{text}</p>
-                  </div>
-                ))}
+              <div className="mt-7 rounded-[1.6rem] border border-orange-100 bg-white/88 p-3.5 shadow-[0_14px_36px_rgba(45,30,20,0.06)]">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                  {heroHighlights.map((item, index) => (
+                    <div key={item} className="flex items-center gap-2 text-sm font-medium text-stone-700">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-[12px] font-semibold text-orange-700">
+                        0{index + 1}
+                      </span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -410,13 +415,13 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="px-5 py-6 sm:px-6 lg:px-8">
+        <section className="px-5 py-4 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
             {roleCards.map((card, index) => (
               <a
                 key={card.title}
                 href={card.href}
-                className={`group rounded-[2rem] border p-6 shadow-[0_18px_42px_rgba(45,30,20,0.06)] transition hover:-translate-y-1 ${
+                className={`group rounded-[1.6rem] border px-5 py-4 shadow-[0_14px_30px_rgba(45,30,20,0.05)] transition hover:-translate-y-0.5 ${
                   index === 0
                     ? 'border-orange-200 bg-[linear-gradient(135deg,#fff8ee_0%,#fff3e6_100%)]'
                     : 'border-stone-200 bg-white/80'
@@ -424,41 +429,41 @@ export default function LandingPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-stone-500">{card.title}</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-stone-900 [font-family:var(--font-display)]">{card.cta}</h3>
-                    <p className="mt-3 max-w-md text-sm leading-7 text-stone-600">{card.description}</p>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{card.title}</p>
+                    <h3 className="mt-1.5 text-[1.35rem] font-semibold text-stone-900 [font-family:var(--font-display)]">{card.cta}</h3>
+                    <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">{card.description}</p>
                   </div>
-                  <div className="rounded-2xl border border-white/80 bg-white/80 p-3 text-stone-900 shadow-sm">
-                    {index === 0 ? <Target className="h-6 w-6" /> : <BookOpen className="h-6 w-6" />}
+                  <div className="rounded-2xl border border-white/80 bg-white/80 p-2.5 text-stone-900 shadow-sm">
+                    {index === 0 ? <Target className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
                   </div>
                 </div>
               </a>
             ))}
           </div>
         </section>
-        <section className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl rounded-[2.25rem] border border-orange-100 bg-[linear-gradient(180deg,#fffdf9_0%,#fff7ef_100%)] px-6 py-10 shadow-[0_20px_60px_rgba(45,30,20,0.07)] sm:px-10 sm:py-12">
+        <section className="px-5 py-[4rem] sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[2rem] border border-orange-100 bg-[linear-gradient(180deg,#fffdf9_0%,#fff7ef_100%)] px-5 py-8 shadow-[0_16px_46px_rgba(45,30,20,0.06)] sm:px-8 sm:py-9">
             <SectionHeading
               kicker="家长最常遇到的困境"
               title="很多孩子不是不努力，而是一直在低效重复"
               description="问题往往不是做题少，而是不会复盘、不会表达、不会安排节奏。"
             />
 
-            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            <div className="mt-8 grid gap-4 lg:grid-cols-3">
               {pains.map((pain, index) => (
-                <div key={pain.title} className="rounded-[1.75rem] border border-white/80 bg-white/85 p-6 shadow-[0_16px_40px_rgba(45,30,20,0.05)]">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-sm font-semibold text-orange-700">
+                <div key={pain.title} className="rounded-[1.35rem] border border-white/80 bg-white/92 px-5 py-4 shadow-[0_12px_28px_rgba(45,30,20,0.04)]">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-[12px] font-semibold text-orange-700">
                     0{index + 1}
                   </span>
-                  <h3 className="mt-5 text-xl font-semibold text-stone-900">{pain.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-stone-600">{pain.description}</p>
+                  <h3 className="mt-3 text-lg font-semibold leading-7 text-stone-900">{pain.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">{pain.description}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="abilities" className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
+        <section id="abilities" className="px-5 py-[4rem] sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               kicker="核心能力"
@@ -466,19 +471,37 @@ export default function LandingPage() {
               description="不是多几个功能，而是把“不会”“会了”“忘了”“再复习”真正接起来。"
             />
 
-            <div className="mt-12 grid gap-6 xl:grid-cols-3">
+            <div className="mt-10 grid gap-5 xl:grid-cols-[1.16fr_0.84fr]">
               {scenarios.map((scenario) => (
                 <div
                   key={scenario.title}
-                  className="flex h-full flex-col rounded-[2rem] border border-stone-200 bg-white/90 p-7 shadow-[0_20px_55px_rgba(45,30,20,0.06)]"
+                  className={`flex h-full flex-col rounded-[1.9rem] border border-stone-200 bg-white/92 p-6 shadow-[0_18px_45px_rgba(45,30,20,0.055)] ${
+                    scenario.title === '错题工作台'
+                      ? 'xl:row-span-2 xl:min-h-[31rem]'
+                      : ''
+                  }`}
                 >
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-gradient-to-br ${scenario.gradient} text-white shadow-lg`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-[1rem] bg-gradient-to-br ${scenario.gradient} text-white shadow-lg`}>
                     <scenario.icon className="h-7 w-7" />
                   </div>
-                  <p className="mt-6 text-sm font-medium text-stone-500">{scenario.title}</p>
-                  <h3 className="mt-2 text-2xl font-semibold leading-tight text-stone-900 [font-family:var(--font-display)]">{scenario.headline}</h3>
-                  <p className="mt-4 text-sm leading-7 text-stone-600">{scenario.description}</p>
-                  <ul className="mt-6 space-y-3">
+                  <p className="mt-5 text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{scenario.title}</p>
+                  <h3 className="mt-2 text-[1.7rem] font-semibold leading-[1.2] text-stone-900 [font-family:var(--font-display)]">{scenario.headline}</h3>
+                  <p className="mt-3 text-sm leading-7 text-stone-600">{scenario.description}</p>
+
+                  {scenario.title === '错题工作台' && (
+                    <div className="mt-5 rounded-[1.5rem] border border-orange-100 bg-[linear-gradient(180deg,#fffaf4_0%,#fffdf9_100%)] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">一次不会，后面怎么接起来</p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {['先理解卡点', '自动记录错题', '进入后续复习'].map((item) => (
+                          <div key={item} className="rounded-2xl bg-white px-3 py-3 text-sm font-medium text-stone-700 shadow-sm">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <ul className="mt-5 space-y-2.5">
                     {scenario.bullets.map((bullet) => (
                       <li key={bullet} className="flex items-start gap-3 text-sm text-stone-700">
                         <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -486,7 +509,7 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <a href={scenario.href} className="mt-8 inline-flex items-center gap-2 font-medium text-orange-600 transition hover:text-orange-700">
+                  <a href={scenario.href} className="mt-6 inline-flex items-center gap-2 font-medium text-orange-600 transition hover:text-orange-700">
                     立即进入
                     <ChevronRight className="h-4 w-4" />
                   </a>
@@ -496,7 +519,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="results" className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
+        <section id="results" className="px-5 py-[4rem] sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               kicker="真实效果"
@@ -504,22 +527,35 @@ export default function LandingPage() {
               description="看见前后差异，用户才会相信这不是“又一个 AI 工具”。"
             />
 
-            <div className="mt-12 grid gap-6 lg:grid-cols-3">
-              {comparisons.map((comparison) => (
-                <div key={comparison.title} className="rounded-[2rem] border border-stone-200 bg-white/92 p-7 shadow-[0_18px_50px_rgba(45,30,20,0.05)]">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-stone-900">{comparison.title}</h3>
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-500">前后对比</span>
-                  </div>
+            <div className="mt-10 overflow-hidden rounded-[2.1rem] border border-stone-200 bg-white/94 shadow-[0_20px_58px_rgba(45,30,20,0.06)]">
+              <div className="grid border-b border-stone-200 bg-[linear-gradient(180deg,#fffdfb_0%,#fff8f1_100%)] lg:grid-cols-[0.92fr_1.04fr_1.04fr]">
+                <div className="px-6 py-5 lg:px-7">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">观察点</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">从日常学习体验里，看最关键的前后差别。</p>
+                </div>
+                <div className="border-t border-stone-200 px-6 py-5 lg:border-l lg:border-t-0 lg:px-7">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">以前</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">问题讲完就结束，效果往往停留在当下。</p>
+                </div>
+                <div className="border-t border-stone-200 px-6 py-5 lg:border-l lg:border-t-0 lg:px-7">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">现在</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-700">理解、记录、复习、反馈能真正接起来。</p>
+                </div>
+              </div>
 
-                  <div className="mt-6 rounded-[1.5rem] bg-stone-50 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">以前</p>
-                    <p className="mt-3 text-sm leading-7 text-stone-600">{comparison.before}</p>
+              {comparisons.map((comparison, index) => (
+                <div
+                  key={comparison.title}
+                  className={`grid lg:grid-cols-[0.92fr_1.04fr_1.04fr] ${index !== comparisons.length - 1 ? 'border-b border-stone-200' : ''}`}
+                >
+                  <div className="px-6 py-5 lg:px-7">
+                    <h3 className="text-lg font-semibold text-stone-900">{comparison.title}</h3>
                   </div>
-
-                  <div className="mt-4 rounded-[1.5rem] bg-[linear-gradient(180deg,#fff7ed_0%,#fffdf8_100%)] p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">现在</p>
-                    <p className="mt-3 text-sm leading-7 text-stone-700">{comparison.after}</p>
+                  <div className="border-t border-stone-200 px-6 py-5 lg:border-l lg:border-t-0 lg:px-7">
+                    <p className="text-sm leading-7 text-stone-600">{comparison.before}</p>
+                  </div>
+                  <div className="border-t border-stone-200 bg-[linear-gradient(180deg,#fffaf4_0%,#fffefb_100%)] px-6 py-5 lg:border-l lg:border-t-0 lg:px-7">
+                    <p className="text-sm leading-7 text-stone-700">{comparison.after}</p>
                   </div>
                 </div>
               ))}
@@ -529,30 +565,30 @@ export default function LandingPage() {
 
         <FeaturedPostsCarousel className="py-[4.5rem]" />
 
-        <section className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl rounded-[2.25rem] border border-stone-200 bg-white/88 px-6 py-10 shadow-[0_20px_60px_rgba(45,30,20,0.06)] sm:px-10 sm:py-12">
+        <section className="px-5 py-[4rem] sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[2rem] border border-stone-200 bg-white/90 px-5 py-8 shadow-[0_18px_50px_rgba(45,30,20,0.055)] sm:px-8 sm:py-9">
             <SectionHeading
               kicker="学习闭环"
               title="从发现问题，到真正记住，不再断开"
               description="如果只是讲一道题、改一篇作文，价值是短暂的。真正重要的是形成闭环。"
             />
 
-            <div className="mt-10 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <div className="mt-8 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
               {loopSteps.map((step, index) => (
-                <div key={step} className="relative rounded-[1.75rem] border border-orange-100 bg-[#fffaf4] px-5 py-6">
+                <div key={step} className="relative rounded-[1.35rem] border border-orange-100 bg-[#fffaf4] px-4 py-4">
                   <span className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-400">step 0{index + 1}</span>
-                  <p className="mt-3 text-base font-medium text-stone-900">{step}</p>
+                  <p className="mt-2.5 text-sm font-medium leading-6 text-stone-900">{step}</p>
                 </div>
               ))}
             </div>
 
-            <p className="mt-8 text-center text-sm leading-7 text-stone-600">
+            <p className="mt-6 text-center text-sm leading-6 text-stone-600">
               这也是为什么我们不是只做一个工具，而是把学习过程真正串起来。
             </p>
           </div>
         </section>
 
-        <section className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
+        <section className="px-5 py-[4rem] sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               kicker="热门学习场景"
@@ -560,16 +596,16 @@ export default function LandingPage() {
               description="首页先帮你快速进入，后续每个专题页再把问题讲清楚。"
             />
 
-            <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {searchEntries.map((entry) => (
                 <a
                   key={entry.title}
                   href={entry.href}
-                  className="group rounded-[1.8rem] border border-stone-200 bg-white/90 p-6 shadow-[0_18px_45px_rgba(45,30,20,0.05)] transition hover:-translate-y-1 hover:border-orange-200 hover:bg-[#fffaf3]"
+                  className="group rounded-[1.45rem] border border-stone-200 bg-white/92 px-5 py-4 shadow-[0_14px_34px_rgba(45,30,20,0.045)] transition hover:-translate-y-0.5 hover:border-orange-200 hover:bg-[#fffaf3]"
                 >
-                  <p className="text-lg font-semibold text-stone-900">{entry.title}</p>
-                  <p className="mt-3 text-sm leading-7 text-stone-600">{entry.description}</p>
-                  <span className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-orange-600">
+                  <p className="text-base font-semibold text-stone-900">{entry.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-600">{entry.description}</p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-orange-600">
                     进入场景
                     <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                   </span>
@@ -579,7 +615,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="pricing" className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
+        <section id="pricing" className="px-5 py-[4rem] sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               kicker="会员方案"
@@ -587,13 +623,13 @@ export default function LandingPage() {
               description="先让孩子感受到有效，再决定是否开通更完整的能力。"
             />
 
-            <div className="mt-12 grid gap-6 xl:grid-cols-3">
+            <div className="mt-10 grid gap-5 xl:grid-cols-3">
               {pricingPlans.map((plan) => (
                 <div
                   key={plan.name}
-                  className={`relative rounded-[2rem] border p-7 shadow-[0_20px_55px_rgba(45,30,20,0.06)] ${
+                  className={`relative rounded-[1.9rem] border px-6 py-6 shadow-[0_18px_48px_rgba(45,30,20,0.055)] ${
                     plan.highlight
-                      ? 'border-orange-300 bg-[linear-gradient(180deg,#fff8ef_0%,#fff3ea_100%)]'
+                      ? 'translate-y-[-6px] border-orange-300 bg-[linear-gradient(180deg,#fff8ef_0%,#fff3ea_100%)]'
                       : 'border-stone-200 bg-white/92'
                   }`}
                 >
@@ -607,17 +643,21 @@ export default function LandingPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="text-2xl font-semibold text-stone-900 [font-family:var(--font-display)]">{plan.name}</h3>
-                      <p className="mt-2 text-sm text-stone-500">{plan.note}</p>
+                      <p className="mt-1.5 text-sm text-stone-500">{plan.note}</p>
                     </div>
                     {plan.highlight && <Crown className="h-6 w-6 text-orange-500" />}
                   </div>
 
-                  <div className="mt-8 flex items-end gap-1 text-stone-900">
-                    <span className="text-4xl font-semibold">{plan.price}</span>
+                  <p className="mt-4 rounded-full bg-white/85 px-3 py-1.5 text-xs font-medium text-stone-600">
+                    {plan.audience}
+                  </p>
+
+                  <div className="mt-6 flex items-end gap-1 text-stone-900">
+                    <span className={`font-semibold ${plan.highlight ? 'text-[3rem]' : 'text-[2.55rem]'}`}>{plan.price}</span>
                     {plan.unit ? <span className="pb-1 text-base text-stone-500">{plan.unit}</span> : null}
                   </div>
 
-                  <ul className="mt-8 space-y-3">
+                  <ul className="mt-6 space-y-2.5">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3 text-sm text-stone-700">
                         <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -628,7 +668,7 @@ export default function LandingPage() {
 
                   <Button
                     variant={plan.highlight ? 'default' : 'outline'}
-                    className={`mt-8 w-full rounded-full ${
+                    className={`mt-6 w-full rounded-full ${
                       plan.highlight
                         ? 'bg-stone-900 text-white hover:bg-stone-800'
                         : 'border-stone-300 bg-white/80 text-stone-800 hover:bg-stone-50'
@@ -641,12 +681,12 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <p className="mt-8 text-center text-sm text-stone-500">
+            <p className="mt-6 text-center text-sm text-stone-500">
               不是先付费再感受价值，而是先体验价值，再决定升级。
             </p>
           </div>
         </section>
-        <section id="faq" className="px-5 py-[4.5rem] sm:px-6 lg:px-8">
+        <section id="faq" className="px-5 py-[4rem] sm:px-6 lg:px-8">
           <div className="mx-auto max-w-5xl">
             <SectionHeading
               kicker="常见问题"
@@ -654,13 +694,13 @@ export default function LandingPage() {
               description="把关键疑虑说清楚，决定会更快。"
             />
 
-            <div className="mt-12 space-y-4">
+            <div className="mt-9 space-y-3">
               {faqs.map((faq) => (
                 <details
                   key={faq.question}
-                  className="group rounded-[1.75rem] border border-stone-200 bg-white/92 px-6 py-5 shadow-[0_14px_35px_rgba(45,30,20,0.04)]"
+                  className="group rounded-[1.35rem] border border-stone-200 bg-white/94 px-5 py-4 shadow-[0_12px_28px_rgba(45,30,20,0.035)]"
                 >
-                  <summary className="cursor-pointer list-none text-lg font-medium text-stone-900 marker:hidden">
+                  <summary className="cursor-pointer list-none text-base font-medium text-stone-900 marker:hidden">
                     <div className="flex items-center justify-between gap-4">
                       <span>{faq.question}</span>
                       <span className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-500 transition">
@@ -668,26 +708,26 @@ export default function LandingPage() {
                       </span>
                     </div>
                   </summary>
-                  <p className="mt-4 text-sm leading-7 text-stone-600">{faq.answer}</p>
+                  <p className="mt-3 text-sm leading-6 text-stone-600">{faq.answer}</p>
                 </details>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="px-5 pb-20 pt-8 sm:px-6 lg:px-8 lg:pb-24">
-          <div className="mx-auto max-w-6xl rounded-[2.5rem] border border-orange-200 bg-[linear-gradient(135deg,#fff6e8_0%,#fffaf6_45%,#fff3e6_100%)] px-6 py-12 text-center shadow-[0_25px_70px_rgba(45,30,20,0.08)] sm:px-10">
+        <section className="px-5 pb-[4.5rem] pt-4 sm:px-6 lg:px-8 lg:pb-[5.5rem]">
+          <div className="mx-auto max-w-5xl rounded-[2.25rem] border border-orange-200 bg-[linear-gradient(135deg,#fff6e8_0%,#fffaf6_45%,#fff3e6_100%)] px-6 py-10 text-center shadow-[0_22px_60px_rgba(45,30,20,0.075)] sm:px-10">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-orange-700 shadow-sm">
               <Sparkles className="h-4 w-4" />
               先体验，再决定
             </span>
-            <h2 className="mt-6 text-3xl font-semibold leading-tight text-stone-950 sm:text-4xl [font-family:var(--font-display)]">
+            <h2 className="mt-5 text-[2rem] font-semibold leading-tight text-stone-950 sm:text-[2.5rem] [font-family:var(--font-display)]">
               现在开始，让孩子少走弯路，多建立思路
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-8 text-stone-600 sm:text-lg">
+            <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-stone-600 sm:text-lg">
               先体验一次真正有帮助的学习流程，再决定要不要继续。
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+            <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
               <Button size="lg" className="rounded-full bg-stone-900 px-8 text-white hover:bg-stone-800" asChild>
                 <a href="https://socrates.socra.cn">
                   免费体验
