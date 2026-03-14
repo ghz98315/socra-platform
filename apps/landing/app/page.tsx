@@ -234,7 +234,7 @@ function SectionHeading({
 
 function HeroPreview() {
   return (
-    <div className="relative mx-auto w-full max-w-[620px]">
+    <div className="relative mx-auto w-full max-w-[600px]">
       <div className="absolute inset-0 -z-10 rounded-[2.8rem] bg-[radial-gradient(circle_at_top_left,_rgba(245,123,55,0.28),_transparent_36%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.18),_transparent_34%)] blur-3xl" />
       <div className="relative overflow-hidden rounded-[2.2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,253,250,0.98)_0%,rgba(255,245,235,0.94)_100%)] p-4 shadow-[0_34px_100px_rgba(45,30,20,0.14)] backdrop-blur">
         <div className="absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(245,123,55,0.42),transparent)]" />
@@ -315,14 +315,14 @@ function HeroPreview() {
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-stone-200 bg-stone-900 p-4 text-white shadow-[0_18px_44px_rgba(28,24,20,0.24)]">
+            <div className="rounded-[1.5rem] border border-[#43312a] bg-[linear-gradient(180deg,#4a352d_0%,#362722_100%)] p-4 text-white shadow-[0_18px_44px_rgba(54,39,34,0.22)]">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">错题引导</p>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-medium text-stone-200">先想思路</span>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-200">错题引导</p>
+                <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-medium text-stone-100">先想思路</span>
               </div>
               <div className="mt-3 space-y-2 text-sm leading-6 text-stone-100">
-                <div className="rounded-2xl bg-white/8 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
-                <div className="rounded-2xl bg-orange-500/15 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
+                <div className="rounded-2xl border border-white/8 bg-white/7 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
+                <div className="rounded-2xl border border-orange-200/10 bg-orange-300/10 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
               </div>
             </div>
           </div>
@@ -395,19 +395,19 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.72),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(245,123,55,0.10),transparent_28%)]" />
               <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(245,123,55,0.4),transparent)]" />
               <div className="relative px-6 py-7 sm:px-8 lg:px-10 lg:py-10">
-                <div className="grid items-center gap-8 lg:grid-cols-[0.96fr_1.04fr]">
-                  <div className="max-w-[38rem]">
+                <div className="grid items-center gap-8 lg:grid-cols-[1.02fr_0.98fr]">
+                  <div className="max-w-[40rem]">
                     <span className="inline-flex items-center gap-2 rounded-full border border-orange-200/80 bg-white/88 px-4 py-2 text-[13px] font-medium text-orange-700 shadow-[0_10px_30px_rgba(245,123,55,0.08)]">
                       <Sparkles className="h-4 w-4" />
                       陪孩子学会思考的 AI 学习助手
                     </span>
 
-                    <h1 className="mt-5 max-w-[10ch] text-[2.5rem] font-semibold leading-[1.01] tracking-[-0.035em] text-stone-950 sm:text-[3.5rem] lg:text-[4.35rem] [font-family:var(--font-display)]">
+                    <h1 className="mt-5 max-w-[11.5ch] text-[2.5rem] font-semibold leading-[1.02] tracking-[-0.032em] text-stone-950 sm:text-[3.5rem] lg:text-[4.25rem] [font-family:var(--font-display)]">
                       孩子不是不会学，
                       <span className="block text-orange-600">只是缺一个会引导思考的学习助手</span>
                     </h1>
 
-                    <p className="mt-4 max-w-[31rem] text-[0.98rem] leading-7 text-stone-600 sm:text-[1.04rem]">
+                    <p className="mt-4 max-w-[30rem] text-[0.98rem] leading-7 text-stone-600 sm:text-[1.03rem]">
                       先把今天要学什么排清楚，再开始练题、修改作文和复习整理，让孩子每天都知道下一步该做什么。
                     </p>
 
@@ -540,7 +540,7 @@ export default function LandingPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-[1.45rem] bg-stone-900 p-4 text-white shadow-[0_18px_40px_rgba(28,24,20,0.22)]">
+                      <div className="rounded-[1.45rem] border border-[#43312a] bg-[linear-gradient(180deg,#4c372f_0%,#362722_100%)] p-4 text-white shadow-[0_18px_40px_rgba(54,39,34,0.2)]">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-200">家长最能感知的变化</p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           {[
@@ -548,9 +548,9 @@ export default function LandingPage() {
                             ['后面记住', '自动进复习清单'],
                             ['持续看到变化', '不是一次性讲题'],
                           ].map(([title, copy]) => (
-                            <div key={title} className="rounded-2xl bg-white/10 px-3 py-3">
+                            <div key={title} className="rounded-2xl border border-white/8 bg-white/7 px-3 py-3">
                               <p className="text-sm font-medium">{title}</p>
-                              <p className="mt-1 text-xs leading-5 text-stone-200">{copy}</p>
+                              <p className="mt-1 text-xs leading-5 text-stone-100/85">{copy}</p>
                             </div>
                           ))}
                         </div>
