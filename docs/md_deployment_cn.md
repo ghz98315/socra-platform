@@ -1,7 +1,7 @@
 # Project Socrates - 国内部署指南
 
-> 版本: v2.2
-> 更新日期: 2026-03-11
+> 版本: v2.3
+> 更新日期: 2026-03-14
 > 域名: socra.cn
 > 状态: ✅ 已部署完成
 
@@ -33,12 +33,14 @@
 | socra-socrates | apps/socrates | socrates.socra.cn | ✅ 已部署 |
 | socra-essay | apps/essay | essay.socra.cn | ✅ 已部署 |
 
+> 规则: 线上只维护 `socra-landing`、`socra-socrates`、`socra-essay` 这 3 个项目，不单独部署根目录 `socra-platform`。
+
 ### .vercel/project.json 配置
 
 **apps/landing/.vercel/project.json**
 ```json
 {
-  "projectId": "prj_c3so0fHNZadINqHHZadINqH",
+  "projectId": "prj_c3so0fHNZadONoXDM5hp7RObCOE5",
   "orgId": "team_oGAI73uHlj5rSJavgqQ1mANw",
   "projectName": "socra-landing"
 }
@@ -65,6 +67,72 @@
 ---
 
 ## 部署方式
+
+## 发布 SOP
+
+### 默认流程: 只走 Git Push
+
+这是唯一默认流程，优先级最高。
+
+```bash
+# 1. 本地验证
+pnpm --filter @socra/landing build
+pnpm --filter @socra/socrates build
+pnpm --filter @socra/essay build
+
+# 2. 提交并推送
+git add .
+git commit -m "your message"
+git push origin main
+```
+
+推送后由 Vercel 自动部署以下 3 个项目：
+
+- `socra-landing`
+- `socra-socrates`
+- `socra-essay`
+
+### 禁止事项
+
+- 不要从 monorepo 根目录运行 `vercel`
+- 不要在 `git push origin main` 之后，再手动执行一次 `vercel`
+- 不要把 Preview 部署当成正式发布结果
+- 不要新增第 4 个根项目 `socra-platform`
+
+### 例外流程: 仅在自动部署失败时手动补发
+
+只有 Git 自动部署失败，才允许手动执行 Vercel CLI。
+
+```bash
+# Landing
+cd socra-platform/apps/landing
+npx vercel --prod
+
+# Socrates
+cd socra-platform/apps/socrates
+npx vercel --prod
+
+# Essay
+cd socra-platform/apps/essay
+npx vercel --prod
+```
+
+手动补发时必须满足：
+
+- 只能在对应 app 目录执行
+- 必须使用 `--prod`
+- 一次只补发一个项目
+- 补发前先确认该项目没有正在运行的 Production 部署
+
+### 本地 Vercel 链接校验
+
+如果 CLI 输出的项目名不对，先检查各应用目录下的 `.vercel/project.json`：
+
+- `apps/landing` -> `socra-landing`
+- `apps/socrates` -> `socra-socrates`
+- `apps/essay` -> `socra-essay`
+
+若本地被错误重绑，先修正 `.vercel/project.json`，再执行部署。
 
 ### 方式 1: Vercel CLI 部署 (推荐)
 
@@ -208,6 +276,7 @@ cd apps/essay && pnpm dev      # http://localhost:3002
 - Build Command: `pnpm build`
 - Install Command: `pnpm install`
 - 确保从正确的应用目录部署
+- 确保没有误触发根目录项目 `socra-platform`
 
 ### Q2: 环境变量未生效？
 
@@ -227,6 +296,12 @@ cd apps/essay && pnpm dev      # http://localhost:3002
 - 每个应用需要单独部署
 - 确保每个应用的 `.vercel/project.json` 配置正确
 
+### Q5: 为什么会出现卡 20 分钟以上的 Preview 部署？
+
+- 常见原因是 `git push` 已触发自动部署后，又手动执行了 `vercel`
+- 如果同批次 `Production` 已成功，而 `Preview` 仍显示 `Building`，一般可直接忽略或取消
+- 这种情况优先检查是否重复触发，而不是先怀疑代码编译失败
+
 ---
 
 ## 相关链接
@@ -243,5 +318,5 @@ cd apps/essay && pnpm dev      # http://localhost:3002
 
 ---
 
-**文档版本**: v2.2
-**最后更新**: 2026-03-11
+**文档版本**: v2.3
+**最后更新**: 2026-03-14
