@@ -42,12 +42,26 @@
 
 | 产品 | 文档 | 当前版本 | 状态 |
 |------|------|----------|------|
+| **Landing Page** | [md_progress_landing.md](./md_progress_landing.md) | v1.1.0 | 🟢 运行中 |
 | **Socrates 错题本** | [md_progress_socrates.md](./md_progress_socrates.md) | v1.7.12 | 🟢 运行中 |
 | **Essay 作文批改** | [md_progress_essay.md](./md_progress_essay.md) | v1.3.1 | 🟢 运行中 |
 
 ---
 
 ## 当前开发重点
+
+### 2026-03-14 更新 (Landing v1.1.0)
+- ✅ **Landing 首页重构**
+  - 首页结构从产品总览页升级为高转化品牌首页
+  - 采用家长决策主线 + 双入口辅助 + 搜索场景预埋
+- ✅ **首页风格调整**
+  - 统一为“温暖的学习工作台”视觉方向
+  - 强化真实产品感与页面停留节奏
+- ✅ **首页 SEO 基础补强**
+  - 更新 metadata
+  - 增加 Organization / WebSite 结构化数据
+- ✅ **Landing 构建通过**
+  - `pnpm --filter @socra/landing build`
 
 ### 2026-03-10 更新 (v1.7.12)
 - ✅ **Vercel 部署修复**
@@ -147,10 +161,11 @@
 ```
 我是 Socra 平台的开发者。请阅读以下文件了解项目当前状态：
 
-1. 读取 D:\github\Socrates_ analysis\md_progress_recall.md 了解项目总览
+1. 读取 D:\github\Socrates_ analysis\socra-platform\docs\md_progress_recall.md 了解项目总览
 2. 根据需要阅读：
-   - D:\github\Socrates_ analysis\md_progress_socrates.md (错题本平台)
-   - D:\github\Socrates_ analysis\md_progress_essay.md (作文批改)
+   - D:\github\Socrates_ analysis\socra-platform\docs\md_progress_landing.md (Landing 首页)
+   - D:\github\Socrates_ analysis\socra-platform\docs\md_progress_socrates.md (错题本平台)
+   - D:\github\Socrates_ analysis\socra-platform\docs\md_progress_essay.md (作文批改)
 
 项目目录 (统一 monorepo):
 - 主仓库: D:\github\Socrates_ analysis\socra-platform
