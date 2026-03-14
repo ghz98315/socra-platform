@@ -13,6 +13,7 @@
 
 html {
   scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -20,8 +21,10 @@ body {
   background: var(--background);
   font-family: var(--font-body);
   background-image:
-    radial-gradient(circle at top, rgba(252, 214, 160, 0.25), transparent 28%),
-    linear-gradient(180deg, #fff8ef 0%, #fffefb 46%, #fff9f1 100%);
+    radial-gradient(circle at top, rgba(252, 214, 160, 0.24), transparent 28%),
+    radial-gradient(circle at 85% 12%, rgba(255, 244, 226, 0.82), transparent 22%),
+    linear-gradient(180deg, #fff8ef 0%, #fffefb 44%, #fff9f1 100%);
+  font-feature-settings: "liga" 1, "kern" 1;
 }
 
 a {

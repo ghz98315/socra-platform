@@ -145,35 +145,33 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
   }
 
   return (
-    <section className={cn('px-6 py-12 bg-gradient-to-r from-orange-50 to-amber-50', className)}>
-      <div className="max-w-4xl mx-auto">
-        {/* 标题 */}
+    <section className={cn('px-6 py-12', className)}>
+      <div className="mx-auto max-w-5xl">
         <div className="mb-7 text-center">
-          <h2 className="mb-2 text-2xl font-semibold text-stone-900 md:text-[2rem]">
-            <span className="text-amber-500">⭐</span> 社区精选
+          <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/85 px-4 py-2 text-sm font-medium text-orange-700 shadow-[0_10px_26px_rgba(245,123,55,0.08)]">
+            <Quote className="h-4 w-4" />
+            真实用户反馈
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold text-stone-900 md:text-[2rem] [font-family:var(--font-display)]">
+            看得见学习过程，也看得见变化
           </h2>
-          <p className="text-sm text-stone-600 md:text-base">来自真实用户的学习故事</p>
+          <p className="mt-2 text-sm text-stone-600 md:text-base">来自真实用户的学习故事</p>
         </div>
 
-        {/* 轮播容器 */}
         <div
           className="relative"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          {/* 主卡片 */}
-          <div className="overflow-hidden rounded-[1.9rem] bg-white p-6 shadow-[0_18px_45px_rgba(45,30,20,0.055)] md:p-8">
+          <div className="overflow-hidden rounded-[2.1rem] border border-white/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,248,241,0.92)_100%)] p-6 shadow-[0_22px_56px_rgba(45,30,20,0.06)] md:p-8">
             <div className="flex items-start gap-4">
-              {/* 引号装饰 */}
               <Quote className="h-9 w-9 shrink-0 -ml-1 -mt-1 text-orange-200" />
 
               <div className="flex-1">
-                {/* 内容 */}
                 <p className="mb-5 min-h-[4rem] text-base leading-8 text-stone-700 md:text-[1.05rem]">
                   {posts[currentIndex]?.content}
                 </p>
 
-                {/* 作者信息 */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{posts[currentIndex]?.author.avatar}</span>
@@ -194,7 +192,6 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
                     </div>
                   </div>
 
-                  {/* 互动数据 */}
                   <div className="flex items-center gap-4 text-stone-500">
                     <span className="flex items-center gap-1">
                       <Heart className="w-4 h-4 text-red-400" />
@@ -210,25 +207,23 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
             </div>
           </div>
 
-          {/* 导航按钮 */}
           {posts.length > 1 && (
             <>
               <button
                 onClick={goToPrev}
-                className="absolute left-0 top-1/2 -translate-x-3 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-stone-600 shadow-lg transition-all hover:scale-110 hover:text-orange-500"
+                className="absolute left-0 top-1/2 flex h-9 w-9 -translate-x-3 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-white text-stone-600 shadow-lg transition-all hover:scale-110 hover:text-orange-500"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={goToNext}
-                className="absolute right-0 top-1/2 flex h-9 w-9 translate-x-3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-stone-600 shadow-lg transition-all hover:scale-110 hover:text-orange-500"
+                className="absolute right-0 top-1/2 flex h-9 w-9 translate-x-3 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-white text-stone-600 shadow-lg transition-all hover:scale-110 hover:text-orange-500"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
             </>
           )}
 
-          {/* 指示器 */}
           {posts.length > 1 && (
             <div className="mt-5 flex justify-center gap-2">
               {posts.map((_, index) => (
@@ -247,7 +242,6 @@ export function FeaturedPostsCarousel({ className }: FeaturedPostsCarouselProps)
           )}
         </div>
 
-        {/* CTA */}
         <div className="mt-6 text-center">
           <a
             href="https://socrates.socra.cn"
