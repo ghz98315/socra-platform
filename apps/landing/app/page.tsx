@@ -125,12 +125,7 @@ const searchEntries = [
   },
 ];
 
-const heroHighlights = ['不是替孩子思考', '作文批注直达原文', '错题自动进入复习'];
-const heroStats = [
-  ['4 个核心场景', '辅导、作文、复习、计划统一串联'],
-  ['原文级反馈', '错字、亮点、修改直接落回对应句子'],
-  ['更少催促', '家长看到过程，孩子看清下一步'],
-];
+const heroHighlights = ['先排今天计划', '再练题改文', '最后进入复习'];
 
 const pricingPlans = [
   {
@@ -239,36 +234,42 @@ function SectionHeading({
 
 function HeroPreview() {
   return (
-    <div className="relative mx-auto w-full max-w-[660px]">
+    <div className="relative mx-auto w-full max-w-[620px]">
       <div className="absolute inset-0 -z-10 rounded-[2.8rem] bg-[radial-gradient(circle_at_top_left,_rgba(245,123,55,0.28),_transparent_36%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,0.18),_transparent_34%)] blur-3xl" />
-      <div className="relative overflow-hidden rounded-[2.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,253,250,0.98)_0%,rgba(255,245,235,0.94)_100%)] p-5 shadow-[0_38px_120px_rgba(45,30,20,0.15)] backdrop-blur">
+      <div className="relative overflow-hidden rounded-[2.2rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,253,250,0.98)_0%,rgba(255,245,235,0.94)_100%)] p-4 shadow-[0_34px_100px_rgba(45,30,20,0.14)] backdrop-blur">
         <div className="absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(245,123,55,0.42),transparent)]" />
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            ['作文批注', '原文直达'],
-            ['错题复习', '自动衔接'],
-            ['时间计划', '今日可执行'],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-white/80 bg-white/72 px-3 py-3 shadow-[0_10px_24px_rgba(45,30,20,0.045)]">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-stone-400">{label}</p>
-              <p className="mt-1 text-sm font-medium text-stone-700">{value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-[1.9rem] border border-white/85 bg-white/78 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+        <div className="rounded-[1.9rem] border border-white/85 bg-white/78 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-orange-100/80 pb-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">今日学习工作台</p>
-              <p className="mt-1 text-sm text-stone-500">发现问题、修改原文、进入复习，再排进今天计划</p>
+              <p className="mt-1 text-sm text-stone-500">先排今天计划，再开始练题、修改原文，最后进入复习</p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">统一串联</span>
-              <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-medium text-stone-600">家长可见过程</span>
-            </div>
+            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">统一串联</span>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
+            <div className="rounded-[1.5rem] border border-emerald-100 bg-[linear-gradient(180deg,#f7fdf9_0%,#eefaf2_100%)] p-4 shadow-[0_14px_34px_rgba(31,94,66,0.08)] lg:col-span-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-600">今日时间计划</p>
+                  <p className="mt-1 text-sm text-stone-500">先定顺序，再开始今天的学习任务</p>
+                </div>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">45 分钟</span>
+              </div>
+              <div className="mt-4 grid gap-2.5 sm:grid-cols-3 text-sm text-stone-700">
+                {[
+                  ['17:00', '分数应用题复盘'],
+                  ['17:20', '作文修改第 2 版'],
+                  ['17:40', '几何辅助线再练 2 题'],
+                ].map(([time, item]) => (
+                  <div key={item} className="rounded-2xl border border-white/80 bg-white/92 px-3 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">{time}</p>
+                    <p className="mt-1.5 leading-6 text-stone-700">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-[1.55rem] border border-orange-100/80 bg-[linear-gradient(180deg,#fffdfa_0%,#fff8f1_100%)] p-4 shadow-[0_14px_32px_rgba(45,30,20,0.045)]">
               <div className="flex items-center justify-between">
                 <div>
@@ -314,38 +315,14 @@ function HeroPreview() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="rounded-[1.5rem] border border-stone-200 bg-stone-900 p-4 text-white shadow-[0_18px_44px_rgba(28,24,20,0.24)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">错题引导</p>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-medium text-stone-200">先想思路</span>
-                </div>
-                <div className="mt-3 space-y-2 text-sm leading-6 text-stone-100">
-                  <div className="rounded-2xl bg-white/8 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
-                  <div className="rounded-2xl bg-orange-500/15 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
-                </div>
+            <div className="rounded-[1.5rem] border border-stone-200 bg-stone-900 p-4 text-white shadow-[0_18px_44px_rgba(28,24,20,0.24)]">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-300">错题引导</p>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-medium text-stone-200">先想思路</span>
               </div>
-
-              <div className="rounded-[1.5rem] border border-emerald-100 bg-[linear-gradient(180deg,#f7fdf9_0%,#eefaf2_100%)] p-4 shadow-[0_14px_34px_rgba(31,94,66,0.08)]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-600">今日时间计划</p>
-                    <p className="mt-1 text-sm text-stone-500">今天先做什么，一眼清楚</p>
-                  </div>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">45 分钟</span>
-                </div>
-                <div className="mt-4 space-y-2.5 text-sm text-stone-700">
-                  {[
-                    ['17:00', '分数应用题复盘'],
-                    ['17:20', '作文修改第 2 版'],
-                    ['17:40', '几何辅助线再练 2 题'],
-                  ].map(([time, item]) => (
-                    <div key={item} className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/90 px-3 py-2.5">
-                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">{time}</span>
-                      <span className="ml-3 flex-1 text-stone-700">{item}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-stone-100">
+                <div className="rounded-2xl bg-white/8 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
+                <div className="rounded-2xl bg-orange-500/15 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
               </div>
             </div>
           </div>
@@ -410,7 +387,7 @@ export default function LandingPage() {
       </nav>
 
       <main>
-        <section className="relative overflow-hidden px-5 pb-12 pt-28 sm:px-6 lg:px-8 lg:pb-18 lg:pt-32">
+        <section className="relative overflow-hidden px-5 pb-14 pt-28 sm:px-6 lg:px-8 lg:pb-16 lg:pt-32">
           <div className="absolute left-1/2 top-14 -z-20 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(248,180,96,0.26),_transparent_62%)]" />
           <div className="absolute inset-x-0 top-0 -z-20 h-[44rem] bg-[linear-gradient(180deg,rgba(255,248,239,0.94)_0%,rgba(255,254,251,0)_100%)]" />
           <div className="mx-auto max-w-7xl">
@@ -418,25 +395,25 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.72),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(245,123,55,0.10),transparent_28%)]" />
               <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(245,123,55,0.4),transparent)]" />
               <div className="relative px-6 py-7 sm:px-8 lg:px-10 lg:py-10">
-                <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr]">
-                  <div className="max-w-[41rem]">
+                <div className="grid items-center gap-8 lg:grid-cols-[0.96fr_1.04fr]">
+                  <div className="max-w-[38rem]">
                     <span className="inline-flex items-center gap-2 rounded-full border border-orange-200/80 bg-white/88 px-4 py-2 text-[13px] font-medium text-orange-700 shadow-[0_10px_30px_rgba(245,123,55,0.08)]">
                       <Sparkles className="h-4 w-4" />
                       陪孩子学会思考的 AI 学习助手
                     </span>
 
-                    <h1 className="mt-6 max-w-[13ch] text-[2.8rem] font-semibold leading-[0.98] text-stone-950 sm:text-[4rem] lg:text-[5rem] [font-family:var(--font-display)]">
+                    <h1 className="mt-5 max-w-[10ch] text-[2.5rem] font-semibold leading-[1.01] tracking-[-0.035em] text-stone-950 sm:text-[3.5rem] lg:text-[4.35rem] [font-family:var(--font-display)]">
                       孩子不是不会学，
                       <span className="block text-orange-600">只是缺一个会引导思考的学习助手</span>
                     </h1>
 
-                    <p className="mt-5 max-w-[36rem] text-[1rem] leading-8 text-stone-600 sm:text-[1.08rem]">
-                      错题辅导、作文批改、智能复习、时间计划串成一套学习工作台，帮助孩子真正学会思路，而不是只记答案。
+                    <p className="mt-4 max-w-[31rem] text-[0.98rem] leading-7 text-stone-600 sm:text-[1.04rem]">
+                      先把今天要学什么排清楚，再开始练题、修改作文和复习整理，让孩子每天都知道下一步该做什么。
                     </p>
 
-                    <div className="mt-6 flex flex-wrap gap-2.5">
+                    <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-stone-600">
                       {heroHighlights.map((item, index) => (
-                        <div key={item} className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/76 px-3.5 py-2 text-sm font-medium text-stone-700 shadow-[0_10px_24px_rgba(45,30,20,0.04)]">
+                        <div key={item} className="inline-flex items-center gap-2">
                           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 text-[11px] font-semibold text-orange-700">
                             0{index + 1}
                           </span>
@@ -467,47 +444,39 @@ export default function LandingPage() {
 
                     <p className="mt-3 text-sm text-stone-500">先免费体验，再决定是否升级会员。</p>
 
-                    <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                      {heroStats.map(([title, description]) => (
-                        <div key={title} className="rounded-[1.4rem] border border-white/85 bg-white/70 px-4 py-4 shadow-[0_12px_30px_rgba(45,30,20,0.04)]">
-                          <p className="text-sm font-semibold text-stone-900">{title}</p>
-                          <p className="mt-1.5 text-sm leading-6 text-stone-600">{description}</p>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   <HeroPreview />
                 </div>
-
-                <div className="mt-8 border-t border-white/80 pt-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {roleCards.map((card, index) => (
-                      <a
-                        key={card.title}
-                        href={card.href}
-                        className={`group rounded-[1.7rem] border px-5 py-5 shadow-[0_14px_34px_rgba(45,30,20,0.045)] transition hover:-translate-y-0.5 ${
-                          index === 0
-                            ? 'border-orange-200 bg-[linear-gradient(135deg,rgba(255,248,238,0.96)_0%,rgba(255,240,224,0.92)_100%)]'
-                            : 'border-stone-200 bg-white/72'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{card.title}</p>
-                            <h3 className="mt-1.5 text-[1.35rem] font-semibold text-stone-900 [font-family:var(--font-display)]">{card.cta}</h3>
-                            <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">{card.description}</p>
-                          </div>
-                          <div className="rounded-2xl border border-white/80 bg-white/82 p-2.5 text-stone-900 shadow-sm">
-                            {index === 0 ? <Target className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
-                          </div>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="px-5 pb-3 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
+            {roleCards.map((card, index) => (
+              <a
+                key={card.title}
+                href={card.href}
+                className={`group rounded-[1.55rem] border px-5 py-4 shadow-[0_12px_30px_rgba(45,30,20,0.045)] transition hover:-translate-y-0.5 ${
+                  index === 0
+                    ? 'border-orange-200 bg-[linear-gradient(135deg,rgba(255,248,238,0.96)_0%,rgba(255,240,224,0.92)_100%)]'
+                    : 'border-stone-200 bg-white/78'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{card.title}</p>
+                    <h3 className="mt-1 text-[1.25rem] font-semibold text-stone-900 [font-family:var(--font-display)]">{card.cta}</h3>
+                    <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">{card.description}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/80 bg-white/82 p-2.5 text-stone-900 shadow-sm">
+                    {index === 0 ? <Target className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
+                  </div>
+                </div>
+              </a>
+            ))}
           </div>
         </section>
         <section className="px-5 py-[4rem] sm:px-6 lg:px-8">
