@@ -237,89 +237,93 @@ function HeroPreview() {
     <div className="relative mx-auto w-full max-w-[640px]">
       <div className="absolute inset-0 -z-10 rounded-[2.5rem] bg-[radial-gradient(circle_at_top_left,_rgba(245,123,55,0.26),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(234,88,12,0.18),_transparent_36%)] blur-3xl" />
       <div className="rounded-[2.2rem] border border-white/80 bg-white/88 p-5 shadow-[0_34px_100px_rgba(45,30,20,0.14)] backdrop-blur">
-        <div className="grid gap-4 md:grid-cols-[1.22fr_0.78fr]">
+        <div className="space-y-4">
           <div className="rounded-[1.7rem] border border-orange-100 bg-[#fffaf5] p-5">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">作文批注工作台</p>
-                <p className="mt-1 text-sm text-stone-500">像批注一样，直接回到原文位置</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">今日学习工作台</p>
+                <p className="mt-1 text-sm text-stone-500">发现问题、修改原文、进入复习，再排进今天计划</p>
               </div>
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">原文直改</span>
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">统一串联</span>
             </div>
-            <div className="space-y-2.5 text-[13px] leading-6 text-stone-700 sm:text-sm sm:leading-7">
-              <p>
-                我的家乡有一条小河，春天的风一吹，河边的柳树就像
-                <span className="rounded bg-emerald-100/80 px-1 text-emerald-700 underline decoration-emerald-500 decoration-2 underline-offset-4">
-                  绿色的瀑布
-                </span>
-                ，特别好看。
-              </p>
-              <p>
-                我常常和朋友一起去捉小鱼，有时候也会坐在石头上发呆，觉得那里真是一个
-                <span className="rounded bg-amber-100/80 px-1 text-amber-700 underline decoration-amber-500 decoration-2 underline-offset-4">
-                  很安静很温柔
-                </span>
-                的地方。
-              </p>
-              <p>
-                但是有一次我把“柳树”写成了
-                <span className="rounded bg-rose-100/80 px-1 text-rose-700 underline decoration-rose-500 decoration-2 underline-offset-4">
-                  柳数
-                </span>
-                ，老师提醒我以后要更仔细观察和检查。
-              </p>
+            <div className="grid gap-4 md:grid-cols-[1.08fr_0.92fr]">
+              <div className="rounded-[1.5rem] border border-white/90 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">作文批注</p>
+                  <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-medium text-orange-700">原文直改</span>
+                </div>
+                <div className="mt-3 space-y-2.5 text-[13px] leading-6 text-stone-700 sm:text-sm sm:leading-7">
+                  <p>
+                    我的家乡有一条小河，春天的风一吹，河边的柳树就像
+                    <span className="rounded bg-emerald-100/80 px-1 text-emerald-700 underline decoration-emerald-500 decoration-2 underline-offset-4">
+                      绿色的瀑布
+                    </span>
+                    ，特别好看。
+                  </p>
+                  <p>
+                    我常常和朋友一起去捉小鱼，有时候也会坐在石头上发呆，觉得那里真是一个
+                    <span className="rounded bg-amber-100/80 px-1 text-amber-700 underline decoration-amber-500 decoration-2 underline-offset-4">
+                      很安静很温柔
+                    </span>
+                    的地方。
+                  </p>
+                  <p>
+                    但是有一次我把“柳树”写成了
+                    <span className="rounded bg-rose-100/80 px-1 text-rose-700 underline decoration-rose-500 decoration-2 underline-offset-4">
+                      柳数
+                    </span>
+                    ，老师提醒我以后要更仔细观察和检查。
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-[1.45rem] border border-orange-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">错题引导</p>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-medium text-stone-600">先想思路</span>
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm text-stone-700">
+                    <div className="rounded-2xl bg-stone-100 px-3 py-2">先别急着算答案，题目真正问的是什么？</div>
+                    <div className="rounded-2xl bg-orange-50 px-3 py-2">我好像没看懂“相对速度”这一步。</div>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.45rem] border border-emerald-100 bg-[#f7fdf9] p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-600">今日时间计划</p>
+                      <p className="mt-1 text-sm text-stone-500">今天先做什么，一眼清楚</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">45 分钟</span>
+                  </div>
+                  <div className="mt-4 space-y-2.5 text-sm text-stone-700">
+                    {[
+                      ['17:00', '分数应用题复盘'],
+                      ['17:20', '作文修改第 2 版'],
+                      ['17:40', '几何辅助线再练 2 题'],
+                    ].map(([time, item]) => (
+                      <div key={item} className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">{time}</span>
+                        <span className="ml-3 flex-1 text-stone-700">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div className="mt-4 grid grid-cols-3 gap-2">
               {[
                 ['错字', '直接标出'],
-                ['亮点', '一眼看见'],
-                ['修改', '落回原文'],
+                ['复习', '进入计划'],
+                ['节奏', '排进今天'],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-2xl bg-white px-3 py-3 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-stone-400">{label}</p>
                   <p className="mt-1 text-sm font-medium text-stone-700">{value}</p>
                 </div>
               ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-[1.5rem] border border-orange-100 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">错题引导</p>
-              <div className="mt-3 space-y-2 text-sm text-stone-700">
-                <div className="rounded-2xl bg-stone-100 px-3 py-2">先别急着算答案，题目真正问的是什么？</div>
-                <div className="rounded-2xl bg-orange-50 px-3 py-2">我好像没看懂“相对速度”这一步。</div>
-                <div className="rounded-2xl bg-stone-100 px-3 py-2">那我们先把已知条件画出来，再判断谁在追谁。</div>
-              </div>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-emerald-100 bg-[#f7fdf9] p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-600">复习清单</p>
-                  <p className="mt-1 text-sm text-stone-500">今天先做什么，一眼清楚</p>
-                </div>
-                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">3 项待复习</span>
-              </div>
-              <div className="mt-4 space-y-3 text-sm text-stone-700">
-                {['分数应用题复盘', '作文修改第 2 版', '几何辅助线再练 2 题'].map((item) => (
-                  <div key={item} className="flex items-center justify-between rounded-2xl bg-white px-3 py-2">
-                    <span>{item}</span>
-                    <span className="text-xs text-stone-400">今天</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-stone-200 bg-[#fffdfa] p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">真正形成闭环</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {['理解卡点', '加入错题本', '进入复习', '看到变化'].map((item) => (
-                  <span key={item} className="rounded-full bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-700">
-                    {item}
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
         </div>
@@ -398,7 +402,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="mt-5 max-w-[34rem] text-[1rem] leading-8 text-stone-600 sm:text-[1.08rem]">
-                错题辅导、作文批改、智能复习、学习规划，帮助孩子真正学会思路，而不是只记答案。
+                错题辅导、作文批改、智能复习、时间计划串成一套学习工作台，帮助孩子真正学会思路，而不是只记答案。
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
