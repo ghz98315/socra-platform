@@ -98,7 +98,7 @@ export default function ErrorBookPage() {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'difficulty'>('newest');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
-  const [reviewSessionIds, setReviewSessionIds] = useState<Set<string>>(new Set());
+  const [reviewSessionMap, setReviewSessionMap] = useState<Record<string, string>>({});
   const [addingToReview, setAddingToReview] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -145,7 +145,7 @@ export default function ErrorBookPage() {
       }
 
       setErrors(payload.data || []);
-      setReviewSessionIds(new Set(payload.review_session_ids || []));
+      setReviewSessionMap(payload.review_session_map || {});
       setStats(payload.stats || { total: 0, analyzing: 0, guided_learning: 0, mastered: 0 });
       setCurrentPage(payload.page || 1);
       setTotalPages(payload.total_pages || 1);
@@ -160,7 +160,7 @@ export default function ErrorBookPage() {
 
   const handleAddToReview = async (sessionId: string) => {
     if (!profile?.id) return;
-    if (reviewSessionIds.has(sessionId)) return;
+    if (reviewSessionMap[sessionId]) return;
 
     setAddingToReview(sessionId);
     setActionMessage(null);
@@ -178,11 +178,12 @@ export default function ErrorBookPage() {
         throw new Error(data.error || '加入复习失败');
       }
 
-      setReviewSessionIds((prev) => {
-        const next = new Set(prev);
-        next.add(sessionId);
-        return next;
-      });
+      if (data.review_id) {
+        setReviewSessionMap((prev) => ({
+          ...prev,
+          [sessionId]: data.review_id,
+        }));
+      }
       setActionMessage('已加入复习清单。');
     } catch (e: any) {
       console.error('Failed to add to review:', e);
@@ -596,20 +597,24 @@ export default function ErrorBookPage() {
                           查看
                         </Button>
                         <Button
-                          variant={reviewSessionIds.has(error.id) ? 'secondary' : 'outline'}
+                          variant={reviewSessionMap[error.id] ? 'secondary' : 'outline'}
                           size="sm"
-                          disabled={reviewSessionIds.has(error.id) || addingToReview === error.id}
+                          disabled={addingToReview === error.id}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (reviewSessionMap[error.id]) {
+                              router.push(`/review/session/${reviewSessionMap[error.id]}`);
+                              return;
+                            }
                             void handleAddToReview(error.id);
                           }}
                           className={cn(
                             'gap-1 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full',
-                            reviewSessionIds.has(error.id) && 'bg-warm-100 text-warm-700 hover:bg-warm-100'
+                            reviewSessionMap[error.id] && 'bg-warm-100 text-warm-700 hover:bg-warm-100'
                           )}
                         >
                           <RefreshCw className={cn('w-4 h-4', addingToReview === error.id && 'animate-spin')} />
-                          {reviewSessionIds.has(error.id)
+                          {reviewSessionMap[error.id]
                             ? '已加入复习'
                             : addingToReview === error.id
                               ? '加入中...'

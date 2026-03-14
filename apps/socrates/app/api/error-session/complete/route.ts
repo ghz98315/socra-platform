@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
         success: true,
         message: 'Error session marked as mastered',
         review_exists: true,
+        review_id: existingReview.id,
         can_analyze: true,
       });
     }

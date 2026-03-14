@@ -73,6 +73,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [exporting, setExporting] = useState(false);
   const [mastering, setMastering] = useState(false);
   const [masterMessage, setMasterMessage] = useState<string | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
 
@@ -98,6 +99,14 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
     }
 
     setErrorSession(sessionData as ErrorSession);
+
+    const { data: reviewData } = await supabase
+      .from('review_schedule')
+      .select('id')
+      .eq('session_id', resolvedParams.id)
+      .maybeSingle();
+
+    setReviewId((reviewData as { id?: string } | null)?.id || null);
 
     // 加载对话历史
     const { data: messagesData } = await supabase
@@ -139,6 +148,11 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
     router.push(`/workbench?session=${resolvedParams.id}`);
   };
 
+  const handleOpenReview = () => {
+    if (!reviewId) return;
+    router.push(`/review/session/${reviewId}`);
+  };
+
   // 标记为已掌握
   const handleMarkMastered = async () => {
     if (!errorSession || !profile?.id) return;
@@ -164,6 +178,9 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
           ...errorSession,
           status: 'mastered',
         });
+        if (data.review_id) {
+          setReviewId(data.review_id);
+        }
         setMasterMessage(data.message || '恭喜！已标记为掌握');
       } else {
         setMasterMessage(data.error || '操作失败，请重试');
@@ -294,6 +311,17 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                       已掌握
                     </>
                   )}
+                </Button>
+              )}
+              {reviewId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleOpenReview}
+                  className="gap-2"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  杩涘叆澶嶄範
                 </Button>
               )}
               {errorSession.status !== 'mastered' && (
@@ -488,6 +516,12 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 >
                   <MessageCircle className="w-4 h-4" />
                   AI分析
+                </Button>
+              )}
+              {reviewId && (
+                <Button variant="outline" onClick={handleOpenReview} className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  杩涘叆澶嶄範
                 </Button>
               )}
               <Button onClick={handleContinueLearning} className="gap-2">

@@ -94,9 +94,8 @@ export async function GET(req: NextRequest) {
     const reviewResult = sessionIds.length > 0
       ? await supabase
           .from('review_schedule')
-          .select('session_id')
+          .select('id, session_id')
           .eq('student_id', studentId)
-          .eq('is_completed', false)
           .in('session_id', sessionIds)
       : { data: [], error: null };
 
@@ -107,9 +106,15 @@ export async function GET(req: NextRequest) {
 
     const statsRows = statsResult.data || [];
 
+    const reviewRows = reviewResult.data || [];
+    const reviewSessionMap = Object.fromEntries(
+      reviewRows.map((row: { id: string; session_id: string }) => [row.session_id, row.id])
+    );
+
     return NextResponse.json({
       data: pageItems,
-      review_session_ids: (reviewResult.data || []).map((row: { session_id: string }) => row.session_id),
+      review_session_ids: reviewRows.map((row: { session_id: string }) => row.session_id),
+      review_session_map: reviewSessionMap,
       count: errorsResult.count || 0,
       page,
       page_size: pageSize,
