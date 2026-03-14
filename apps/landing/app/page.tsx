@@ -210,13 +210,16 @@ function SectionHeading({
   kicker,
   title,
   description,
+  align = 'center',
 }: {
   kicker: string;
   title: string;
   description: string;
+  align?: 'center' | 'left';
 }) {
+  const isLeft = align === 'left';
   return (
-    <div className="mx-auto max-w-3xl text-center">
+    <div className={`max-w-3xl ${isLeft ? '' : 'mx-auto text-center'}`}>
       <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/85 px-4 py-2 text-sm font-medium text-orange-700 shadow-[0_10px_30px_rgba(245,123,55,0.08)]">
         <Sparkles className="h-4 w-4" />
         {kicker}
@@ -224,26 +227,26 @@ function SectionHeading({
       <h2 className="text-3xl font-semibold leading-tight text-stone-900 sm:text-4xl [font-family:var(--font-display)]">
         {title}
       </h2>
-      <p className="mt-4 text-base leading-7 text-stone-600 sm:text-lg">{description}</p>
+      <p className={`mt-4 text-base leading-7 text-stone-600 sm:text-lg ${isLeft ? 'max-w-2xl' : ''}`}>{description}</p>
     </div>
   );
 }
 
 function HeroPreview() {
   return (
-    <div className="relative mx-auto w-full max-w-[560px]">
-      <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_top_left,_rgba(245,123,55,0.2),_transparent_45%),radial-gradient(circle_at_bottom_right,_rgba(234,88,12,0.16),_transparent_40%)] blur-2xl" />
-      <div className="rounded-[2rem] border border-white/70 bg-white/85 p-4 shadow-[0_30px_90px_rgba(45,30,20,0.12)] backdrop-blur">
-        <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[1.5rem] border border-orange-100 bg-[#fffaf5] p-5">
+    <div className="relative mx-auto w-full max-w-[640px]">
+      <div className="absolute inset-0 -z-10 rounded-[2.5rem] bg-[radial-gradient(circle_at_top_left,_rgba(245,123,55,0.26),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(234,88,12,0.18),_transparent_36%)] blur-3xl" />
+      <div className="rounded-[2.2rem] border border-white/80 bg-white/88 p-5 shadow-[0_34px_100px_rgba(45,30,20,0.14)] backdrop-blur">
+        <div className="grid gap-4 md:grid-cols-[1.22fr_0.78fr]">
+          <div className="rounded-[1.7rem] border border-orange-100 bg-[#fffaf5] p-5">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">作文批注工作台</p>
                 <p className="mt-1 text-sm text-stone-500">像批注一样，直接回到原文位置</p>
               </div>
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">真实可感</span>
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">原文直改</span>
             </div>
-            <div className="space-y-3 text-sm leading-7 text-stone-700">
+            <div className="space-y-2.5 text-[13px] leading-6 text-stone-700 sm:text-sm sm:leading-7">
               <p>
                 我的家乡有一条小河，春天的风一吹，河边的柳树就像
                 <span className="rounded bg-emerald-100/80 px-1 text-emerald-700 underline decoration-emerald-500 decoration-2 underline-offset-4">
@@ -265,6 +268,18 @@ function HeroPreview() {
                 </span>
                 ，老师提醒我以后要更仔细观察和检查。
               </p>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {[
+                ['错字', '直接标出'],
+                ['亮点', '一眼看见'],
+                ['修改', '落回原文'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl bg-white px-3 py-3 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-stone-400">{label}</p>
+                  <p className="mt-1 text-sm font-medium text-stone-700">{value}</p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -292,6 +307,17 @@ function HeroPreview() {
                     <span>{item}</span>
                     <span className="text-xs text-stone-400">今天</span>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-stone-200 bg-[#fffdfa] p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">真正形成闭环</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {['理解卡点', '加入错题本', '进入复习', '看到变化'].map((item) => (
+                  <span key={item} className="rounded-full bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-700">
+                    {item}
+                  </span>
                 ))}
               </div>
             </div>
@@ -359,20 +385,20 @@ export default function LandingPage() {
       <main>
         <section className="relative overflow-hidden px-5 pb-14 pt-28 sm:px-6 lg:px-8 lg:pb-20 lg:pt-32">
           <div className="absolute left-1/2 top-14 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(248,180,96,0.25),_transparent_62%)]" />
-          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.94fr_1.06fr]">
-            <div className="max-w-2xl">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1.06fr_0.94fr]">
+            <div className="max-w-[40rem]">
               <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/90 px-4 py-2 text-[13px] font-medium text-orange-700 shadow-[0_10px_30px_rgba(245,123,55,0.08)]">
                 <Sparkles className="h-4 w-4" />
                 陪孩子学会思考的 AI 学习助手
               </span>
 
-              <h1 className="mt-6 text-[2.5rem] font-semibold leading-[1.04] text-stone-950 sm:text-[3.4rem] lg:text-[4.25rem] [font-family:var(--font-display)]">
+              <h1 className="mt-6 text-[2.6rem] font-semibold leading-[1.02] text-stone-950 sm:text-[3.8rem] lg:text-[4.75rem] [font-family:var(--font-display)]">
                 孩子不是不会学，
                 <span className="block text-orange-600">只是缺一个会引导思考的学习助手</span>
               </h1>
 
-              <p className="mt-5 max-w-xl text-[1.02rem] leading-8 text-stone-600 sm:text-lg">
-                错题辅导、作文批改、智能复习、学习规划，一套系统帮孩子真正学会思路，而不是只记答案。
+              <p className="mt-5 max-w-[34rem] text-[1rem] leading-8 text-stone-600 sm:text-[1.08rem]">
+                错题辅导、作文批改、智能复习、学习规划，帮助孩子真正学会思路，而不是只记答案。
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -400,7 +426,7 @@ export default function LandingPage() {
               <div className="mt-7 rounded-[1.6rem] border border-orange-100 bg-white/88 p-3.5 shadow-[0_14px_36px_rgba(45,30,20,0.06)]">
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                   {heroHighlights.map((item, index) => (
-                    <div key={item} className="flex items-center gap-2 text-sm font-medium text-stone-700">
+                    <div key={item} className="flex items-center gap-2 text-sm font-medium text-stone-700 sm:min-w-[10.5rem]">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-[12px] font-semibold text-orange-700">
                         0{index + 1}
                       </span>
@@ -469,6 +495,7 @@ export default function LandingPage() {
               kicker="核心能力"
               title="把分散的学习问题，放进一条真正能执行的路径里"
               description="不是多几个功能，而是把“不会”“会了”“忘了”“再复习”真正接起来。"
+              align="left"
             />
 
             <div className="mt-10 grid gap-5 xl:grid-cols-[1.16fr_0.84fr]">
@@ -477,7 +504,7 @@ export default function LandingPage() {
                   key={scenario.title}
                   className={`flex h-full flex-col rounded-[1.9rem] border border-stone-200 bg-white/92 p-6 shadow-[0_18px_45px_rgba(45,30,20,0.055)] ${
                     scenario.title === '错题工作台'
-                      ? 'xl:row-span-2 xl:min-h-[31rem]'
+                      ? 'border-orange-200 bg-[linear-gradient(180deg,#fffdf9_0%,#fff6ec_100%)] xl:row-span-2 xl:min-h-[33rem]'
                       : ''
                   }`}
                 >
@@ -485,18 +512,36 @@ export default function LandingPage() {
                     <scenario.icon className="h-7 w-7" />
                   </div>
                   <p className="mt-5 text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{scenario.title}</p>
-                  <h3 className="mt-2 text-[1.7rem] font-semibold leading-[1.2] text-stone-900 [font-family:var(--font-display)]">{scenario.headline}</h3>
+                  <h3 className="mt-2 text-[1.7rem] font-semibold leading-[1.16] text-stone-900 [font-family:var(--font-display)]">{scenario.headline}</h3>
                   <p className="mt-3 text-sm leading-7 text-stone-600">{scenario.description}</p>
 
                   {scenario.title === '错题工作台' && (
-                    <div className="mt-5 rounded-[1.5rem] border border-orange-100 bg-[linear-gradient(180deg,#fffaf4_0%,#fffdf9_100%)] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">一次不会，后面怎么接起来</p>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        {['先理解卡点', '自动记录错题', '进入后续复习'].map((item) => (
-                          <div key={item} className="rounded-2xl bg-white px-3 py-3 text-sm font-medium text-stone-700 shadow-sm">
-                            {item}
-                          </div>
-                        ))}
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-[1.5rem] border border-orange-100 bg-[linear-gradient(180deg,#fffaf4_0%,#fffdf9_100%)] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">一次不会，后面怎么接起来</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                          {['先理解卡点', '自动记录错题', '进入后续复习'].map((item) => (
+                            <div key={item} className="rounded-2xl bg-white px-3 py-3 text-sm font-medium text-stone-700 shadow-sm">
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[1.45rem] bg-stone-900 p-4 text-white shadow-[0_18px_40px_rgba(28,24,20,0.22)]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-200">家长最能感知的变化</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                          {[
+                            ['当天看懂', '不是直接给答案'],
+                            ['后面记住', '自动进复习清单'],
+                            ['持续看到变化', '不是一次性讲题'],
+                          ].map(([title, copy]) => (
+                            <div key={title} className="rounded-2xl bg-white/10 px-3 py-3">
+                              <p className="text-sm font-medium">{title}</p>
+                              <p className="mt-1 text-xs leading-5 text-stone-200">{copy}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -525,6 +570,7 @@ export default function LandingPage() {
               kicker="真实效果"
               title="不是多一个工具，而是少走很多弯路"
               description="看见前后差异，用户才会相信这不是“又一个 AI 工具”。"
+              align="left"
             />
 
             <div className="mt-10 overflow-hidden rounded-[2.1rem] border border-stone-200 bg-white/94 shadow-[0_20px_58px_rgba(45,30,20,0.06)]">
@@ -621,9 +667,10 @@ export default function LandingPage() {
               kicker="会员方案"
               title="先免费开始，再按需求升级"
               description="先让孩子感受到有效，再决定是否开通更完整的能力。"
+              align="left"
             />
 
-            <div className="mt-10 grid gap-5 xl:grid-cols-3">
+            <div className="mt-10 grid gap-4 xl:grid-cols-3">
               {pricingPlans.map((plan) => (
                 <div
                   key={plan.name}
@@ -648,7 +695,7 @@ export default function LandingPage() {
                     {plan.highlight && <Crown className="h-6 w-6 text-orange-500" />}
                   </div>
 
-                  <p className="mt-4 rounded-full bg-white/85 px-3 py-1.5 text-xs font-medium text-stone-600">
+                  <p className="mt-4 rounded-full bg-white/88 px-3 py-1.5 text-xs font-medium text-stone-600">
                     {plan.audience}
                   </p>
 
@@ -681,9 +728,9 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <p className="mt-6 text-center text-sm text-stone-500">
+            <div className="mt-5 rounded-[1.4rem] border border-stone-200 bg-white/75 px-4 py-3 text-sm text-stone-500">
               不是先付费再感受价值，而是先体验价值，再决定升级。
-            </p>
+            </div>
           </div>
         </section>
         <section id="faq" className="px-5 py-[4rem] sm:px-6 lg:px-8">
