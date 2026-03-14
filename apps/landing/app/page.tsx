@@ -402,9 +402,9 @@ export default function LandingPage() {
                       陪孩子学会思考的 AI 学习助手
                     </span>
 
-                    <h1 className="mt-5 max-w-[11.5ch] text-[2.5rem] font-semibold leading-[1.02] tracking-[-0.032em] text-stone-950 sm:text-[3.5rem] lg:text-[4.25rem] [font-family:var(--font-display)]">
-                      孩子不是不会学，
-                      <span className="block text-orange-600">只是缺一个会引导思考的学习助手</span>
+                    <h1 className="mt-5 max-w-[10.5ch] text-[2.45rem] font-semibold leading-[1.04] tracking-[-0.03em] text-stone-950 sm:text-[3.45rem] lg:text-[4.1rem] [font-family:var(--font-display)]">
+                      只是缺一个
+                      <span className="block text-orange-600">会引导思考的学习助手</span>
                     </h1>
 
                     <p className="mt-4 max-w-[30rem] text-[0.98rem] leading-7 text-stone-600 sm:text-[1.03rem]">
