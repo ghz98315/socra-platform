@@ -402,9 +402,12 @@ export default function LandingPage() {
                       陪孩子学会思考的 AI 学习助手
                     </span>
 
-                    <h1 className="mt-5 max-w-[12ch] text-[2.4rem] font-semibold leading-[1.06] tracking-[-0.032em] text-stone-950 sm:text-[3.35rem] lg:text-[4rem] [font-family:var(--font-display)]">
-                      真正拉开差距的不是天赋，
-                      <span className="mt-1 block text-[0.96em] text-orange-600">而是掌握举一反三的解题思维</span>
+                    <h1 className="mt-5 max-w-[9ch] text-[2.4rem] font-semibold leading-[1.08] tracking-[-0.03em] text-stone-950 sm:text-[3.3rem] lg:text-[4rem] [font-family:var(--font-display)]">
+                      <span className="block">拒绝无用功，</span>
+                      <span className="block">告别低效学。</span>
+                      <span className="mt-2 block text-[0.94em] text-orange-600">AI来助学，</span>
+                      <span className="block text-[0.94em] text-orange-600">引导深思考，</span>
+                      <span className="block text-[0.94em] text-orange-600">提分少弯路。</span>
                     </h1>
 
                     <p className="mt-4 max-w-[30rem] text-[0.98rem] leading-7 text-stone-600 sm:text-[1.03rem]">
