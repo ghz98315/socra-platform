@@ -181,7 +181,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         if (data.review_id) {
           setReviewId(data.review_id);
         }
-        setMasterMessage(data.message || '恭喜！已标记为掌握');
+        setMasterMessage('已标记为掌握，可进入复习');
       } else {
         setMasterMessage(data.error || '操作失败，请重试');
       }
@@ -266,7 +266,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               {masterMessage && (
                 <span className={cn(
                   "text-xs px-2 py-1 rounded",
-                  masterMessage.includes('恭喜') ? "text-green-600 bg-green-50" :
+                  (masterMessage.includes('恭喜') || masterMessage.includes('已标记')) ? "text-green-600 bg-green-50" :
                   masterMessage.includes('失败') || masterMessage.includes('错误') ? "text-red-600 bg-red-50" :
                   "text-muted-foreground"
                 )}>
@@ -321,7 +321,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   className="gap-2"
                 >
                   <BookOpen className="w-4 h-4" />
-                  杩涘叆澶嶄範
+                  进入复习
                 </Button>
               )}
               {errorSession.status !== 'mastered' && (
@@ -521,7 +521,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               {reviewId && (
                 <Button variant="outline" onClick={handleOpenReview} className="gap-2">
                   <BookOpen className="w-4 h-4" />
-                  杩涘叆澶嶄範
+                  进入复习
                 </Button>
               )}
               <Button onClick={handleContinueLearning} className="gap-2">
