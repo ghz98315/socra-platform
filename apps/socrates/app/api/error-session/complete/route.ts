@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingReview) {
-      await sendMasteryNotification(student_id, session_id, sessionInfo);
+      await sendMasteryNotification(student_id, session_id, existingReview.id, sessionInfo);
 
       return NextResponse.json({
         success: true,
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    await sendMasteryNotification(student_id, session_id, sessionInfo);
+    await sendMasteryNotification(student_id, session_id, reviewData?.id, sessionInfo);
 
     try {
       const baseUrl =
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function sendMasteryNotification(studentId: string, sessionId: string, sessionInfo: any) {
+async function sendMasteryNotification(studentId: string, sessionId: string, reviewId: string | undefined, sessionInfo: any) {
   try {
     const { data: student } = await supabase
       .from('profiles')
@@ -150,7 +150,7 @@ async function sendMasteryNotification(studentId: string, sessionId: string, ses
         subject: sessionInfo?.subject,
         can_analyze: true,
       },
-      action_url: `/review/session/${sessionId}`,
+      action_url: reviewId ? `/review/session/${reviewId}` : `/error-book/${sessionId}`,
       action_text: '查看分析',
       is_read: false,
       priority: 1,

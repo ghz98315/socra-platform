@@ -23,24 +23,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 });
     }
 
-    let pendingQuery = supabase
-      .from('review_schedule')
-      .select(`
+    const reviewSelect = `
         id,
         session_id,
         student_id,
         review_stage,
         next_review_at,
         is_completed,
+        created_at,
         error_sessions (
           id,
           subject,
           extracted_text,
           difficulty_rating,
+          student_difficulty_rating,
+          final_difficulty_rating,
           concept_tags,
-          created_at
+          created_at,
+          status
         )
-      `)
+      `;
+
+    let pendingQuery = supabase
+      .from('review_schedule')
+      .select(reviewSelect)
       .eq('student_id', student_id)
       .eq('is_completed', false)
       .order('next_review_at', { ascending: true });
@@ -58,16 +64,35 @@ export async function GET(req: NextRequest) {
           .eq('is_completed', true)
       : Promise.resolve({ count: 0, error: null } as { count: number | null; error: null });
 
-    const [pendingResult, completedResult] = await Promise.all([pendingPromise, completedPromise]);
+    const completedListPromise = includeCounts
+      ? supabase
+          .from('review_schedule')
+          .select(reviewSelect)
+          .eq('student_id', student_id)
+          .eq('is_completed', true)
+          .order('next_review_at', { ascending: false })
+          .limit(6)
+      : Promise.resolve({ data: [], error: null } as { data: any[]; error: null });
+
+    const [pendingResult, completedResult, completedListResult] = await Promise.all([
+      pendingPromise,
+      completedPromise,
+      completedListPromise,
+    ]);
     const { data: reviews, error } = pendingResult;
+    const { data: completedReviews, error: completedListError } = completedListResult;
 
     if (error) {
       console.error('Error fetching review schedule:', error);
       return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
     }
 
+    if (completedListError) {
+      console.error('Error fetching completed review schedule:', completedListError);
+    }
+
     const now = Date.now();
-    const mappedReviews = (reviews || []).map((review: any) => {
+    const mapReview = (review: any) => {
       const session = Array.isArray(review.error_sessions) ? review.error_sessions[0] : review.error_sessions;
       const nextReviewAt = new Date(review.next_review_at);
       const daysUntilDue = Math.ceil((nextReviewAt.getTime() - now) / (1000 * 60 * 60 * 24));
@@ -83,21 +108,40 @@ export async function GET(req: NextRequest) {
         is_overdue: daysUntilDue <= 0,
         error_session: session
           ? {
-              id: session.id,
-              subject: session.subject,
-              extracted_text: session.extracted_text,
-              difficulty_rating: session.difficulty_rating,
-              concept_tags: session.concept_tags,
-              created_at: session.created_at,
-            }
+            id: session.id,
+            subject: session.subject,
+            extracted_text: session.extracted_text,
+            difficulty_rating: session.difficulty_rating,
+            student_difficulty_rating: session.student_difficulty_rating,
+            final_difficulty_rating: session.final_difficulty_rating,
+            concept_tags: session.concept_tags,
+            created_at: session.created_at,
+            status: session.status,
+          }
           : null,
       };
-    });
+    };
+
+    const mappedReviews = (reviews || []).map(mapReview);
+    const mappedCompletedReviews = (completedReviews || []).map(mapReview);
+    const overdueCount = mappedReviews.filter((review) => review.is_overdue).length;
+    const dueTodayCount = mappedReviews.filter((review) => review.days_until_due <= 1).length;
+    const upcomingCount = mappedReviews.filter((review) => review.days_until_due > 1).length;
+    const completedCount = includeCounts ? completedResult.count || 0 : 0;
 
     return NextResponse.json({
       data: mappedReviews,
+      completed_data: mappedCompletedReviews,
       count: mappedReviews.length,
-      completed_count: includeCounts ? completedResult.count || 0 : undefined,
+      completed_count: includeCounts ? completedCount : undefined,
+      summary: {
+        total_count: mappedReviews.length + completedCount,
+        pending_count: mappedReviews.length,
+        due_today_count: dueTodayCount,
+        overdue_count: overdueCount,
+        upcoming_count: upcomingCount,
+        completed_count: completedCount,
+      },
     });
   } catch (error: any) {
     console.error('Review schedule API error:', error);
