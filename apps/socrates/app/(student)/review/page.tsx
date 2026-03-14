@@ -20,7 +20,6 @@ import {
   Filter,
   RefreshCw
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
 import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
@@ -64,12 +63,8 @@ interface ReviewItem {
   isOverdue: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
-
 export default function ReviewPage() {
   const { profile } = useAuth();
-  const supabase = createClient() as SupabaseClient;
 
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
@@ -91,73 +86,39 @@ export default function ReviewPage() {
     }
 
     try {
-      // 并行获取待复习和已完成数量
-      const [pendingResult, completedResult] = await Promise.all([
-        supabase
-          .from('review_schedule')
-          .select('*')
-          .eq('student_id', profile.id)
-          .eq('is_completed', false)
-          .order('next_review_at', { ascending: true }),
-        supabase
-          .from('review_schedule')
-          .select('id', { count: 'exact', head: true })
-          .eq('student_id', profile.id)
-          .eq('is_completed', true)
-      ]);
+      const response = await fetch(
+        `/api/review/schedule?student_id=${encodeURIComponent(profile.id)}&scope=all&include_counts=1`
+      );
+      const payload = await response.json();
 
-      if (pendingResult.error) {
-        console.error('Failed to load reviews:', pendingResult.error);
-        return;
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to load reviews');
       }
 
-      setCompletedCount(completedResult.count || 0);
+      setCompletedCount(payload.completed_count || 0);
 
-      const reviewSchedules = pendingResult.data || [];
+      const enrichedReviews: ReviewItem[] = (payload.data || []).map((review: any) => ({
+        id: review.id,
+        sessionId: review.session_id,
+        subject: review.error_session?.subject || 'math',
+        conceptTags: review.error_session?.concept_tags ?? null,
+        difficultyRating: review.error_session?.difficulty_rating ?? null,
+        previewText: review.error_session?.extracted_text ?? null,
+        nextReviewAt: review.next_review_at,
+        reviewStage: review.review_stage,
+        daysUntilDue: review.days_until_due,
+        isOverdue: review.is_overdue,
+      }));
 
-      // 关联错题会话信息
-      const sessionIds = reviewSchedules.map((r: { session_id: string }) => r.session_id) || [];
-
-      if (sessionIds.length > 0) {
-        const { data: sessionData } = await supabase
-          .from('error_sessions')
-          .select('*')
-          .in('id', sessionIds);
-
-        const sessions = sessionData || [];
-
-        // 组合数据
-        const sessionMap = new Map(sessions.map((s: { id: string }) => [s.id, s]));
-
-        const enrichedReviews: ReviewItem[] = reviewSchedules.map((review: { id: string; session_id: string; next_review_at: string; review_stage: number }) => {
-          const session = sessionMap.get(review.session_id) as { subject?: string; concept_tags?: string[]; difficulty_rating?: number; extracted_text?: string | null } | undefined;
-          const now = new Date();
-          const nextReviewDate = new Date(review.next_review_at);
-          const daysUntil = Math.ceil((nextReviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-          return {
-            id: review.id,
-            sessionId: review.session_id,
-            subject: session?.subject || 'math',
-            conceptTags: session?.concept_tags ?? null,
-            difficultyRating: session?.difficulty_rating ?? null,
-            previewText: session?.extracted_text ?? null,
-            nextReviewAt: review.next_review_at,
-            reviewStage: review.review_stage,
-            daysUntilDue: daysUntil,
-            isOverdue: daysUntil <= 0,
-          };
-        });
-
-        setReviews(enrichedReviews);
-      } else {
-        setReviews([]);
-      }
+      setReviews(enrichedReviews);
+    } catch (error) {
+      console.error('Failed to load reviews:', error);
+      setReviews([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [profile?.id, supabase]);
+  }, [profile?.id]);
 
   // 加载复习列表 - 确保 profile 存在后再加载
   useEffect(() => {
@@ -173,42 +134,26 @@ export default function ReviewPage() {
   });
 
   const handleCompleteReview = async (reviewId: string) => {
-    // 更新为下一阶段
-    const { data: currentReview, error: fetchError } = await supabase
-      .from('review_schedule')
-      .select('*')
-      .eq('id', reviewId)
-      .single();
+    try {
+      const response = await fetch('/api/review/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: reviewId,
+          student_id: profile?.id,
+          result: 'correct',
+        }),
+      });
+      const payload = await response.json();
 
-    if (fetchError || !currentReview) {
-      console.error('Failed to fetch review:', fetchError);
-      return;
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to complete review');
+      }
+
+      await loadReviews();
+    } catch (error) {
+      console.error('Failed to complete review:', error);
     }
-
-    const reviewSchedule = currentReview as { review_stage: number; next_review_at: string };
-
-    // 计算下一阶段
-    const nextStage = Math.min(reviewSchedule.review_stage + 1, 4);
-    const currentDate = new Date(reviewSchedule.next_review_at);
-    const nextDays = REVIEW_STAGES.find(s => s.stage === nextStage)?.days || 30;
-    currentDate.setDate(currentDate.getDate() + nextDays);
-
-    // 更新
-    const { error: updateError } = await supabase
-      .from('review_schedule')
-      .update({
-        review_stage: nextStage,
-        next_review_at: currentDate.toISOString(),
-      })
-      .eq('id', reviewId);
-
-    if (updateError) {
-      console.error('Failed to complete review:', updateError);
-      return;
-    }
-
-    // 重新加载列表
-    await loadReviews();
   };
 
   const getSubjectIcon = (subject: string) => {
@@ -298,6 +243,16 @@ export default function ReviewPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-32">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-warm-900">复习清单</h2>
+            <p className="text-sm text-warm-600">按复习时间、紧急程度和题目难度统一查看。</p>
+          </div>
+          {!loading ? (
+            <div className="text-sm text-warm-600">共 {filteredReviews.length} 条</div>
+          ) : null}
+        </div>
+
         {/* Filter Tabs Card - 带动画 */}
         <div
           ref={filterAnimation.ref}
@@ -513,14 +468,6 @@ export default function ReviewPage() {
         )}
       </main>
 
-      {/* Development Notice */}
-      <div className="fixed bottom-4 left-0 right-0 p-4 pointer-events-none">
-        <div className="max-w-7xl mx-auto">
-          <div className="mx-auto bg-white/80 backdrop-blur-xl rounded-full px-4 py-2 text-sm text-warm-600 shadow-sm border border-warm-200/50 w-fit">
-            复习系统开发中...艾宾浩斯算法即将上线
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

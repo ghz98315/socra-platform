@@ -469,13 +469,15 @@ const Card: React.FC<{
   icon: React.ReactNode;
   colorClass: string;
   children: React.ReactNode;
-}> = ({ title, icon, colorClass, children }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-warm-100 overflow-hidden mb-6 transition-transform hover:scale-[1.01] duration-300">
+  className?: string;
+  bodyClassName?: string;
+}> = ({ title, icon, colorClass, children, className = '', bodyClassName = '' }) => (
+  <div className={`bg-white rounded-2xl shadow-sm border border-warm-100 overflow-hidden mb-6 transition-transform hover:scale-[1.01] duration-300 ${className}`}>
     <div className={`px-4 py-4 border-b border-gray-50 flex items-center gap-2 ${colorClass} bg-opacity-10`}>
       {icon}
       <h3 className="font-bold text-xl">{title}</h3>
     </div>
-    <div className="p-5">
+    <div className={`p-5 ${bodyClassName}`}>
       {children}
     </div>
   </div>
@@ -1191,13 +1193,14 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-4 pb-36 xl:pb-24">
-      <div className="flex flex-col lg:flex-row gap-8">
+    <div className="mx-auto w-full max-w-[1480px] p-4 pb-36 lg:px-6 xl:px-8 xl:pb-24">
+      <div className="space-y-8">
+        <div className="flex flex-col gap-8 xl:grid xl:grid-cols-[280px_minmax(0,1fr)_340px] xl:items-start">
 
         {/* Left Column: Image & OCR Text */}
-        <div className="w-full lg:w-5/12 space-y-6">
+        <div className="w-full space-y-6 xl:contents">
            {/* Image Gallery */}
-           <div className="bg-white rounded-2xl shadow-sm p-4 border border-warm-100">
+           <div className="bg-white rounded-2xl shadow-sm p-4 border border-warm-100 xl:col-start-1 xl:row-start-1 xl:sticky xl:top-6">
               <h3 className="font-bold text-warm-800 mb-3 flex justify-between items-center">
                 <span>原图预览</span>
                 <span className="text-xs text-warm-500 font-normal bg-warm-50 px-2 py-1 rounded-full">
@@ -1236,8 +1239,65 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
               )}
            </div>
 
+           <div className="hidden xl:block xl:col-start-1 xl:row-start-2">
+             <div className="rounded-[28px] border border-warm-100 bg-white p-4 shadow-sm">
+               <div className="flex items-start justify-between gap-3">
+                 <div>
+                  <div className="text-sm font-bold text-warm-800">批改总览</div>
+                   <div className="mt-1 text-xs leading-relaxed text-slate-500">
+                    左侧保留原图和本轮批改概览。
+                   </div>
+                 </div>
+                 <span className="rounded-full border border-warm-100 bg-warm-50 px-2.5 py-1 text-[11px] font-bold text-warm-700">
+                  {visibleAnnotations.length} 条批注
+                 </span>
+               </div>
+               <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                 <div className="rounded-2xl border border-rose-100 bg-rose-50 px-3 py-3 text-rose-700">
+                   <div className="text-lg font-black leading-none">{correctionDrafts.length}</div>
+                  <div className="mt-1">错别字</div>
+                 </div>
+                 <div className="rounded-2xl border border-yellow-100 bg-yellow-50 px-3 py-3 text-yellow-700">
+                   <div className="text-lg font-black leading-none">{highlightAnnotationDrafts.length}</div>
+                  <div className="mt-1">闪光点</div>
+                 </div>
+                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-emerald-700">
+                   <div className="text-lg font-black leading-none">{goldenDrafts.length}</div>
+                  <div className="mt-1">金句</div>
+                 </div>
+                 <div className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-3 text-orange-700">
+                   <div className="text-lg font-black leading-none">{magicDrafts.length}</div>
+                  <div className="mt-1">段落升级</div>
+                 </div>
+               </div>
+               <div className="mt-4 rounded-2xl border border-warm-100 bg-warm-50/70 p-3">
+                 <div className="flex items-center justify-between gap-3 text-[11px] font-bold uppercase tracking-[0.18em] text-warm-500">
+                  <span>审阅进度</span>
+                   <span className="text-warm-800">{reviewedVisibleCount}/{visibleAnnotations.length || 0}</span>
+                 </div>
+                 <div className="mt-2 h-2 overflow-hidden rounded-full border border-warm-100 bg-white">
+                   <div
+                     className="h-full rounded-full bg-gradient-to-r from-warm-400 to-warm-600 transition-all duration-300"
+                     style={{ width: `${reviewProgressPct}%` }}
+                   />
+                 </div>
+                 <div className="mt-3 flex flex-wrap gap-1.5">
+                   <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                    已采纳 {acceptedVisibleCount}
+                   </span>
+                   <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">
+                    稍后处理 {laterVisibleCount}
+                   </span>
+                   <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                    待处理 {pendingVisibleCount}
+                   </span>
+                 </div>
+               </div>
+             </div>
+           </div>
+
            {/* Annotated Essay */}
-           <div className="bg-white rounded-2xl shadow-sm p-4 border border-warm-100">
+           <div className="bg-white rounded-[30px] shadow-sm p-4 border border-warm-100 xl:col-start-2 xl:col-span-2 xl:row-span-2 xl:p-6">
              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                <div>
                  <h3 className="font-bold text-warm-800 flex items-center">
@@ -1248,7 +1308,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                    像 Word 一样直接点正文高亮，看对应的错别字、闪光点和段落升级。
                  </p>
                </div>
-               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 xl:hidden">
                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-rose-700">
                    <div className="font-bold text-base leading-none">{correctionDrafts.length}</div>
                    <div className="mt-1">错别字</div>
@@ -1267,7 +1327,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                  </div>
                </div>
              </div>
-             <div className="bg-orange-50/30 p-5 rounded-xl text-gray-700 leading-loose border border-orange-100 text-base">
+             <div className="rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50/40 via-[#fffaf6] to-white p-5 text-base text-gray-700 leading-loose xl:p-6">
                 <div className="flex flex-wrap gap-2 mb-4">
                   <button
                     type="button"
@@ -1316,7 +1376,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                       </div>
                       <div className="min-w-[180px]">
                         <div className="mb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.18em] text-warm-500">
-                          <span>Review Progress</span>
+                          <span>审阅进度</span>
                           <span>{reviewedVisibleCount}/{visibleAnnotations.length}</span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full border border-warm-100 bg-warm-50">
@@ -1395,7 +1455,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                     </div>
                   </div>
                 ) : null}
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_320px]">
+                <div className="grid gap-5 xl:grid-cols-[minmax(0,1.85fr)_320px] 2xl:grid-cols-[minmax(0,1.95fr)_340px]">
                   <div className="min-w-0">
                     {analysis.title && (
                       <div className="mb-4 rounded-2xl border border-warm-100 bg-white/80 p-4">
@@ -1405,7 +1465,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                         </div>
                       </div>
                     )}
-                    <div className="rounded-[28px] border border-[#ead7c6] bg-[#fffdfa] p-4 shadow-[0_18px_50px_rgba(140,89,40,0.08)]">
+                    <div className="rounded-[30px] border border-[#ead7c6] bg-[#fffdfa] p-4 shadow-[0_18px_50px_rgba(140,89,40,0.08)] xl:p-5">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
                           <span className="text-warm-700 font-bold text-base">正文标注</span>
@@ -1418,7 +1478,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                         </span>
                       </div>
                       <div
-                        className="relative min-h-[260px] max-h-[72vh] overflow-y-auto rounded-[24px] border border-[#f1dfcf] bg-[#fffaf5] pr-2"
+                        className="relative min-h-[420px] max-h-[75vh] overflow-y-auto rounded-[26px] border border-[#f1dfcf] bg-[#fffaf5] pr-2"
                         style={{
                           backgroundImage:
                             'repeating-linear-gradient(to bottom, transparent 0, transparent 34px, rgba(233, 213, 191, 0.45) 34px, rgba(233, 213, 191, 0.45) 35px)',
@@ -1429,7 +1489,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                         <div className="pointer-events-none absolute left-5 top-0 h-full w-px bg-rose-200/80" />
                         <div className="pl-9 pr-4 py-5">
                         {essayBody ? (
-                          <div className="whitespace-pre-wrap text-justify leading-loose text-[15px]">
+                          <div className="whitespace-pre-wrap text-justify leading-[2.2] text-[16px] xl:text-[17px]">
                             {annotationSegments.map((segment) => {
                               if (!segment.annotation) {
                                 return <span key={segment.key}>{segment.text}</span>;
@@ -1471,7 +1531,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                     </div>
                   </div>
                   <div className="hidden xl:block min-w-0">
-                    <div className="rounded-2xl border border-warm-100 bg-white/85 p-4 xl:sticky xl:top-4">
+                    <div className="rounded-[28px] border border-warm-100 bg-white/90 p-4 xl:sticky xl:top-6">
                       <div className="flex items-start justify-between gap-3 mb-4">
                         <div>
                           <div className="text-sm font-bold text-warm-800">侧边批注栏</div>
@@ -1488,7 +1548,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <div className="text-xs font-bold uppercase tracking-[0.18em] text-warm-500">
-                                Review Flow
+                                审阅流程
                               </div>
                               <div className="mt-1 text-sm font-bold text-warm-900">
                                 第 {selectedAnnotationIndex + 1} / {visibleAnnotations.length} 条批注
@@ -1529,7 +1589,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                         </div>
                       ) : null}
                       {visibleAnnotations.length > 0 ? (
-                        <div className="space-y-3 max-h-[56vh] overflow-y-auto pr-1">
+                        <div className="space-y-3 max-h-[44vh] overflow-y-auto pr-1">
                           {visibleAnnotations.map((annotation) => {
                             const preview = getAnnotationPreview(annotation);
                             const isSelected = focusedAnnotationId === annotation.id;
@@ -1649,7 +1709,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-xs font-bold uppercase tracking-[0.18em] text-warm-500">
-                          Mobile Review
+                          移动端审阅
                         </div>
                         <div className="mt-1 truncate text-sm font-bold text-slate-900">
                           {selectedAnnotation.title}
@@ -1672,14 +1732,31 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
            </div>
         </div>
 
-        {/* Right Column: Analysis Cards */}
-        <div className="w-full lg:w-7/12">
+        </div>
+
+        <div className="space-y-3">
+          <div className="hidden xl:flex items-end justify-between gap-6 rounded-[28px] border border-warm-100 bg-white/75 px-5 py-4">
+            <div>
+              <div className="text-sm font-bold text-warm-800">总结区</div>
+              <div className="mt-1 text-xs leading-relaxed text-slate-500">
+                先看老师总评主结论，再看下方辅助分析卡片。
+              </div>
+            </div>
+            <div className="text-xs text-slate-500">
+              一个主结论，配合更紧凑的辅助反馈。
+            </div>
+          </div>
+
+          {/* Right Column: Analysis Cards */}
+          <div className="w-full grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] xl:items-start xl:gap-5 [&>div]:mb-0">
 
           {/* 0. Rating */}
           <Card
             title="等级评定 🎖️"
             icon={<Medal className="text-sky-600" size={24} />}
             colorClass="bg-sky-50 text-sky-800"
+            className="xl:order-2"
+            bodyClassName="p-4 xl:p-5"
           >
             {rating ? (
               <div className="bg-sky-50/60 border border-sky-100 rounded-2xl p-5">
@@ -1741,6 +1818,8 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             title="闪光点 ✨"
             icon={<Star className="text-yellow-500" size={24} fill="currentColor" />}
             colorClass="bg-yellow-50 text-yellow-700"
+            className="xl:order-3"
+            bodyClassName="p-4 xl:p-5"
           >
             <div className="space-y-4">
               {highlights.map((point, idx) => (
@@ -1786,6 +1865,8 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             title="魔法修改 🪄"
             icon={<Wand2 className="text-purple-500" size={24} />}
             colorClass="bg-purple-50 text-purple-700"
+            className="xl:order-7 xl:col-span-2"
+            bodyClassName="p-4 xl:p-5"
           >
             {(analysis.corrections || []).length > 0 ? (
               <div className="space-y-6">
@@ -1833,6 +1914,8 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             title="段落魔法升级 🧙"
             icon={<Sparkles className="text-orange-500" size={24} />}
             colorClass="bg-orange-50 text-orange-700"
+            className="xl:order-5"
+            bodyClassName="p-4 xl:p-5"
           >
             {analysis.magicModification?.originalPara || analysis.magicModification?.upgradedPara ? (
               <div
@@ -1881,6 +1964,8 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             title="原文金句赏析 💎"
             icon={<Gem className="text-emerald-500" size={24} />}
             colorClass="bg-emerald-50 text-emerald-700"
+            className="xl:order-4"
+            bodyClassName="p-4 xl:p-5"
           >
              <div className="grid grid-cols-1 gap-4">
                {(analysis.goldenSentences || []).map((item, idx) => (
@@ -1913,6 +1998,8 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             title="素材百宝箱 📚"
             icon={<Quote className="text-slate-700" size={24} />}
             colorClass="bg-slate-50 text-slate-800"
+            className="xl:order-6"
+            bodyClassName="p-4 xl:p-5"
           >
             {(analysis.materialBox || []).length > 0 ? (
               <div className="space-y-4">
@@ -1946,8 +2033,10 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
             title="老师总评 👩‍🏫"
             icon={<HeartHandshake className="text-warm-600" size={24} />}
             colorClass="bg-warm-100 text-warm-800"
+            className="xl:order-1"
+            bodyClassName="p-5 xl:p-7"
           >
-            <div className="relative bg-warm-50 p-6 rounded-2xl border border-warm-200/60">
+            <div className="relative rounded-[28px] border border-warm-200/60 bg-gradient-to-br from-warm-50 to-white p-6 xl:p-7">
               <FormattedComment text={analysis.overallComment} />
               <div className="mt-6 flex items-center justify-end gap-3 opacity-80">
                 <div className="h-px w-16 bg-gradient-to-r from-transparent to-warm-300"></div>
@@ -2054,7 +2143,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-bold uppercase tracking-[0.18em] text-warm-500">
-                    Review Flow
+                    审阅流程
                   </div>
                   <div className="mt-1 text-sm font-bold text-slate-900">
                     {selectedAnnotation ? `第 ${selectedAnnotationIndex + 1} / ${visibleAnnotations.length} 条批注` : '暂无批注'}
@@ -2205,6 +2294,7 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, imagePreviews
           </div>
         </div>
       ) : null}
+      </div>
     </div>
   );
 };

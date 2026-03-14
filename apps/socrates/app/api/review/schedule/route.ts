@@ -16,13 +16,14 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const student_id = searchParams.get('student_id');
+    const scope = searchParams.get('scope') || 'due';
+    const includeCounts = searchParams.get('include_counts') === '1';
 
     if (!student_id) {
       return NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 });
     }
 
-    // 获取待复习的错题
-    const { data: reviews, error } = await supabase
+    let pendingQuery = supabase
       .from('review_schedule')
       .select(`
         id,
@@ -42,17 +43,61 @@ export async function GET(req: NextRequest) {
       `)
       .eq('student_id', student_id)
       .eq('is_completed', false)
-      .lte('next_review_at', new Date().toISOString())
       .order('next_review_at', { ascending: true });
+
+    if (scope !== 'all') {
+      pendingQuery = pendingQuery.lte('next_review_at', new Date().toISOString());
+    }
+
+    const pendingPromise = pendingQuery;
+    const completedPromise = includeCounts
+      ? supabase
+          .from('review_schedule')
+          .select('id', { count: 'exact', head: true })
+          .eq('student_id', student_id)
+          .eq('is_completed', true)
+      : Promise.resolve({ count: 0, error: null } as { count: number | null; error: null });
+
+    const [pendingResult, completedResult] = await Promise.all([pendingPromise, completedPromise]);
+    const { data: reviews, error } = pendingResult;
 
     if (error) {
       console.error('Error fetching review schedule:', error);
       return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
     }
 
+    const now = Date.now();
+    const mappedReviews = (reviews || []).map((review: any) => {
+      const session = Array.isArray(review.error_sessions) ? review.error_sessions[0] : review.error_sessions;
+      const nextReviewAt = new Date(review.next_review_at);
+      const daysUntilDue = Math.ceil((nextReviewAt.getTime() - now) / (1000 * 60 * 60 * 24));
+
+      return {
+        id: review.id,
+        session_id: review.session_id,
+        student_id: review.student_id,
+        review_stage: review.review_stage,
+        next_review_at: review.next_review_at,
+        is_completed: review.is_completed,
+        days_until_due: daysUntilDue,
+        is_overdue: daysUntilDue <= 0,
+        error_session: session
+          ? {
+              id: session.id,
+              subject: session.subject,
+              extracted_text: session.extracted_text,
+              difficulty_rating: session.difficulty_rating,
+              concept_tags: session.concept_tags,
+              created_at: session.created_at,
+            }
+          : null,
+      };
+    });
+
     return NextResponse.json({
-      data: reviews || [],
-      count: reviews?.length || 0,
+      data: mappedReviews,
+      count: mappedReviews.length,
+      completed_count: includeCounts ? completedResult.count || 0 : undefined,
     });
   } catch (error: any) {
     console.error('Review schedule API error:', error);

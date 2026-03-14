@@ -74,6 +74,386 @@ interface GeometryParseResponse {
   error?: string;
 }
 
+type GeometryData = NonNullable<GeometryParseResponse['geometry']>;
+type GeometryRelation = GeometryData['relations'][number];
+type GeometryConditions = NonNullable<GeometryData['conditions']>;
+
+const EMPTY_CONDITIONS = (): GeometryConditions => ({
+  lengths: [],
+  angles: [],
+  ratios: [],
+  parallels: [],
+  perpendiculars: [],
+  midpoints: [],
+  tangents: [],
+  intersections: [],
+  functions: [],
+  others: [],
+});
+
+const normalizeGeometry = (geometry?: Partial<GeometryData> | null): GeometryData => ({
+  type: geometry?.type || 'unknown',
+  points: Array.isArray(geometry?.points) ? geometry.points : [],
+  lines: Array.isArray(geometry?.lines) ? geometry.lines : [],
+  circles: Array.isArray(geometry?.circles) ? geometry.circles : [],
+  curves: Array.isArray(geometry?.curves) ? geometry.curves : [],
+  angles: Array.isArray(geometry?.angles) ? geometry.angles : [],
+  labels: Array.isArray(geometry?.labels) ? geometry.labels : [],
+  relations: Array.isArray(geometry?.relations) ? geometry.relations : [],
+  conditions: {
+    ...EMPTY_CONDITIONS(),
+    ...(geometry?.conditions || {}),
+  },
+  confidence: typeof geometry?.confidence === 'number' ? geometry.confidence : 0.5,
+});
+
+const unique = <T,>(items: T[]) => Array.from(new Set(items));
+
+const buildLabels = (pointIds: string[]): GeometryData['labels'] =>
+  pointIds.map((id, idx) => ({
+    targetId: id,
+    text: id,
+    position: idx === 0 ? 'top' : idx % 2 === 0 ? 'right' : 'bottom',
+  }));
+
+const buildCycleLines = (pointIds: string[]): GeometryData['lines'] => {
+  if (pointIds.length < 2) return [];
+  return pointIds.map((id, idx) => {
+    const next = pointIds[(idx + 1) % pointIds.length];
+    return {
+      id: `${id}${next}`,
+      start: id,
+      end: next,
+      type: 'segment' as const,
+    };
+  });
+};
+
+const extractJsonObject = (content: string): string | null => {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+
+  const start = trimmed.indexOf('{');
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < trimmed.length; i++) {
+    const char = trimmed[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === '{') depth++;
+    if (char === '}') depth--;
+
+    if (depth === 0) {
+      return trimmed.slice(start, i + 1).trim();
+    }
+  }
+
+  return null;
+};
+
+const sanitizeJsonString = (input: string): string => input.replace(/,\s*([}\]])/g, '$1');
+
+const evaluateMathExpressions = (input: string): string => {
+  let result = input;
+  let iterations = 0;
+
+  while (result.includes('Math.') && iterations < 10) {
+    result = result.replace(/Math\.sqrt\((\d+\.?\d*)\)/g, (_, num) => {
+      return Math.sqrt(parseFloat(num)).toFixed(3);
+    });
+    result = result.replace(/\((\d+\.?\d*)\s*\*\s*([\d.]+)\)\s*\/\s*(\d+\.?\d*)/g, (_, a, b, c) => {
+      return (parseFloat(a) * parseFloat(b) / parseFloat(c)).toFixed(3);
+    });
+    result = result.replace(/(\d+\.?\d*)\s*\+\s*Math\.sqrt\(\d+\.?\d*\)\s*\*\s*Math\.sqrt\(\d+\.?\d*\)/g, (match) => {
+      try {
+        return eval(match).toFixed(3);
+      } catch {
+        return match;
+      }
+    });
+    iterations++;
+  }
+
+  return sanitizeJsonString(result);
+};
+
+const parseGeometryContent = (content: string): GeometryData | null => {
+  const jsonStr = extractJsonObject(content);
+  if (!jsonStr) return null;
+  return normalizeGeometry(JSON.parse(evaluateMathExpressions(jsonStr)));
+};
+
+const extractPointNames = (text: string, count: number): string[] => {
+  const matches = [
+    ...text.matchAll(/点\s*([A-Z])/g),
+    ...text.matchAll(/[△▵]\s*([A-Z]{3})/g),
+    ...text.matchAll(/([A-Z]{4})/g),
+  ];
+
+  const names: string[] = [];
+  for (const match of matches) {
+    const token = match[1] || '';
+    for (const ch of token) {
+      if (/[A-Z]/.test(ch) && !names.includes(ch)) {
+        names.push(ch);
+      }
+      if (names.length >= count) return names;
+    }
+  }
+
+  return names;
+};
+
+const extractCoordinatePoints = (text: string): GeometryData['points'] => {
+  const points: GeometryData['points'] = [];
+  const seen = new Set<string>();
+  const regex = /([A-Z])\s*\(\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)\s*\)/g;
+
+  for (const match of text.matchAll(regex)) {
+    const id = match[1];
+    if (seen.has(id)) continue;
+    seen.add(id);
+    points.push({
+      id,
+      name: id,
+      x: Number(match[2]),
+      y: Number(match[3]),
+    });
+  }
+
+  if (!seen.has('O') && /坐标原点|原点/.test(text)) {
+    points.push({ id: 'O', name: 'O', x: 0, y: 0 });
+  }
+
+  return points;
+};
+
+const extractConditions = (text: string): GeometryConditions => {
+  const matches = (regex: RegExp) => unique([...text.matchAll(regex)].map((match) => match[0].replace(/\s+/g, '')));
+
+  const conditions = EMPTY_CONDITIONS();
+  conditions.lengths = matches(/[A-Z]{1,2}\s*=\s*(?:[A-Z]{1,2}|\d+(?:\.\d+)?|√\d+|\d+\/\d+)/g);
+  conditions.angles = matches(/∠\s*[A-Z]{1,3}\s*=\s*(?:\d+(?:\.\d+)?°|∠\s*[A-Z]{1,3})/g);
+  conditions.ratios = matches(/[A-Z]{1,2}\s*:\s*[A-Z]{1,2}\s*=\s*\d+\s*:\s*\d+/g);
+  conditions.parallels = matches(/[A-Z]{2}\s*(?:\/\/|∥|平行于)\s*[A-Z]{2}/g);
+  conditions.perpendiculars = matches(/[A-Z]{2}\s*(?:⊥|垂直于)\s*[A-Z]{2}/g);
+  conditions.functions = matches(/y\s*=\s*[^，。\s]+/g);
+  conditions.intersections = matches(/[A-Z]{2}.*?交于点[A-Z]/g);
+
+  if (/中点/.test(text)) {
+    conditions.midpoints = unique([
+      ...matches(/[A-Z]是[A-Z]{2}的中点/g),
+      ...matches(/[A-Z]为[A-Z]{2}中点/g),
+    ]);
+  }
+
+  if (/切线|相切/.test(text)) {
+    conditions.tangents = unique([
+      ...matches(/[A-Z]{2}.*?切线/g),
+      ...matches(/[A-Z]{2}.*?相切/g),
+    ]);
+  }
+
+  return conditions;
+};
+
+const conditionsToRelations = (conditions: GeometryConditions): GeometryRelation[] => {
+  const relations: GeometryRelation[] = [];
+
+  for (const entry of conditions.perpendiculars || []) {
+    const match = entry.match(/([A-Z]{2}).*?(?:⊥|垂直于)([A-Z]{2})/);
+    if (match) {
+      relations.push({
+        type: 'perpendicular',
+        targets: [match[1], match[2]],
+        description: entry,
+      });
+    }
+  }
+
+  for (const entry of conditions.parallels || []) {
+    const match = entry.match(/([A-Z]{2}).*?(?:\/\/|∥|平行于)([A-Z]{2})/);
+    if (match) {
+      relations.push({
+        type: 'parallel',
+        targets: [match[1], match[2]],
+        description: entry,
+      });
+    }
+  }
+
+  for (const entry of conditions.tangents || []) {
+    const match = entry.match(/([A-Z]{2}).*?(?:⊙|圆)([A-Z])/);
+    if (match) {
+      relations.push({
+        type: 'tangent',
+        targets: [match[1], `circle${match[2]}`],
+        description: entry,
+      });
+    }
+  }
+
+  return relations;
+};
+
+const buildFallbackGeometry = (text: string): GeometryData => {
+  const conditions = extractConditions(text);
+  const relations = conditionsToRelations(conditions);
+  const coordinatePoints = extractCoordinatePoints(text);
+  const hasFunction = /y\s*=|函数|图象|图像|抛物线|双曲线|坐标/.test(text);
+  const hasCircle = /⊙|圆|直径|半径|圆心|切线/.test(text);
+  const hasQuadrilateral = /四边形|矩形|正方形|平行四边形|梯形|菱形/.test(text);
+  const hasTriangle = /△|三角形|等腰|等边|勾股|直角三角形/.test(text);
+
+  if (hasFunction) {
+    const points = coordinatePoints.length > 0 ? coordinatePoints : [
+      { id: 'O', name: 'O', x: 0, y: 0 },
+      { id: 'A', name: 'A', x: 1, y: 3 },
+      { id: 'B', name: 'B', x: 3, y: 0 },
+    ];
+
+    const equation =
+      conditions.functions?.[0] ||
+      (text.includes('k/x') || text.includes('反比例') ? 'y=k/x' : 'y=x');
+
+    const curveType =
+      text.includes('k/x') || text.includes('反比例')
+        ? 'inverse_proportional'
+        : text.includes('二次函数') || /x(?:²|\^2)/.test(text)
+          ? 'quadratic'
+          : 'linear';
+
+    return normalizeGeometry({
+      type: points.length >= 3 ? 'composite' : 'function',
+      points,
+      lines: points.some((p) => p.id === 'O') && points.some((p) => p.id === 'B')
+        ? [{ id: 'OB', start: 'O', end: 'B', type: 'segment' }]
+        : [],
+      circles: [],
+      curves: [{
+        id: 'curve1',
+        type: curveType,
+        equation,
+        parameter: curveType === 'inverse_proportional' ? 3 : undefined,
+        pointsOnCurve: points.filter((p) => p.id !== 'O').slice(0, 2).map((p) => p.id),
+        xRange: curveType === 'inverse_proportional' ? [0.5, 8] : undefined,
+      }],
+      angles: [],
+      labels: buildLabels(points.map((p) => p.id)),
+      relations,
+      conditions,
+      confidence: 0.62,
+    });
+  }
+
+  if (hasCircle) {
+    const centerId = (text.match(/[⊙圆][A-Z]/)?.[0] || 'O').replace(/[⊙圆]/g, '') || 'O';
+    const diameterMatch = text.match(/([A-Z])([A-Z])是[⊙圆][A-Z]的直径/);
+    const points = coordinatePoints.length > 0 ? coordinatePoints : [
+      { id: centerId, name: centerId, x: 0, y: 0 },
+      { id: diameterMatch?.[1] || 'A', name: diameterMatch?.[1] || 'A', x: -3, y: 0 },
+      { id: diameterMatch?.[2] || 'B', name: diameterMatch?.[2] || 'B', x: 3, y: 0 },
+      { id: 'C', name: 'C', x: 0, y: 3 },
+    ];
+
+    const centerExists = points.some((p) => p.id === centerId)
+      ? points
+      : [{ id: centerId, name: centerId, x: 0, y: 0 }, ...points];
+
+    const circlePoint = centerExists.find((p) => p.id !== centerId)?.id || 'A';
+
+    return normalizeGeometry({
+      type: 'circle',
+      points: centerExists,
+      lines: diameterMatch
+        ? [{ id: `${diameterMatch[1]}${diameterMatch[2]}`, start: diameterMatch[1], end: diameterMatch[2], type: 'segment' }]
+        : [],
+      circles: [{ id: `circle${centerId}`, center: centerId, pointOnCircle: circlePoint }],
+      curves: [],
+      angles: [],
+      labels: buildLabels(centerExists.map((p) => p.id)),
+      relations,
+      conditions,
+      confidence: 0.64,
+    });
+  }
+
+  if (hasQuadrilateral) {
+    const names = extractPointNames(text, 4);
+    const ids = names.length >= 4 ? names.slice(0, 4) : ['A', 'B', 'C', 'D'];
+    const points = coordinatePoints.length >= 4 ? coordinatePoints.slice(0, 4) : [
+      { id: ids[0], name: ids[0], x: -4, y: -3 },
+      { id: ids[1], name: ids[1], x: 4, y: -3 },
+      { id: ids[2], name: ids[2], x: 4, y: 3 },
+      { id: ids[3], name: ids[3], x: -4, y: 3 },
+    ];
+
+    return normalizeGeometry({
+      type: 'quadrilateral',
+      points,
+      lines: buildCycleLines(points.map((p) => p.id)),
+      circles: [],
+      curves: [],
+      angles: [],
+      labels: buildLabels(points.map((p) => p.id)),
+      relations,
+      conditions,
+      confidence: 0.6,
+    });
+  }
+
+  if (hasTriangle) {
+    const names = extractPointNames(text, 3);
+    const ids = names.length >= 3 ? names.slice(0, 3) : ['A', 'B', 'C'];
+    const points = coordinatePoints.length >= 3 ? coordinatePoints.slice(0, 3) : [
+      { id: ids[0], name: ids[0], x: 0, y: 4 },
+      { id: ids[1], name: ids[1], x: -3, y: -2 },
+      { id: ids[2], name: ids[2], x: 3, y: -2 },
+    ];
+
+    return normalizeGeometry({
+      type: 'triangle',
+      points,
+      lines: buildCycleLines(points.map((p) => p.id)),
+      circles: [],
+      curves: [],
+      angles: [],
+      labels: buildLabels(points.map((p) => p.id)),
+      relations,
+      conditions,
+      confidence: 0.58,
+    });
+  }
+
+  return normalizeGeometry({
+    type: 'unknown',
+    conditions,
+    relations,
+    confidence: 0,
+  });
+};
+
 const GEOMETRY_PARSE_PROMPT = `你是一个几何图形精确绘制专家。请根据题目描述生成精确的几何图形坐标，并提取所有已知条件。
 
 ═══════════════════════════════════════════════════════════
@@ -635,29 +1015,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
       console.log('No geometry keywords found, returning unknown');
       return NextResponse.json({
         success: true,
-        geometry: {
-          type: 'unknown',
-          points: [],
-          lines: [],
-          circles: [],
-          curves: [],
-          angles: [],
-          labels: [],
-          relations: [],
-          conditions: {
-            lengths: [],
-            angles: [],
-            ratios: [],
-            parallels: [],
-            perpendiculars: [],
-            midpoints: [],
-            tangents: [],
-            intersections: [],
-            functions: [],
-            others: [],
-          },
-          confidence: 0,
-        },
+        geometry: buildFallbackGeometry(text),
       });
     }
 
@@ -666,9 +1024,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
     if (!apiKey) {
       console.error('Geometry API: No AI API key configured');
       return NextResponse.json({
-        success: false,
-        error: 'AI服务未配置，请检查环境变量 AI_API_KEY_LOGIC 或 DASHSCOPE_API_KEY',
-      }, { status: 500 });
+        success: true,
+        geometry: buildFallbackGeometry(text),
+        error: 'AI service unavailable, returned fallback geometry.',
+      });
     }
 
     // 调用AI解析几何图形
@@ -700,97 +1059,34 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
       const errorText = await response.text();
       console.error('AI parse error:', response.status, errorText);
       return NextResponse.json({
-        success: false,
-        error: `AI解析失败(${response.status}): ${errorText.substring(0, 200)}`,
-      }, { status: 500 });
+        success: true,
+        geometry: buildFallbackGeometry(text),
+        error: `AI parse failed (${response.status}), returned fallback geometry.`,
+      });
     }
 
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || '';
     console.log('AI response content:', content.substring(0, 500));
 
-    // 尝试解析JSON
-    let geometry;
     try {
-      // 提取JSON部分（可能被markdown包裹）
-      let jsonStr = content.trim();
-      if (jsonStr.includes('```json')) {
-        jsonStr = jsonStr.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || jsonStr;
-      } else if (jsonStr.includes('```')) {
-        jsonStr = jsonStr.match(/```\s*([\s\S]*?)\s*```/)?.[1] || jsonStr;
+      const geometry = parseGeometryContent(content);
+      if (!geometry) {
+        throw new Error('No JSON object found in AI response');
       }
-
-      // 处理 Math 表达式：将 Math.sqrt(n) 替换为计算后的数值
-      // 例如：Math.sqrt(3) → 1.732, (3 * Math.sqrt(3)) / 2 → 2.598
-      const evaluateMathExpressions = (str: string): string => {
-        // 处理复杂的 Math 表达式
-        const mathRegex = /Math\.\w+\([^)]+\)|\d+\.?\d*\s*[\+\-\*\/]\s*Math\.\w+\([^)]+\)|\([^)]*Math\.\w+\([^)]+\)[^)]*\)/g;
-        let result = str;
-
-        // 多次替换直到没有 Math 表达式
-        let iterations = 0;
-        while (result.includes('Math.') && iterations < 10) {
-          result = result.replace(/Math\.sqrt\((\d+\.?\d*)\)/g, (_, num) => {
-            return Math.sqrt(parseFloat(num)).toFixed(3);
-          });
-          result = result.replace(/\((\d+\.?\d*)\s*\*\s*([\d.]+)\)\s*\/\s*(\d+\.?\d*)/g, (_, a, b, c) => {
-            return (parseFloat(a) * parseFloat(b) / parseFloat(c)).toFixed(3);
-          });
-          result = result.replace(/(\d+\.?\d*)\s*\+\s*Math\.sqrt\(\d+\.?\d*\)\s*\*\s*Math\.sqrt\(\d+\.?\d*\)/g, (match) => {
-            try {
-              return eval(match).toFixed(3);
-            } catch {
-              return match;
-            }
-          });
-          iterations++;
-        }
-
-        return result;
-      };
-
-      jsonStr = evaluateMathExpressions(jsonStr);
-      console.log('Parsing JSON:', jsonStr.substring(0, 300));
-
-      geometry = JSON.parse(jsonStr);
       console.log('Parsed geometry type:', geometry.type);
+      return NextResponse.json({
+        success: true,
+        geometry,
+      });
     } catch (parseError: any) {
       console.error('JSON parse error:', parseError.message, 'Content:', content.substring(0, 500));
       return NextResponse.json({
-        success: false,
-        error: `图形数据解析失败: ${parseError.message}`,
-      }, { status: 500 });
+        success: true,
+        geometry: buildFallbackGeometry(text),
+        error: `Geometry JSON parse failed: ${parseError.message}. Returned fallback geometry.`,
+      });
     }
-
-    // 验证并补充默认值
-    geometry = {
-      type: geometry.type || 'unknown',
-      points: geometry.points || [],
-      lines: geometry.lines || [],
-      circles: geometry.circles || [],
-      curves: geometry.curves || [],
-      angles: geometry.angles || [],
-      labels: geometry.labels || [],
-      relations: geometry.relations || [],
-      conditions: geometry.conditions || {
-        lengths: [],
-        angles: [],
-        ratios: [],
-        parallels: [],
-        perpendiculars: [],
-        midpoints: [],
-        tangents: [],
-        intersections: [],
-        functions: [],
-        others: [],
-      },
-      confidence: geometry.confidence || 0.5,
-    };
-
-    return NextResponse.json({
-      success: true,
-      geometry,
-    });
 
   } catch (error: any) {
     console.error('Geometry parse API error:', error);

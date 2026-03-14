@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useDeferredValue } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -20,6 +20,8 @@ import {
   Star,
   RefreshCw,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   CheckCircle,
   Clock,
@@ -45,6 +47,15 @@ type ErrorSession = {
   concept_tags: string[] | null;
   created_at: string;
 };
+
+type ErrorBookStats = {
+  total: number;
+  analyzing: number;
+  guided_learning: number;
+  mastered: number;
+};
+
+const PAGE_SIZE = 24;
 
 const subjectLabels: Record<string, string> = {
   math: '数学',
@@ -91,43 +102,55 @@ export default function ErrorBookPage() {
   const [addingToReview, setAddingToReview] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [stats, setStats] = useState<ErrorBookStats>({ total: 0, analyzing: 0, guided_learning: 0, mastered: 0 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   // Fetch error sessions
   useEffect(() => {
     if (profile?.id) {
       fetchErrors();
     }
-  }, [profile?.id]);
+  }, [profile?.id, deferredSearchQuery, selectedSubject, selectedStatus, sortBy, currentPage]);
 
   const fetchErrors = async () => {
     if (!profile?.id) return;
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const [errorsResult, reviewResult] = await Promise.all([
-        supabase
-          .from('error_sessions')
-          .select('*')
-          .eq('student_id', profile.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('review_schedule')
-          .select('session_id')
-          .eq('student_id', profile.id),
-      ]);
+      const params = new URLSearchParams({
+        student_id: profile.id,
+        page: String(currentPage),
+        page_size: String(PAGE_SIZE),
+        sort_by: sortBy,
+      });
 
-      if (errorsResult.error) throw errorsResult.error;
-      setErrors(errorsResult.data || []);
-
-      if (reviewResult.error) {
-        console.error('Failed to load review schedule:', reviewResult.error);
-      } else {
-        const ids = new Set(
-          (reviewResult.data || []).map((row: { session_id: string }) => row.session_id)
-        );
-        setReviewSessionIds(ids);
+      if (deferredSearchQuery.trim()) {
+        params.set('q', deferredSearchQuery.trim());
       }
+      if (selectedSubject !== 'all') {
+        params.set('subject', selectedSubject);
+      }
+      if (selectedStatus !== 'all') {
+        params.set('status', selectedStatus);
+      }
+
+      const response = await fetch(`/api/error-book?${params.toString()}`);
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to fetch error book');
+      }
+
+      setErrors(payload.data || []);
+      setReviewSessionIds(new Set(payload.review_session_ids || []));
+      setStats(payload.stats || { total: 0, analyzing: 0, guided_learning: 0, mastered: 0 });
+      setCurrentPage(payload.page || 1);
+      setTotalPages(payload.total_pages || 1);
+      setTotalCount(payload.count || 0);
+      setSelectedIds(new Set());
     } catch (error) {
       console.error('Failed to fetch errors:', error);
     } finally {
@@ -169,34 +192,7 @@ export default function ErrorBookPage() {
     }
   };
 
-  // Filter and sort errors
-  const filteredErrors = errors
-    .filter((err) => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const textMatch = err.extracted_text?.toLowerCase().includes(query);
-        const tagsMatch = err.concept_tags?.some(tag => tag.toLowerCase().includes(query));
-        if (!textMatch && !tagsMatch) return false;
-      }
-      // Subject filter
-      if (selectedSubject !== 'all' && err.subject !== selectedSubject) return false;
-      // Status filter
-      if (selectedStatus !== 'all' && err.status !== selectedStatus) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'difficulty':
-          return (b.difficulty_rating || 0) - (a.difficulty_rating || 0);
-        default:
-          return 0;
-      }
-    });
+  const filteredErrors = errors;
 
   // Toggle selection
   const toggleSelect = (id: string) => {
@@ -291,7 +287,7 @@ export default function ErrorBookPage() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="gap-1">
                 <FileText className="w-3 h-3" />
-                {errors.length} 条记录
+                {totalCount} 条记录
               </Badge>
               <Button
                 variant="outline"
@@ -320,28 +316,22 @@ export default function ErrorBookPage() {
           </div>
         ) : null}
         {/* Stats Cards - 移到顶部 */}
-        {!loading && errors.length > 0 && (
+        {!loading && stats.total > 0 && (
           <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-950/30 border border-blue-200/50 dark:border-blue-800/50">
-              <p className="text-3xl font-bold text-blue-600">{errors.length}</p>
+              <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
               <p className="text-xs text-blue-600/70">总错题数</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-yellow-100 to-yellow-50 dark:from-yellow-900/30 dark:to-yellow-950/30 border border-yellow-200/50 dark:border-yellow-800/50">
-              <p className="text-3xl font-bold text-yellow-600">
-                {errors.filter(e => e.status === 'analyzing').length}
-              </p>
+              <p className="text-3xl font-bold text-yellow-600">{stats.analyzing}</p>
               <p className="text-xs text-yellow-600/70">分析中</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/30 dark:to-purple-950/30 border border-purple-200/50 dark:border-purple-800/50">
-              <p className="text-3xl font-bold text-purple-600">
-                {errors.filter(e => e.status === 'guided_learning').length}
-              </p>
+              <p className="text-3xl font-bold text-purple-600">{stats.guided_learning}</p>
               <p className="text-xs text-purple-600/70">学习中</p>
             </div>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-950/30 border border-green-200/50 dark:border-green-800/50">
-              <p className="text-3xl font-bold text-green-600">
-                {errors.filter(e => e.status === 'mastered').length}
-              </p>
+              <p className="text-3xl font-bold text-green-600">{stats.mastered}</p>
               <p className="text-xs text-green-600/70">已掌握 ✨</p>
             </div>
           </div>
@@ -355,7 +345,10 @@ export default function ErrorBookPage() {
             <Input
               placeholder="搜索题目内容或标签..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-900/80 border-warm-200 focus:border-warm-300"
             />
           </div>
@@ -372,7 +365,10 @@ export default function ErrorBookPage() {
               ].map((subject) => (
                 <button
                   key={subject.value}
-                  onClick={() => setSelectedSubject(subject.value)}
+                  onClick={() => {
+                    setSelectedSubject(subject.value);
+                    setCurrentPage(1);
+                  }}
                   data-active={selectedSubject === subject.value}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
@@ -396,7 +392,10 @@ export default function ErrorBookPage() {
               ].map((status) => (
                 <button
                   key={status.value}
-                  onClick={() => setSelectedStatus(status.value)}
+                  onClick={() => {
+                    setSelectedStatus(status.value);
+                    setCurrentPage(1);
+                  }}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                     selectedStatus === status.value
@@ -418,7 +417,10 @@ export default function ErrorBookPage() {
               ].map((sort) => (
                 <button
                   key={sort.value}
-                  onClick={() => setSortBy(sort.value as any)}
+                  onClick={() => {
+                    setSortBy(sort.value as any);
+                    setCurrentPage(1);
+                  }}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
                     sortBy === sort.value
@@ -619,44 +621,37 @@ export default function ErrorBookPage() {
                 </Card>
               );
             })}
+
+            <div className="flex flex-col gap-3 rounded-2xl border border-warm-200/60 bg-white/85 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-warm-700">
+                当前第 {currentPage} / {totalPages} 页，共 {totalCount} 条错题记录
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  className="rounded-full border-warm-200"
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  上一页
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                  className="rounded-full border-warm-200"
+                >
+                  下一页
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Summary Stats */}
-        {!loading && errors.length > 0 && (
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="border-warm-200/50">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-warm-500">{errors.length}</p>
-                <p className="text-xs text-warm-600">总错题数</p>
-              </CardContent>
-            </Card>
-            <Card className="border-warm-200/50">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-yellow-500">
-                  {errors.filter(e => e.status === 'analyzing').length}
-                </p>
-                <p className="text-xs text-warm-600">分析中</p>
-              </CardContent>
-            </Card>
-            <Card className="border-warm-200/50">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-blue-500">
-                  {errors.filter(e => e.status === 'guided_learning').length}
-                </p>
-                <p className="text-xs text-warm-600">学习中</p>
-              </CardContent>
-            </Card>
-            <Card className="border-warm-200/50">
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold text-green-500">
-                  {errors.filter(e => e.status === 'mastered').length}
-                </p>
-                <p className="text-xs text-warm-600">已掌握</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </main>
     </div>
   );
