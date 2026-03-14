@@ -315,14 +315,14 @@ function HeroPreview() {
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-[#43312a] bg-[linear-gradient(180deg,#4a352d_0%,#362722_100%)] p-4 text-white shadow-[0_18px_44px_rgba(54,39,34,0.22)]">
+            <div className="rounded-[1.5rem] border border-[#b89d90] bg-[linear-gradient(180deg,#8a766d_0%,#76625a_100%)] p-4 text-white shadow-[0_14px_30px_rgba(118,98,90,0.14)]">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-200">错题引导</p>
-                <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-medium text-stone-100">先想思路</span>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-100">错题引导</p>
+                <span className="rounded-full bg-white/14 px-3 py-1 text-[11px] font-medium text-stone-50">先想思路</span>
               </div>
               <div className="mt-3 space-y-2 text-sm leading-6 text-stone-100">
-                <div className="rounded-2xl border border-white/8 bg-white/7 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
-                <div className="rounded-2xl border border-orange-200/10 bg-orange-300/10 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2.5">先别急着算答案，题目真正问的是什么？</div>
+                <div className="rounded-2xl border border-orange-100/12 bg-orange-200/12 px-3 py-2.5 text-orange-50">我好像没看懂“相对速度”这一步。</div>
               </div>
             </div>
           </div>
@@ -402,9 +402,9 @@ export default function LandingPage() {
                       陪孩子学会思考的 AI 学习助手
                     </span>
 
-                    <h1 className="mt-5 max-w-[10.5ch] text-[2.45rem] font-semibold leading-[1.04] tracking-[-0.03em] text-stone-950 sm:text-[3.45rem] lg:text-[4.1rem] [font-family:var(--font-display)]">
-                      只是缺一个
-                      <span className="block text-orange-600">会引导思考的学习助手</span>
+                    <h1 className="mt-5 max-w-[12ch] text-[2.4rem] font-semibold leading-[1.06] tracking-[-0.032em] text-stone-950 sm:text-[3.35rem] lg:text-[4rem] [font-family:var(--font-display)]">
+                      真正拉开差距的不是天赋，
+                      <span className="mt-1 block text-[0.96em] text-orange-600">而是掌握举一反三的解题思维</span>
                     </h1>
 
                     <p className="mt-4 max-w-[30rem] text-[0.98rem] leading-7 text-stone-600 sm:text-[1.03rem]">
@@ -540,17 +540,17 @@ export default function LandingPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-[1.45rem] border border-[#43312a] bg-[linear-gradient(180deg,#4c372f_0%,#362722_100%)] p-4 text-white shadow-[0_18px_40px_rgba(54,39,34,0.2)]">
-                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-200">家长最能感知的变化</p>
+                      <div className="rounded-[1.45rem] border border-[#b89d90] bg-[linear-gradient(180deg,#8b786e_0%,#756159_100%)] p-4 text-white shadow-[0_14px_30px_rgba(118,98,90,0.14)]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-100">家长最能感知的变化</p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           {[
                             ['当天看懂', '不是直接给答案'],
                             ['后面记住', '自动进复习清单'],
                             ['持续看到变化', '不是一次性讲题'],
                           ].map(([title, copy]) => (
-                            <div key={title} className="rounded-2xl border border-white/8 bg-white/7 px-3 py-3">
+                            <div key={title} className="rounded-2xl border border-white/10 bg-white/10 px-3 py-3">
                               <p className="text-sm font-medium">{title}</p>
-                              <p className="mt-1 text-xs leading-5 text-stone-100/85">{copy}</p>
+                              <p className="mt-1 text-xs leading-5 text-stone-50/85">{copy}</p>
                             </div>
                           ))}
                         </div>
