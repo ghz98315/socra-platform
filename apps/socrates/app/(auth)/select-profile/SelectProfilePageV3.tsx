@@ -155,7 +155,7 @@ export default function SelectProfilePageV3() {
                 onClick={() => handleSelectProfile(option)}
                 disabled={isBusy}
                 className={cn(
-                  'group relative rounded-[30px] border-2 bg-white p-8 text-left transition-all duration-300',
+                  'group flex h-full flex-col rounded-[30px] border-2 bg-white p-8 text-left transition-all duration-300',
                   'hover:-translate-y-1 hover:shadow-lg hover:shadow-warm-500/10',
                   isCurrent
                     ? 'border-warm-500 shadow-lg shadow-warm-500/15'
@@ -163,12 +163,14 @@ export default function SelectProfilePageV3() {
                   isBusy && 'cursor-not-allowed opacity-80'
                 )}
               >
-                {isCurrent ? (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-warm-500 px-4 py-1 text-xs font-medium text-white shadow-lg">
-                    <CheckCircle className="mr-1 inline h-3 w-3" />
-                    当前使用中
-                  </div>
-                ) : null}
+                <div className="mb-5 min-h-7">
+                  {isCurrent ? (
+                    <div className="inline-flex items-center rounded-full bg-warm-500 px-4 py-1 text-xs font-medium text-white shadow-sm">
+                      <CheckCircle className="mr-1 h-3 w-3" />
+                      当前使用中
+                    </div>
+                  ) : null}
+                </div>
 
                 <div
                   className={cn(
@@ -183,7 +185,7 @@ export default function SelectProfilePageV3() {
 
                 <h3 className="text-xl font-semibold text-warm-900">{option.title}</h3>
                 <p className="mt-1 text-sm text-warm-500">{option.subtitle}</p>
-                <p className="mt-4 min-h-16 text-sm leading-6 text-warm-600">{option.description}</p>
+                <p className="mt-4 min-h-[4.5rem] text-sm leading-6 text-warm-600">{option.description}</p>
 
                 <div className="mt-4 space-y-2">
                   {option.notes.map((note) => (
@@ -196,7 +198,7 @@ export default function SelectProfilePageV3() {
 
                 <div
                   className={cn(
-                    'mt-6 inline-flex items-center rounded-full px-4 py-3 text-sm font-medium transition-colors',
+                    'mt-auto inline-flex items-center rounded-full px-4 py-3 text-sm font-medium transition-colors',
                     isCurrent
                       ? 'bg-green-500 text-white'
                       : 'bg-warm-500 text-white group-hover:bg-warm-600'

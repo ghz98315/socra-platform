@@ -56,18 +56,18 @@ const studentNavItems: NavItem[] = [
 
 function BilingualInlineLabel({ label }: { label: { zh: string; en: string } }) {
   return (
-    <span className="flex items-baseline gap-1">
-      <span>{label.zh}</span>
-      <span className="text-[11px] text-muted-foreground">{label.en}</span>
+    <span className="flex items-center gap-1.5">
+      <span className="leading-none">{label.zh}</span>
+      <span className="text-[11px] leading-none text-muted-foreground">{label.en}</span>
     </span>
   );
 }
 
 function BilingualStackLabel({ label }: { label: { zh: string; en: string } }) {
   return (
-    <span className="flex flex-col items-center leading-tight">
-      <span className="text-[10px] font-medium">{label.zh}</span>
-      <span className="text-[9px] text-muted-foreground">{label.en}</span>
+    <span className="flex flex-col items-center gap-0.5 text-center">
+      <span className="text-[10px] font-medium leading-[1.2]">{label.zh}</span>
+      <span className="text-[9px] leading-[1.2] text-muted-foreground">{label.en}</span>
     </span>
   );
 }

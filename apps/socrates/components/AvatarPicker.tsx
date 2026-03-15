@@ -29,13 +29,13 @@ export function AvatarPicker({
       : avatarOptions.filter((option) => option.role === roleFilter);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="space-y-1">
         <p className="text-sm font-medium text-warm-800">{title}</p>
         <p className="text-xs text-warm-500">{description}</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-4 gap-3.5 sm:grid-cols-4 sm:gap-4">
         {filteredOptions.map((option) => {
           const active = selectedAvatar === option.src;
 
@@ -45,7 +45,7 @@ export function AvatarPicker({
               type="button"
               onClick={() => onChange(option.src)}
               className={cn(
-                'group relative rounded-2xl border p-2 transition-all',
+                'group relative rounded-2xl border p-2.5 transition-all',
                 'hover:-translate-y-0.5 hover:shadow-md',
                 active
                   ? 'border-warm-400 bg-white shadow-md shadow-warm-200/60'
@@ -66,7 +66,7 @@ export function AvatarPicker({
                   <AvatarFallback>{option.label.slice(0, 2)}</AvatarFallback>
                 </Avatar>
               </div>
-              <p className="mt-2 line-clamp-2 text-center text-[11px] font-medium leading-4 text-warm-700">
+              <p className="mt-2.5 min-h-10 px-1 text-center text-xs font-medium leading-5 text-warm-700">
                 {option.label}
               </p>
               {active ? (
