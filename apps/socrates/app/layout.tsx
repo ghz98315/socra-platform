@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
-import { GlobalNav } from "@/components/GlobalNav";
+import { GlobalNav } from "@/components/GlobalNavV2";
 import { SyncManager } from "@/components/SyncManager";
 import { OfflineProvider } from "@/lib/offline/OfflineContext";
 
