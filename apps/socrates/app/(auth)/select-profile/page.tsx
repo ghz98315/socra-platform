@@ -1,4 +1,4 @@
-export { default } from './SelectProfilePageV2';
+export { default } from './SelectProfilePageV3';
 /*
 // =====================================================
 // Project Socrates - Profile Selection Page

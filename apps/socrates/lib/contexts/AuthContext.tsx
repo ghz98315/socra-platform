@@ -21,6 +21,8 @@ interface UserProfile {
   grade_level?: number;
   display_name?: string;
   avatar_url?: string;
+  student_avatar_url?: string;
+  parent_avatar_url?: string;
   xp_points?: number;
   created_at: string;
 }
@@ -342,12 +344,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const response = await fetch('/api/profile/ensure', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: user.user_metadata?.phone || null,
-            display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
-            avatar_url: updates.avatar_url || user.user_metadata?.avatar_url || null,
-            role: updates.role || 'student',
-          }),
+            body: JSON.stringify({
+              phone: user.user_metadata?.phone || null,
+              display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
+              avatar_url: updates.avatar_url || user.user_metadata?.avatar_url || null,
+              student_avatar_url: updates.student_avatar_url || user.user_metadata?.student_avatar_url || null,
+              parent_avatar_url: updates.parent_avatar_url || user.user_metadata?.parent_avatar_url || null,
+              role: updates.role || 'student',
+            }),
         });
 
         if (response.ok) {

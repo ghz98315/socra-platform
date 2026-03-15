@@ -12,6 +12,7 @@ interface AvatarPickerProps {
   roleFilter?: AvatarRole | 'all';
   title?: string;
   description?: string;
+  avatarClassName?: string;
 }
 
 export function AvatarPicker({
@@ -20,6 +21,7 @@ export function AvatarPicker({
   roleFilter = 'all',
   title = '选择头像',
   description = '先选一个喜欢的卡通头像，后续也可以再改。',
+  avatarClassName,
 }: AvatarPickerProps) {
   const filteredOptions =
     roleFilter === 'all'
@@ -56,7 +58,10 @@ export function AvatarPicker({
                   option.accent
                 )}
               >
-                <Avatar size="lg" className="mx-auto size-16 border-2 border-white/80 shadow-sm">
+                <Avatar
+                  size="lg"
+                  className={cn('mx-auto size-20 border-2 border-white/80 shadow-sm', avatarClassName)}
+                >
                   <AvatarImage src={option.src} alt={option.label} />
                   <AvatarFallback>{option.label.slice(0, 2)}</AvatarFallback>
                 </Avatar>

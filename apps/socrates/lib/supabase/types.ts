@@ -7,6 +7,11 @@ export interface UserProfile {
   theme_preference?: ThemeType;
   grade_level?: number;
   name?: string;
+  display_name?: string;
+  phone?: string;
+  avatar_url?: string;
+  student_avatar_url?: string;
+  parent_avatar_url?: string;
   created_at: string;
 }
 

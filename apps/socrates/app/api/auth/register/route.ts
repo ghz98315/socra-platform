@@ -24,7 +24,16 @@ function getSupabaseAdmin() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { phone, password, display_name, avatar_url, role = 'student' } = body;
+    const {
+      phone,
+      password,
+      display_name,
+      avatar_url,
+      student_avatar_url,
+      parent_avatar_url,
+      role = 'student',
+    } = body;
+    const initialAvatarUrl = avatar_url || student_avatar_url || parent_avatar_url || null;
 
     // 验证必填字段
     if (!phone || !password) {
@@ -60,7 +69,9 @@ export async function POST(req: NextRequest) {
       user_metadata: {
         display_name,
         phone,
-        avatar_url,
+        avatar_url: initialAvatarUrl,
+        student_avatar_url: student_avatar_url || initialAvatarUrl,
+        parent_avatar_url: parent_avatar_url || initialAvatarUrl,
       },
     });
 
@@ -79,7 +90,9 @@ export async function POST(req: NextRequest) {
       .update({
         phone,
         display_name,
-        avatar_url,
+        avatar_url: initialAvatarUrl,
+        student_avatar_url: student_avatar_url || initialAvatarUrl,
+        parent_avatar_url: parent_avatar_url || initialAvatarUrl,
         theme_preference: 'junior',
       })
       .eq('id', authUser.id);
@@ -93,7 +106,9 @@ export async function POST(req: NextRequest) {
           id: authUser.id,
           phone,
           display_name,
-          avatar_url,
+          avatar_url: initialAvatarUrl,
+          student_avatar_url: student_avatar_url || initialAvatarUrl,
+          parent_avatar_url: parent_avatar_url || initialAvatarUrl,
           role,
           theme_preference: 'junior',
         }, {
@@ -110,7 +125,9 @@ export async function POST(req: NextRequest) {
         id: authUser.id,
         phone,
         display_name,
-        avatar_url,
+        avatar_url: initialAvatarUrl,
+        student_avatar_url: student_avatar_url || initialAvatarUrl,
+        parent_avatar_url: parent_avatar_url || initialAvatarUrl,
         role,
       },
       message: 'Registration successful',

@@ -22,11 +22,12 @@ import {
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
-import { RoleSwitcher, RoleSwitcherButton } from '@/components/RoleSwitcherV2';
+import { RoleSwitcher, RoleSwitcherButton } from '@/components/RoleSwitcherV3';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { getRoleAvatar } from '@/lib/profile-avatar';
 import { cn } from '@/lib/utils';
 
 type NavItem = {
@@ -99,6 +100,7 @@ export function GlobalNav() {
   const displayName = profile?.display_name || 'User';
   const roleText = isParent ? '家长' : '学生';
   const avatarFallback = displayName.slice(0, 1) || roleText.slice(0, 1);
+  const activeAvatar = getRoleAvatar(profile, isParent ? 'parent' : 'student') || undefined;
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
@@ -125,8 +127,8 @@ export function GlobalNav() {
           >
             <RoleSwitcher compact />
             <div className="flex items-center gap-2 rounded-full border border-warm-200 bg-warm-50 px-4 py-2">
-              <Avatar size="sm" className="border border-white/80 shadow-sm">
-                <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
+              <Avatar className="size-10 border border-white/80 shadow-sm">
+                <AvatarImage src={activeAvatar} alt={displayName} />
                 <AvatarFallback className="bg-warm-500/20 text-warm-700">
                   {avatarFallback}
                 </AvatarFallback>
@@ -222,8 +224,8 @@ export function GlobalNav() {
       {mobileOpen ? (
         <div className="border-t border-warm-100 bg-white/95 p-4 pb-24 backdrop-blur-xl sm:hidden">
           <div className="mb-4 flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3">
-            <Avatar size="lg" className="border border-white/80 shadow-sm">
-              <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
+            <Avatar className="size-14 border border-white/80 shadow-sm">
+              <AvatarImage src={activeAvatar} alt={displayName} />
               <AvatarFallback className="bg-primary/10 text-primary">{avatarFallback}</AvatarFallback>
             </Avatar>
             <div className="flex-1">

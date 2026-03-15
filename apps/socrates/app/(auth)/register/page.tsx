@@ -1,4 +1,4 @@
-export { default } from './RegisterPageV2';
+export { default } from './RegisterPageV3';
 /*
 // =====================================================
 // Project Socrates - Register Page

@@ -18,6 +18,8 @@ export interface Database {
           grade_level: number | null;
           display_name: string | null;
           avatar_url: string | null;
+          student_avatar_url: string | null;
+          parent_avatar_url: string | null;
           xp_points: number | null;
           phone: string | null;
           parent_id: string | null;
@@ -31,6 +33,8 @@ export interface Database {
           grade_level?: number | null;
           display_name?: string | null;
           avatar_url?: string | null;
+          student_avatar_url?: string | null;
+          parent_avatar_url?: string | null;
           xp_points?: number | null;
           phone?: string | null;
           parent_id?: string | null;
@@ -44,6 +48,8 @@ export interface Database {
           grade_level?: number | null;
           display_name?: string | null;
           avatar_url?: string | null;
+          student_avatar_url?: string | null;
+          parent_avatar_url?: string | null;
           xp_points?: number | null;
           phone?: string | null;
           parent_id?: string | null;
