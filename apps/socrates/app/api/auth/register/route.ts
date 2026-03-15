@@ -24,7 +24,7 @@ function getSupabaseAdmin() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { phone, password, display_name, role = 'student' } = body;
+    const { phone, password, display_name, avatar_url, role = 'student' } = body;
 
     // 验证必填字段
     if (!phone || !password) {
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
       user_metadata: {
         display_name,
         phone,
+        avatar_url,
       },
     });
 
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       .update({
         phone,
         display_name,
+        avatar_url,
         theme_preference: 'junior',
       })
       .eq('id', authUser.id);
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest) {
           id: authUser.id,
           phone,
           display_name,
+          avatar_url,
           role,
           theme_preference: 'junior',
         }, {
@@ -107,6 +110,7 @@ export async function POST(req: NextRequest) {
         id: authUser.id,
         phone,
         display_name,
+        avatar_url,
         role,
       },
       message: 'Registration successful',

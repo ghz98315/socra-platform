@@ -1,3 +1,5 @@
+export { default } from './SelectProfilePageV2';
+/*
 // =====================================================
 // Project Socrates - Profile Selection Page
 // =====================================================
@@ -20,6 +22,7 @@ interface ProfileOption {
   role: 'student' | 'parent';
   description: string;
 }
+* /
 
 const getProfileOptions = (currentRole?: string, currentTheme?: string): ProfileOption[] => [
   {
@@ -125,7 +128,7 @@ export default function SelectProfilePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-warm-50 p-6">
       <div className="w-full max-w-4xl space-y-8">
-        {/* Header */}
+        {/* Header * /}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-warm-900">
             选择角色
@@ -135,7 +138,7 @@ export default function SelectProfilePage() {
           </p>
         </div>
 
-        {/* Profile Cards */}
+        {/* Profile Cards * /}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {profileOptions.map((option) => {
             const isCurrentRole = currentOptionId === option.id;
@@ -157,7 +160,7 @@ export default function SelectProfilePage() {
                   }
                 `}
               >
-                {/* Current Role Badge */}
+                {/* Current Role Badge * /}
                 {isCurrentRole && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-warm-500 text-white text-xs font-medium rounded-full shadow-lg">
                     <CheckCircle className="w-3 h-3 inline mr-1" />
@@ -165,7 +168,7 @@ export default function SelectProfilePage() {
                   </div>
                 )}
 
-                {/* Icon */}
+                {/* Icon * /}
                 <div className={`
                   w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center
                   transition-colors duration-200
@@ -177,7 +180,7 @@ export default function SelectProfilePage() {
                   {option.icon}
                 </div>
 
-                {/* Title & Subtitle */}
+                {/* Title & Subtitle * /}
                 <h3 className="text-center text-xl font-semibold mb-1 text-warm-900">
                   {option.title}
                 </h3>
@@ -188,7 +191,7 @@ export default function SelectProfilePage() {
                   {option.description}
                 </p>
 
-                {/* Button */}
+                {/* Button * /}
                 <div className={`
                   py-3 rounded-full text-sm font-medium transition-all
                   ${isCurrentRole
@@ -212,7 +215,7 @@ export default function SelectProfilePage() {
           })}
         </div>
 
-        {/* Sign Out */}
+        {/* Sign Out * /}
         <div className="text-center">
           <button
             onClick={async () => {
@@ -228,3 +231,4 @@ export default function SelectProfilePage() {
     </div>
   );
 }
+*/

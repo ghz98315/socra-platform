@@ -15,7 +15,6 @@ import {
   Menu,
   Settings,
   Trophy,
-  User,
   Users,
   X,
 } from 'lucide-react';
@@ -25,6 +24,7 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
 import { RoleSwitcher, RoleSwitcherButton } from '@/components/RoleSwitcherV2';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -98,6 +98,7 @@ export function GlobalNav() {
   const navItems = isParent ? parentNavItems : studentNavItems;
   const displayName = profile?.display_name || 'User';
   const roleText = isParent ? '家长' : '学生';
+  const avatarFallback = displayName.slice(0, 1) || roleText.slice(0, 1);
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
@@ -124,9 +125,12 @@ export function GlobalNav() {
           >
             <RoleSwitcher compact />
             <div className="flex items-center gap-2 rounded-full border border-warm-200 bg-warm-50 px-4 py-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-warm-500/20">
-                <User className="h-4 w-4 text-warm-600" />
-              </div>
+              <Avatar size="sm" className="border border-white/80 shadow-sm">
+                <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
+                <AvatarFallback className="bg-warm-500/20 text-warm-700">
+                  {avatarFallback}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex flex-col">
                 <span className="text-sm font-medium leading-tight">{displayName}</span>
                 <span className="text-[10px] text-muted-foreground">{roleText}</span>
@@ -218,9 +222,10 @@ export function GlobalNav() {
       {mobileOpen ? (
         <div className="border-t border-warm-100 bg-white/95 p-4 pb-24 backdrop-blur-xl sm:hidden">
           <div className="mb-4 flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <User className="h-5 w-5 text-primary" />
-            </div>
+            <Avatar size="lg" className="border border-white/80 shadow-sm">
+              <AvatarImage src={profile?.avatar_url || undefined} alt={displayName} />
+              <AvatarFallback className="bg-primary/10 text-primary">{avatarFallback}</AvatarFallback>
+            </Avatar>
             <div className="flex-1">
               <p className="font-medium">{displayName}</p>
               <p className="text-xs text-muted-foreground">{roleText}</p>

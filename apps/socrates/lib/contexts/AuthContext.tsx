@@ -283,6 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({
               phone,
               display_name: name || phone || email.split('@')[0],
+              avatar_url: data.user.user_metadata?.avatar_url || null,
               role: 'student',
             }),
           });
@@ -344,6 +345,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({
             phone: user.user_metadata?.phone || null,
             display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
+            avatar_url: updates.avatar_url || user.user_metadata?.avatar_url || null,
             role: updates.role || 'student',
           }),
         });

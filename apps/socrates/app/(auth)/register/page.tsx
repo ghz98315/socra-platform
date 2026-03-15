@@ -1,3 +1,5 @@
+export { default } from './RegisterPageV2';
+/*
 // =====================================================
 // Project Socrates - Register Page
 // Apple-style Modern Design
@@ -97,15 +99,15 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex bg-warm-50">
-      {/* Left Side - Branding (Desktop only) */}
+      {/* Left Side - Branding (Desktop only) * /}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-warm-100 via-warm-50 to-warm-100 relative overflow-hidden">
-        {/* Animated Background Elements */}
+        {/* Animated Background Elements * /}
         <div className="absolute inset-0">
           <div className="absolute top-20 right-20 w-72 h-72 bg-warm-300/30 rounded-full blur-3xl animate-pulse-soft" />
           <div className="absolute bottom-20 left-20 w-96 h-96 bg-warm-200/40 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1s' }} />
         </div>
 
-        {/* Content */}
+        {/* Content * /}
         <div className="relative z-10 flex flex-col justify-center px-16">
           <div
             className={cn(
@@ -113,7 +115,7 @@ export default function RegisterPage() {
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             )}
           >
-            {/* Logo */}
+            {/* Logo * /}
             <div className="flex items-center gap-4 mb-12">
               <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-lg shadow-warm-500/20 border border-warm-100">
                 <Image
@@ -130,7 +132,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Hero Text */}
+            {/* Hero Text * /}
             <h2 className="text-4xl font-bold leading-tight mb-6 text-warm-900">
               开启你的
               <br />
@@ -141,7 +143,7 @@ export default function RegisterPage() {
               注册即可享受全方位的智能学习体验，让每一次学习都有所收获。
             </p>
 
-            {/* Benefits List */}
+            {/* Benefits List * /}
             <div className="space-y-4">
               {benefits.map((benefit, index) => (
                 <div
@@ -160,7 +162,7 @@ export default function RegisterPage() {
               ))}
             </div>
 
-            {/* Stats */}
+            {/* Stats * /}
             <div className="mt-12 pt-8 border-t border-warm-200 grid grid-cols-3 gap-6">
               <div>
                 <div className="text-3xl font-bold text-warm-500">10K+</div>
@@ -179,7 +181,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Right Side - Register Form */}
+      {/* Right Side - Register Form * /}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-white">
         <div
           className={cn(
@@ -187,7 +189,7 @@ export default function RegisterPage() {
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           )}
         >
-          {/* Mobile Logo */}
+          {/* Mobile Logo * /}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-warm-500/20 border border-warm-100">
               <Image
@@ -201,13 +203,13 @@ export default function RegisterPage() {
             <span className="text-2xl font-bold text-warm-900">Socrates</span>
           </div>
 
-          {/* Header */}
+          {/* Header * /}
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold mb-2 text-warm-900">创建账户</h2>
             <p className="text-warm-600">开启你的 AI 学习之旅</p>
           </div>
 
-          {/* Form */}
+          {/* Form * /}
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-4 rounded-2xl bg-red-50 text-red-600 text-sm border border-red-200">
@@ -296,7 +298,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          {/* Divider */}
+          {/* Divider * /}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-warm-200"></div>
@@ -306,7 +308,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Login Link */}
+          {/* Login Link * /}
           <div className="text-center">
             <p className="text-warm-600">
               已有账户？{' '}
@@ -319,7 +321,7 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Footer */}
+          {/* Footer * /}
           <p className="text-xs text-warm-400 text-center mt-6">
             注册即表示同意我们的服务条款和隐私政策
           </p>
@@ -328,3 +330,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+*/

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // 解析请求体
     const body = await req.json();
-    const { phone, display_name, role = 'student' } = body;
+    const { phone, display_name, avatar_url, role = 'student' } = body;
 
     const admin = getSupabaseAdmin();
 
@@ -66,13 +66,16 @@ export async function POST(req: NextRequest) {
     if (existingProfile) {
       // Profile 存在，检查是否需要更新
       const updates: Record<string, any> = {};
-      const profile = existingProfile as { phone?: string; display_name?: string };
+      const profile = existingProfile as { phone?: string; display_name?: string; avatar_url?: string };
 
       if (phone && profile.phone !== phone) {
         updates.phone = phone;
       }
       if (display_name && profile.display_name !== display_name) {
         updates.display_name = display_name;
+      }
+      if (avatar_url && profile.avatar_url !== avatar_url) {
+        updates.avatar_url = avatar_url;
       }
 
       if (Object.keys(updates).length > 0) {
@@ -105,6 +108,7 @@ export async function POST(req: NextRequest) {
         .insert({
           id: user.id,
           phone: phone || user.user_metadata?.phone || null,
+          avatar_url: avatar_url || user.user_metadata?.avatar_url || null,
           display_name: display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || '用户',
           role,
           theme_preference: 'junior',
