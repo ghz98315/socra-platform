@@ -168,6 +168,8 @@ export function AnalysisDialog({
 
   const getSubjectName = (subject: string) => {
     const names: Record<string, string> = {
+      chinese: '语文',
+      english: '英语',
       math: '数学',
       physics: '物理',
       chemistry: '化学',

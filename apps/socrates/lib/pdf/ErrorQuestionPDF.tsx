@@ -239,6 +239,8 @@ interface ErrorQuestionPDFProps {
 
 // Subject labels
 const subjectLabels: Record<string, string> = {
+  chinese: '语文',
+  english: '英语',
   math: '数学',
   physics: '物理',
   chemistry: '化学',

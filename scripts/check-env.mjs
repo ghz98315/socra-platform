@@ -65,7 +65,28 @@ function validateApp({ name, env, required = [], oneOf = [], recommended = [] })
   };
 }
 
-const socratesEnv = loadEnv('apps/socrates', ['.env.local', '.env.local.example']);
+function validateSmoke({ name, env, required = [], oneOf = [], optional = [] }) {
+  const missingRequired = required.filter((key) => !hasValue(env, key));
+  const missingOneOf = oneOf
+    .filter((group) => !group.keys.some((key) => hasValue(env, key)))
+    .map((group) => group.label);
+  const missingOptional = optional.filter((key) => !hasValue(env, key));
+
+  return {
+    name,
+    ready: missingRequired.length === 0 && missingOneOf.length === 0,
+    missingRequired,
+    missingOneOf,
+    missingOptional,
+  };
+}
+
+const socratesEnv = loadEnv('apps/socrates', [
+  '.env.local',
+  '.env.smoke.local',
+  '.env.local.example',
+  '.env.smoke.example',
+]);
 const essayEnv = loadEnv('apps/essay', ['.env.local', '.env.example']);
 
 const results = [
@@ -103,6 +124,45 @@ const results = [
   }),
 ];
 
+const smokeResults = [
+  validateSmoke({
+    name: 'Socrates smoke',
+    env: socratesEnv,
+    required: ['SMOKE_USER_ID'],
+    oneOf: [
+      {
+        label: 'base URL: SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL',
+        keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
+      },
+    ],
+    optional: [
+      'SMOKE_PARENT_ID',
+      'SMOKE_CHILD_ID',
+      'SMOKE_COUPON_CODE',
+      'SMOKE_PLAN_CODE',
+      'SMOKE_PAYMENT_METHOD',
+    ],
+  }),
+  validateSmoke({
+    name: 'Study-flow smoke',
+    env: socratesEnv,
+    required: ['SMOKE_STUDY_USER_ID'],
+    oneOf: [
+      {
+        label: 'base URL: SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL',
+        keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
+      },
+    ],
+    optional: [
+      'SMOKE_STUDY_SUBJECT',
+      'SMOKE_STUDY_MODULE',
+      'SMOKE_STUDY_QUESTION_TYPE',
+      'SMOKE_STUDY_REPORT_DAYS',
+      'SMOKE_STUDY_ADVANCE_REVIEW',
+    ],
+  }),
+];
+
 let hasBlockingIssue = false;
 
 console.log('Environment validation report');
@@ -131,6 +191,29 @@ for (const result of results) {
     result.missingRecommended.length === 0
   ) {
     console.log('  All required and recommended keys are present.');
+  }
+}
+
+console.log('\nSmoke readiness');
+console.log('===============');
+
+for (const result of smokeResults) {
+  console.log(`\n[${result.name}] ${result.ready ? 'READY' : 'SKIP'}`);
+
+  if (result.missingRequired.length > 0) {
+    console.log(`  Missing required: ${result.missingRequired.join(', ')}`);
+  }
+
+  if (result.missingOneOf.length > 0) {
+    console.log(`  Missing required groups: ${result.missingOneOf.join('; ')}`);
+  }
+
+  if (result.missingOptional.length > 0) {
+    console.log(`  Missing optional: ${result.missingOptional.join(', ')}`);
+  }
+
+  if (result.ready && result.missingOptional.length === 0) {
+    console.log('  Smoke environment is fully configured.');
   }
 }
 

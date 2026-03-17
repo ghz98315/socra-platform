@@ -46,7 +46,7 @@ const parentNavItems: NavItem[] = [
 ];
 
 const studentNavItems: NavItem[] = [
-  { id: 'study', href: '/workbench', icon: BookOpen, label: { zh: '学习', en: 'Study' }, color: 'text-warm-500' },
+  { id: 'study', href: '/study', icon: BookOpen, label: { zh: '学习', en: 'Study' }, color: 'text-warm-500' },
   { id: 'planner', href: '/planner', icon: Calendar, label: { zh: '计划', en: 'Planner' }, color: 'text-blue-500' },
   { id: 'errors', href: '/error-book', icon: Bookmark, label: { zh: '错题', en: 'Errors' }, color: 'text-warm-600' },
   { id: 'review', href: '/review', icon: ClipboardList, label: { zh: '复习', en: 'Review' }, color: 'text-warm-500' },

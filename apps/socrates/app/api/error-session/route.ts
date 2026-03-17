@@ -107,6 +107,53 @@ export async function POST(req: NextRequest) {
 }
 
 // GET endpoint - 获取学生的错题列表
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { session_id, geometry_data, geometry_svg } = body;
+
+    if (!session_id) {
+      return NextResponse.json({ error: 'session_id is required' }, { status: 400 });
+    }
+
+    const updatePayload: Record<string, unknown> = {};
+
+    if (geometry_data !== undefined) {
+      updatePayload.geometry_data = geometry_data;
+    }
+
+    if (geometry_svg !== undefined) {
+      updatePayload.geometry_svg = geometry_svg;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('error_sessions')
+      .update(updatePayload)
+      .eq('id', session_id)
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Error updating error session:', error);
+      return NextResponse.json({ error: '更新错题会话失败' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      data: {
+        session_id: data.id,
+        message: '错题会话更新成功',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error session PATCH API error:', error);
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;

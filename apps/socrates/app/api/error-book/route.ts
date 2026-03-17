@@ -8,11 +8,24 @@ const supabase = createClient(
 
 type SortBy = 'newest' | 'oldest' | 'difficulty';
 type ErrorStatus = 'analyzing' | 'guided_learning' | 'mastered';
-type ErrorSubject = 'math' | 'physics' | 'chemistry';
+type ErrorSubject = 'math' | 'chinese' | 'english' | 'physics' | 'chemistry';
 
 const VALID_SORTS = new Set<SortBy>(['newest', 'oldest', 'difficulty']);
 const VALID_STATUSES = new Set<ErrorStatus>(['analyzing', 'guided_learning', 'mastered']);
-const VALID_SUBJECTS = new Set<ErrorSubject>(['math', 'physics', 'chemistry']);
+const VALID_SUBJECTS = new Set<ErrorSubject>(['math', 'chinese', 'english', 'physics', 'chemistry']);
+
+const buildStatusCountQuery = (studentId: string, status?: ErrorStatus) => {
+  let query = supabase
+    .from('error_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('student_id', studentId);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  return query;
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -70,12 +83,18 @@ export async function GET(req: NextRequest) {
 
     listQuery = listQuery.range((page - 1) * pageSize, page * pageSize - 1);
 
-    const [errorsResult, statsResult] = await Promise.all([
+    const [
+      errorsResult,
+      totalCountResult,
+      analyzingCountResult,
+      guidedLearningCountResult,
+      masteredCountResult,
+    ] = await Promise.all([
       listQuery,
-      supabase
-        .from('error_sessions')
-        .select('id, status')
-        .eq('student_id', studentId),
+      buildStatusCountQuery(studentId),
+      buildStatusCountQuery(studentId, 'analyzing'),
+      buildStatusCountQuery(studentId, 'guided_learning'),
+      buildStatusCountQuery(studentId, 'mastered'),
     ]);
 
     if (errorsResult.error) {
@@ -83,8 +102,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch error sessions' }, { status: 500 });
     }
 
-    if (statsResult.error) {
-      console.error('[error-book] Failed to load error stats:', statsResult.error);
+    const countResults = [
+      totalCountResult,
+      analyzingCountResult,
+      guidedLearningCountResult,
+      masteredCountResult,
+    ];
+
+    const countError = countResults.find((result) => result.error)?.error;
+    if (countError) {
+      console.error('[error-book] Failed to load error stats:', countError);
       return NextResponse.json({ error: 'Failed to fetch error stats' }, { status: 500 });
     }
 
@@ -104,8 +131,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch review schedule' }, { status: 500 });
     }
 
-    const statsRows = statsResult.data || [];
-
     const reviewRows = reviewResult.data || [];
     const reviewSessionMap = Object.fromEntries(
       reviewRows.map((row: { id: string; session_id: string }) => [row.session_id, row.id])
@@ -120,10 +145,10 @@ export async function GET(req: NextRequest) {
       page_size: pageSize,
       total_pages: Math.max(Math.ceil((errorsResult.count || 0) / pageSize), 1),
       stats: {
-        total: statsRows.length,
-        analyzing: statsRows.filter((row: { status: string }) => row.status === 'analyzing').length,
-        guided_learning: statsRows.filter((row: { status: string }) => row.status === 'guided_learning').length,
-        mastered: statsRows.filter((row: { status: string }) => row.status === 'mastered').length,
+        total: totalCountResult.count || 0,
+        analyzing: analyzingCountResult.count || 0,
+        guided_learning: guidedLearningCountResult.count || 0,
+        mastered: masteredCountResult.count || 0,
       },
     });
   } catch (error: any) {

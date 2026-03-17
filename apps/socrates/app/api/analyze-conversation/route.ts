@@ -20,6 +20,8 @@ function buildAnalysisPrompt(
   analysisType: 'single' | 'comprehensive'
 ): string {
   const subjectName: Record<string, string> = {
+    chinese: '语文',
+    english: '英语',
     math: '数学',
     physics: '物理',
     chemistry: '化学',

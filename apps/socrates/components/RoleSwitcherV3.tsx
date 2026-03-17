@@ -48,7 +48,7 @@ function getTargetConfig(targetRole: SwitchableRole) {
       label: '切换到学生端',
       description: '进入学习工作台与错题复习流程',
       icon: GraduationCap,
-      href: '/workbench',
+      href: '/study',
     };
   }
 

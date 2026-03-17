@@ -39,7 +39,7 @@ import { downloadErrorBookPDF } from '@/lib/pdf/ErrorBookPDF';
 type ErrorSession = {
   id: string;
   student_id: string;
-  subject: 'math' | 'physics' | 'chemistry';
+  subject: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry';
   original_image_url: string | null;
   extracted_text: string | null;
   status: 'analyzing' | 'guided_learning' | 'mastered';
@@ -58,6 +58,8 @@ type ErrorBookStats = {
 const PAGE_SIZE = 24;
 
 const subjectLabels: Record<string, string> = {
+  chinese: '语文',
+  english: '英语',
   math: '数学',
   physics: '物理',
   chemistry: '化学',
@@ -70,18 +72,24 @@ const statusLabels: Record<string, { label: string; color: string; icon: React.E
 };
 
 const subjectColors: Record<string, string> = {
+  chinese: 'text-rose-500',
+  english: 'text-amber-500',
   math: 'text-blue-500',
   physics: 'text-purple-500',
   chemistry: 'text-green-500',
 };
 
 const subjectBorderColors: Record<string, string> = {
+  chinese: 'border-l-rose-500',
+  english: 'border-l-amber-500',
   math: 'border-l-blue-500',
   physics: 'border-l-purple-500',
   chemistry: 'border-l-green-500',
 };
 
 const subjectBgColors: Record<string, string> = {
+  chinese: 'bg-rose-50 dark:bg-rose-950/30',
+  english: 'bg-amber-50 dark:bg-amber-950/30',
   math: 'bg-blue-50 dark:bg-blue-950/30',
   physics: 'bg-purple-50 dark:bg-purple-950/30',
   chemistry: 'bg-green-50 dark:bg-green-950/30',
@@ -363,6 +371,8 @@ export default function ErrorBookPage() {
                 { value: 'math', label: '📐 数学', color: 'data-[active=true]:bg-blue-500 data-[active=true]:text-white' },
                 { value: 'physics', label: '⚛️ 物理', color: 'data-[active=true]:bg-purple-500 data-[active=true]:text-white' },
                 { value: 'chemistry', label: '🧪 化学', color: 'data-[active=true]:bg-green-500 data-[active=true]:text-white' },
+                { value: 'chinese', label: '语文', color: 'data-[active=true]:bg-rose-500 data-[active=true]:text-white' },
+                { value: 'english', label: '英语', color: 'data-[active=true]:bg-amber-500 data-[active=true]:text-white' },
               ].map((subject) => (
                 <button
                   key={subject.value}
@@ -484,7 +494,7 @@ export default function ErrorBookPage() {
                   ? '没有找到匹配的错题记录'
                   : '还没有错题记录，快去上传吧！'}
               </p>
-              <Button onClick={() => router.push('/workbench')} className="bg-warm-500 hover:bg-warm-600 text-white rounded-full shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+              <Button onClick={() => router.push('/study')} className="bg-warm-500 hover:bg-warm-600 text-white rounded-full shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all">
                 去上传错题
               </Button>
             </CardContent>

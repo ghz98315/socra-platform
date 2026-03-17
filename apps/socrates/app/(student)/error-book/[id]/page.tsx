@@ -42,7 +42,7 @@ interface Message {
 
 interface ErrorSession {
   id: string;
-  subject: 'math' | 'physics' | 'chemistry';
+  subject: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry';
   extracted_text: string | null;
   original_image_url: string | null;
   status: 'analyzing' | 'guided_learning' | 'mastered';
@@ -52,6 +52,8 @@ interface ErrorSession {
 }
 
 const subjectLabels: Record<string, string> = {
+  chinese: '语文',
+  english: '英语',
   math: '数学',
   physics: '物理',
   chemistry: '化学',
@@ -62,6 +64,8 @@ const statusLabels: Record<string, { label: string; color: string; icon: React.E
   guided_learning: { label: '学习中', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: AlertCircle },
   mastered: { label: '已掌握', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle },
 };
+
+const VARIANT_PRACTICE_SUBJECTS = new Set(['math', 'physics', 'chemistry']);
 
 export default function ErrorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -145,7 +149,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   };
 
   const handleContinueLearning = () => {
-    router.push(`/workbench?session=${resolvedParams.id}`);
+    router.push(`/study/${errorSession?.subject || 'math'}/problem?session=${resolvedParams.id}`);
   };
 
   const handleOpenReview = () => {
@@ -235,6 +239,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const StatusIcon = statusLabels[errorSession.status]?.icon || Clock;
+  const supportsVariantPractice = VARIANT_PRACTICE_SUBJECTS.has(errorSession.subject);
 
   return (
     <div className={cn(
@@ -463,7 +468,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         </Card>
 
         {/* 变式练习入口 */}
-        {profile?.role === 'student' && errorSession.extracted_text && (
+        {profile?.role === 'student' && errorSession.extracted_text && supportsVariantPractice && (
           <Card className="border-border/50">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -491,7 +496,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 <VariantPractice
                   sessionId={errorSession.id}
                   studentId={profile.id}
-                  subject={errorSession.subject}
+                  subject={errorSession.subject as 'math' | 'physics' | 'chemistry'}
                   originalText={errorSession.extracted_text}
                   conceptTags={errorSession.concept_tags || undefined}
                 />

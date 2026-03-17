@@ -206,12 +206,16 @@ interface ErrorBookData {
 }
 
 const subjectLabels: Record<string, string> = {
+  chinese: '语文',
+  english: '英语',
   math: '数学',
   physics: '物理',
   chemistry: '化学',
 };
 
 const subjectColors: Record<string, string> = {
+  chinese: '#F43F5E',
+  english: '#F59E0B',
   math: '#007AFF',
   physics: '#AF52DE',
   chemistry: '#34C759',

@@ -41,7 +41,7 @@ function getTargetConfig(isParent: boolean) {
       label: '孩子模式 Student',
       description: '进入学习工作台 Go to the learning workspace',
       icon: GraduationCap,
-      href: '/workbench',
+      href: '/study',
     };
   }
 
@@ -187,7 +187,7 @@ export function RoleSwitcherButton({ className }: { className?: string }) {
 
   return (
     <button
-      onClick={() => router.push(isParent ? '/workbench' : '/tasks')}
+      onClick={() => router.push(isParent ? '/study' : '/tasks')}
       className={cn(
         'flex items-center gap-2 rounded-lg border border-warm-200 bg-gradient-to-r from-warm-50 to-orange-50 px-3 py-2',
         'transition-all duration-300 hover:from-warm-100 hover:to-orange-100 active:scale-95',

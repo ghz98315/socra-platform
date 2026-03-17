@@ -11,7 +11,7 @@ import AnalysisResult from './components/AnalysisResult';
 import AuthModal from './components/AuthModal';
 import EssayHistory from './components/EssayHistory';
 import { analyzeEssay, setApiKey, hasApiKey } from './lib/essay-service';
-import { saveEssay, EssayRecord } from './lib/essay-history';
+import { getEssayById, saveEssay, EssayRecord } from './lib/essay-history';
 import { supabase, getCurrentUser, signOut } from './lib/supabase';
 import { EssayAnalysis, AppState, GradeLevel, UserProfile } from './types';
 
@@ -57,6 +57,43 @@ const App: React.FC = () => {
   useEffect(() => {
     hasApiKey().then(setIsApiKeyConfigured);
   }, []);
+
+  useEffect(() => {
+    if (loading || !user || typeof window === 'undefined') {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    const essayId = url.searchParams.get('essayId');
+    if (!essayId) {
+      return;
+    }
+    const resolvedEssayId = essayId;
+
+    let active = true;
+
+    async function loadEssayFromQuery() {
+      const record = await getEssayById(resolvedEssayId);
+
+      if (!active) {
+        return;
+      }
+
+      if (record) {
+        applyEssayRecord(record);
+      }
+
+      url.searchParams.delete('essayId');
+      const nextSearch = url.searchParams.toString();
+      window.history.replaceState({}, '', `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
+    }
+
+    void loadEssayFromQuery();
+
+    return () => {
+      active = false;
+    };
+  }, [loading, user]);
 
   const checkUser = async () => {
     try {
@@ -135,13 +172,17 @@ const App: React.FC = () => {
     }
   };
 
-  // 从历史记录选择作文
-  const handleSelectFromHistory = (record: EssayRecord) => {
+  const applyEssayRecord = (record: EssayRecord) => {
     setAnalysisResult(record.analysis);
     setImagePreviews(record.images || []);
     setCurrentGrade(record.grade as GradeLevel);
     setAppState(AppState.RESULT);
     setShowHistory(false);
+  };
+
+  // 从历史记录选择作文
+  const handleSelectFromHistory = (record: EssayRecord) => {
+    applyEssayRecord(record);
   };
 
   const handleReset = () => {

@@ -113,7 +113,7 @@ export default function SelectProfilePageV3() {
           profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
       });
 
-      const targetUrl = option.role === 'parent' ? '/tasks' : '/workbench';
+      const targetUrl = option.role === 'parent' ? '/tasks' : '/study';
       router.push(targetUrl);
       router.refresh();
     } catch (error) {

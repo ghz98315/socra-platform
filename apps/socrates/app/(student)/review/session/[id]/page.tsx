@@ -42,7 +42,7 @@ interface ReviewSession {
   is_completed: boolean;
   error_session: {
     id: string;
-    subject: 'math' | 'physics' | 'chemistry';
+    subject: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry';
     extracted_text: string | null;
     original_image_url: string | null;
     status: string;
@@ -55,12 +55,16 @@ interface ReviewSession {
 }
 
 const subjectLabels: Record<string, string> = {
+  chinese: '语文',
+  english: '英语',
   math: '数学',
   physics: '物理',
   chemistry: '化学',
 };
 
 const subjectColors: Record<string, string> = {
+  chinese: 'text-rose-500 bg-rose-50 dark:bg-rose-900/30',
+  english: 'text-amber-500 bg-amber-50 dark:bg-amber-900/30',
   math: 'text-blue-500 bg-blue-50 dark:bg-blue-900/30',
   physics: 'text-purple-500 bg-purple-50 dark:bg-purple-900/30',
   chemistry: 'text-green-500 bg-green-50 dark:bg-green-900/30',
@@ -526,7 +530,7 @@ export default function ReviewSessionPage({ params }: { params: Promise<{ id: st
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => router.push(`/workbench?session=${reviewSession.sessionId}`)}
+                  onClick={() => router.push(`/study/${reviewSession.error_session.subject}/problem?session=${reviewSession.sessionId}`)}
                   className="h-20 flex-col gap-2"
                 >
                   <MessageSquare className="w-6 h-6" />
@@ -566,7 +570,7 @@ export default function ReviewSessionPage({ params }: { params: Promise<{ id: st
                   返回复习列表
                 </Button>
                 <Button
-                  onClick={() => router.push('/workbench')}
+                  onClick={() => router.push('/study')}
                 >
                   继续学习
                 </Button>

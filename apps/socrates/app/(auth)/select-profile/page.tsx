@@ -104,9 +104,9 @@ export default function SelectProfilePage() {
         display_name: profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
       });
 
-      console.log('Profile updated, navigating to:', option.role === 'parent' ? '/tasks' : '/workbench');
+      console.log('Profile updated, navigating to:', option.role === 'parent' ? '/tasks' : '/study');
 
-      const targetUrl = option.role === 'parent' ? '/tasks' : '/workbench';
+      const targetUrl = option.role === 'parent' ? '/tasks' : '/study';
       router.push(targetUrl);
       router.refresh();
     } catch (error) {

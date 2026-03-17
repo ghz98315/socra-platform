@@ -186,7 +186,7 @@ function PaymentSuccessContent() {
               Go to dashboard
             </Button>
             <Button
-              onClick={() => router.push('/workbench')}
+              onClick={() => router.push('/study')}
               className="flex-1 bg-gradient-to-r from-orange-500 to-warm-500 text-white hover:from-orange-600 hover:to-warm-600"
             >
               Start learning

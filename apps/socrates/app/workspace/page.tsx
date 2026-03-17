@@ -18,7 +18,7 @@ export default function WorkspacePage() {
     // 如果认证完成，直接重定向到工作台
     // 家长账号现在也可以访问这个功能
     if (!loading && profile) {
-      router.replace(profile.role === 'parent' ? '/tasks' : '/workbench');
+      router.replace(profile.role === 'parent' ? '/tasks' : '/study');
     }
   }, [profile, loading, router]);
 

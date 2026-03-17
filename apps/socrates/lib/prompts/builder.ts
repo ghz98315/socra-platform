@@ -135,6 +135,7 @@ ${options.questionContent}
       calculation: '计算题',
       reading: '阅读理解',
       writing: '写作题',
+      listening: '听力题',
     };
     parts.push(`<question_type>
 【题型】${typeNames[options.questionType] || options.questionType}

@@ -90,6 +90,14 @@ export interface RelationData {
   targets: string[];
 }
 
+type CustomPointState = PointData;
+
+type AuxiliaryLineState = {
+  id: string;
+  start: string;
+  end: string;
+};
+
 interface GeometryRendererProps {
   geometryData: GeometryData | null;
   rawText?: string;
@@ -134,6 +142,17 @@ const DEFAULT_TRIANGLE: GeometryData = {
   confidence: 0.8,
 };
 
+const isCustomPointId = (id: string) => id.startsWith('custom_');
+
+const isAuxiliaryLineId = (id: string) => id.startsWith('aux_');
+
+const getMaxCustomPointIndex = (points: PointData[]) =>
+  points.reduce((max, point) => {
+    if (!isCustomPointId(point.id)) return max;
+    const index = Number.parseInt(point.id.replace('custom_', ''), 10);
+    return Number.isFinite(index) ? Math.max(max, index) : max;
+  }, 0);
+
 export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRendererProps>(function GeometryRenderer({
   geometryData,
   rawText,
@@ -152,13 +171,34 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
   // 辅助线相关状态
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [selectedPoints, setSelectedPoints] = useState<string[]>([]);
-  const [auxiliaryLines, setAuxiliaryLines] = useState<Array<{ start: string; end: string; element: any }>>([]);
+  const [auxiliaryLines, setAuxiliaryLines] = useState<AuxiliaryLineState[]>([]);
   const elementsRef = useRef<Record<string, any>>({});
 
   // 自定义点相关状态
   const [isAddingPoint, setIsAddingPoint] = useState(false);
-  const [customPoints, setCustomPoints] = useState<Array<{ id: string; name: string; x: number; y: number; element: any }>>([]);
+  const [customPoints, setCustomPoints] = useState<CustomPointState[]>([]);
   const customPointCounterRef = useRef(0);
+  useEffect(() => {
+    if (!geometryData) {
+      setCustomPoints([]);
+      setAuxiliaryLines([]);
+      customPointCounterRef.current = 0;
+      return;
+    }
+
+    const nextCustomPoints = geometryData.points.filter((point) => isCustomPointId(point.id));
+    const nextAuxiliaryLines = geometryData.lines
+      .filter((line) => isAuxiliaryLineId(line.id))
+      .map((line) => ({
+        id: line.id,
+        start: line.start,
+        end: line.end,
+      }));
+
+    setCustomPoints(nextCustomPoints);
+    setAuxiliaryLines(nextAuxiliaryLines);
+    customPointCounterRef.current = getMaxCustomPointIndex(nextCustomPoints);
+  }, [geometryData]);
   const isAddingPointRef = useRef(false); // 用于在useEffect中访问最新状态
   const onGeometryChangeRef = useRef(onGeometryChange); // 用于在useEffect中访问最新回调
 
@@ -215,6 +255,21 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         })),
       ],
     };
+
+    updatedData.points = Array.from(
+      new Map<string, PointData>(updatedData.points.map((point) => [point.id, point])).values()
+    );
+
+    updatedData.lines = Array.from(
+      new Map<string, LineData>(
+        updatedData.lines.map((line) => [
+          line.id,
+          isAuxiliaryLineId(line.id)
+            ? { ...line, id: line.id }
+            : line,
+        ])
+      ).values()
+    );
 
     // 更新原始点的坐标（如果用户拖动了）
     if (boardRef.current && elementsRef.current) {
@@ -393,7 +448,7 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         const pointElement = board.create('point', [point.x, point.y], {
           name: point.name,
           size: 4,
-          color: '#3b82f6',
+          color: isCustomPointId(point.id) ? '#f97316' : '#3b82f6',
           fixed: false,
           withLabel: true,
           snapToGrid: true,
@@ -410,15 +465,17 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
         if (start && end) {
           if (line.type === 'segment') {
             const lineElement = board.create('segment', [start, end], {
-              strokeColor: '#1e40af',
+              strokeColor: isAuxiliaryLineId(line.id) ? '#f97316' : '#1e40af',
               strokeWidth: 2,
+              ...(isAuxiliaryLineId(line.id) ? { dash: 2 } : {}),
             });
             elements[line.id] = lineElement;
             lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
           } else if (line.type === 'line') {
             const lineElement = board.create('line', [start, end], {
-              strokeColor: '#1e40af',
+              strokeColor: isAuxiliaryLineId(line.id) ? '#f97316' : '#1e40af',
               strokeWidth: 2,
+              ...(isAuxiliaryLineId(line.id) ? { dash: 2 } : {}),
               straightFirst: true,
               straightLast: true,
             });
@@ -426,8 +483,9 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
           } else if (line.type === 'ray') {
             const lineElement = board.create('ray', [start, end], {
-              strokeColor: '#1e40af',
+              strokeColor: isAuxiliaryLineId(line.id) ? '#f97316' : '#1e40af',
               strokeWidth: 2,
+              ...(isAuxiliaryLineId(line.id) ? { dash: 2 } : {}),
             });
             elements[line.id] = lineElement;
             lineSegments.push({ element: lineElement, id: line.id, start: line.start, end: line.end });
@@ -990,6 +1048,21 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
             });
 
             // 存储到elementsRef以便后续引用
+            pointElement.on('up', function() {
+              const nextX = pointElement.X();
+              const nextY = pointElement.Y();
+
+              setCustomPoints((prev) =>
+                prev.map((point) =>
+                  point.id === pointId
+                    ? { ...point, x: nextX, y: nextY }
+                    : point
+                )
+              );
+
+              setTimeout(() => notifyGeometryChange(), 0);
+            });
+
             elements[pointId] = pointElement;
             elementsRef.current[pointId] = pointElement;
 
@@ -998,7 +1071,6 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
               name: pointName,
               x,
               y,
-              element: pointElement
             }]);
 
             console.log('Point created successfully:', pointName);
@@ -1043,9 +1115,16 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
   // 添加辅助线
   const handleAddAuxiliaryLine = (startId: string, endId: string) => {
     if (!boardRef.current || !elementsRef.current[startId] || !elementsRef.current[endId]) return;
+    if (auxiliaryLines.some((line) =>
+      (line.start === startId && line.end === endId) ||
+      (line.start === endId && line.end === startId)
+    )) {
+      return;
+    }
 
     const start = elementsRef.current[startId];
     const end = elementsRef.current[endId];
+    const lineId = `aux_${startId}_${endId}`;
 
     const line = boardRef.current.create('segment', [start, end], {
       strokeColor: '#f97316',
@@ -1054,7 +1133,8 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       name: `辅助线 ${startId}-${endId}`,
     });
 
-    setAuxiliaryLines(prev => [...prev, { start: startId, end: endId, element: line }]);
+    elementsRef.current[lineId] = line;
+    setAuxiliaryLines(prev => [...prev, { id: lineId, start: startId, end: endId }]);
 
     // 通知几何变化
     setTimeout(() => notifyGeometryChange(), 0);
@@ -1066,7 +1146,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
     const lastLine = auxiliaryLines[auxiliaryLines.length - 1];
     try {
-      boardRef.current.removeObject(lastLine.element);
+      const lineElement = elementsRef.current[lastLine.id];
+      if (lineElement) {
+        boardRef.current.removeObject(lineElement);
+        delete elementsRef.current[lastLine.id];
+      }
     } catch (e) {
       console.warn('Error removing auxiliary line:', e);
     }
@@ -1083,7 +1167,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
     auxiliaryLines.forEach(line => {
       try {
-        boardRef.current.removeObject(line.element);
+        const lineElement = elementsRef.current[line.id];
+        if (lineElement) {
+          boardRef.current.removeObject(lineElement);
+          delete elementsRef.current[line.id];
+        }
       } catch (e) {
         console.warn('Error removing auxiliary line:', e);
       }
@@ -1137,7 +1225,6 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
       name: pointName,
       x,
       y,
-      element: pointElement
     }]);
   };
 
@@ -1147,8 +1234,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
     const lastPoint = customPoints[customPoints.length - 1];
     try {
-      boardRef.current.removeObject(lastPoint.element);
-      delete elementsRef.current[lastPoint.id];
+      const pointElement = elementsRef.current[lastPoint.id];
+      if (pointElement) {
+        boardRef.current.removeObject(pointElement);
+        delete elementsRef.current[lastPoint.id];
+      }
     } catch (e) {
       console.warn('Error removing custom point:', e);
     }
@@ -1165,8 +1255,11 @@ export const GeometryRenderer = forwardRef<GeometryRendererRef, GeometryRenderer
 
     customPoints.forEach(point => {
       try {
-        boardRef.current.removeObject(point.element);
-        delete elementsRef.current[point.id];
+        const pointElement = elementsRef.current[point.id];
+        if (pointElement) {
+          boardRef.current.removeObject(pointElement);
+          delete elementsRef.current[point.id];
+        }
       } catch (e) {
         console.warn('Error removing custom point:', e);
       }

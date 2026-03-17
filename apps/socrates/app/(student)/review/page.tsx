@@ -362,7 +362,7 @@ export default function ReviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push('/workbench')}
+                onClick={() => router.push('/study')}
                 className="rounded-full border-warm-200 hover:bg-warm-50"
               >
                 返回工作台
@@ -404,7 +404,7 @@ export default function ReviewPage() {
             <div className="flex flex-wrap gap-2">
               <Button
                 className="rounded-full bg-warm-500 hover:bg-warm-600"
-                onClick={() => (dueNowReviews[0] ? openReview(dueNowReviews[0].id) : router.push('/workbench'))}
+                onClick={() => (dueNowReviews[0] ? openReview(dueNowReviews[0].id) : router.push('/study'))}
               >
                 {dueNowReviews[0] ? '开始今日复习' : '去工作台录入新题'}
               </Button>

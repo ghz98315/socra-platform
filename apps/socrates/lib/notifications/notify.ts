@@ -44,6 +44,8 @@ export async function notifyStudyComplete(params: {
   duration: number; // 分钟
 }): Promise<boolean> {
   const subjectLabels: Record<string, string> = {
+    chinese: '语文',
+    english: '英语',
     math: '数学',
     physics: '物理',
     chemistry: '化学',
@@ -143,6 +145,8 @@ export async function notifyNewError(params: {
   subject: string;
 }): Promise<boolean> {
   const subjectLabels: Record<string, string> = {
+    chinese: '语文',
+    english: '英语',
     math: '数学',
     physics: '物理',
     chemistry: '化学',

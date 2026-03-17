@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera, Upload, X, AlertCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,10 @@ export function ImageUploader({
   const [preview, setPreview] = useState<string | null>(currentImage || null);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    setPreview(currentImage || null);
+  }, [currentImage]);
 
   // 验证文件
   const validateFile = useCallback((file: File): string | null => {

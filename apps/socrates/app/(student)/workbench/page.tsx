@@ -31,7 +31,7 @@ import { OCRResult } from '@/components/OCRResult';
 import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { PageHeader } from '@/components/PageHeader';
-import { GeometryRenderer, type GeometryData } from '@/components/GeometryRenderer';
+import { GeometryRenderer, type GeometryData, type GeometryRendererRef } from '@/components/GeometryRenderer';
 import { SubjectTabs, type SubjectType, getSubjectConfig } from '@/components/SubjectTabs';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
@@ -102,6 +102,7 @@ function WorkbenchPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState('');
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
 
   // Geometry state
   const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
@@ -113,6 +114,11 @@ function WorkbenchPage() {
 
   // Left panel scroll container ref
   const leftPanelRef = useRef<HTMLDivElement>(null);
+  const geometryRendererRef = useRef<GeometryRendererRef | null>(null);
+  const [errorSessionId, setErrorSessionId] = useState<string | null>(null);
+  const lastSyncedGeometrySignatureRef = useRef('');
+  const geometrySyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const geometryEnabled = activeSubject === 'math';
 
   // 同步加载状态到ref
   useEffect(() => {
@@ -133,13 +139,15 @@ function WorkbenchPage() {
   // 这避免了用户编辑文本时重复解析
   useEffect(() => {
     // 只有当标记为应该解析、文本不为空、不是正在加载、且与上次解析的文本不同时才触发
-    const shouldParse = shouldAutoParseRef.current &&
+    const shouldParse = geometryEnabled &&
+        shouldAutoParseRef.current &&
         ocrText &&
         ocrText.trim().length > 0 &&
         ocrText !== lastParsedTextRef.current &&
         !isGeometryLoadingRef.current;
 
     console.log('[Workbench] Auto-parse check:', {
+      geometryEnabled,
       shouldAutoParse: shouldAutoParseRef.current,
       hasText: !!ocrText,
       textLength: ocrText?.length,
@@ -154,7 +162,113 @@ function WorkbenchPage() {
       shouldAutoParseRef.current = false; // 解析后重置标志
       parseGeometry(ocrText);
     }
-  }, [ocrText]);
+  }, [geometryEnabled, ocrText]);
+
+  useEffect(() => {
+    const shouldParse = geometryEnabled &&
+      shouldAutoParseRef.current &&
+      !!ocrText &&
+      ocrText.trim().length > 0 &&
+      ocrText !== lastParsedTextRef.current &&
+      !isGeometryLoadingRef.current;
+
+    if (!shouldParse) {
+      return;
+    }
+
+    lastParsedTextRef.current = ocrText;
+    shouldAutoParseRef.current = false;
+    void parseGeometry(ocrText);
+  }, [geometryEnabled, ocrText]);
+
+  useEffect(() => {
+    if (geometryEnabled) {
+      return;
+    }
+
+    geometryAbortRef.current = true;
+    shouldAutoParseRef.current = false;
+    setIsGeometryLoading(false);
+
+    if (geometrySyncTimeoutRef.current) {
+      clearTimeout(geometrySyncTimeoutRef.current);
+      geometrySyncTimeoutRef.current = null;
+    }
+  }, [geometryEnabled]);
+
+  const getGeometrySvg = useCallback(() => {
+    return geometryRendererRef.current?.getSVGContent() || null;
+  }, []);
+
+  const syncGeometryToSession = useCallback(async (
+    sessionId: string,
+    nextGeometryData: GeometryData,
+    geometrySvg?: string | null,
+  ) => {
+    try {
+      const payload: Record<string, unknown> = {
+        session_id: sessionId,
+        geometry_data: nextGeometryData,
+      };
+
+      if (geometrySvg !== undefined) {
+        payload.geometry_svg = geometrySvg;
+      }
+
+      const response = await fetch('/api/error-session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Workbench] Failed to sync geometry data. Response:', errorText);
+        return;
+      }
+
+      console.log('[Workbench] Geometry data synced to error session:', sessionId);
+    } catch (error) {
+      console.error('[Workbench] Exception syncing geometry data:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!geometryEnabled || !errorSessionId || !geometryData || geometryData.type === 'unknown') {
+      return;
+    }
+
+    const nextSignature = JSON.stringify(geometryData);
+    if (nextSignature === lastSyncedGeometrySignatureRef.current) {
+      return;
+    }
+
+    lastSyncedGeometrySignatureRef.current = nextSignature;
+    if (geometrySyncTimeoutRef.current) {
+      clearTimeout(geometrySyncTimeoutRef.current);
+    }
+
+    geometrySyncTimeoutRef.current = setTimeout(() => {
+      geometrySyncTimeoutRef.current = null;
+      const geometrySvg = getGeometrySvg();
+      void syncGeometryToSession(errorSessionId, geometryData, geometrySvg ?? undefined);
+    }, 400);
+
+    return () => {
+      if (geometrySyncTimeoutRef.current) {
+        clearTimeout(geometrySyncTimeoutRef.current);
+        geometrySyncTimeoutRef.current = null;
+      }
+    };
+  }, [errorSessionId, geometryData, geometryEnabled, getGeometrySvg, syncGeometryToSession]);
+
+  useEffect(() => {
+    return () => {
+      if (geometrySyncTimeoutRef.current) {
+        clearTimeout(geometrySyncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -187,7 +301,87 @@ function WorkbenchPage() {
     if (subjectParam && ['math', 'chinese', 'english', 'physics', 'chemistry'].includes(subjectParam)) {
       setActiveSubject(subjectParam as SubjectType);
     }
+
+    const sessionParam = searchParams.get('session');
+    if (sessionParam) {
+      void loadExistingSession(sessionParam);
+    }
   }, [isParent, profile?.id, searchParams]);
+
+  const loadExistingSession = async (sessionId: string) => {
+    setIsRestoringSession(true);
+
+    try {
+      const supabase = createClient() as any;
+
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('error_sessions')
+        .select('id, student_id, subject, original_image_url, extracted_text, geometry_data, created_at')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError || !sessionData) {
+        console.error('[Workbench] Failed to load existing session:', sessionError);
+        return;
+      }
+
+      const restoredSubject = sessionData.subject;
+      if (restoredSubject && ['math', 'chinese', 'english', 'physics', 'chemistry'].includes(restoredSubject)) {
+        setActiveSubject(restoredSubject as SubjectType);
+      }
+
+      if (isParent && sessionData.student_id) {
+        setSelectedStudentId(sessionData.student_id);
+
+        const matchedStudent = parentStudents.find((student) => student.id === sessionData.student_id);
+        if (matchedStudent) {
+          setSelectedStudentName(matchedStudent.display_name);
+        } else {
+          const { data: studentProfile } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('id', sessionData.student_id)
+            .maybeSingle();
+
+          if (studentProfile?.display_name) {
+            setSelectedStudentName(studentProfile.display_name);
+          }
+        }
+      }
+
+      setSelectedImage(null);
+      setImagePreview(sessionData.original_image_url || null);
+      setOcrText(sessionData.extracted_text || '');
+      setGeometryData(restoredSubject === 'math' ? sessionData.geometry_data || null : null);
+      setCurrentStep(sessionData.extracted_text ? 'chat' : sessionData.original_image_url ? 'ocr' : 'upload');
+      setErrorSessionId(sessionData.id);
+      chatSessionRef.current = sessionData.id;
+      lastParsedTextRef.current = sessionData.extracted_text || '';
+      shouldAutoParseRef.current = false;
+
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('chat_messages')
+        .select('id, role, content, created_at')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) {
+        console.error('[Workbench] Failed to load session messages:', messagesError);
+      } else {
+        const restoredMessages: Message[] = (messagesData || []).map((message: { id: string; role: 'user' | 'assistant' | 'system'; content: string; created_at: string }) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          timestamp: new Date(message.created_at),
+        }));
+        setMessages(restoredMessages);
+      }
+    } catch (error) {
+      console.error('[Workbench] Exception while restoring session:', error);
+    } finally {
+      setIsRestoringSession(false);
+    }
+  };
 
   const loadParentStudents = async () => {
     if (!profile?.id) return;
@@ -370,6 +564,12 @@ function WorkbenchPage() {
 
   // 解析几何图形
   const parseGeometry = async (text: string) => {
+    if (!geometryEnabled || !text?.trim()) {
+      setGeometryData(null);
+      setIsGeometryLoading(false);
+      return;
+    }
+
     console.log('[Workbench] parseGeometry called with text:', text?.substring(0, 100));
 
     // 重置 abort 标志
@@ -448,9 +648,18 @@ function WorkbenchPage() {
   // 处理 OCR 成功完成（仅在此触发几何分析，不在用户编辑时触发）
   const handleOCRSuccess = (text: string) => {
     console.log('[Workbench] OCR success, triggering geometry analysis');
-    shouldAutoParseRef.current = true;
+    shouldAutoParseRef.current = geometryEnabled;
     // 重置上次解析的文本，以便新的解析可以触发
     lastParsedTextRef.current = '';
+    if (!geometryEnabled) {
+      geometryAbortRef.current = true;
+      setGeometryData(null);
+      setIsGeometryLoading(false);
+    }
+    if (geometrySyncTimeoutRef.current) {
+      clearTimeout(geometrySyncTimeoutRef.current);
+      geometrySyncTimeoutRef.current = null;
+    }
     // 此时 ocrText 已经通过 onTextChange 更新了
   };
 
@@ -475,6 +684,8 @@ function WorkbenchPage() {
     if (!profile?.id) return;
     try {
       console.log('Creating error session with profile ID:', profile.id);
+      const initialGeometryData = geometryEnabled && geometryData && geometryData.type !== 'unknown' ? geometryData : null;
+      const initialGeometrySvg = initialGeometryData ? getGeometrySvg() : null;
       const response = await fetch('/api/error-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -483,7 +694,8 @@ function WorkbenchPage() {
           subject: activeSubject,
           original_image_url: imagePreview || null,
           extracted_text: text,
-          geometry_data: geometryData,
+          geometry_data: initialGeometryData,
+          geometry_svg: initialGeometrySvg,
           theme_used: profile?.theme_preference || 'junior', // 记录对话时使用的主题模式
         }),
       });
@@ -491,6 +703,8 @@ function WorkbenchPage() {
       if (response.ok) {
         const result = await response.json();
         chatSessionRef.current = result.data.session_id;
+        setErrorSessionId(result.data.session_id);
+        lastSyncedGeometrySignatureRef.current = initialGeometryData ? JSON.stringify(initialGeometryData) : '';
         console.log('Error session created successfully:', result.data.session_id, 'theme:', result.data.theme_used);
       } else {
         const errorText = await response.text();
@@ -514,6 +728,8 @@ function WorkbenchPage() {
     setCurrentStep('upload');
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
+    setErrorSessionId(null);
+    lastSyncedGeometrySignatureRef.current = '';
   };
 
   // Chat functions
@@ -538,6 +754,7 @@ function WorkbenchPage() {
           theme: profile?.theme_preference || 'junior',
           subject: activeSubject,
           questionContent: ocrText,
+          geometryData: geometryEnabled ? geometryData : null,
         }),
       });
 
@@ -586,6 +803,22 @@ function WorkbenchPage() {
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
   const aiName = profile?.theme_preference === 'junior' ? 'Jasper' : 'Logic';
   const currentSubjectConfig = getSubjectConfig(activeSubject);
+
+  if (isRestoringSession) {
+    return (
+      <div className={cn("min-h-screen bg-warm-50 flex items-center justify-center p-6", themeClass)}>
+        <Card className="w-full max-w-md shadow-lg border-warm-200/50">
+          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-warm-200 border-t-warm-500" />
+            <div>
+              <p className="text-base font-medium text-warm-900">正在恢复学习会话</p>
+              <p className="mt-1 text-sm text-warm-600">会保留原题内容、对话记录和当前学科。</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Show student selector for parents without selected student
   if (isParent && !effectiveStudentId) {
@@ -784,18 +1017,14 @@ function WorkbenchPage() {
                     initialText={ocrText}
                     onTextChange={setOcrText}
                     onConfirm={handleOCRComplete}
-                    onOCRSuccess={(text) => {
-                      console.log('[Workbench] OCR success, triggering geometry analysis');
-                      shouldAutoParseRef.current = true;
-                      lastParsedTextRef.current = '';
-                    }}
+                    onOCRSuccess={handleOCRSuccess}
                     imageData={imagePreview}
                   />
                 </div>
               )}
 
               {/* Geometry Status Indicator */}
-              {ocrText && ocrText.trim().length > 0 && !isGeometryLoading && geometryData?.type === 'unknown' && (
+              {geometryEnabled && ocrText && ocrText.trim().length > 0 && !isGeometryLoading && geometryData?.type === 'unknown' && (
                 <Card className="border-gray-200/50 bg-gradient-to-br from-gray-50 to-white transition-all duration-300">
                   <CardContent className="py-4">
                     <div className="flex items-center gap-3">
@@ -824,7 +1053,7 @@ function WorkbenchPage() {
               )}
 
               {/* Geometry Renderer Card */}
-              {(isGeometryLoading || (geometryData && geometryData.type !== 'unknown')) && (
+              {geometryEnabled && (isGeometryLoading || (geometryData && geometryData.type !== 'unknown')) && (
                 <Card className="border-purple-200/50 bg-gradient-to-br from-purple-50 to-white transition-all duration-300 hover:shadow-lg animate-slide-up">
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
@@ -874,10 +1103,12 @@ function WorkbenchPage() {
                         </div>
                         <div className="border border-purple-200 rounded-xl overflow-hidden bg-white">
                           <GeometryRenderer
+                            ref={geometryRendererRef}
                             geometryData={geometryData}
                             rawText={ocrText}
                             size={400}
                             onRedraw={() => parseGeometry(ocrText)}
+                            onGeometryChange={setGeometryData}
                           />
                         </div>
                         <Button

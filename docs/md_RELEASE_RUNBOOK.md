@@ -24,6 +24,7 @@ supabase/migrations/20260312_add_phone_to_profiles.sql
 supabase/migrations/20260312_create_link_requests_table.sql
 supabase/migrations/20260312_add_notifications_table.sql
 supabase/migrations/20260312_core_business_runtime.sql
+supabase/migrations/20260316_add_study_assets_tables.sql
 ```
 
 Notes:
@@ -43,6 +44,8 @@ After rollout, confirm these runtime objects exist:
 - `coupons`
 - `notifications`
 - `weekly_reports`
+- `study_assets`
+- `study_asset_messages`
 - `socra_points`
 - `point_transactions`
 - `get_user_points`
@@ -69,6 +72,11 @@ Recommended before payment verification:
 - `NEXT_PUBLIC_SITE_URL`
 - `WECHAT_APP_ID`
 - `WECHAT_APP_SECRET`
+
+Known Vercel deployment requirement:
+
+- The Vercel project Root Directory must point to `apps/socrates`, otherwise the remote builder will fail with `No Next.js version detected` because it only sees the monorepo root `package.json`.
+- If `vercel inspect` or `vercel build` crashes locally with `ProxyAgent is not a constructor`, treat that as a Vercel CLI issue on the machine, not an app regression. Use the Vercel dashboard build logs or another machine/CLI version for deployment diagnostics.
 
 ## 4. Smoke Test
 
@@ -120,3 +128,21 @@ Do not release if any item below is still open:
 - parent task reward duplicated
 - family add/remove not syncing `profiles.parent_id`
 - notifications API still reading or writing legacy fields
+
+## 2026-03-17 Automation Note
+
+- Before release or internal beta handoff, run `pnpm recommend:regression` or `pnpm autopilot` to confirm the expected validation scope.
+- If the environment cannot run `git status` from Node, pass a captured status file via `--status-file <path>` instead of relying on automatic inspection.
+- Use `pnpm regression:run -- --target <...> --profile <...>` as the standardized wrapper for env check, app build, and optional smoke.
+- If Windows reports `.next` build output is locked, stop local dev/build processes for that app, clear the build cache, then rerun the regression command.
+- Keep reporting the Node engine mismatch when the machine is still on `v22.x`; the repo expectation remains `20.x`.
+
+## 2026-03-17 Study Flow Smoke Addendum
+
+- Add `SMOKE_STUDY_USER_ID=<disposable study smoke user>` when validating the multisubject study/report/review chain in a deployed environment.
+- Run `node scripts/smoke-study-flow.mjs` after the standard Socrates smoke when write-side verification is allowed.
+- Optional: run `SMOKE_STUDY_ADVANCE_REVIEW=true node scripts/smoke-study-flow.mjs` to verify the review completion RPC path on a disposable account.
+- `pnpm check:env` now prints smoke readiness for both the standard Socrates smoke and the study-flow smoke; use it as the first preflight check before running deployment validation.
+- A repo-local smoke template now exists at `apps/socrates/.env.smoke.example`; copy it to `.env.smoke.local` in deployment-like environments before running smoke validation.
+- If `/api/study/assets` returns `missing_study_assets_migration`, the target Supabase project is missing `supabase/migrations/20260316_add_study_assets_tables.sql`; apply it before treating the failure as an app regression.
+- If the deployed smoke hits `404` on `/api/study/assets`, the active Socrates deployment is stale or mapped to the wrong app root; redeploy the current `apps/socrates` build before continuing internal beta.

@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
+import { buildStudyModuleHref, type SubjectType } from '@/lib/study/catalog';
 
 // 学科配置
 const subjectConfig: Record<string, {
@@ -159,7 +160,7 @@ export default function DashboardPage() {
     if (isPro) {
       router.push('/subscription');
     } else {
-      router.push(`/workbench?subject=${subject}`);
+      router.push(buildStudyModuleHref(subject as SubjectType, 'problem'));
     }
   };
 
@@ -341,7 +342,7 @@ export default function DashboardPage() {
             <h3 className="font-semibold text-gray-900 mb-3">快捷操作</h3>
             <div className="grid grid-cols-4 gap-3">
               <button
-                onClick={() => router.push('/workbench')}
+                onClick={() => router.push('/study')}
                 className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white hover:shadow-md transition-all"
               >
                 <Camera className="w-6 h-6 text-warm-500" />

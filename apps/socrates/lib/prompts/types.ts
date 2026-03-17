@@ -26,7 +26,16 @@ export type DialogMode = 'Logic' | 'Socra';
 /**
  * 题型
  */
-export type QuestionType = 'choice' | 'fill' | 'solution' | 'proof' | 'calculation' | 'reading' | 'writing' | 'unknown';
+export type QuestionType =
+  | 'choice'
+  | 'fill'
+  | 'solution'
+  | 'proof'
+  | 'calculation'
+  | 'reading'
+  | 'writing'
+  | 'listening'
+  | 'unknown';
 
 /**
  * 知识点结构
