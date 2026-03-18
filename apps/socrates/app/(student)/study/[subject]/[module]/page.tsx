@@ -43,6 +43,7 @@ export default async function StudyModulePage({
   const experience = getStudyModuleExperience(subjectConfig.id, moduleConfig.id);
   const moduleWorkspace = experience.renderWorkspace?.() || null;
   const supplemental = experience.renderSupplemental?.() || null;
+  const moduleTitle = experience.heroTitle ?? moduleConfig.title;
   const moduleDescription = experience.heroDescription ?? moduleConfig.description;
   const entryHref = experience.hideEntry ? undefined : experience.entryHref ?? moduleConfig.entryHref;
   const entryLabel = experience.entryLabel ?? moduleConfig.entryLabel ?? '进入当前版本';
@@ -58,7 +59,7 @@ export default async function StudyModulePage({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold text-slate-900">{moduleConfig.title}</h2>
+                <h2 className="text-xl font-semibold text-slate-900">{moduleTitle}</h2>
                 <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(moduleConfig.status))}>
                   {getModuleStatusLabel(moduleConfig.status)}
                 </span>
