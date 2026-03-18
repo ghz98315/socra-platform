@@ -6,6 +6,7 @@ import {
   getModuleStatusLabel,
   getStudySubject,
 } from '@/lib/study/catalog';
+import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 function getStatusClasses(status: 'live' | 'building' | 'planned') {
@@ -45,6 +46,8 @@ export default async function StudySubjectOverviewPage({
       <section className="grid gap-4 xl:grid-cols-2">
         {config.modules.map((module) => {
           const Icon = module.icon;
+          const experience = getStudyModuleExperience(config.id, module.id);
+          const cardDescription = experience.cardDescription ?? module.description;
 
           return (
             <article
@@ -58,7 +61,7 @@ export default async function StudySubjectOverviewPage({
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900">{module.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">{cardDescription}</p>
                   </div>
                 </div>
                 <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(module.status))}>

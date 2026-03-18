@@ -8,6 +8,7 @@ import {
   getStudySubjects,
 } from '@/lib/study/catalog';
 import { DevelopmentProgressSectionV2 } from '@/components/study/DevelopmentProgressSectionV2';
+import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 function getStatusClasses(status: 'live' | 'building' | 'planned') {
@@ -110,21 +111,26 @@ export default function StudyHomePage() {
                 <p className="mt-4 text-sm leading-6 text-slate-600">{subject.overview}</p>
 
                 <div className="mt-5 space-y-2">
-                  {subject.modules.map((module) => (
-                    <Link
-                      key={module.id}
-                      href={buildStudyModuleHref(subject.id, module.id)}
-                      className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:bg-slate-50"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-slate-900">{module.title}</div>
-                        <div className="mt-1 text-xs text-slate-500">{module.description}</div>
-                      </div>
-                      <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(module.status))}>
-                        {getModuleStatusLabel(module.status)}
-                      </span>
-                    </Link>
-                  ))}
+                  {subject.modules.map((module) => {
+                    const experience = getStudyModuleExperience(subject.id, module.id);
+                    const cardDescription = experience.cardDescription ?? module.description;
+
+                    return (
+                      <Link
+                        key={module.id}
+                        href={buildStudyModuleHref(subject.id, module.id)}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 transition-colors hover:bg-slate-50"
+                      >
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">{module.title}</div>
+                          <div className="mt-1 text-xs text-slate-500">{cardDescription}</div>
+                        </div>
+                        <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(module.status))}>
+                          {getModuleStatusLabel(module.status)}
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               </article>
             );

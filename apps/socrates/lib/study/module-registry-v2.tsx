@@ -7,6 +7,7 @@ import { WritingStudioV2 } from '@/components/study/WritingStudioV2';
 import { getEssayAppUrl, type StudyModuleId, type StudyModuleStatus, type SubjectType } from '@/lib/study/catalog';
 
 interface StudyModuleExperience {
+  cardDescription?: string;
   heroTitle?: string;
   heroDescription?: string;
   heroStatus?: StudyModuleStatus;
@@ -79,6 +80,7 @@ const moduleExperiences: Partial<
   },
   chinese: {
     reading: {
+      cardDescription: '文章、题干和答案拆解',
       heroTitle: '语文阅读理解工作台',
       heroStatus: 'live',
       heroStatusLabel: '工作台可用',
@@ -91,6 +93,7 @@ const moduleExperiences: Partial<
       renderWorkspace: () => <ChineseAnalysisStudioV2 mode="reading" />,
     },
     foundation: {
+      cardDescription: '字词、病句和古诗文分析',
       heroTitle: '语文基础知识工作台',
       heroStatus: 'live',
       heroStatusLabel: '工作台可用',
@@ -103,6 +106,7 @@ const moduleExperiences: Partial<
       renderWorkspace: () => <ChineseAnalysisStudioV2 mode="foundation" />,
     },
     'composition-idea': {
+      cardDescription: '作文立意、结构和素材',
       heroTitle: '作文审题与立意工作台',
       heroDescription: '作文题目、补充要求和结构化结果都在当前页闭环，先把写作思路从通用录题链路里独立出来。',
       heroStatus: 'building',
@@ -111,6 +115,7 @@ const moduleExperiences: Partial<
       renderWorkspace: () => <WritingStudioV2 subject="chinese" mode="idea" />,
     },
     'composition-review': {
+      cardDescription: '作文预批改与结果沉淀',
       heroTitle: '作文草稿快速预批改',
       heroDescription: '先在当前模块内承接作文预批改与结果沉淀，再按需进入 Essay 深度工作台。',
       heroStatus: 'building',
@@ -128,6 +133,7 @@ const moduleExperiences: Partial<
   },
   english: {
     listening: {
+      cardDescription: '听力 transcript 分析与复练',
       heroTitle: '英语听力拆解工作台',
       heroDescription: '先用 transcript 驱动听力分析闭环，把场景判断、答案定位和复练建议稳定下来。',
       heroStatus: 'live',
@@ -141,6 +147,7 @@ const moduleExperiences: Partial<
       renderWorkspace: () => <EnglishListeningStudioV2 />,
     },
     'writing-idea': {
+      cardDescription: '英语提纲、时态和表达',
       heroTitle: '英语写作提纲工作台',
       heroDescription: '把写前提纲、时态判断和表达建议收口到当前页，避免和批改目标混在同一工作台。',
       heroStatus: 'building',
@@ -154,6 +161,7 @@ const moduleExperiences: Partial<
       renderWorkspace: () => <WritingStudioV2 subject="english" mode="idea" />,
     },
     'writing-review': {
+      cardDescription: '英语语法、表达和结构批改',
       heroTitle: '英语作文批改工作台',
       heroDescription: '先把语法、表达和结构反馈沉淀成统一结果卡，再决定是否继续细分更重的批改维度。',
       heroStatus: 'building',
