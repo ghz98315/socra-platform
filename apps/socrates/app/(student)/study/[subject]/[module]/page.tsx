@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import {
   getModuleStatusLabel,
   getStudyModule,
-  getStudySubject,
+  getSubjectConfig,
   type StudyModuleStatus,
 } from '@/lib/study/catalog';
 import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
@@ -29,7 +29,7 @@ export default async function StudyModulePage({
   params: Promise<{ subject: string; module: string }>;
 }) {
   const { subject, module } = await params;
-  const subjectConfig = getStudySubject(subject);
+  const subjectConfig = getSubjectConfig(subject);
 
   if (!subjectConfig || subjectConfig.pro) {
     notFound();

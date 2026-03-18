@@ -2,7 +2,7 @@
 import { notFound } from 'next/navigation';
 
 import { StudySubjectNav } from '@/components/study/StudySubjectNav';
-import { buildStudySubjectHref, getStudySubject, type SubjectType } from '@/lib/study/catalog';
+import { buildStudySubjectHref, getDefaultStudyModule, getSubjectConfig, type SubjectType } from '@/lib/study/catalog';
 import { getStudySubjectExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
@@ -14,15 +14,16 @@ export default async function StudySubjectLayout({
   params: Promise<{ subject: string }>;
 }) {
   const { subject } = await params;
-  const config = getStudySubject(subject);
+  const config = getSubjectConfig(subject);
 
   if (!config || config.pro) {
     notFound();
   }
 
+  const defaultModule = getDefaultStudyModule(config.id);
   const SubjectIcon = config.icon;
   const experience = getStudySubjectExperience(config.id as SubjectType);
-  const subjectOverview = experience.overview ?? config.overview;
+  const subjectOverview = experience.overview ?? '';
 
   return (
     <div>
@@ -56,9 +57,9 @@ export default async function StudySubjectLayout({
             >
               返回概览
             </Link>
-            {config.modules[0] ? (
+            {defaultModule ? (
               <Link
-                href={`/study/${config.id}/${config.modules[0].id}`}
+                href={`/study/${config.id}/${defaultModule.id}`}
                 className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
               >
                 进入首个模块
