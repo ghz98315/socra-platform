@@ -10,7 +10,7 @@ import {
   getStudySubject,
   type SubjectType,
 } from '@/lib/study/catalog';
-import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
+import { getStudyModuleExperience, getStudySubjectExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 interface StudySubjectNavProps {
@@ -37,6 +37,9 @@ export function StudySubjectNav({ subject }: StudySubjectNavProps) {
   if (!config) {
     return null;
   }
+
+  const experience = getStudySubjectExperience(subject);
+  const subjectOverview = experience.overview ?? config.overview;
 
   return (
     <>
@@ -72,7 +75,7 @@ export function StudySubjectNav({ subject }: StudySubjectNavProps) {
         <div className="mb-4">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Study</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-900">{config.name} 模块</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">{config.overview}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-500">{subjectOverview}</p>
         </div>
 
         <div className="space-y-2">

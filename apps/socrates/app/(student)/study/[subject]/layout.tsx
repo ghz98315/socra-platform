@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { StudySubjectNav } from '@/components/study/StudySubjectNav';
 import { buildStudySubjectHref, getStudySubject, type SubjectType } from '@/lib/study/catalog';
+import { getStudySubjectExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 export default async function StudySubjectLayout({
@@ -20,6 +21,8 @@ export default async function StudySubjectLayout({
   }
 
   const SubjectIcon = config.icon;
+  const experience = getStudySubjectExperience(config.id as SubjectType);
+  const subjectOverview = experience.overview ?? config.overview;
 
   return (
     <div>
@@ -43,7 +46,7 @@ export default async function StudySubjectLayout({
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{config.name}</h1>
               </div>
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-600 lg:text-base">{config.overview}</p>
+            <p className="mt-4 text-sm leading-7 text-slate-600 lg:text-base">{subjectOverview}</p>
           </div>
 
           <div className="flex flex-wrap gap-3">

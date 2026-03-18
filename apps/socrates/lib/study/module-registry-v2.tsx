@@ -6,6 +6,11 @@ import { EnglishListeningStudioV2 } from '@/components/study/EnglishListeningStu
 import { WritingStudioV2 } from '@/components/study/WritingStudioV2';
 import { getEssayAppUrl, type StudyModuleId, type StudyModuleStatus, type SubjectType } from '@/lib/study/catalog';
 
+interface StudySubjectExperience {
+  description?: string;
+  overview?: string;
+}
+
 interface StudyModuleExperience {
   cardDescription?: string;
   heroTitle?: string;
@@ -68,6 +73,21 @@ const defaultExperience: StudyModuleExperience = {
     '统一学习记录，但保留学科和模块差异。',
     '先做可用版本，再把复习、报告和订阅接入同一底座。',
   ],
+};
+
+const subjectExperiences: Partial<Record<SubjectType, StudySubjectExperience>> = {
+  math: {
+    description: '录题分析与几何复盘',
+    overview: '数学当前以录题分析为主链路，后续重点补齐几何修正、辅助线和变式练习。',
+  },
+  chinese: {
+    description: '录题分析、阅读与作文',
+    overview: '语文会从单一录题入口扩展为阅读、基础知识、作文批改和写作思路的组合型能力中心。',
+  },
+  english: {
+    description: '录题分析、听力与写作',
+    overview: '英语将拆成录题分析、听力和写作三条主能力，不再只作为拍题附属学科。',
+  },
 };
 
 const moduleExperiences: Partial<
@@ -182,4 +202,8 @@ export function getStudyModuleExperience(subject: SubjectType, module: StudyModu
     ...defaultExperience,
     ...(moduleExperiences[subject]?.[module] || {}),
   };
+}
+
+export function getStudySubjectExperience(subject: SubjectType) {
+  return subjectExperiences[subject] || {};
 }

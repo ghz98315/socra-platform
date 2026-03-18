@@ -8,7 +8,7 @@ import {
   getStudySubjects,
 } from '@/lib/study/catalog';
 import { DevelopmentProgressSectionV2 } from '@/components/study/DevelopmentProgressSectionV2';
-import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
+import { getStudyModuleExperience, getStudySubjectExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 function getStatusClasses(status: 'live' | 'building' | 'planned') {
@@ -83,6 +83,9 @@ export default function StudyHomePage() {
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           {coreSubjects.map((subject) => {
             const SubjectIcon = subject.icon;
+            const experience = getStudySubjectExperience(subject.id);
+            const subjectDescription = experience.description ?? subject.description;
+            const subjectOverview = experience.overview ?? subject.overview;
 
             return (
               <article
@@ -96,7 +99,7 @@ export default function StudyHomePage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900">{subject.name}</h3>
-                      <p className="text-sm text-slate-500">{subject.description}</p>
+                      <p className="text-sm text-slate-500">{subjectDescription}</p>
                     </div>
                   </div>
 
@@ -108,7 +111,7 @@ export default function StudyHomePage() {
                   </Link>
                 </div>
 
-                <p className="mt-4 text-sm leading-6 text-slate-600">{subject.overview}</p>
+                <p className="mt-4 text-sm leading-6 text-slate-600">{subjectOverview}</p>
 
                 <div className="mt-5 space-y-2">
                   {subject.modules.map((module) => {
@@ -145,6 +148,8 @@ export default function StudyHomePage() {
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {futureSubjects.map((subject) => {
             const SubjectIcon = subject.icon;
+            const experience = getStudySubjectExperience(subject.id);
+            const subjectDescription = experience.description ?? subject.description;
 
             return (
               <article
@@ -158,7 +163,7 @@ export default function StudyHomePage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900">{subject.name}</h3>
-                      <p className="text-sm text-slate-500">{subject.description}</p>
+                      <p className="text-sm text-slate-500">{subjectDescription}</p>
                     </div>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">后续接入</span>
