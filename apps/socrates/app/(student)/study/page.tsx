@@ -7,7 +7,7 @@ import {
   getModuleStatusLabel,
   getStudySubjects,
 } from '@/lib/study/catalog';
-import { DevelopmentProgressSection } from '@/components/study/DevelopmentProgressSection';
+import { DevelopmentProgressSectionV2 } from '@/components/study/DevelopmentProgressSectionV2';
 import { cn } from '@/lib/utils';
 
 function getStatusClasses(status: 'live' | 'building' | 'planned') {
@@ -163,7 +163,7 @@ export default function StudyHomePage() {
         </div>
       </section>
 
-      <DevelopmentProgressSection />
+      <DevelopmentProgressSectionV2 />
     </div>
   );
 }
