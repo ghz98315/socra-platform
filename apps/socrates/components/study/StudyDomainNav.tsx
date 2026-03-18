@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BookOpenCheck, Compass, Layers3 } from 'lucide-react';
 
-import { buildStudySubjectHref, getStudySubjects } from '@/lib/study/catalog';
+import { buildStudySubjectHref, getSupportedSubjects } from '@/lib/study/catalog';
 import { cn } from '@/lib/utils';
 
 function getNavSummary(pathname: string) {
@@ -33,7 +33,7 @@ function getNavSummary(pathname: string) {
 
 export function StudyDomainNav() {
   const pathname = usePathname();
-  const subjects = getStudySubjects({ includePro: false });
+  const subjects = getSupportedSubjects();
   const summary = getNavSummary(pathname);
 
   return (

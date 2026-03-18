@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-import { getStudySubject, type SubjectType } from '@/lib/study/catalog';
+import { getSubjectConfig, type SubjectType } from '@/lib/study/catalog';
 
 export default function StudyProblemBridgePage({
   params,
@@ -25,7 +25,7 @@ export default function StudyProblemBridgePage({
     router.replace(targetHref);
   }, [router, targetHref]);
 
-  const subject = getStudySubject(params.subject);
+  const subject = getSubjectConfig(params.subject);
 
   return (
     <div className="rounded-[28px] border border-slate-200 bg-white/90 p-8 shadow-sm">
