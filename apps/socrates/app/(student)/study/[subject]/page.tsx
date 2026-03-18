@@ -48,6 +48,10 @@ export default async function StudySubjectOverviewPage({
           const Icon = module.icon;
           const experience = getStudyModuleExperience(config.id, module.id);
           const cardDescription = experience.cardDescription ?? module.description;
+          const entryHref = experience.entryHref ?? module.entryHref;
+          const entryLabel = experience.entryLabel ?? module.entryLabel;
+          const external = experience.external ?? module.external;
+          const hideEntry = experience.hideEntry ?? false;
 
           return (
             <article
@@ -76,14 +80,14 @@ export default async function StudySubjectOverviewPage({
                 >
                   查看模块
                 </Link>
-                {module.entryHref ? (
+                {!hideEntry && entryHref ? (
                   <Link
-                    href={module.entryHref}
-                    target={module.external ? '_blank' : undefined}
-                    rel={module.external ? 'noreferrer' : undefined}
+                    href={entryHref}
+                    target={external ? '_blank' : undefined}
+                    rel={external ? 'noreferrer' : undefined}
                     className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
                   >
-                    {module.entryLabel ?? '进入当前版本'}
+                    {entryLabel ?? '进入当前版本'}
                   </Link>
                 ) : null}
               </div>
