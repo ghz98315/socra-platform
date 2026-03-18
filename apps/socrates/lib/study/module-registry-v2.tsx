@@ -13,6 +13,8 @@ interface StudySubjectExperience {
 
 interface StudyModuleExperience {
   cardDescription?: string;
+  cardStatus?: StudyModuleStatus;
+  cardStatusLabel?: string;
   heroTitle?: string;
   heroDescription?: string;
   heroStatus?: StudyModuleStatus;
@@ -206,4 +208,19 @@ export function getStudyModuleExperience(subject: SubjectType, module: StudyModu
 
 export function getStudySubjectExperience(subject: SubjectType) {
   return subjectExperiences[subject] || {};
+}
+
+export function getStudyModuleCardStatus(subject: SubjectType, module: StudyModuleId, fallbackStatus: StudyModuleStatus) {
+  const experience = getStudyModuleExperience(subject, module);
+  return experience.cardStatus ?? experience.heroStatus ?? fallbackStatus;
+}
+
+export function getStudyModuleCardStatusLabel(
+  subject: SubjectType,
+  module: StudyModuleId,
+  fallbackStatus: StudyModuleStatus,
+  fallbackLabel: string
+) {
+  const experience = getStudyModuleExperience(subject, module);
+  return experience.cardStatusLabel ?? experience.heroStatusLabel ?? fallbackLabel;
 }

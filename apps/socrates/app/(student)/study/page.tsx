@@ -8,7 +8,12 @@ import {
   getStudySubjects,
 } from '@/lib/study/catalog';
 import { DevelopmentProgressSectionV2 } from '@/components/study/DevelopmentProgressSectionV2';
-import { getStudyModuleExperience, getStudySubjectExperience } from '@/lib/study/module-registry-v2';
+import {
+  getStudyModuleCardStatus,
+  getStudyModuleCardStatusLabel,
+  getStudyModuleExperience,
+  getStudySubjectExperience,
+} from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 function getStatusClasses(status: 'live' | 'building' | 'planned') {
@@ -117,6 +122,13 @@ export default function StudyHomePage() {
                   {subject.modules.map((module) => {
                     const experience = getStudyModuleExperience(subject.id, module.id);
                     const cardDescription = experience.cardDescription ?? module.description;
+                    const cardStatus = getStudyModuleCardStatus(subject.id, module.id, module.status);
+                    const cardStatusLabel = getStudyModuleCardStatusLabel(
+                      subject.id,
+                      module.id,
+                      module.status,
+                      getModuleStatusLabel(module.status)
+                    );
 
                     return (
                       <Link
@@ -128,8 +140,8 @@ export default function StudyHomePage() {
                           <div className="text-sm font-medium text-slate-900">{module.title}</div>
                           <div className="mt-1 text-xs text-slate-500">{cardDescription}</div>
                         </div>
-                        <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(module.status))}>
-                          {getModuleStatusLabel(module.status)}
+                        <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(cardStatus))}>
+                          {cardStatusLabel}
                         </span>
                       </Link>
                     );

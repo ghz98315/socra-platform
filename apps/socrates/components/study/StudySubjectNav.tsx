@@ -10,7 +10,12 @@ import {
   getStudySubject,
   type SubjectType,
 } from '@/lib/study/catalog';
-import { getStudyModuleExperience, getStudySubjectExperience } from '@/lib/study/module-registry-v2';
+import {
+  getStudyModuleCardStatus,
+  getStudyModuleCardStatusLabel,
+  getStudyModuleExperience,
+  getStudySubjectExperience,
+} from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 interface StudySubjectNavProps {
@@ -97,6 +102,13 @@ export function StudySubjectNav({ subject }: StudySubjectNavProps) {
             const isActive = activeSegment === module.id;
             const experience = getStudyModuleExperience(subject, module.id);
             const cardDescription = experience.cardDescription ?? module.description;
+            const cardStatus = getStudyModuleCardStatus(subject, module.id, module.status);
+            const cardStatusLabel = getStudyModuleCardStatusLabel(
+              subject,
+              module.id,
+              module.status,
+              getModuleStatusLabel(module.status)
+            );
 
             return (
               <Link
@@ -119,8 +131,8 @@ export function StudySubjectNav({ subject }: StudySubjectNavProps) {
                       <div className="mt-1 text-xs leading-5 text-slate-500">{cardDescription}</div>
                     </div>
                   </div>
-                  <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(module.status))}>
-                    {getModuleStatusLabel(module.status)}
+                  <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(cardStatus))}>
+                    {cardStatusLabel}
                   </span>
                 </div>
               </Link>

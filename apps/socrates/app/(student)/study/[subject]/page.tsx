@@ -6,7 +6,11 @@ import {
   getModuleStatusLabel,
   getStudySubject,
 } from '@/lib/study/catalog';
-import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
+import {
+  getStudyModuleCardStatus,
+  getStudyModuleCardStatusLabel,
+  getStudyModuleExperience,
+} from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
 
 function getStatusClasses(status: 'live' | 'building' | 'planned') {
@@ -52,6 +56,13 @@ export default async function StudySubjectOverviewPage({
           const entryLabel = experience.entryLabel ?? module.entryLabel;
           const external = experience.external ?? module.external;
           const hideEntry = experience.hideEntry ?? false;
+          const cardStatus = getStudyModuleCardStatus(config.id, module.id, module.status);
+          const cardStatusLabel = getStudyModuleCardStatusLabel(
+            config.id,
+            module.id,
+            module.status,
+            getModuleStatusLabel(module.status)
+          );
 
           return (
             <article
@@ -68,8 +79,8 @@ export default async function StudySubjectOverviewPage({
                     <p className="mt-1 text-sm leading-6 text-slate-500">{cardDescription}</p>
                   </div>
                 </div>
-                <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(module.status))}>
-                  {getModuleStatusLabel(module.status)}
+                <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(cardStatus))}>
+                  {cardStatusLabel}
                 </span>
               </div>
 
