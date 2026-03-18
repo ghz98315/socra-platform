@@ -51,6 +51,8 @@ export default async function StudyModulePage({
   const entryHref = experience.hideEntry ? undefined : experience.entryHref ?? moduleConfig.entryHref;
   const entryLabel = experience.entryLabel ?? moduleConfig.entryLabel ?? '进入当前版本';
   const entryExternal = experience.external ?? moduleConfig.external;
+  const showPhaseSection = experience.showPhaseSection ?? true;
+  const showPrinciplesSection = experience.showPrinciplesSection ?? true;
 
   return (
     <div className="space-y-4">
@@ -84,19 +86,23 @@ export default async function StudyModulePage({
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-slate-900">{experience.phaseTitle}</h3>
-        <p className="mt-2 text-sm leading-7 text-slate-600">{experience.phaseCopy}</p>
-      </section>
+      {showPhaseSection ? (
+        <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-slate-900">{experience.phaseTitle}</h3>
+          <p className="mt-2 text-sm leading-7 text-slate-600">{experience.phaseCopy}</p>
+        </section>
+      ) : null}
 
-      <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-slate-900">{experience.principlesTitle}</h3>
-        <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-          {experience.principles?.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </section>
+      {showPrinciplesSection ? (
+        <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-slate-900">{experience.principlesTitle}</h3>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+            {experience.principles?.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {moduleWorkspace}
       {supplemental}

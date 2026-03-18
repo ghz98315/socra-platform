@@ -11,6 +11,8 @@ interface StudyModuleExperience {
   heroDescription?: string;
   heroStatus?: StudyModuleStatus;
   heroStatusLabel?: string;
+  showPhaseSection?: boolean;
+  showPrinciplesSection?: boolean;
   hideEntry?: boolean;
   entryHref?: string;
   entryLabel?: string;
