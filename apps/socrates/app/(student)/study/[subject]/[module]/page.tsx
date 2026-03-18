@@ -5,6 +5,7 @@ import {
   getModuleStatusLabel,
   getStudyModule,
   getStudySubject,
+  type StudyModuleStatus,
 } from '@/lib/study/catalog';
 import { getStudyModuleExperience } from '@/lib/study/module-registry-v2';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,8 @@ export default async function StudyModulePage({
   const supplemental = experience.renderSupplemental?.() || null;
   const moduleTitle = experience.heroTitle ?? moduleConfig.title;
   const moduleDescription = experience.heroDescription ?? moduleConfig.description;
+  const statusTone: StudyModuleStatus = experience.heroStatus ?? moduleConfig.status;
+  const statusLabel = experience.heroStatusLabel ?? getModuleStatusLabel(statusTone);
   const entryHref = experience.hideEntry ? undefined : experience.entryHref ?? moduleConfig.entryHref;
   const entryLabel = experience.entryLabel ?? moduleConfig.entryLabel ?? '进入当前版本';
   const entryExternal = experience.external ?? moduleConfig.external;
@@ -60,8 +63,8 @@ export default async function StudyModulePage({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-semibold text-slate-900">{moduleTitle}</h2>
-                <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(moduleConfig.status))}>
-                  {getModuleStatusLabel(moduleConfig.status)}
+                <span className={cn('rounded-full px-2 py-1 text-[11px] font-medium', getStatusClasses(statusTone))}>
+                  {statusLabel}
                 </span>
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">{moduleDescription}</p>
