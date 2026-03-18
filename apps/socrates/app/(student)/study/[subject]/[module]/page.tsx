@@ -43,6 +43,10 @@ export default async function StudyModulePage({
   const experience = getStudyModuleExperience(subjectConfig.id, moduleConfig.id);
   const moduleWorkspace = experience.renderWorkspace?.() || null;
   const supplemental = experience.renderSupplemental?.() || null;
+  const moduleDescription = experience.heroDescription ?? moduleConfig.description;
+  const entryHref = experience.hideEntry ? undefined : experience.entryHref ?? moduleConfig.entryHref;
+  const entryLabel = experience.entryLabel ?? moduleConfig.entryLabel ?? '进入当前版本';
+  const entryExternal = experience.external ?? moduleConfig.external;
 
   return (
     <div className="space-y-4">
@@ -59,18 +63,18 @@ export default async function StudyModulePage({
                   {getModuleStatusLabel(moduleConfig.status)}
                 </span>
               </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{moduleConfig.description}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{moduleDescription}</p>
             </div>
           </div>
 
-          {moduleConfig.entryHref ? (
+          {entryHref ? (
             <Link
-              href={moduleConfig.entryHref}
-              target={moduleConfig.external ? '_blank' : undefined}
-              rel={moduleConfig.external ? 'noreferrer' : undefined}
+              href={entryHref}
+              target={entryExternal ? '_blank' : undefined}
+              rel={entryExternal ? 'noreferrer' : undefined}
               className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
             >
-              {moduleConfig.entryLabel ?? '进入当前版本'}
+              {entryLabel}
             </Link>
           ) : null}
         </div>

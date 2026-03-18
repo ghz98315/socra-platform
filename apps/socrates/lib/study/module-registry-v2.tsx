@@ -7,6 +7,11 @@ import { WritingStudioV2 } from '@/components/study/WritingStudioV2';
 import { getEssayAppUrl, type StudyModuleId, type SubjectType } from '@/lib/study/catalog';
 
 interface StudyModuleExperience {
+  heroDescription?: string;
+  hideEntry?: boolean;
+  entryHref?: string;
+  entryLabel?: string;
+  external?: boolean;
   phaseTitle?: string;
   phaseCopy: string;
   principlesTitle?: string;
@@ -70,17 +75,30 @@ const moduleExperiences: Partial<
   chinese: {
     reading: {
       phaseCopy: '这里开始承接语文阅读理解的专属分析工作流，用文章、题干和学生答案拆出文本依据与答题框架。',
+      principles: [
+        '先解决阅读题拆解、证据定位和答题结构，不把页面继续做成通用录题变体。',
+        '先接入学习记录、详情、报告和复习，再考虑更深的历史回放能力。',
+        '保持语文阅读自己的结果结构，不强行套用数学或英语模块外观。',
+      ],
       renderWorkspace: () => <ChineseAnalysisStudioV2 mode="reading" />,
     },
     foundation: {
       phaseCopy: '这里开始承接字词、病句、修辞、古诗文和文言文等基础知识分析，不再只通过通用录题页进入。',
+      principles: [
+        '先把基础知识题的考点判断与错因分析做清楚，不追求一次覆盖全部语文题型。',
+        '保持轻量工作台，优先稳定沉淀结果和后链路动作。',
+        '后续再按题型细分，不在这一轮提前拆太多页面。',
+      ],
       renderWorkspace: () => <ChineseAnalysisStudioV2 mode="foundation" />,
     },
     'composition-idea': {
+      heroDescription: '作文题目、补充要求和结构化结果都在当前页闭环，先把写作思路从通用录题链路里独立出来。',
       phaseCopy: '这里承接作文题目的立意、结构、素材和段落组织建议，先把语文写作思路从录题链路里独立出来。',
       renderWorkspace: () => <WritingStudioV2 subject="chinese" mode="idea" />,
     },
     'composition-review': {
+      heroDescription: '先在当前模块内承接作文预批改与结果沉淀，再按需进入 Essay 深度工作台。',
+      hideEntry: true,
       phaseCopy: '这里会逐步接入原 Essay 的批注工作台、批改历史和作文结果沉淀能力。',
       principles: [
         '先保留 Essay 作为深度工作台，不在这一轮强行搬平全部交互。',
@@ -93,6 +111,7 @@ const moduleExperiences: Partial<
   },
   english: {
     listening: {
+      heroDescription: '先用 transcript 驱动听力分析闭环，把场景判断、答案定位和复练建议稳定下来。',
       phaseCopy: '这里先落一个转写稿驱动的英语听力轻量工作台，把场景判断、答案定位、错因分析和复练建议独立出来。',
       principles: [
         '先把 transcript 驱动的分析闭环做稳，不急着引入音频上传。',
@@ -102,11 +121,23 @@ const moduleExperiences: Partial<
       renderWorkspace: () => <EnglishListeningStudioV2 />,
     },
     'writing-idea': {
+      heroDescription: '把写前提纲、时态判断和表达建议收口到当前页，避免和批改目标混在同一工作台。',
       phaseCopy: '英语写作会拆成“写作思路”和“作文批改”两条路径，避免单页承载过多目标。',
+      principles: [
+        '把写前提纲、时态判断和表达建议放在同一条轻量主链，不急着接更重的批改结构。',
+        '先让结果可回看、可报告、可复习，再继续补更细的写作专题页。',
+        '保持中英写作链路分层，但共享统一学习资产底座。',
+      ],
       renderWorkspace: () => <WritingStudioV2 subject="english" mode="idea" />,
     },
     'writing-review': {
+      heroDescription: '先把语法、表达和结构反馈沉淀成统一结果卡，再决定是否继续细分更重的批改维度。',
       phaseCopy: '英语写作会拆成“写作思路”和“作文批改”两条路径，避免单页承载过多目标。',
+      principles: [
+        '先把语法、表达和结构反馈收拢成稳定结果卡，不急着引入更复杂的评分体系。',
+        '和英语写作思路模块共享统一学习资产与后链路动作。',
+        '后续再视真实使用情况决定是否继续细分批改维度。',
+      ],
       renderWorkspace: () => <WritingStudioV2 subject="english" mode="review" />,
     },
   },
