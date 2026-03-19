@@ -7,7 +7,9 @@ import {
   buildStudyModuleHref,
   buildStudySubjectHref,
   getModuleStatusLabel,
-  getStudySubject,
+  getStudySubjectModules,
+  getStudySubjectOverview,
+  getSubjectConfig,
   type SubjectType,
 } from '@/lib/study/catalog';
 import {
@@ -37,14 +39,15 @@ function getStatusClasses(status: 'live' | 'building' | 'planned') {
 
 export function StudySubjectNav({ subject }: StudySubjectNavProps) {
   const activeSegment = useSelectedLayoutSegment();
-  const config = getStudySubject(subject);
+  const config = getSubjectConfig(subject);
 
   if (!config) {
     return null;
   }
 
+  const modules = getStudySubjectModules(subject);
   const experience = getStudySubjectExperience(subject);
-  const subjectOverview = experience.overview ?? config.overview;
+  const subjectOverview = experience.overview ?? getStudySubjectOverview(subject) ?? '';
 
   return (
     <>
@@ -60,7 +63,7 @@ export function StudySubjectNav({ subject }: StudySubjectNavProps) {
         >
           概览
         </Link>
-        {config.modules.map((module) => (
+        {modules.map((module) => (
           <Link
             key={module.id}
             href={buildStudyModuleHref(subject, module.id)}
@@ -97,7 +100,7 @@ export function StudySubjectNav({ subject }: StudySubjectNavProps) {
             <div className="mt-1 text-xs text-slate-500">查看该学科的模块结构和当前建设重点。</div>
           </Link>
 
-          {config.modules.map((module) => {
+          {modules.map((module) => {
             const Icon = module.icon;
             const isActive = activeSegment === module.id;
             const experience = getStudyModuleExperience(subject, module.id);

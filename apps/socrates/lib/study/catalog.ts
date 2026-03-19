@@ -256,6 +256,14 @@ export function getStudySubject(subject: string): StudySubjectDefinition | undef
   return studySubjectCatalog[subject as SubjectType];
 }
 
+export function getStudySubjectOverview(subject: SubjectType): string | undefined {
+  return studySubjectCatalog[subject]?.overview;
+}
+
+export function getStudySubjectModules(subject: SubjectType): StudyModuleDefinition[] {
+  return studySubjectCatalog[subject]?.modules ?? [];
+}
+
 export function getStudyModule(subject: SubjectType, module: string): StudyModuleDefinition | undefined {
   return studySubjectCatalog[subject]?.modules.find((item) => item.id === module);
 }

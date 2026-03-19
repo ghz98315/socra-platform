@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import {
   buildStudyModuleHref,
   getModuleStatusLabel,
-  getStudySubject,
+  getStudySubjectModules,
+  getStudySubjectOverview,
+  getSubjectConfig,
 } from '@/lib/study/catalog';
 import {
   getStudyModuleCardStatus,
@@ -32,23 +34,28 @@ export default async function StudySubjectOverviewPage({
   params: Promise<{ subject: string }>;
 }) {
   const { subject } = await params;
-  const config = getStudySubject(subject);
+  const config = getSubjectConfig(subject);
 
   if (!config || config.pro) {
     notFound();
   }
+
+  const modules = getStudySubjectModules(config.id);
+  const subjectOverview = getStudySubjectOverview(config.id);
 
   return (
     <div className="space-y-4">
       <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm">
         <h2 className="text-xl font-semibold text-slate-900">模块概览</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          当前先把 {config.name} 的核心链路拆成独立模块，再逐步把数据、复习和报告统一回同一个学习域。
+          {subjectOverview
+            ? `当前先把 ${config.name} 的核心链路拆成独立模块，再逐步把数据、复习和报告统一回同一个学习域。`
+            : `当前先把 ${config.name} 的核心链路拆成独立模块。`}
         </p>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        {config.modules.map((module) => {
+        {modules.map((module) => {
           const Icon = module.icon;
           const experience = getStudyModuleExperience(config.id, module.id);
           const cardDescription = experience.cardDescription ?? module.description;
