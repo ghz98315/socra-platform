@@ -5,12 +5,13 @@
 Run:
 
 ```bash
+pnpm check:node
 pnpm check:env
 pnpm --filter @socra/socrates build
 pnpm build
 ```
 
-Do not continue unless all three commands pass.
+Do not continue unless all four commands pass.
 
 ## 2. Database Rollout
 
@@ -25,6 +26,7 @@ supabase/migrations/20260312_create_link_requests_table.sql
 supabase/migrations/20260312_add_notifications_table.sql
 supabase/migrations/20260312_core_business_runtime.sql
 supabase/migrations/20260316_add_study_assets_tables.sql
+supabase/migrations/20260317_expand_error_session_subjects.sql
 ```
 
 Notes:
@@ -57,6 +59,11 @@ After rollout, confirm these runtime objects exist:
 ## 3. App Deploy
 
 Deploy the current monorepo build to the target runtime.
+
+Current local release baseline:
+
+- Node `22.19.0`
+- repo engine expectation: `22.x`
 
 Required runtime configuration:
 
@@ -96,6 +103,7 @@ Run non-destructive smoke checks:
 
 ```bash
 node scripts/smoke-socrates.mjs
+node scripts/smoke-study-flow.mjs
 ```
 
 Run order creation smoke only on a disposable test user:
@@ -135,7 +143,18 @@ Do not release if any item below is still open:
 - If the environment cannot run `git status` from Node, pass a captured status file via `--status-file <path>` instead of relying on automatic inspection.
 - Use `pnpm regression:run -- --target <...> --profile <...>` as the standardized wrapper for env check, app build, and optional smoke.
 - If Windows reports `.next` build output is locked, stop local dev/build processes for that app, clear the build cache, then rerun the regression command.
-- Keep reporting the Node engine mismatch when the machine is still on `v22.x`; the repo expectation remains `20.x`.
+- The repo baseline is now Node `22.x`; `pnpm check:node` should pass before any release validation continues.
+
+## 2026-03-19 Build Baseline Note
+
+- The current single-machine release baseline is Node `22.19.0`.
+- The root `pnpm build` path now uses `scripts/run-turbo-build.mjs` to run package-local CLIs directly instead of relying on `pnpm --filter ... build` for every package.
+- The stable build order on the current machine is:
+  - shared TypeScript packages
+  - `landing`
+  - `socrates`
+  - `essay`
+- This ordering matters on the current Windows machine because it avoids the memory instability observed in the previous workspace build sequence.
 
 ## 2026-03-17 Study Flow Smoke Addendum
 
@@ -145,4 +164,5 @@ Do not release if any item below is still open:
 - `pnpm check:env` now prints smoke readiness for both the standard Socrates smoke and the study-flow smoke; use it as the first preflight check before running deployment validation.
 - A repo-local smoke template now exists at `apps/socrates/.env.smoke.example`; copy it to `.env.smoke.local` in deployment-like environments before running smoke validation.
 - If `/api/study/assets` returns `missing_study_assets_migration`, the target Supabase project is missing `supabase/migrations/20260316_add_study_assets_tables.sql`; apply it before treating the failure as an app regression.
+- If `study-assets-review-bridge` fails with `error_sessions_subject_check`, the target Supabase project is missing `supabase/migrations/20260317_expand_error_session_subjects.sql`; apply it before treating the failure as an app regression.
 - If the deployed smoke hits `404` on `/api/study/assets`, the active Socrates deployment is stale or mapped to the wrong app root; redeploy the current `apps/socrates` build before continuing internal beta.
