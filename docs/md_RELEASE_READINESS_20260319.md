@@ -10,6 +10,8 @@ Date: 2026-03-19
 
 ## Verified In This Round
 
+- `pnpm check:node`
+  Result: passed on Node `v22.19.0`
 - `pnpm check:env`
   Result: passed
 - `pnpm smoke:socrates`
@@ -21,12 +23,12 @@ Date: 2026-03-19
 - `pnpm --filter @socra/landing build`
   Result: passed
 - `pnpm build`
-  Result: passed after switching the root workspace build wrapper to a serialized package-by-package build with higher Node heap
+  Result: passed after switching the root workspace build wrapper to a serialized direct-CLI build order with higher Node heap and memory-safe package ordering
 
 Study-flow smoke produced:
 
-- `asset_id=266a715c-2735-417c-b0c6-b8e4f3e8b223`
-- `review_id=a94b91df-ecb7-4f1f-96a8-c4457da4b5fd`
+- `asset_id=b34b3610-356c-4178-8cc1-395ea236e62f`
+- `review_id=b9799165-a02e-440f-a5fb-4dbc1933930b`
 
 ## Release Judgment
 
@@ -44,37 +46,30 @@ The current release picture is therefore:
 - Socrates smoke readiness: verified
 - Landing app build readiness: verified
 - Workspace-wide monorepo build readiness on the current machine: verified
-- Formal Node 20 parity on the current machine: blocked at build stage
+- Formal Node baseline parity on the current machine: verified on Node `22.19.0`
 
 ## Release Engineering Close-Out
 
 The previous workspace blocker was not an app regression. It was a local build orchestration problem:
 
 - concurrent `turbo build` runs were triggering Node memory failures on Next builds
-- the root workspace build now runs through a serialized wrapper script with elevated heap
+- the root workspace build now runs through a serialized wrapper script that calls each package's local CLI directly with elevated heap
+- Next apps now build before the Vite app in the root sequence because that order is stable on the current machine
 - `pnpm build` now completes successfully on the current machine
 
-The remaining residual note is environmental, not blocking:
+The current machine is now the canonical release baseline:
 
-- local Node is still `v22.19.0`
-- repo expectation remains `20.x`
-- `pnpm check:node` now reports that mismatch explicitly so final release validation does not silently run on the wrong major
+- local Node is `v22.19.0`
+- repo expectation is now `22.x`
+- `pnpm check:node` enforces that declared major before release validation
 
-After switching the shell to Node `v20.19.0`, the environment picture became more precise:
+This decision was made because the current release facts are stronger on Node 22 than on Node 20 for this single-machine setup:
 
-- `node scripts/check-node-version.mjs` passed
-- `node scripts/check-env.mjs` passed
-- `node scripts/smoke-socrates.mjs` passed
-- `node scripts/smoke-study-flow.mjs` passed
-- build paths still failed on the current machine under Node 20
+- Node `22.19.0` is the only runtime on this machine that has produced successful workspace build and both smoke passes after the direct-CLI wrapper alignment
+- Node `20.19.0` could pass env and smoke checks, but repeatedly failed at the build gate on this same machine
+- there is no second machine or CI runner available to keep a separate Node 20 release baseline honest
 
-The Node 20 build failures were repeatable across multiple entry points:
-
-- `pnpm build` failed immediately at `@socra/auth` with a V8 zone out-of-memory crash during `tsc`
-- direct Next builds for `landing` and `socrates` also failed with the same class of memory crash
-- direct Vite build for `essay` failed with native memory allocation failure
-
-This means runtime parity was verified on Node 20, but formal build parity on this machine is still blocked.
+The previous Node 20 investigation is therefore retained as historical evidence, not as the active release gate.
 
 ## Recommended Release Gate
 
@@ -93,5 +88,5 @@ The monorepo can now be treated as locally release-ready once all items below ar
 - `pnpm check:node` is intended to fail fast whenever the active shell is not on the repo-declared Node major.
 - Use a disposable student smoke account for `SMOKE_STUDY_USER_ID`.
 - The smoke user id must exist in both `auth.users` and `profiles`; otherwise `study_assets.student_id` will fail its foreign-key constraint.
-- The repo still prefers Node 20 for formal release environments, even though the current local release pass completed on Node 22.
-- On the current Windows machine, Node `20.19.0` is enough for env and smoke validation, but not enough to complete the build gate without hitting repeatable memory failures.
+- The formal local release baseline is now Node `22.19.0`.
+- The earlier Node `20.19.0` build failures remain useful as a machine-specific reference, but they are no longer the active blocker for release on this setup.

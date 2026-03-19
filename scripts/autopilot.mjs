@@ -80,7 +80,7 @@ function printCloseoutTemplate(result, options = {}) {
     lines.push('- Docs to sync: none');
   }
 
-  lines.push('- Environment note: project expects Node 20.x; report if current machine is still on a different version.');
+  lines.push('- Environment note: project expects Node 22.x; report if current machine is still on a different version.');
 
   if (result.recommendation.reasons.length > 0) {
     lines.push(`- Why this scope: ${result.recommendation.reasons.join('; ')}`);

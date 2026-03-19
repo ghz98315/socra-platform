@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 function mergeNodeOptions(existing, injected) {
@@ -13,12 +14,15 @@ function mergeNodeOptions(existing, injected) {
   return `${current} ${injected}`.trim();
 }
 
-function run(command, args, env) {
+const rootDir = process.cwd();
+
+function run(command, args, env, cwd = rootDir) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: 'inherit',
-      shell: process.platform === 'win32',
+      shell: false,
       env,
+      cwd,
     });
 
     child.on('exit', (code, signal) => {
@@ -40,21 +44,55 @@ function run(command, args, env) {
 }
 
 const buildTargets = [
-  '@socra/auth',
-  '@socra/config',
-  '@socra/database',
-  '@socra/ui',
-  '@socra/essay',
-  '@socra/landing',
-  '@socra/socrates',
+  {
+    label: '@socra/auth',
+    cwd: 'packages/auth',
+    steps: [['node_modules/typescript/bin/tsc']],
+  },
+  {
+    label: '@socra/config',
+    cwd: 'packages/config',
+    steps: [['node_modules/typescript/bin/tsc']],
+  },
+  {
+    label: '@socra/database',
+    cwd: 'packages/database',
+    steps: [['node_modules/typescript/bin/tsc']],
+  },
+  {
+    label: '@socra/ui',
+    cwd: 'packages/ui',
+    steps: [['node_modules/typescript/bin/tsc']],
+  },
+  {
+    label: '@socra/landing',
+    cwd: 'apps/landing',
+    steps: [['node_modules/next/dist/bin/next', 'build']],
+  },
+  {
+    label: '@socra/socrates',
+    cwd: 'apps/socrates',
+    steps: [['node_modules/next/dist/bin/next', 'build']],
+  },
+  {
+    label: '@socra/essay',
+    cwd: 'apps/essay',
+    steps: [
+      ['node_modules/typescript/bin/tsc'],
+      ['node_modules/vite/bin/vite.js', 'build'],
+    ],
+  },
 ];
 
 const env = {
   ...process.env,
-  NODE_OPTIONS: mergeNodeOptions(process.env.NODE_OPTIONS, '--max-old-space-size=8192'),
+  NODE_OPTIONS: mergeNodeOptions(process.env.NODE_OPTIONS, '--max-old-space-size=16384'),
 };
 
 for (const target of buildTargets) {
-  console.log(`\n[workspace-build] Building ${target}`);
-  await run('pnpm', ['--filter', target, 'build'], env);
+  console.log(`\n[workspace-build] Building ${target.label}`);
+
+  for (const step of target.steps) {
+    await run(process.execPath, step, env, path.join(rootDir, target.cwd));
+  }
 }
