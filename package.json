@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "node scripts/run-turbo-build.mjs",
+    "check:node": "node scripts/check-node-version.mjs",
     "check:env": "node scripts/check-env.mjs",
     "recommend:regression": "node scripts/recommend-regression.mjs",
     "autopilot": "node scripts/autopilot.mjs",

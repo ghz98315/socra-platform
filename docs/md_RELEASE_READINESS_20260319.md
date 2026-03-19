@@ -44,6 +44,7 @@ The current release picture is therefore:
 - Socrates smoke readiness: verified
 - Landing app build readiness: verified
 - Workspace-wide monorepo build readiness on the current machine: verified
+- Formal Node 20 parity on the current machine: pending
 
 ## Release Engineering Close-Out
 
@@ -57,11 +58,13 @@ The remaining residual note is environmental, not blocking:
 
 - local Node is still `v22.19.0`
 - repo expectation remains `20.x`
+- `pnpm check:node` now reports that mismatch explicitly so final release validation does not silently run on the wrong major
 
 ## Recommended Release Gate
 
 The monorepo can now be treated as locally release-ready once all items below are true:
 
+- `pnpm check:node` passes
 - `pnpm check:env` passes
 - `pnpm --filter @socra/socrates build` passes
 - `pnpm --filter @socra/landing build` passes
@@ -71,6 +74,7 @@ The monorepo can now be treated as locally release-ready once all items below ar
 
 ## Operator Notes
 
+- `pnpm check:node` is intended to fail fast whenever the active shell is not on the repo-declared Node major.
 - Use a disposable student smoke account for `SMOKE_STUDY_USER_ID`.
 - The smoke user id must exist in both `auth.users` and `profiles`; otherwise `study_assets.student_id` will fail its foreign-key constraint.
 - The repo still prefers Node 20 for formal release environments, even though the current local release pass completed on Node 22.
