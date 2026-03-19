@@ -1,21 +1,35 @@
-const baseUrl = process.env.SMOKE_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
-const studentId = process.env.SMOKE_STUDY_USER_ID || '';
-const subject = process.env.SMOKE_STUDY_SUBJECT || 'english';
-const moduleName = process.env.SMOKE_STUDY_MODULE || 'writing-review';
-const questionType = process.env.SMOKE_STUDY_QUESTION_TYPE || 'writing';
-const reportDays = Number.parseInt(process.env.SMOKE_STUDY_REPORT_DAYS || '7', 10) || 7;
-const advanceReview =
-  String(process.env.SMOKE_STUDY_ADVANCE_REVIEW || 'false').toLowerCase() === 'true';
+import { formatSmokeEnvFailure, validateSmokeEnv } from './smoke-env.mjs';
 
-if (!baseUrl) {
-  console.error('Missing SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL');
+const smokeEnv = validateSmokeEnv({
+  required: ['SMOKE_STUDY_USER_ID'],
+  oneOf: [
+    {
+      label: 'SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL',
+      keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
+    },
+  ],
+  optional: [
+    'SMOKE_STUDY_SUBJECT',
+    'SMOKE_STUDY_MODULE',
+    'SMOKE_STUDY_QUESTION_TYPE',
+    'SMOKE_STUDY_REPORT_DAYS',
+    'SMOKE_STUDY_ADVANCE_REVIEW',
+  ],
+});
+
+if (!smokeEnv.ready) {
+  console.error(formatSmokeEnvFailure('Study-flow smoke', smokeEnv));
   process.exit(1);
 }
 
-if (!studentId) {
-  console.error('Missing SMOKE_STUDY_USER_ID');
-  process.exit(1);
-}
+const env = smokeEnv.env;
+const baseUrl = env.SMOKE_BASE_URL || env.NEXT_PUBLIC_APP_URL;
+const studentId = env.SMOKE_STUDY_USER_ID || '';
+const subject = env.SMOKE_STUDY_SUBJECT || 'english';
+const moduleName = env.SMOKE_STUDY_MODULE || 'writing-review';
+const questionType = env.SMOKE_STUDY_QUESTION_TYPE || 'writing';
+const reportDays = Number.parseInt(env.SMOKE_STUDY_REPORT_DAYS || '7', 10) || 7;
+const advanceReview = String(env.SMOKE_STUDY_ADVANCE_REVIEW || 'false').toLowerCase() === 'true';
 
 function buildUrl(pathname) {
   return new URL(pathname, baseUrl).toString();

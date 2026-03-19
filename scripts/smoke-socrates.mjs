@@ -1,21 +1,37 @@
-const baseUrl = process.env.SMOKE_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
-const userId = process.env.SMOKE_USER_ID || '';
-const parentId = process.env.SMOKE_PARENT_ID || userId;
-const childId = process.env.SMOKE_CHILD_ID || '';
-const couponCode = process.env.SMOKE_COUPON_CODE || 'WELCOME10';
-const planCode = process.env.SMOKE_PLAN_CODE || 'pro_monthly';
-const paymentMethod = process.env.SMOKE_PAYMENT_METHOD || 'alipay';
-const createOrder = String(process.env.SMOKE_CREATE_ORDER || 'false').toLowerCase() === 'true';
+import { formatSmokeEnvFailure, validateSmokeEnv } from './smoke-env.mjs';
 
-if (!baseUrl) {
-  console.error('Missing SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL');
+const smokeEnv = validateSmokeEnv({
+  required: ['SMOKE_USER_ID'],
+  oneOf: [
+    {
+      label: 'SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL',
+      keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
+    },
+  ],
+  optional: [
+    'SMOKE_PARENT_ID',
+    'SMOKE_CHILD_ID',
+    'SMOKE_COUPON_CODE',
+    'SMOKE_PLAN_CODE',
+    'SMOKE_PAYMENT_METHOD',
+    'SMOKE_CREATE_ORDER',
+  ],
+});
+
+if (!smokeEnv.ready) {
+  console.error(formatSmokeEnvFailure('Socrates smoke', smokeEnv));
   process.exit(1);
 }
 
-if (!userId) {
-  console.error('Missing SMOKE_USER_ID');
-  process.exit(1);
-}
+const env = smokeEnv.env;
+const baseUrl = env.SMOKE_BASE_URL || env.NEXT_PUBLIC_APP_URL;
+const userId = env.SMOKE_USER_ID || '';
+const parentId = env.SMOKE_PARENT_ID || userId;
+const childId = env.SMOKE_CHILD_ID || '';
+const couponCode = env.SMOKE_COUPON_CODE || 'WELCOME10';
+const planCode = env.SMOKE_PLAN_CODE || 'pro_monthly';
+const paymentMethod = env.SMOKE_PAYMENT_METHOD || 'alipay';
+const createOrder = String(env.SMOKE_CREATE_ORDER || 'false').toLowerCase() === 'true';
 
 function buildUrl(path) {
   return new URL(path, baseUrl).toString();
