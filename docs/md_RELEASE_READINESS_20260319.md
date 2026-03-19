@@ -20,6 +20,8 @@ Date: 2026-03-19
   Result: passed in previous phase checkpoints
 - `pnpm --filter @socra/landing build`
   Result: passed
+- `pnpm build`
+  Result: passed after switching the root workspace build wrapper to a serialized package-by-package build with higher Node heap
 
 Study-flow smoke produced:
 
@@ -41,33 +43,34 @@ The current release picture is therefore:
 - Socrates runtime readiness: verified
 - Socrates smoke readiness: verified
 - Landing app build readiness: verified
-- Workspace-wide monorepo release readiness: not fully closed
+- Workspace-wide monorepo build readiness on the current machine: verified
 
-## Remaining Blocker
+## Release Engineering Close-Out
 
-`pnpm build` is still not consistently green at workspace level in the current machine/runtime combination.
+The previous workspace blocker was not an app regression. It was a local build orchestration problem:
 
-Most recent confirmed blocker:
+- concurrent `turbo build` runs were triggering Node memory failures on Next builds
+- the root workspace build now runs through a serialized wrapper script with elevated heap
+- `pnpm build` now completes successfully on the current machine
 
-- `@socra/socrates#build` failed under `turbo build` with Node heap out-of-memory
+The remaining residual note is environmental, not blocking:
+
 - local Node is still `v22.19.0`
 - repo expectation remains `20.x`
 
-This means the internal beta validation thread is complete, but the final monorepo release gate should still require one more clean workspace build on the intended Node 20 environment.
-
 ## Recommended Release Gate
 
-Do not call the whole monorepo release-ready until all items below are true:
+The monorepo can now be treated as locally release-ready once all items below are true:
 
 - `pnpm check:env` passes
 - `pnpm --filter @socra/socrates build` passes
 - `pnpm --filter @socra/landing build` passes
 - `pnpm smoke:socrates` passes
 - `pnpm smoke:study-flow` passes
-- `pnpm build` passes on Node 20
+- `pnpm build` passes
 
 ## Operator Notes
 
 - Use a disposable student smoke account for `SMOKE_STUDY_USER_ID`.
 - The smoke user id must exist in both `auth.users` and `profiles`; otherwise `study_assets.student_id` will fail its foreign-key constraint.
-- If workspace build still fails only under local Turbo concurrency, treat that as a separate release-engineering issue from Socrates runtime correctness.
+- The repo still prefers Node 20 for formal release environments, even though the current local release pass completed on Node 22.

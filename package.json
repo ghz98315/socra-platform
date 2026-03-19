@@ -5,7 +5,7 @@
   "description": "Socrates AI Education Platform - Monorepo",
   "scripts": {
     "dev": "turbo dev",
-    "build": "turbo build",
+    "build": "node scripts/run-turbo-build.mjs",
     "check:env": "node scripts/check-env.mjs",
     "recommend:regression": "node scripts/recommend-regression.mjs",
     "autopilot": "node scripts/autopilot.mjs",
@@ -17,7 +17,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo build && changeset publish"
+    "release": "node scripts/run-turbo-build.mjs && changeset publish"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
