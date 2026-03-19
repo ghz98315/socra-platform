@@ -82,12 +82,12 @@ function validateSmoke({ name, env, required = [], oneOf = [], optional = [] }) 
 }
 
 const socratesEnv = loadEnv('apps/socrates', [
-  '.env.local',
-  '.env.smoke.local',
   '.env.local.example',
   '.env.smoke.example',
+  '.env.local',
+  '.env.smoke.local',
 ]);
-const essayEnv = loadEnv('apps/essay', ['.env.local', '.env.example']);
+const essayEnv = loadEnv('apps/essay', ['.env.example', '.env.local']);
 
 const results = [
   validateApp({

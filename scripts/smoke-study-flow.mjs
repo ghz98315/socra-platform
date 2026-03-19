@@ -1,4 +1,4 @@
-import { formatSmokeEnvFailure, validateSmokeEnv } from './smoke-env.mjs';
+import { formatInvalidSmokeValueFailure, formatSmokeEnvFailure, isUuidLike, validateSmokeEnv } from './smoke-env.mjs';
 
 const smokeEnv = validateSmokeEnv({
   required: ['SMOKE_STUDY_USER_ID'],
@@ -30,6 +30,11 @@ const moduleName = env.SMOKE_STUDY_MODULE || 'writing-review';
 const questionType = env.SMOKE_STUDY_QUESTION_TYPE || 'writing';
 const reportDays = Number.parseInt(env.SMOKE_STUDY_REPORT_DAYS || '7', 10) || 7;
 const advanceReview = String(env.SMOKE_STUDY_ADVANCE_REVIEW || 'false').toLowerCase() === 'true';
+
+if (!isUuidLike(studentId)) {
+  console.error(formatInvalidSmokeValueFailure('Study-flow smoke', ['SMOKE_STUDY_USER_ID']));
+  process.exit(1);
+}
 
 function buildUrl(pathname) {
   return new URL(pathname, baseUrl).toString();

@@ -112,3 +112,15 @@ export function formatSmokeEnvFailure(name, result) {
 
   return lines.join('\n');
 }
+
+export function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export function formatInvalidSmokeValueFailure(name, invalidKeys) {
+  return [
+    `${name} environment has invalid values.`,
+    `Expected UUID format for: ${invalidKeys.join(', ')}`,
+    'Hint: use real auth/profile UUIDs instead of phone numbers, usernames, or display labels.',
+  ].join('\n');
+}

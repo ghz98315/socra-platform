@@ -1,4 +1,4 @@
-import { formatSmokeEnvFailure, validateSmokeEnv } from './smoke-env.mjs';
+import { formatInvalidSmokeValueFailure, formatSmokeEnvFailure, isUuidLike, validateSmokeEnv } from './smoke-env.mjs';
 
 const smokeEnv = validateSmokeEnv({
   required: ['SMOKE_USER_ID'],
@@ -32,6 +32,17 @@ const couponCode = env.SMOKE_COUPON_CODE || 'WELCOME10';
 const planCode = env.SMOKE_PLAN_CODE || 'pro_monthly';
 const paymentMethod = env.SMOKE_PAYMENT_METHOD || 'alipay';
 const createOrder = String(env.SMOKE_CREATE_ORDER || 'false').toLowerCase() === 'true';
+
+const invalidUuidKeys = [
+  ['SMOKE_USER_ID', userId],
+  ['SMOKE_PARENT_ID', env.SMOKE_PARENT_ID || ''],
+  ['SMOKE_CHILD_ID', env.SMOKE_CHILD_ID || ''],
+].flatMap(([key, value]) => (value && !isUuidLike(value) ? [key] : []));
+
+if (invalidUuidKeys.length > 0) {
+  console.error(formatInvalidSmokeValueFailure('Socrates smoke', invalidUuidKeys));
+  process.exit(1);
+}
 
 function buildUrl(path) {
   return new URL(path, baseUrl).toString();
