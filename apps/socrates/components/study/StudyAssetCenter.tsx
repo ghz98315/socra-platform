@@ -11,7 +11,7 @@ import {
   getStudyAssetModuleLabel,
   getStudyAssetStatusLabel,
   type StudyAssetRecord,
-} from '@/lib/study/assets';
+} from '@/lib/study/assets-v2';
 import { getStudySubjects, type SubjectType } from '@/lib/study/catalog';
 
 type SubjectFilter = 'all' | SubjectType;

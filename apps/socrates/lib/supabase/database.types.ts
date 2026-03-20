@@ -60,7 +60,7 @@ export interface Database {
         Row: {
           id: string;
           student_id: string;
-          subject: 'math' | 'physics' | 'chemistry';
+          subject: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry' | 'generic';
           original_image_url: string | null;
           extracted_text: string | null;
           status: string | null;
@@ -72,7 +72,7 @@ export interface Database {
         Insert: {
           id?: string;
           student_id: string;
-          subject?: 'math' | 'physics' | 'chemistry';
+          subject?: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry' | 'generic';
           original_image_url?: string | null;
           extracted_text?: string | null;
           status?: string | null;
@@ -84,7 +84,7 @@ export interface Database {
         Update: {
           id?: string;
           student_id?: string;
-          subject?: 'math' | 'physics' | 'chemistry';
+          subject?: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry' | 'generic';
           original_image_url?: string | null;
           extracted_text?: string | null;
           status?: string | null;

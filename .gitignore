@@ -33,5 +33,10 @@ coverage
 
 # Misc
 .vercel
+.codex-fix-study-*.tsx
+.codex-git-status.txt
+.codex-socrates-start.pid
+*.codex-fixed.ts
+*.codex-fixed.tsx
 
 .vercel

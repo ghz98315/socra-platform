@@ -27,7 +27,7 @@ export interface StudySession {
 export interface ErrorSession {
   id: string;
   student_id: string;
-  subject: 'math' | 'physics' | 'chemistry';
+  subject: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry' | 'generic';
   concept_tags: string[] | null;
   difficulty_rating: number | null; // AI 评估难度 (1-5)
   student_difficulty_rating: number | null; // 学生自评难度 (1-5)

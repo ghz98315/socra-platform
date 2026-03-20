@@ -7,7 +7,7 @@ import {
   buildStudyAssetConceptTags,
   buildStudyAssetExtractedText,
   readStudyAssetReviewBridge,
-} from '@/lib/study/bridges';
+} from '@/lib/study/bridges-v2';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

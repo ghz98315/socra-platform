@@ -13,16 +13,17 @@ import {
 } from 'lucide-react';
 
 import { ChatMessageList, type Message } from '@/components/ChatMessage';
-import { StudyResultSummary } from '@/components/study/StudyResultSummary';
+import { StudyResultSummaryV2 } from '@/components/study/StudyResultSummaryV2';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import {
+  bridgeStudyAssetToReview,
   fetchStudyAssetDetail,
   getStudyAssetModuleLabel,
   getStudyAssetStatusLabel,
   type StudyAssetDetailRecord,
-} from '@/lib/study/assets';
-import { readStudyAssetReviewBridge } from '@/lib/study/bridges';
-import { readStudyResultSummaryPayload } from '@/lib/study/result-summary';
+} from '@/lib/study/assets-v2';
+import { readStudyAssetReviewBridge } from '@/lib/study/bridges-v2';
+import { readStudyResultSummaryPayload } from '@/lib/study/result-summary-clean';
 
 interface StudyAssetDetailProps {
   assetId: string;
@@ -290,25 +291,16 @@ export function StudyAssetDetail({ assetId }: StudyAssetDetailProps) {
     setReviewActionMessage('');
 
     try {
-      const response = await fetch('/api/study/assets/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          asset_id: record.id,
-          student_id: profile.id,
-        }),
+      const result = await bridgeStudyAssetToReview({
+        assetId: record.id,
+        studentId: profile.id,
       });
-      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data?.error || 'failed-to-add-study-asset-review');
+      if (result.reviewHref.trim()) {
+        setReviewHrefState(result.reviewHref);
       }
 
-      if (typeof data?.review_href === 'string' && data.review_href.trim()) {
-        setReviewHrefState(data.review_href);
-      }
-
-      setReviewActionMessage(data?.existed ? '该学习记录已在复习清单中。' : '已加入复习清单，可以直接进入复习。');
+      setReviewActionMessage(result.existed ? '该学习记录已在复习清单中。' : '已加入复习清单，可以直接进入复习。');
     } catch (requestError: any) {
       console.error('[StudyAssetDetail] Failed to add study asset to review:', requestError);
       setReviewActionError(requestError?.message || '加入复习失败，请稍后重试。');
@@ -509,10 +501,10 @@ export function StudyAssetDetail({ assetId }: StudyAssetDetailProps) {
 
           {structuredResultSummary.length > 0 || latestAssistantContent ? (
             <div className="mt-4">
-              <StudyResultSummary
-                module={structuredResultSummary.length > 0 ? undefined : record.module}
-                content={structuredResultSummary.length > 0 ? undefined : latestAssistantContent}
-                sections={structuredResultSummary}
+              <StudyResultSummaryV2
+                module={record.module}
+                content={latestAssistantContent || undefined}
+                sections={latestAssistantContent ? undefined : structuredResultSummary}
                 title="结构化结果摘要"
                 description="便于在统一学习记录详情里快速回看关键结论。"
               />

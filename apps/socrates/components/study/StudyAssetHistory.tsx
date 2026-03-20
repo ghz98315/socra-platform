@@ -6,13 +6,21 @@ import { Clock3, FileText, Loader2 } from 'lucide-react';
 
 import { useAuth } from '@/lib/contexts/AuthContext';
 import {
+  bridgeStudyAssetToReview,
   buildStudyAssetDetailHref,
   fetchStudyAssets,
   getStudyAssetStatusLabel,
   type StudyAssetRecord,
   type StudyAssetSubject,
-} from '@/lib/study/assets';
-import { readStudyAssetReviewBridge } from '@/lib/study/bridges';
+} from '@/lib/study/assets-v2';
+import { readStudyAssetReviewBridge } from '@/lib/study/bridges-v2';
+
+interface ReviewActionState {
+  pending?: boolean;
+  reviewHref?: string;
+  message?: string;
+  error?: string;
+}
 
 interface StudyAssetHistoryProps {
   subject: StudyAssetSubject;
@@ -48,6 +56,7 @@ export function StudyAssetHistory({
   const { profile } = useAuth();
   const [records, setRecords] = useState<StudyAssetRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewActionStates, setReviewActionStates] = useState<Record<string, ReviewActionState>>({});
 
   useEffect(() => {
     let active = true;
@@ -73,10 +82,22 @@ export function StudyAssetHistory({
         }
 
         setRecords(data);
+        setReviewActionStates((current) => {
+          const next: Record<string, ReviewActionState> = {};
+
+          data.forEach((record) => {
+            if (current[record.id]) {
+              next[record.id] = current[record.id];
+            }
+          });
+
+          return next;
+        });
       } catch (error) {
         console.error('[StudyAssetHistory] Failed to load study assets:', error);
         if (active) {
           setRecords([]);
+          setReviewActionStates({});
         }
       } finally {
         if (active) {
@@ -91,6 +112,50 @@ export function StudyAssetHistory({
       active = false;
     };
   }, [module, profile?.id, refreshToken, subject]);
+
+  async function handleAddToReview(record: StudyAssetRecord) {
+    if (!profile?.id || reviewActionStates[record.id]?.pending) {
+      return;
+    }
+
+    setReviewActionStates((current) => ({
+      ...current,
+      [record.id]: {
+        ...current[record.id],
+        pending: true,
+        message: '',
+        error: '',
+      },
+    }));
+
+    try {
+      const result = await bridgeStudyAssetToReview({
+        assetId: record.id,
+        studentId: profile.id,
+      });
+
+      setReviewActionStates((current) => ({
+        ...current,
+        [record.id]: {
+          pending: false,
+          reviewHref: result.reviewHref,
+          message: result.existed ? '该记录已在复习清单中。' : '已加入复习清单。',
+          error: '',
+        },
+      }));
+    } catch (error: any) {
+      console.error('[StudyAssetHistory] Failed to add study asset to review:', error);
+      setReviewActionStates((current) => ({
+        ...current,
+        [record.id]: {
+          ...current[record.id],
+          pending: false,
+          message: '',
+          error: error?.message || '加入复习失败，请稍后重试。',
+        },
+      }));
+    }
+  }
 
   return (
     <section className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm">
@@ -113,7 +178,8 @@ export function StudyAssetHistory({
           <div className="grid gap-3 xl:grid-cols-2">
             {records.map((record) => {
               const reviewBridge = readStudyAssetReviewBridge(record.payload);
-              const reviewHref = reviewBridge?.reviewHref || '';
+              const reviewActionState = reviewActionStates[record.id];
+              const reviewHref = reviewActionState?.reviewHref || reviewBridge?.reviewHref || '';
               const reportHref = `/reports?focus_asset_id=${encodeURIComponent(record.id)}`;
 
               return (
@@ -168,8 +234,27 @@ export function StudyAssetHistory({
                       >
                         复习页
                       </Link>
-                    ) : null}
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleAddToReview(record)}
+                        disabled={!profile?.id || reviewActionState?.pending}
+                        className="inline-flex rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {reviewActionState?.pending ? '加入复习中' : '加入复习'}
+                      </button>
+                    )}
                 </div>
+                {reviewActionState?.message ? (
+                  <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                    {reviewActionState.message}
+                  </div>
+                ) : null}
+                {reviewActionState?.error ? (
+                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    {reviewActionState.error}
+                  </div>
+                ) : null}
                 </article>
               );
             })}
