@@ -11,6 +11,7 @@
     "recommend:regression": "node scripts/recommend-regression.mjs",
     "autopilot": "node scripts/autopilot.mjs",
     "regression:run": "node scripts/run-regression.mjs",
+    "probe:socrates-build": "node scripts/probe-socrates-build.mjs",
     "smoke:socrates": "node scripts/smoke-socrates.mjs",
     "smoke:study-flow": "node scripts/smoke-study-flow.mjs",
     "lint": "turbo lint",
