@@ -70,6 +70,12 @@ function quoteArg(value) {
   return value;
 }
 
+function prependNodeRequire(existingValue, requiredPath) {
+  const normalizedPath = requiredPath.replace(/\\/g, '/');
+  const requiredOption = `--require ${quoteArg(normalizedPath)}`;
+  return existingValue ? `${existingValue} ${requiredOption}` : requiredOption;
+}
+
 function run({ label, command, commandArgs, cwd = repoRoot, env = process.env }) {
   return new Promise((resolve, reject) => {
     print(`==> ${label}`);
@@ -147,6 +153,12 @@ const appDir = path.join(repoRoot, 'apps', 'socrates');
 const nextBin = path.join(appDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 const mode = readArg('mode', hasFlag('full') ? 'full' : 'compile');
 const skipClean = hasFlag('skip-clean');
+const traceChildren = hasFlag('trace-children') || Boolean(readArg('trace-file'));
+const disableTelemetry = hasFlag('disable-telemetry');
+const traceFile = traceChildren
+  ? path.resolve(readArg('trace-file', path.join(os.tmpdir(), `socrates-build-child-trace-${Date.now()}.log`)))
+  : '';
+const tracePreload = path.join(repoRoot, 'scripts', 'trace-child-process.cjs');
 
 if (!['compile', 'full'].includes(mode)) {
   throw new Error(`Invalid --mode: ${mode}`);
@@ -158,6 +170,12 @@ print(`Node22:   ${node22Exe}`);
 print(`pnpm.cjs: ${pnpmCjs}`);
 print(`Mode:     ${mode}`);
 print(`SkipClean:${skipClean ? ' yes' : ' no'}`);
+print(`Telemetry:${disableTelemetry ? ' off' : ' on'}`);
+if (traceChildren) {
+  fs.mkdirSync(path.dirname(traceFile), { recursive: true });
+  fs.writeFileSync(traceFile, '', 'utf8');
+  print(`ChildTrace:${quoteArg(traceFile)}`);
+}
 
 await run({
   label: 'Node 22 version check',
@@ -180,11 +198,24 @@ if (mode === 'compile') {
   buildArgs.push('--experimental-build-mode', 'compile');
 }
 
+const buildEnv = traceChildren
+  ? {
+      ...process.env,
+      SOCRA_CHILD_TRACE_FILE: traceFile,
+      NODE_OPTIONS: prependNodeRequire(process.env.NODE_OPTIONS || '', tracePreload),
+    }
+  : process.env;
+
+if (disableTelemetry) {
+  buildEnv.NEXT_TELEMETRY_DISABLED = '1';
+}
+
 await run({
   label: `Socrates webpack ${mode} build`,
   command: node22Exe,
   commandArgs: buildArgs,
   cwd: appDir,
+  env: buildEnv,
 });
 
 print('Socrates build probe completed.');

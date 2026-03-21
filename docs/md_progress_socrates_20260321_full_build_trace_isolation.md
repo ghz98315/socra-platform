@@ -1,0 +1,65 @@
+# Socrates Full Build Trace Isolation
+Date: 2026-03-21
+
+## Shipped In This Slice
+
+- Added reusable child-process tracing via `scripts/trace-child-process.cjs`.
+- Extended `scripts/probe-socrates-build.mjs` with:
+  - `--trace-children` support for child-process trace capture
+  - `--trace-file <path>` override support
+  - `--disable-telemetry` support so Next telemetry noise can be removed from full-build isolation
+- Re-ran the Socrates build probe outside the sandbox to separate sandbox-only `EPERM` noise from the actual Windows blocker.
+
+## Current Judgment
+
+- The previously observed `.next` unlink / delete failures are not the primary blocker signal when the probe is run outside the sandbox.
+- Outside the sandbox:
+  - `Node 22` direct invocation still works
+  - Socrates `tsc` still passes
+  - `next build --webpack --experimental-build-mode compile` completes successfully from the probe
+- The remaining real blocker is now isolated more precisely:
+  - `next build --webpack` in `full` mode still fails with `spawn EPERM`
+  - with telemetry enabled, Next first hits `spawn EPERM` while trying to run `git config --local --get remote.origin.url`
+  - with telemetry disabled, the failure remains and narrows to `fork` of `next/dist/compiled/jest-worker/processChild.js`
+- This means the durable blocker is no longer "generic build cleanup on Windows", but specifically child-process creation for Next's worker path during the full webpack build.
+
+## Affected Files
+
+- `scripts/probe-socrates-build.mjs`
+- `scripts/trace-child-process.cjs`
+- `docs/md_progress_socrates_20260321_full_build_trace_isolation.md`
+
+## Commands Run
+
+- `git status --short --branch`
+- `Get-Content docs/md_progress_socrates_20260321_build_probe_automation.md`
+- `Get-Content scripts/probe-socrates-build.mjs`
+- `node scripts/probe-socrates-build.mjs --skip-clean --trace-children`
+- `node scripts/probe-socrates-build.mjs --trace-children`
+- `node scripts/probe-socrates-build.mjs --mode full --trace-children`
+- `Remove-Item -LiteralPath '\\?\D:\github\Socrates_ analysis\socra-platform\apps\socrates\.next\cache\swc\plugins\windows_x86_64_23.0.0' -Recurse -Force`
+- `Remove-Item -LiteralPath '\\?\D:\github\Socrates_ analysis\socra-platform\apps\socrates\.next' -Recurse -Force`
+- `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children`
+- `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children --disable-telemetry`
+
+## Smoke
+
+- No smoke command ran in this slice.
+- Reason: this slice stayed focused on local build-worker isolation only.
+
+## Notes
+
+- The latest successful compile-mode probe ran outside the sandbox and completed in roughly 111 seconds for webpack compile before finalization and trace collection completed.
+- The cleanest failing trace in this slice is:
+  - trace file: `C:\Users\BYD\AppData\Local\Temp\socrates-build-child-trace-1774067863715.log`
+  - failure command: `fork` of `next/dist/compiled/jest-worker/processChild.js`
+- The telemetry-specific `git config` spawn failure can be suppressed with `--disable-telemetry`, but doing so does not unblock the build worker.
+- The stale `.next/cache/swc/plugins/windows_x86_64_23.0.0` residue still occasionally requires elevated cleanup before another clean-start full probe.
+- The pre-existing untracked `.editorconfig` file was left untouched and excluded from this slice.
+
+## Next Step
+
+- Inspect whether the failing full-build worker spawn can be bypassed or re-routed without source-level product changes:
+  - confirm whether Next has a stable environment switch for the relevant worker path in `16.1.6`
+  - if needed, run one more temporary isolation pass to compare child-process workers against worker-thread mode now that the failing child entrypoint is known
+- Only after the full build path is either working or conclusively environment-blocked should the Socrates smoke commands be retried.
