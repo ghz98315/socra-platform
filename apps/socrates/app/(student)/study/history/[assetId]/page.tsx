@@ -1,9 +1,11 @@
 import { StudyAssetDetail } from '@/components/study/StudyAssetDetail';
 
-export default function StudyAssetDetailPage({
+export default async function StudyAssetDetailPage({
   params,
 }: {
-  params: { assetId: string };
+  params: Promise<{ assetId: string }>;
 }) {
-  return <StudyAssetDetail assetId={params.assetId} />;
+  const { assetId } = await params;
+
+  return <StudyAssetDetail assetId={assetId} />;
 }

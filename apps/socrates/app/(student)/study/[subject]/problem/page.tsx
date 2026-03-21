@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { use, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -10,22 +10,23 @@ import { getSubjectConfig, type SubjectType } from '@/lib/study/catalog';
 export default function StudyProblemBridgePage({
   params,
 }: {
-  params: { subject: SubjectType };
+  params: Promise<{ subject: SubjectType }>;
 }) {
+  const { subject: subjectId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const targetHref = useMemo(() => {
     const next = new URLSearchParams(searchParams.toString());
-    next.set('subject', params.subject);
+    next.set('subject', subjectId);
     return `/workbench?${next.toString()}`;
-  }, [params.subject, searchParams]);
+  }, [searchParams, subjectId]);
 
   useEffect(() => {
     router.replace(targetHref);
   }, [router, targetHref]);
 
-  const subject = getSubjectConfig(params.subject);
+  const subject = getSubjectConfig(subjectId);
 
   return (
     <div className="rounded-[28px] border border-slate-200 bg-white/90 p-8 shadow-sm">
