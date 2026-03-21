@@ -41,6 +41,11 @@ Date: 2026-03-21
 - `Remove-Item -LiteralPath '\\?\D:\github\Socrates_ analysis\socra-platform\apps\socrates\.next' -Recurse -Force`
 - `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children`
 - `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children --disable-telemetry`
+- temporary local config experiment:
+  - set `experimental.webpackBuildWorker = false`
+  - `Remove-Item -LiteralPath '\\?\D:\github\Socrates_ analysis\socra-platform\apps\socrates\.next' -Recurse -Force`
+  - `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children --disable-telemetry`
+  - restore `apps/socrates/next.config.ts`
 
 ## Smoke
 
@@ -55,11 +60,16 @@ Date: 2026-03-21
   - failure command: `fork` of `next/dist/compiled/jest-worker/processChild.js`
 - The telemetry-specific `git config` spawn failure can be suppressed with `--disable-telemetry`, but doing so does not unblock the build worker.
 - The stale `.next/cache/swc/plugins/windows_x86_64_23.0.0` residue still occasionally requires elevated cleanup before another clean-start full probe.
+- A temporary `experimental.webpackBuildWorker = false` experiment was able to move the full build much farther:
+  - webpack full build compiled successfully in about 4 minutes
+  - the build then reached `Running TypeScript ...`
+  - the later failure still narrowed back to `fork` of `next/dist/compiled/jest-worker/processChild.js`
+- That temporary config was reverted immediately after the experiment and is not part of the committed app config.
 - The pre-existing untracked `.editorconfig` file was left untouched and excluded from this slice.
 
 ## Next Step
 
 - Inspect whether the failing full-build worker spawn can be bypassed or re-routed without source-level product changes:
-  - confirm whether Next has a stable environment switch for the relevant worker path in `16.1.6`
-  - if needed, run one more temporary isolation pass to compare child-process workers against worker-thread mode now that the failing child entrypoint is known
+  - confirm which later full-build stage is still creating the failing `processChild.js` worker after `webpackBuildWorker` is disabled
+  - compare that post-compile worker path against `config.experimental.workerThreads`
 - Only after the full build path is either working or conclusively environment-blocked should the Socrates smoke commands be retried.
