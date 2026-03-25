@@ -24,7 +24,8 @@ import {
   Bot,
   User,
   MessageCircle,
-  Sparkles
+  Sparkles,
+  Target,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,6 +38,7 @@ import { VariantPractice } from '@/components/VariantPractice';
 import { DiagnosisPanel } from '@/components/error-loop/DiagnosisPanel';
 import { GuidedReflectionPanel } from '@/components/error-loop/GuidedReflectionPanel';
 import type { RootCauseCategory, StructuredDiagnosis } from '@/lib/error-loop/taxonomy';
+import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 
 interface Message {
   id: string;
@@ -59,6 +61,16 @@ interface ErrorSession {
   created_at: string;
 }
 
+interface ReviewSummary {
+  id: string;
+  review_stage: number;
+  next_review_at: string | null;
+  is_completed: boolean;
+  mastery_state: string | null;
+  last_judgement: MasteryJudgement | null;
+  reopened_count: number | null;
+}
+
 const subjectLabels: Record<string, string> = {
   chinese: '语文',
   english: '英语',
@@ -75,6 +87,52 @@ const statusLabels: Record<string, { label: string; color: string; icon: React.E
 
 const VARIANT_PRACTICE_SUBJECTS = new Set(['math', 'physics', 'chemistry']);
 
+const closureStateMeta: Record<
+  string,
+  {
+    label: string;
+    description: string;
+    badgeClassName: string;
+  }
+> = {
+  open: {
+    label: '待进入复习闭环',
+    description: '这道题还处于开放状态，需要先完成诊断、反思和首次掌握。',
+    badgeClassName: 'bg-slate-100 text-slate-700',
+  },
+  provisional_mastered: {
+    label: '暂时会了，还要继续验证',
+    description: '当前这题表现不错，但还没到最终关闭，需要按节奏继续复习。',
+    badgeClassName: 'bg-blue-100 text-blue-700',
+  },
+  reopened: {
+    label: '重新打开，说明之前是假会',
+    description: '系统发现这题又暴露问题，已经回到闭环里重新练。',
+    badgeClassName: 'bg-red-100 text-red-700',
+  },
+  mastered_closed: {
+    label: '稳定会了，已关闭',
+    description: '这题已经通过多轮验证，暂时不用重复追着刷。',
+    badgeClassName: 'bg-emerald-100 text-emerald-700',
+  },
+};
+
+function getClosureStateMeta(state: string | null | undefined) {
+  return closureStateMeta[state || 'open'] || closureStateMeta.open;
+}
+
+function formatReviewDate(dateStr: string | null) {
+  if (!dateStr) {
+    return '待系统安排';
+  }
+
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export default function ErrorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const { profile } = useAuth();
@@ -86,6 +144,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [mastering, setMastering] = useState(false);
   const [masterMessage, setMasterMessage] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
 
@@ -114,11 +173,12 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
 
     const { data: reviewData } = await supabase
       .from('review_schedule')
-      .select('id')
+      .select('id, review_stage, next_review_at, is_completed, mastery_state, last_judgement, reopened_count')
       .eq('session_id', resolvedParams.id)
       .maybeSingle();
 
     setReviewId((reviewData as { id?: string } | null)?.id || null);
+    setReviewSummary((reviewData as ReviewSummary | null) || null);
 
     // 加载对话历史
     const { data: messagesData } = await supabase
@@ -206,6 +266,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         if (data.review_id) {
           setReviewId(data.review_id);
         }
+        void loadErrorDetail();
         setMasterMessage('已标记为掌握，可进入复习');
       } else {
         setMasterMessage(data.error || '操作失败，请重试');
@@ -261,6 +322,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
 
   const StatusIcon = statusLabels[errorSession.status]?.icon || Clock;
   const supportsVariantPractice = VARIANT_PRACTICE_SUBJECTS.has(errorSession.subject);
+  const closureMeta = getClosureStateMeta(reviewSummary?.mastery_state || errorSession.closure_state);
 
   return (
     <div className={cn(
@@ -431,6 +493,55 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         </Card>
 
         {/* 对话历史 */}
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="w-5 h-5 text-primary" />
+              真会 / 假会闭环状态
+            </CardTitle>
+            <CardDescription>{closureMeta.description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={closureMeta.badgeClassName}>{closureMeta.label}</Badge>
+              {reviewSummary?.last_judgement ? (
+                <Badge variant="outline">
+                  上次判定: {MASTERY_JUDGEMENT_META[reviewSummary.last_judgement].label}
+                </Badge>
+              ) : null}
+              {reviewSummary?.reopened_count ? (
+                <Badge variant="outline">复开 {reviewSummary.reopened_count} 次</Badge>
+              ) : null}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border/60 px-4 py-3">
+                <p className="text-xs text-muted-foreground">当前闭环</p>
+                <p className="mt-1 text-sm font-medium">{closureMeta.label}</p>
+              </div>
+              <div className="rounded-2xl border border-border/60 px-4 py-3">
+                <p className="text-xs text-muted-foreground">当前轮次</p>
+                <p className="mt-1 text-sm font-medium">
+                  {reviewSummary ? `第 ${reviewSummary.review_stage} 轮` : '尚未进入复习'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/60 px-4 py-3">
+                <p className="text-xs text-muted-foreground">下一次复习</p>
+                <p className="mt-1 text-sm font-medium">
+                  {reviewSummary?.is_completed ? '已关闭' : formatReviewDate(reviewSummary?.next_review_at || null)}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {reviewId ? (
+                <Button variant="outline" onClick={handleOpenReview} className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  {reviewSummary?.is_completed ? '回看复习记录' : '进入复习闭环'}
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
         {profile?.role === 'student' && profile?.id && (
           <DiagnosisPanel
             sessionId={errorSession.id}

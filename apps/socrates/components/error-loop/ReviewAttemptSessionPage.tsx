@@ -177,6 +177,31 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function getClosureStateMeta(state: string | null | undefined) {
+  switch (state) {
+    case 'mastered_closed':
+      return {
+        label: '稳定会了，已关闭',
+        badgeClassName: 'bg-emerald-100 text-emerald-700',
+      };
+    case 'provisional_mastered':
+      return {
+        label: '暂时会了，还要继续验证',
+        badgeClassName: 'bg-blue-100 text-blue-700',
+      };
+    case 'reopened':
+      return {
+        label: '重新打开，说明之前是假会',
+        badgeClassName: 'bg-red-100 text-red-700',
+      };
+    default:
+      return {
+        label: '仍在闭环中',
+        badgeClassName: 'bg-slate-100 text-slate-700',
+      };
+  }
+}
+
 function AttemptToggle({
   active,
   label,
@@ -310,6 +335,9 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
   }, [reviewSession]);
 
   const currentJudgementMeta = reviewResult ? MASTERY_JUDGEMENT_META[reviewResult.mastery_judgement] : null;
+  const currentClosureMeta = getClosureStateMeta(
+    reviewSession?.mastery_state || reviewSession?.error_session.closure_state,
+  );
 
   const handleStartRecall = () => {
     setRecallStartedAt(Date.now());
@@ -521,6 +549,17 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         <Card className="border-border/50">
           <CardContent className="py-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={currentClosureMeta.badgeClassName}>{currentClosureMeta.label}</Badge>
+              {reviewSession.last_judgement ? (
+                <Badge variant="outline">
+                  上次判定: {MASTERY_JUDGEMENT_META[reviewSession.last_judgement].label}
+                </Badge>
+              ) : null}
+              {reviewSession.reopened_count ? (
+                <Badge variant="outline">复开 {reviewSession.reopened_count} 次</Badge>
+              ) : null}
+            </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">复习闭环进度</p>
@@ -961,7 +1000,11 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                   >
                     <p className="text-sm font-medium">系统结论</p>
                     <p className="mt-2 text-sm">本次判定: {currentJudgementMeta.label}</p>
-                    <p className="mt-1 text-sm">闭环状态: {reviewResult.review.mastery_state || 'pending'}</p>
+                    <div className="mt-2">
+                      <Badge className={getClosureStateMeta(reviewResult.review.mastery_state).badgeClassName}>
+                        {getClosureStateMeta(reviewResult.review.mastery_state).label}
+                      </Badge>
+                    </div>
                     <p className="mt-1 text-sm">
                       {reviewResult.closed ? '该题已进入关闭状态。' : `下次复习时间: ${formatDate(reviewResult.next_review_at)}`}
                     </p>
@@ -1010,7 +1053,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">当前闭环状态</span>
-                  <span>{reviewSession.error_session.closure_state || 'open'}</span>
+                  <Badge className={currentClosureMeta.badgeClassName}>{currentClosureMeta.label}</Badge>
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">上次判定</span>
