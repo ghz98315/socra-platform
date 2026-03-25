@@ -1,0 +1,901 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import type { RootCauseCategory } from '@/lib/error-loop/taxonomy';
+import {
+  HEAT_SCORE_MODEL,
+  computeHeatScore,
+  describeHeatLevel,
+  getParentSupportPlaybook,
+  getRootCauseLabel,
+} from '@/lib/error-loop/parent-insights';
+import { aggregateConversationRiskSignals } from '@/lib/error-loop/conversation-risk';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
+
+const VALID_SUBJECTS = new Set(['math', 'chinese', 'english', 'physics', 'chemistry', 'generic']);
+const RISK_JUDGEMENTS = new Set(['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery']);
+
+type StudentRow = {
+  id: string;
+  display_name: string | null;
+  grade_level: number | null;
+};
+
+type ErrorSessionRow = {
+  id: string;
+  extracted_text: string | null;
+  concept_tags: unknown;
+  status: string | null;
+  closure_state: string | null;
+  primary_root_cause_category: RootCauseCategory | null;
+  primary_root_cause_statement: string | null;
+  created_at: string;
+};
+
+type DiagnosisRow = {
+  session_id: string;
+  root_cause_category: RootCauseCategory;
+  root_cause_statement: string;
+  knowledge_tags: unknown;
+  habit_tags: unknown;
+  surface_labels: unknown;
+  risk_flags: unknown;
+  updated_at: string;
+  created_at: string;
+};
+
+type ReviewScheduleRow = {
+  id: string;
+  session_id: string;
+  review_stage: number | null;
+  next_review_at: string | null;
+  is_completed: boolean | null;
+  mastery_state: string | null;
+  last_judgement: string | null;
+  reopened_count: number | null;
+  next_interval_days: number | null;
+  updated_at: string | null;
+  error_sessions:
+    | {
+        id: string;
+        extracted_text: string | null;
+        concept_tags: unknown;
+        primary_root_cause_category: RootCauseCategory | null;
+        primary_root_cause_statement: string | null;
+      }
+    | Array<{
+        id: string;
+        extracted_text: string | null;
+        concept_tags: unknown;
+        primary_root_cause_category: RootCauseCategory | null;
+        primary_root_cause_statement: string | null;
+      }>
+    | null;
+};
+
+type ReviewAttemptRow = {
+  id: string;
+  review_id: string;
+  session_id: string;
+  mastery_judgement: string;
+  created_at: string;
+};
+
+type ChatMessageRow = {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+};
+
+type TaskCompletionRow = {
+  progress_count: number | null;
+  progress_duration: number | null;
+  notes: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
+};
+
+type ParentTaskRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+  task_completions: TaskCompletionRow[] | null;
+};
+
+type InterventionEffect = 'pending' | 'risk_lowered' | 'risk_persisting';
+
+type InterventionTaskSnapshot = {
+  task_id: string;
+  session_id: string;
+  category: string;
+  title: string;
+  status: string;
+  feedback_note: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
+  effect: InterventionEffect;
+  post_intervention_repeat_count: number;
+};
+
+type AggregateBucket = {
+  key: string;
+  count: number;
+  recentCount: number;
+  reopenedCount: number;
+  pseudoMasteryCount: number;
+  pendingCount: number;
+  statements: Map<string, number>;
+  sessionIds: Set<string>;
+};
+
+function normalizeStringList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+}
+
+function isRecentIso(dateValue: string | null | undefined, days = 7) {
+  if (!dateValue) {
+    return false;
+  }
+
+  const createdAt = new Date(dateValue).getTime();
+  if (Number.isNaN(createdAt)) {
+    return false;
+  }
+
+  return Date.now() - createdAt <= days * 24 * 60 * 60 * 1000;
+}
+
+function isOverdue(dateValue: string | null | undefined) {
+  if (!dateValue) {
+    return false;
+  }
+
+  const dueAt = new Date(dateValue).getTime();
+  if (Number.isNaN(dueAt)) {
+    return false;
+  }
+
+  return dueAt <= Date.now();
+}
+
+function excerpt(value: string | null | undefined, maxLength = 40) {
+  const text = (value || '').replace(/\s+/g, ' ').trim();
+  if (!text) {
+    return '未命名错题';
+  }
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Internal server error';
+}
+
+function getTaskCompletion(task: ParentTaskRow) {
+  if (!Array.isArray(task.task_completions) || task.task_completions.length === 0) {
+    return null;
+  }
+
+  return task.task_completions[0] ?? null;
+}
+
+function parseConversationTaskMarkers(description: string | null | undefined) {
+  const content = description || '';
+  const sessionMatch = content.match(/\[conversation-session:([^\]]+)\]/);
+  const categoryMatch = content.match(/\[conversation-risk:([^\]]+)\]/);
+
+  if (!sessionMatch || !categoryMatch) {
+    return null;
+  }
+
+  return {
+    sessionId: sessionMatch[1],
+    category: categoryMatch[1],
+  };
+}
+
+function buildConversationTaskKey(sessionId: string, category: string) {
+  return `${sessionId}:${category}`;
+}
+
+function compareIsoDesc(left: string | null | undefined, right: string | null | undefined) {
+  return new Date(right || 0).getTime() - new Date(left || 0).getTime();
+}
+
+function pushIntoAggregate(
+  map: Map<string, AggregateBucket>,
+  {
+    key,
+    statement,
+    sessionId,
+    recent,
+    reopenedCount,
+    pseudoMasteryCount,
+    pendingCount,
+  }: {
+    key: string;
+    statement: string;
+    sessionId: string;
+    recent: boolean;
+    reopenedCount: number;
+    pseudoMasteryCount: number;
+    pendingCount: number;
+  },
+) {
+  const bucket = map.get(key) ?? {
+    key,
+    count: 0,
+    recentCount: 0,
+    reopenedCount: 0,
+    pseudoMasteryCount: 0,
+    pendingCount: 0,
+    statements: new Map<string, number>(),
+    sessionIds: new Set<string>(),
+  };
+
+  bucket.count += 1;
+  bucket.recentCount += recent ? 1 : 0;
+  bucket.reopenedCount += reopenedCount;
+  bucket.pseudoMasteryCount += pseudoMasteryCount;
+  bucket.pendingCount += pendingCount;
+  bucket.sessionIds.add(sessionId);
+
+  const normalizedStatement = statement.trim();
+  if (normalizedStatement) {
+    bucket.statements.set(normalizedStatement, (bucket.statements.get(normalizedStatement) ?? 0) + 1);
+  }
+
+  map.set(key, bucket);
+}
+
+async function getParentUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return null;
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || profile.role !== 'parent') {
+    return null;
+  }
+
+  return profile;
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const parentUser = await getParentUser();
+    if (!parentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const requestedStudentId = req.nextUrl.searchParams.get('student_id');
+    const requestedSubject = req.nextUrl.searchParams.get('subject') || 'math';
+    const subject = VALID_SUBJECTS.has(requestedSubject) ? requestedSubject : 'math';
+
+    const { data: students, error: studentsError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, display_name, grade_level')
+      .eq('role', 'student')
+      .eq('parent_id', parentUser.id)
+      .order('display_name', { ascending: true });
+
+    if (studentsError) {
+      console.error('[parent/insights] Failed to load students:', studentsError);
+      return NextResponse.json({ error: 'Failed to load children' }, { status: 500 });
+    }
+
+    const childList = (students ?? []) as StudentRow[];
+    if (childList.length === 0) {
+      return NextResponse.json({
+        students: [],
+        selected_student: null,
+        subject,
+        summary: {
+          total_errors: 0,
+          open_errors: 0,
+          pending_review_count: 0,
+          overdue_review_count: 0,
+          mastered_closed_count: 0,
+          provisional_mastered_count: 0,
+          pseudo_mastery_count: 0,
+          reopened_total: 0,
+        },
+        root_cause_heatmap: [],
+        knowledge_hotspots: [],
+        habit_hotspots: [],
+        recent_risks: [],
+        conversation_alerts: [],
+        intervention_summary: {
+          total: 0,
+          pending: 0,
+          completed: 0,
+          risk_lowered: 0,
+          risk_persisting: 0,
+        },
+        intervention_outcomes: [],
+        parent_actions: [],
+        scoring_model: HEAT_SCORE_MODEL,
+      });
+    }
+
+    const selectedStudent =
+      childList.find((student) => student.id === requestedStudentId) ??
+      childList[0];
+
+    const { data: errorSessions, error: errorSessionsError } = await supabaseAdmin
+      .from('error_sessions')
+      .select(
+        'id, extracted_text, concept_tags, status, closure_state, primary_root_cause_category, primary_root_cause_statement, created_at',
+      )
+      .eq('student_id', selectedStudent.id)
+      .eq('subject', subject)
+      .order('created_at', { ascending: false });
+
+    if (errorSessionsError) {
+      console.error('[parent/insights] Failed to load error sessions:', errorSessionsError);
+      return NextResponse.json({ error: 'Failed to load error sessions' }, { status: 500 });
+    }
+
+    const sessions = (errorSessions ?? []) as ErrorSessionRow[];
+    const sessionIds = sessions.map((session) => session.id);
+    const sessionMap = new Map(sessions.map((session) => [session.id, session]));
+
+    const [
+      diagnosesResult,
+      reviewSchedulesResult,
+      reviewAttemptsResult,
+      chatMessagesResult,
+      interventionTasksResult,
+    ] = await Promise.all([
+      sessionIds.length > 0
+        ? supabaseAdmin
+            .from('error_diagnoses')
+            .select(
+              'session_id, root_cause_category, root_cause_statement, knowledge_tags, habit_tags, surface_labels, risk_flags, updated_at, created_at',
+            )
+            .eq('student_id', selectedStudent.id)
+            .in('session_id', sessionIds)
+        : Promise.resolve({ data: [], error: null }),
+      sessionIds.length > 0
+        ? supabaseAdmin
+            .from('review_schedule')
+            .select(
+              `
+                id,
+                session_id,
+                review_stage,
+                next_review_at,
+                is_completed,
+                mastery_state,
+                last_judgement,
+                reopened_count,
+                next_interval_days,
+                updated_at,
+                error_sessions (
+                  id,
+                  extracted_text,
+                  concept_tags,
+                  primary_root_cause_category,
+                  primary_root_cause_statement
+                )
+              `,
+            )
+            .eq('student_id', selectedStudent.id)
+            .in('session_id', sessionIds)
+        : Promise.resolve({ data: [], error: null }),
+      sessionIds.length > 0
+        ? supabaseAdmin
+            .from('review_attempts')
+            .select('id, review_id, session_id, mastery_judgement, created_at')
+            .eq('student_id', selectedStudent.id)
+            .in('session_id', sessionIds)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      sessionIds.length > 0
+        ? supabaseAdmin
+            .from('chat_messages')
+            .select('id, session_id, role, content, created_at')
+            .in('session_id', sessionIds)
+            .order('created_at', { ascending: false })
+            .limit(180)
+        : Promise.resolve({ data: [], error: null }),
+      supabaseAdmin
+        .from('parent_tasks')
+        .select(
+          `
+            id,
+            title,
+            description,
+            status,
+            completed_at,
+            created_at,
+            updated_at,
+            task_completions (
+              progress_count,
+              progress_duration,
+              notes,
+              completed_at,
+              updated_at
+            )
+          `,
+        )
+        .eq('parent_id', parentUser.id)
+        .eq('child_id', selectedStudent.id)
+        .eq('task_type', 'conversation_intervention')
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (diagnosesResult.error) {
+      console.error('[parent/insights] Failed to load diagnoses:', diagnosesResult.error);
+      return NextResponse.json({ error: 'Failed to load diagnoses' }, { status: 500 });
+    }
+
+    if (reviewSchedulesResult.error) {
+      console.error('[parent/insights] Failed to load review schedules:', reviewSchedulesResult.error);
+      return NextResponse.json({ error: 'Failed to load review schedules' }, { status: 500 });
+    }
+
+    if (reviewAttemptsResult.error) {
+      console.error('[parent/insights] Failed to load review attempts:', reviewAttemptsResult.error);
+      return NextResponse.json({ error: 'Failed to load review attempts' }, { status: 500 });
+    }
+
+    if (chatMessagesResult.error) {
+      console.error('[parent/insights] Failed to load chat messages:', chatMessagesResult.error);
+      return NextResponse.json({ error: 'Failed to load chat messages' }, { status: 500 });
+    }
+
+    if (interventionTasksResult.error) {
+      console.error('[parent/insights] Failed to load intervention tasks:', interventionTasksResult.error);
+      return NextResponse.json({ error: 'Failed to load intervention tasks' }, { status: 500 });
+    }
+
+    const diagnoses = (diagnosesResult.data ?? []) as DiagnosisRow[];
+    const reviewSchedules = (reviewSchedulesResult.data ?? []) as ReviewScheduleRow[];
+    const reviewAttempts = (reviewAttemptsResult.data ?? []) as ReviewAttemptRow[];
+    const chatMessages = (chatMessagesResult.data ?? []) as ChatMessageRow[];
+    const interventionTasks = (interventionTasksResult.data ?? []) as ParentTaskRow[];
+
+    const reviewMap = new Map(reviewSchedules.map((review) => [review.session_id, review]));
+    const attemptsBySession = new Map<string, ReviewAttemptRow[]>();
+    for (const attempt of reviewAttempts) {
+      const current = attemptsBySession.get(attempt.session_id) ?? [];
+      current.push(attempt);
+      attemptsBySession.set(attempt.session_id, current);
+    }
+
+    const rootCauseAggregates = new Map<string, AggregateBucket>();
+    const knowledgeAggregates = new Map<string, AggregateBucket>();
+    const habitAggregates = new Map<string, AggregateBucket>();
+
+    for (const diagnosis of diagnoses) {
+      const review = reviewMap.get(diagnosis.session_id);
+      const sessionAttempts = attemptsBySession.get(diagnosis.session_id) ?? [];
+      const pseudoMasteryCount = sessionAttempts.filter((item) => item.mastery_judgement === 'pseudo_mastery').length;
+      const pendingCount = review && review.is_completed === false ? 1 : 0;
+      const reopenedCount = review?.reopened_count ?? 0;
+      const recent = isRecentIso(diagnosis.updated_at || diagnosis.created_at, 7);
+
+      pushIntoAggregate(rootCauseAggregates, {
+        key: diagnosis.root_cause_category,
+        statement: diagnosis.root_cause_statement,
+        sessionId: diagnosis.session_id,
+        recent,
+        reopenedCount,
+        pseudoMasteryCount,
+        pendingCount,
+      });
+
+      const knowledgeTags = normalizeStringList(diagnosis.knowledge_tags);
+      const habitTags = normalizeStringList(diagnosis.habit_tags);
+      const sessionConceptTags = normalizeStringList(sessionMap.get(diagnosis.session_id)?.concept_tags);
+      const tagsForKnowledge = knowledgeTags.length > 0 ? knowledgeTags : sessionConceptTags;
+
+      for (const tag of tagsForKnowledge) {
+        pushIntoAggregate(knowledgeAggregates, {
+          key: tag,
+          statement: diagnosis.root_cause_statement,
+          sessionId: diagnosis.session_id,
+          recent,
+          reopenedCount,
+          pseudoMasteryCount,
+          pendingCount,
+        });
+      }
+
+      for (const tag of habitTags) {
+        pushIntoAggregate(habitAggregates, {
+          key: tag,
+          statement: diagnosis.root_cause_statement,
+          sessionId: diagnosis.session_id,
+          recent,
+          reopenedCount,
+          pseudoMasteryCount,
+          pendingCount,
+        });
+      }
+    }
+
+    const rawRootCauseItems = Array.from(rootCauseAggregates.values()).map((bucket) => ({
+      category: bucket.key as RootCauseCategory,
+      label: getRootCauseLabel(bucket.key as RootCauseCategory),
+      count: bucket.count,
+      recent_count: bucket.recentCount,
+      reopened_count: bucket.reopenedCount,
+      pseudo_mastery_count: bucket.pseudoMasteryCount,
+      pending_count: bucket.pendingCount,
+      raw_heat_score: computeHeatScore({
+        count: bucket.count,
+        recentCount: bucket.recentCount,
+        reopenedCount: bucket.reopenedCount,
+        pseudoMasteryCount: bucket.pseudoMasteryCount,
+        pendingCount: bucket.pendingCount,
+      }),
+      sample_root_statements: Array.from(bucket.statements.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([statement]) => statement),
+      playbook: getParentSupportPlaybook(bucket.key as RootCauseCategory),
+    }));
+
+    const maxRootCauseScore =
+      rawRootCauseItems.reduce((max, item) => Math.max(max, item.raw_heat_score), 0) || 1;
+
+    const rootCauseHeatmap = rawRootCauseItems
+      .map((item) => {
+        const heatScore = Math.round((item.raw_heat_score / maxRootCauseScore) * 100);
+        return {
+          ...item,
+          heat_score: heatScore,
+          heat_level: describeHeatLevel(heatScore),
+        };
+      })
+      .sort((a, b) => {
+        if (b.heat_score !== a.heat_score) {
+          return b.heat_score - a.heat_score;
+        }
+        return b.count - a.count;
+      });
+
+    const buildHotspotList = (aggregateMap: Map<string, AggregateBucket>) => {
+      const rawItems = Array.from(aggregateMap.values()).map((bucket) => ({
+        tag: bucket.key,
+        count: bucket.count,
+        recent_count: bucket.recentCount,
+        reopened_count: bucket.reopenedCount,
+        pseudo_mastery_count: bucket.pseudoMasteryCount,
+        pending_count: bucket.pendingCount,
+        raw_heat_score: computeHeatScore({
+          count: bucket.count,
+          recentCount: bucket.recentCount,
+          reopenedCount: bucket.reopenedCount,
+          pseudoMasteryCount: bucket.pseudoMasteryCount,
+          pendingCount: bucket.pendingCount,
+        }),
+        sample_root_statements: Array.from(bucket.statements.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([statement]) => statement),
+      }));
+
+      const maxScore = rawItems.reduce((max, item) => Math.max(max, item.raw_heat_score), 0) || 1;
+
+      return rawItems
+        .map((item) => {
+          const heatScore = Math.round((item.raw_heat_score / maxScore) * 100);
+          return {
+            ...item,
+            heat_score: heatScore,
+            heat_level: describeHeatLevel(heatScore),
+          };
+        })
+        .sort((a, b) => {
+          if (b.heat_score !== a.heat_score) {
+            return b.heat_score - a.heat_score;
+          }
+          return b.count - a.count;
+        })
+        .slice(0, 8);
+    };
+
+    const knowledgeHotspots = buildHotspotList(knowledgeAggregates);
+    const habitHotspots = buildHotspotList(habitAggregates);
+
+    const recentRisks = sessions
+      .map((session) => {
+        const review = reviewMap.get(session.id);
+        const attempts = attemptsBySession.get(session.id) ?? [];
+        const latestAttempt = attempts[0];
+        const riskScore =
+          (review?.reopened_count ?? 0) * 3 +
+          (review?.last_judgement === 'pseudo_mastery' ? 4 : 0) +
+          (review?.last_judgement && RISK_JUDGEMENTS.has(review.last_judgement) ? 2 : 0) +
+          (review && review.is_completed === false && isOverdue(review.next_review_at) ? 2 : 0);
+
+        if (riskScore === 0) {
+          return null;
+        }
+
+        let riskLabel = '需要关注';
+        if (review?.last_judgement === 'pseudo_mastery') {
+          riskLabel = '假会风险';
+        } else if (review?.last_judgement === 'not_mastered') {
+          riskLabel = '复习未过';
+        } else if (review && review.is_completed === false && isOverdue(review.next_review_at)) {
+          riskLabel = '复习已到期';
+        } else if ((review?.reopened_count ?? 0) > 0) {
+          riskLabel = '重复复开';
+        }
+
+        return {
+          session_id: session.id,
+          title: riskLabel,
+          excerpt: excerpt(session.extracted_text),
+          root_cause_label: session.primary_root_cause_category
+            ? getRootCauseLabel(session.primary_root_cause_category)
+            : '待归因',
+          root_cause_statement: session.primary_root_cause_statement,
+          mastery_judgement: review?.last_judgement ?? latestAttempt?.mastery_judgement ?? null,
+          reopened_count: review?.reopened_count ?? 0,
+          next_review_at: review?.next_review_at ?? null,
+          risk_score: riskScore,
+          created_at: latestAttempt?.created_at ?? review?.updated_at ?? session.created_at,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        const left = a as NonNullable<typeof a>;
+        const right = b as NonNullable<typeof b>;
+        if (right.risk_score !== left.risk_score) {
+          return right.risk_score - left.risk_score;
+        }
+        return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+      })
+      .slice(0, 6);
+
+    const conversationAlertSignals = aggregateConversationRiskSignals(
+      chatMessages
+        .filter((message) => message.role === 'user')
+        .map((message) => ({
+          sessionId: message.session_id,
+          messageId: message.id,
+          createdAt: message.created_at,
+          messageText: message.content,
+        })),
+    );
+
+    const conversationSignalsByKey = new Map<string, typeof conversationAlertSignals>();
+    for (const signal of conversationAlertSignals) {
+      const key = buildConversationTaskKey(signal.session_id, signal.category);
+      const current = conversationSignalsByKey.get(key) ?? [];
+      current.push(signal);
+      conversationSignalsByKey.set(key, current);
+    }
+
+    const interventionTaskSnapshots = interventionTasks
+      .map((task) => {
+        const markers = parseConversationTaskMarkers(task.description);
+        if (!markers) {
+          return null;
+        }
+
+        const completion = getTaskCompletion(task);
+        const completedAt = completion?.completed_at ?? task.completed_at ?? null;
+        const status = task.status ?? (completedAt ? 'completed' : 'pending');
+        const taskKey = buildConversationTaskKey(markers.sessionId, markers.category);
+        const relatedSignals = conversationSignalsByKey.get(taskKey) ?? [];
+        const postInterventionRepeatCount = completedAt
+          ? relatedSignals.filter(
+              (signal) =>
+                new Date(signal.created_at).getTime() > new Date(completedAt).getTime(),
+            ).length
+          : 0;
+        const effect: InterventionEffect =
+          status === 'completed'
+            ? postInterventionRepeatCount > 0
+              ? 'risk_persisting'
+              : 'risk_lowered'
+            : 'pending';
+
+        return {
+          task_id: task.id,
+          session_id: markers.sessionId,
+          category: markers.category,
+          title: task.title,
+          status,
+          feedback_note: completion?.notes ?? null,
+          completed_at: completedAt,
+          updated_at: completion?.updated_at ?? task.updated_at ?? null,
+          effect,
+          post_intervention_repeat_count: postInterventionRepeatCount,
+        } satisfies InterventionTaskSnapshot;
+      })
+      .filter((item): item is InterventionTaskSnapshot => item !== null)
+      .sort((a, b) => compareIsoDesc(a.updated_at ?? a.completed_at, b.updated_at ?? b.completed_at));
+
+    const interventionTaskMap = new Map<string, InterventionTaskSnapshot>();
+    for (const task of interventionTaskSnapshots) {
+      const key = buildConversationTaskKey(task.session_id, task.category);
+      if (!interventionTaskMap.has(key)) {
+        interventionTaskMap.set(key, task);
+      }
+    }
+
+    const conversationAlerts = conversationAlertSignals
+      .map((item) => {
+        const session = sessionMap.get(item.session_id);
+        const interventionTask = interventionTaskMap.get(
+          buildConversationTaskKey(item.session_id, item.category),
+        );
+        return {
+          session_id: item.session_id,
+          message_id: item.message_id,
+          created_at: item.created_at,
+          category: item.category,
+          severity: item.severity,
+          score: item.score,
+          title: item.title,
+          summary: item.summary,
+          message_excerpt: excerpt(item.messageText, 80),
+          question_excerpt: excerpt(session?.extracted_text, 46),
+          root_cause_label: session?.primary_root_cause_category
+            ? getRootCauseLabel(session.primary_root_cause_category)
+            : null,
+          parent_opening: item.parentOpening,
+          parent_actions: item.parentActions,
+          intervention_task_id: interventionTask?.task_id ?? null,
+          intervention_status: interventionTask?.status ?? null,
+          intervention_feedback_note: interventionTask?.feedback_note ?? null,
+          intervention_completed_at: interventionTask?.completed_at ?? null,
+          intervention_effect: interventionTask?.effect ?? null,
+          post_intervention_repeat_count: interventionTask?.post_intervention_repeat_count ?? 0,
+        };
+      })
+      .slice(0, 8);
+
+    const completedInterventionCount = interventionTaskSnapshots.filter(
+      (task) => task.status === 'completed',
+    ).length;
+    const pendingInterventionCount = interventionTaskSnapshots.filter(
+      (task) => task.status !== 'completed',
+    ).length;
+    const loweredRiskInterventionCount = interventionTaskSnapshots.filter(
+      (task) => task.effect === 'risk_lowered',
+    ).length;
+    const persistingRiskInterventionCount = interventionTaskSnapshots.filter(
+      (task) => task.effect === 'risk_persisting',
+    ).length;
+
+    const pseudoMasteryCount = reviewAttempts.filter((attempt) => attempt.mastery_judgement === 'pseudo_mastery').length;
+    const pendingReviewCount = reviewSchedules.filter((review) => review.is_completed === false).length;
+    const overdueReviewCount = reviewSchedules.filter(
+      (review) => review.is_completed === false && isOverdue(review.next_review_at),
+    ).length;
+    const reopenedTotal = reviewSchedules.reduce((sum, review) => sum + (review.reopened_count ?? 0), 0);
+    const masteredClosedCount = reviewSchedules.filter((review) => review.mastery_state === 'mastered_closed').length;
+    const provisionalMasteredCount = reviewSchedules.filter(
+      (review) => review.mastery_state === 'provisional_mastered',
+    ).length;
+
+    const parentActions = [
+      ...(overdueReviewCount > 0
+        ? [
+            {
+              title: '先清掉到期复习',
+              summary: `当前有 ${overdueReviewCount} 个复习点已到期，建议优先处理这些题，避免错误记忆继续固化。`,
+              priority: 'high',
+            },
+          ]
+        : []),
+      ...(pseudoMasteryCount > 0
+        ? [
+            {
+              title: '专项盯“假会”',
+              summary: `最近共有 ${pseudoMasteryCount} 次假会信号。原题做对不代表真的会，家长陪练时要加一道变式题和一次讲解复述。`,
+              priority: 'high',
+            },
+          ]
+        : []),
+      ...(conversationAlerts.some((item) => item.severity === 'high')
+        ? [
+            {
+              title: '优先处理高风险对话信号',
+              summary: '最近对话里出现了高强度情绪/边界/自我否定表达，建议先稳关系和情绪，再推进讲题。',
+              priority: 'high',
+            },
+          ]
+        : []),
+      ...rootCauseHeatmap.slice(0, 3).map((item, index) => ({
+        title: `${index + 1}. ${item.label}`,
+        summary: item.playbook.summary,
+        priority: index === 0 ? 'high' : 'medium',
+        actions: item.playbook.actions,
+        watch_fors: item.playbook.watchFors,
+      })),
+    ];
+
+    return NextResponse.json({
+      students: childList,
+      selected_student: selectedStudent,
+      subject,
+      summary: {
+        total_errors: sessions.length,
+        open_errors: sessions.filter((session) => session.closure_state !== 'mastered_closed').length,
+        pending_review_count: pendingReviewCount,
+        overdue_review_count: overdueReviewCount,
+        mastered_closed_count: masteredClosedCount,
+        provisional_mastered_count: provisionalMasteredCount,
+        pseudo_mastery_count: pseudoMasteryCount,
+        reopened_total: reopenedTotal,
+      },
+      root_cause_heatmap: rootCauseHeatmap.slice(0, 8),
+      knowledge_hotspots: knowledgeHotspots,
+      habit_hotspots: habitHotspots,
+      recent_risks: recentRisks,
+      conversation_alerts: conversationAlerts,
+      intervention_summary: {
+        total: interventionTaskSnapshots.length,
+        pending: pendingInterventionCount,
+        completed: completedInterventionCount,
+        risk_lowered: loweredRiskInterventionCount,
+        risk_persisting: persistingRiskInterventionCount,
+      },
+      intervention_outcomes: interventionTaskSnapshots
+        .filter((task) => task.status === 'completed')
+        .slice(0, 6),
+      parent_actions: parentActions,
+      scoring_model: {
+        ...HEAT_SCORE_MODEL,
+        explanation:
+          '热力值由频次、近7天出现次数、复开次数、假会次数、当前待处理压力共同计算，再按当前孩子的最高风险点归一化到 100 分。',
+      },
+    });
+  } catch (error: unknown) {
+    console.error('[parent/insights] API error:', error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}

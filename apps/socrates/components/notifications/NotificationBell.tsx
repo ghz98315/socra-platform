@@ -13,7 +13,6 @@ import {
   Bell,
   Check,
   CheckCheck,
-  Trash2,
   BookOpen,
   Trophy,
   Star,
@@ -23,9 +22,8 @@ import {
   Clock,
   Loader2,
   ChevronRight,
-  Settings,
 } from 'lucide-react';
-import { formatDistanceToNow, parseISO, isPast } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -33,7 +31,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 // 通知类型配置
 const notificationTypeConfig: Record<string, {
   label: string;
-  icon: any;
+  icon: React.ElementType;
   color: string;
   bgColor: string;
 }> = {
@@ -85,6 +83,12 @@ const notificationTypeConfig: Record<string, {
     color: 'text-gray-600',
     bgColor: 'bg-gray-100',
   },
+  conversation_risk: {
+    label: '对话风险',
+    icon: AlertCircle,
+    color: 'text-red-600',
+    bgColor: 'bg-red-100',
+  },
 };
 
 interface Notification {
@@ -93,7 +97,7 @@ interface Notification {
   type: string;
   title: string;
   content: string | null;
-  data: Record<string, any> | null;
+  data: Record<string, unknown> | null;
   action_url: string | null;
   action_text: string | null;
   is_read: boolean;
@@ -101,6 +105,32 @@ interface Notification {
   priority: number;
   expires_at: string | null;
   created_at: string;
+}
+
+type ConversationRiskData = {
+  intervention_status?: string | null;
+  intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
+  intervention_feedback_note?: string | null;
+};
+
+function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
+  if (data?.intervention_effect === 'risk_lowered') {
+    return '已沟通，风险下降';
+  }
+
+  if (data?.intervention_effect === 'risk_persisting') {
+    return '已沟通，风险仍在';
+  }
+
+  if (data?.intervention_status === 'completed') {
+    return '已沟通，待继续观察';
+  }
+
+  if (data?.intervention_status) {
+    return '已建干预任务';
+  }
+
+  return null;
 }
 
 interface NotificationBellProps {
@@ -255,6 +285,11 @@ export function NotificationBell({ className, compact = false }: NotificationBel
                 {notifications.map((notification) => {
                   const config = notificationTypeConfig[notification.type] || notificationTypeConfig.system;
                   const Icon = config.icon;
+                  const conversationRiskData =
+                    notification.type === 'conversation_risk'
+                      ? (notification.data as ConversationRiskData | null)
+                      : null;
+                  const conversationRiskStatus = conversationRiskStatusLabel(conversationRiskData);
 
                   return (
                     <div
@@ -289,6 +324,11 @@ export function NotificationBell({ className, compact = false }: NotificationBel
                               {notification.content}
                             </p>
                           )}
+                          {conversationRiskStatus ? (
+                            <p className="mt-1 text-xs text-red-600">
+                              {conversationRiskStatus}
+                            </p>
+                          ) : null}
                           <p className="text-xs text-gray-400 mt-1">
                             {formatTime(notification.created_at)}
                           </p>

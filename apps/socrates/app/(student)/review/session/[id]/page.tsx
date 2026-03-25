@@ -6,9 +6,12 @@
 
 'use client';
 
+/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps, @next/next/no-img-element */
+
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import ReviewAttemptSessionPage from '@/components/error-loop/ReviewAttemptSessionPage';
 import {
   ArrowLeft,
   BookOpen,
@@ -74,6 +77,12 @@ const subjectColors: Record<string, string> = {
 type SupabaseClient = any;
 
 export default function ReviewSessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+
+  return <ReviewAttemptSessionPage reviewId={resolvedParams.id} />;
+}
+
+function LegacyReviewSessionPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const { profile } = useAuth();
   const router = useRouter();

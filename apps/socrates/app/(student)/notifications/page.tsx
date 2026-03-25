@@ -8,10 +8,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Bell,
   Check,
@@ -29,14 +28,14 @@ import {
   Settings,
   X,
 } from 'lucide-react';
-import { formatDistanceToNow, format, isPast, parseISO } from 'date-fns';
+import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { PageHeader } from '@/components/PageHeader';
 
 // 通知类型配置
 const notificationTypeConfig: Record<string, {
   label: string;
-  icon: any;
+  icon: React.ElementType;
   color: string;
   bgColor: string;
 }> = {
@@ -88,6 +87,12 @@ const notificationTypeConfig: Record<string, {
     color: 'text-gray-600',
     bgColor: 'bg-gray-100',
   },
+  conversation_risk: {
+    label: '对话风险',
+    icon: AlertCircle,
+    color: 'text-red-600',
+    bgColor: 'bg-red-100',
+  },
 };
 
 interface Notification {
@@ -96,7 +101,7 @@ interface Notification {
   type: string;
   title: string;
   content: string | null;
-  data: Record<string, any> | null;
+  data: Record<string, unknown> | null;
   action_url: string | null;
   action_text: string | null;
   is_read: boolean;
@@ -104,6 +109,32 @@ interface Notification {
   priority: number;
   expires_at: string | null;
   created_at: string;
+}
+
+type ConversationRiskData = {
+  intervention_status?: string | null;
+  intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
+  intervention_feedback_note?: string | null;
+};
+
+function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
+  if (data?.intervention_effect === 'risk_lowered') {
+    return '家长已沟通，风险暂时下降';
+  }
+
+  if (data?.intervention_effect === 'risk_persisting') {
+    return '家长已沟通，但风险仍在重复';
+  }
+
+  if (data?.intervention_status === 'completed') {
+    return '家长已完成沟通';
+  }
+
+  if (data?.intervention_status) {
+    return '已创建家长干预任务';
+  }
+
+  return null;
 }
 
 export default function NotificationsPage() {
@@ -213,6 +244,11 @@ export default function NotificationsPage() {
     const Icon = config.icon;
     const isSelected = selectedIds.includes(notification.id);
     const isExpired = notification.expires_at && isPast(parseISO(notification.expires_at));
+    const conversationRiskData =
+      notification.type === 'conversation_risk'
+        ? (notification.data as ConversationRiskData | null)
+        : null;
+    const conversationRiskStatus = conversationRiskStatusLabel(conversationRiskData);
 
     return (
       <Card
@@ -257,6 +293,16 @@ export default function NotificationsPage() {
                   {notification.content}
                 </p>
               )}
+              {conversationRiskStatus ? (
+                <p className="text-sm text-red-600 mb-2">
+                  {conversationRiskStatus}
+                </p>
+              ) : null}
+              {conversationRiskData?.intervention_feedback_note ? (
+                <p className="text-xs text-gray-500 line-clamp-2 mb-2">
+                  家长反馈: {conversationRiskData.intervention_feedback_note}
+                </p>
+              ) : null}
               <div className="flex items-center gap-3 text-xs text-gray-400">
                 <span>{formatTime(notification.created_at)}</span>
                 {notification.action_text && (

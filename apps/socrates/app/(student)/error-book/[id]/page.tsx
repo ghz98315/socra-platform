@@ -5,6 +5,8 @@
 
 'use client';
 
+/* eslint-disable react/no-unescaped-entities */
+
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -32,6 +34,9 @@ import { createClient } from '@/lib/supabase/client';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { AnalysisDialog } from '@/components/AnalysisDialog';
 import { VariantPractice } from '@/components/VariantPractice';
+import { DiagnosisPanel } from '@/components/error-loop/DiagnosisPanel';
+import { GuidedReflectionPanel } from '@/components/error-loop/GuidedReflectionPanel';
+import type { RootCauseCategory, StructuredDiagnosis } from '@/lib/error-loop/taxonomy';
 
 interface Message {
   id: string;
@@ -48,6 +53,9 @@ interface ErrorSession {
   status: 'analyzing' | 'guided_learning' | 'mastered';
   difficulty_rating: number | null;
   concept_tags: string[] | null;
+  primary_root_cause_category: RootCauseCategory | null;
+  primary_root_cause_statement: string | null;
+  closure_state: string | null;
   created_at: string;
 }
 
@@ -155,6 +163,19 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const handleOpenReview = () => {
     if (!reviewId) return;
     router.push(`/review/session/${reviewId}`);
+  };
+
+  const handleDiagnosisSaved = (diagnosis: StructuredDiagnosis) => {
+    setErrorSession((current) =>
+      current
+        ? {
+            ...current,
+            primary_root_cause_category: diagnosis.root_cause_category,
+            primary_root_cause_statement: diagnosis.root_cause_statement,
+            closure_state: 'open',
+          }
+        : current
+    );
   };
 
   // 标记为已掌握
@@ -410,6 +431,28 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         </Card>
 
         {/* 对话历史 */}
+        {profile?.role === 'student' && profile?.id && (
+          <DiagnosisPanel
+            sessionId={errorSession.id}
+            studentId={profile.id}
+            subject={errorSession.subject}
+            closureState={errorSession.closure_state}
+            initialCategory={errorSession.primary_root_cause_category}
+            initialStatement={errorSession.primary_root_cause_statement}
+            onSaved={handleDiagnosisSaved}
+          />
+        )}
+
+        {profile?.role === 'student' && profile?.id && (
+          <GuidedReflectionPanel
+            sessionId={errorSession.id}
+            studentId={profile.id}
+            subject={errorSession.subject}
+            rootCauseCategory={errorSession.primary_root_cause_category}
+            rootCauseStatement={errorSession.primary_root_cause_statement}
+          />
+        )}
+
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">

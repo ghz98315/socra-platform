@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   Award,
@@ -25,10 +25,36 @@ interface NotificationItem {
   type: string;
   title: string;
   content: string | null;
+  data: Record<string, unknown> | null;
   action_url: string | null;
   action_text: string | null;
   is_read: boolean;
   created_at: string;
+}
+
+type ConversationRiskData = {
+  intervention_status?: string | null;
+  intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
+};
+
+function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
+  if (data?.intervention_effect === 'risk_lowered') {
+    return 'Parent follow-up reduced the risk.';
+  }
+
+  if (data?.intervention_effect === 'risk_persisting') {
+    return 'Risk repeated after follow-up.';
+  }
+
+  if (data?.intervention_status === 'completed') {
+    return 'Parent follow-up completed.';
+  }
+
+  if (data?.intervention_status) {
+    return 'Intervention task created.';
+  }
+
+  return null;
 }
 
 const notificationConfig: Record<
@@ -59,6 +85,11 @@ const notificationConfig: Record<
     icon: TrendingUp,
     color: 'text-warm-500',
     bgColor: 'bg-warm-100 dark:bg-warm-900/30',
+  },
+  conversation_risk: {
+    icon: AlertCircle,
+    color: 'text-red-500',
+    bgColor: 'bg-red-100 dark:bg-red-900/30',
   },
   subscription: {
     icon: Award,
@@ -97,26 +128,7 @@ export function NotificationCenter() {
 
   const isParent = profile?.role === 'parent';
 
-  useEffect(() => {
-    if (!isParent || !profile?.id) {
-      return;
-    }
-
-    void fetchNotifications();
-  }, [isParent, profile?.id]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!profile?.id) return;
 
     setLoading(true);
@@ -134,7 +146,26 @@ export function NotificationCenter() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!isParent || !profile?.id) {
+      return;
+    }
+
+    void fetchNotifications();
+  }, [fetchNotifications, isParent, profile?.id]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const markAsRead = async (notificationId?: string) => {
     if (!profile?.id) return;
@@ -266,6 +297,11 @@ export function NotificationCenter() {
                   const config =
                     notificationConfig[notification.type] || notificationConfig.system;
                   const Icon = config.icon;
+                  const conversationRiskData =
+                    notification.type === 'conversation_risk'
+                      ? (notification.data as ConversationRiskData | null)
+                      : null;
+                  const conversationRiskStatus = conversationRiskStatusLabel(conversationRiskData);
 
                   return (
                     <div
@@ -294,6 +330,11 @@ export function NotificationCenter() {
                               <p className="mt-0.5 line-clamp-2 text-xs text-warm-600">
                                 {notification.content || 'No additional details'}
                               </p>
+                              {conversationRiskStatus ? (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {conversationRiskStatus}
+                                </p>
+                              ) : null}
                             </div>
                             {!notification.is_read ? (
                               <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-warm-500" />

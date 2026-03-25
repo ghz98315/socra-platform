@@ -1,4 +1,4 @@
-// =====================================================
+﻿// =====================================================
 // Project Socrates - AI Chat API
 // Integrated with Multi-Model Support & Prompt System v2.0
 // =====================================================
@@ -12,6 +12,10 @@ import {
   getDialogMode,
   hasImageInMessages,
 } from '@/lib/prompts/builder';
+import {
+  buildConversationRiskSignal,
+  shouldNotifyParentForRisk,
+} from '@/lib/error-loop/conversation-risk';
 import type {
   SubjectType,
   GradeLevel,
@@ -34,6 +38,95 @@ function getSupabaseAdmin() {
     supabaseAdminInstance = createClient(url, key);
   }
   return supabaseAdminInstance;
+}
+
+async function maybeNotifyParentConversationRisk({
+  sessionId,
+  message,
+}: {
+  sessionId: string;
+  message: string;
+}) {
+  const signal = buildConversationRiskSignal(message);
+  if (!signal || !shouldNotifyParentForRisk(signal)) {
+    return;
+  }
+
+  const supabase = getSupabaseAdmin();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: sessionInfo, error: sessionError } = await (supabase as any)
+    .from('error_sessions')
+    .select(
+      'id, student_id, extracted_text, profiles!error_sessions_student_id_fkey(display_name, parent_id)',
+    )
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (sessionError || !sessionInfo?.student_id) {
+    console.error('Failed to load session info for conversation risk notification:', sessionError);
+    return;
+  }
+
+  const parentId = sessionInfo.profiles?.parent_id;
+  if (!parentId) {
+    return;
+  }
+
+  const dedupeSince = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: recentNotifications, error: recentNotificationsError } = await (supabase as any)
+    .from('notifications')
+    .select('id, data, created_at')
+    .eq('user_id', parentId)
+    .eq('type', 'conversation_risk')
+    .gte('created_at', dedupeSince)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (recentNotificationsError) {
+    console.error('Failed to load recent conversation risk notifications:', recentNotificationsError);
+  }
+
+  const isDuplicate = (recentNotifications || []).some((item: { data?: Record<string, unknown> | null }) => {
+    const data = item.data || {};
+    return data.session_id === sessionId && data.risk_category === signal.category;
+  });
+
+  if (isDuplicate) {
+    return;
+  }
+
+  const studentName = sessionInfo.profiles?.display_name || '孩子';
+  const questionExcerpt =
+    typeof sessionInfo.extracted_text === 'string'
+      ? sessionInfo.extracted_text.replace(/\s+/g, ' ').trim().slice(0, 36)
+      : '当前题目';
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: notificationError } = await (supabase as any).from('notifications').insert({
+    user_id: parentId,
+    type: 'conversation_risk',
+    title: `${studentName}出现对话风险信号`,
+    content: `${signal.title}：${questionExcerpt}`,
+    data: {
+      student_id: sessionInfo.student_id,
+      session_id: sessionId,
+      risk_category: signal.category,
+      severity: signal.severity,
+      score: signal.score,
+      message_excerpt: message.slice(0, 120),
+      parent_opening: signal.parentOpening,
+      parent_actions: signal.parentActions,
+    },
+    action_url: `/controls?focus=conversation&student_id=${sessionInfo.student_id}&session_id=${sessionId}&risk_category=${signal.category}`,
+    action_text: '查看家长洞察',
+    is_read: false,
+    priority: 2,
+  });
+
+  if (notificationError) {
+    console.error('Failed to create conversation risk notification:', notificationError);
+  }
 }
 
 // 对话历史存储（开发环境使用内存存储）
@@ -141,7 +234,7 @@ function generateImprovedMockResponse(
     grade === 'junior' ? `继续加油！💪` : `继续。`
   }
 
-你觉得下一步应该怎么做？`;
+你觉得下一步应该怎么做？${questionContent ? `\n题目提醒：${questionContent}` : ''}`;
 }
 
 // POST endpoint - AI 对话
@@ -162,7 +255,6 @@ export async function POST(req: NextRequest) {
       questionType, // 题型
       modelId,
       useReasoning,
-      userId,
     } = body;
 
     if (!message) {
@@ -244,8 +336,11 @@ export async function POST(req: NextRequest) {
         responseText = aiResult.content;
         modelUsed = aiResult.modelUsed;
         console.log('AI Model call successful, modelUsed:', modelUsed);
-      } catch (apiError: any) {
-        console.error('AI API Error, falling back to mock:', apiError.message);
+      } catch (apiError: unknown) {
+        console.error(
+          'AI API Error, falling back to mock:',
+          apiError instanceof Error ? apiError.message : apiError,
+        );
         responseText = generateImprovedMockResponse(
           message,
           actualGrade,
@@ -273,6 +368,7 @@ export async function POST(req: NextRequest) {
       try {
         const supabase = getSupabaseAdmin();
         // 保存用户消息
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any).from('chat_messages').insert({
           session_id: session_id,
           role: 'user',
@@ -281,11 +377,17 @@ export async function POST(req: NextRequest) {
         });
 
         // 保存助手消息
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any).from('chat_messages').insert({
           session_id: session_id,
           role: 'assistant',
           content: responseText,
           created_at: new Date().toISOString(),
+        });
+
+        await maybeNotifyParentConversationRisk({
+          sessionId: session_id,
+          message,
         });
 
         console.log('Chat messages saved to Supabase, session:', session_id);
@@ -308,10 +410,10 @@ export async function POST(req: NextRequest) {
         subjectConfidence,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Chat API error:', error);
     return NextResponse.json(
-      { error: error.message || 'AI 对话失败' },
+      { error: error instanceof Error ? error.message : 'AI 对话失败' },
       { status: 500 }
     );
   }
@@ -330,7 +432,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: '清除历史失败' }, { status: 500 });
   }
 }

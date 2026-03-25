@@ -22,6 +22,7 @@ export type NotificationType =
   | 'mastery_update'   // 掌握度提升
   | 'new_error'        // 新错题上传
   | 'points'           // 积分奖励
+  | 'conversation_risk' // 对话风险信号
   | 'streak'           // 连续学习
   | 'subscription'     // 订阅相关
   | 'system';          // 系统通知
@@ -41,6 +42,48 @@ export interface Notification {
   priority: number;
   expires_at: string | null;
   created_at: string;
+}
+
+type TaskCompletionRow = {
+  notes: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
+};
+
+type ParentTaskRow = {
+  id: string;
+  description: string | null;
+  status: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
+  task_completions: TaskCompletionRow[] | null;
+};
+
+function parseConversationTaskMarkers(description: string | null | undefined) {
+  const content = description || '';
+  const sessionMatch = content.match(/\[conversation-session:([^\]]+)\]/);
+  const categoryMatch = content.match(/\[conversation-risk:([^\]]+)\]/);
+
+  if (!sessionMatch || !categoryMatch) {
+    return null;
+  }
+
+  return {
+    session_id: sessionMatch[1],
+    risk_category: categoryMatch[1],
+  };
+}
+
+function getTaskCompletion(task: ParentTaskRow) {
+  if (!Array.isArray(task.task_completions) || task.task_completions.length === 0) {
+    return null;
+  }
+
+  return task.task_completions[0] ?? null;
+}
+
+function buildConversationTaskKey(sessionId: string, category: string) {
+  return `${sessionId}:${category}`;
 }
 
 // GET - 获取通知列表
@@ -75,6 +118,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { data: notifications, error, count } = await query;
+    const rawNotifications = (notifications || []) as Notification[];
+    let enrichedNotifications = rawNotifications;
 
     // 如果表不存在或其他错误，返回空数据而不是500错误
     if (error) {
@@ -88,6 +133,97 @@ export async function GET(req: NextRequest) {
     }
 
     // 获取未读数量
+    const conversationRiskNotifications = rawNotifications.filter(
+      (item) => item.type === 'conversation_risk' && item.data?.session_id && item.data?.risk_category,
+    );
+
+    if (conversationRiskNotifications.length > 0) {
+      const { data: interventionTasks, error: interventionTasksError } = await supabase
+        .from('parent_tasks')
+        .select(
+          `
+            id,
+            description,
+            status,
+            completed_at,
+            updated_at,
+            task_completions (
+              notes,
+              completed_at,
+              updated_at
+            )
+          `,
+        )
+        .eq('parent_id', userId)
+        .eq('task_type', 'conversation_intervention')
+        .order('created_at', { ascending: false });
+
+      if (interventionTasksError) {
+        console.error(
+          '[Notifications API] Failed to enrich conversation risk notifications:',
+          interventionTasksError,
+        );
+      } else {
+        const taskMap = new Map<string, ParentTaskRow>();
+
+        for (const task of (interventionTasks || []) as ParentTaskRow[]) {
+          const markers = parseConversationTaskMarkers(task.description);
+          if (!markers) {
+            continue;
+          }
+
+          const key = buildConversationTaskKey(markers.session_id, markers.risk_category);
+          if (!taskMap.has(key)) {
+            taskMap.set(key, task);
+          }
+        }
+
+        enrichedNotifications = rawNotifications.map((notification) => {
+          if (notification.type !== 'conversation_risk' || !notification.data) {
+            return notification;
+          }
+
+          const sessionId = String(notification.data.session_id || '');
+          const riskCategory = String(notification.data.risk_category || '');
+          if (!sessionId || !riskCategory) {
+            return notification;
+          }
+
+          const matchedTask = taskMap.get(buildConversationTaskKey(sessionId, riskCategory));
+          if (!matchedTask) {
+            return notification;
+          }
+
+          const completion = getTaskCompletion(matchedTask);
+          const interventionCompletedAt = completion?.completed_at ?? matchedTask.completed_at ?? null;
+          const postInterventionRepeatCount =
+            interventionCompletedAt &&
+            new Date(notification.created_at).getTime() > new Date(interventionCompletedAt).getTime()
+              ? 1
+              : 0;
+          const interventionEffect =
+            (matchedTask.status ?? 'pending') === 'completed'
+              ? postInterventionRepeatCount > 0
+                ? 'risk_persisting'
+                : 'risk_lowered'
+              : 'pending';
+
+          return {
+            ...notification,
+            data: {
+              ...notification.data,
+              intervention_task_id: matchedTask.id,
+              intervention_status: matchedTask.status ?? 'pending',
+              intervention_feedback_note: completion?.notes ?? null,
+              intervention_completed_at: interventionCompletedAt,
+              intervention_effect: interventionEffect,
+              post_intervention_repeat_count: postInterventionRepeatCount,
+            },
+          };
+        });
+      }
+    }
+
     const { count: unreadCount } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
@@ -95,7 +231,7 @@ export async function GET(req: NextRequest) {
       .eq('is_read', false);
 
     return NextResponse.json({
-      data: notifications || [],
+      data: enrichedNotifications,
       total: count || 0,
       unread_count: unreadCount || 0,
     });
