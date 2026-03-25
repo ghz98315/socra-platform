@@ -45,8 +45,14 @@ interface Task {
   due_date: string | null;
   reward_points: number;
   created_at: string;
+  completed_at: string | null;
   progress_count: number;
   progress_duration: number;
+  completion_notes: string | null;
+  completion_completed_at: string | null;
+  is_conversation_intervention: boolean;
+  intervention_session_id: string | null;
+  intervention_risk_category: string | null;
 }
 
 interface Student {
@@ -59,6 +65,7 @@ const taskTypeLabels: Record<string, { label: string; icon: any; color: string }
   practice: { label: '练习', icon: BookOpen, color: 'text-blue-600 bg-blue-100' },
   review: { label: '复习', icon: RefreshCw, color: 'text-green-600 bg-green-100' },
   error_book: { label: '错题本', icon: AlertCircle, color: 'text-red-600 bg-red-100' },
+  conversation_intervention: { label: '沟通干预', icon: AlertCircle, color: 'text-amber-700 bg-amber-100' },
   custom: { label: '自定义', icon: Star, color: 'text-purple-600 bg-purple-100' },
 };
 
@@ -239,6 +246,9 @@ export default function ParentTasksPage() {
   const pendingTasks = filteredTasks.filter((t) => t.status === 'pending');
   const inProgressTasks = filteredTasks.filter((t) => t.status === 'in_progress');
   const completedTasks = filteredTasks.filter((t) => t.status === 'completed');
+  const interventionTasks = filteredTasks.filter((t) => t.is_conversation_intervention);
+  const pendingInterventionTasks = interventionTasks.filter((t) => t.status !== 'completed');
+  const completedInterventionTasks = interventionTasks.filter((t) => t.status === 'completed');
 
   // Calculate progress percentage
   const getProgressPercentage = (task: Task) => {
@@ -318,6 +328,27 @@ export default function ParentTasksPage() {
           </Card>
         ) : (
           <div className="space-y-6">
+            {interventionTasks.length > 0 && (
+              <Card className="border-amber-200 bg-amber-50/70">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-medium text-amber-900">沟通干预任务闭环</div>
+                    <div className="mt-1 text-sm text-amber-800">
+                      当前共有 {interventionTasks.length} 条家长沟通干预任务，其中 {pendingInterventionTasks.length} 条待完成，
+                      {completedInterventionTasks.length} 条已完成。
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                    onClick={() => (window.location.href = '/controls?focus=conversation')}
+                  >
+                    查看风险闭环
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Pending Tasks */}
             {pendingTasks.length > 0 && (
               <Card>
@@ -585,6 +616,10 @@ function TaskCard({
   const typeInfo = taskTypeLabels[task.task_type] || taskTypeLabels.custom;
   const TypeIcon = typeInfo.icon;
   const progress = showProgress ? Math.round((task.progress_count / task.target_count) * 100) : 0;
+  const hasInterventionLink = Boolean(task.intervention_session_id && task.intervention_risk_category);
+  const interventionUrl = hasInterventionLink
+    ? `/controls?focus=conversation&student_id=${task.child_id}&session_id=${task.intervention_session_id}&risk_category=${task.intervention_risk_category}`
+    : '/controls?focus=conversation';
 
   return (
     <div
@@ -603,6 +638,7 @@ function TaskCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <h4 className={cn('font-medium', completed && 'line-through')}>{task.title}</h4>
+          <Badge className="bg-slate-100 text-slate-700">{typeInfo.label}</Badge>
           <Badge className={priorityLabels[task.priority]?.color || priorityLabels[2].color}>
             {priorityLabels[task.priority]?.label || '中'}
           </Badge>
@@ -639,6 +675,25 @@ function TaskCard({
                 style={{ width: `${progress}%` }}
               />
             </div>
+          </div>
+        )}
+        {task.is_conversation_intervention && (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <div className="text-sm font-medium text-amber-900">
+              {task.status === 'completed' ? '已完成家长沟通' : '待执行家长沟通'}
+            </div>
+            <div className="mt-1 text-sm text-amber-800">
+              {task.completion_notes
+                ? `反馈备注：${task.completion_notes}`
+                : '这是从对话风险生成的家长干预任务，沟通完成后请补充反馈备注。'}
+            </div>
+            <button
+              onClick={() => (window.location.href = interventionUrl)}
+              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-amber-900 hover:text-amber-700"
+            >
+              查看闭环
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>

@@ -11,6 +11,38 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function parseConversationTaskMarkers(description: string | null | undefined) {
+  const content = description || '';
+  const sessionMatch = content.match(/\[conversation-session:([^\]]+)\]/);
+  const categoryMatch = content.match(/\[conversation-risk:([^\]]+)\]/);
+
+  if (!sessionMatch || !categoryMatch) {
+    return null;
+  }
+
+  return {
+    session_id: sessionMatch[1],
+    risk_category: categoryMatch[1],
+  };
+}
+
+function mapTaskWithProgress(task: any) {
+  const markers = parseConversationTaskMarkers(task.description);
+  const completion = Array.isArray(task.task_completions) ? task.task_completions[0] : null;
+
+  return {
+    ...task,
+    progress_count: completion?.progress_count || 0,
+    progress_duration: completion?.progress_duration || 0,
+    completion_notes: completion?.notes || null,
+    completion_completed_at: completion?.completed_at || null,
+    is_conversation_intervention:
+      task.task_type === 'conversation_intervention' || Boolean(markers),
+    intervention_session_id: markers?.session_id || null,
+    intervention_risk_category: markers?.risk_category || null,
+  };
+}
+
 // GET - 获取任务列表
 export async function GET(req: NextRequest) {
   try {
@@ -37,9 +69,12 @@ export async function GET(req: NextRequest) {
           due_date,
           reward_points,
           created_at,
+          completed_at,
           task_completions (
             progress_count,
-            progress_duration
+            progress_duration,
+            notes,
+            completed_at
           )
         `)
         .eq('parent_id', parentId)
@@ -59,10 +94,8 @@ export async function GET(req: NextRequest) {
       const childMap = new Map(children?.map((c) => [c.id, c.display_name]) || []);
 
       const tasksWithChildren = tasks?.map((task) => ({
-        ...task,
+        ...mapTaskWithProgress(task),
         child_name: childMap.get(task.child_id) || '未知',
-        progress_count: task.task_completions?.[0]?.progress_count || 0,
-        progress_duration: task.task_completions?.[0]?.progress_duration || 0,
       }));
 
       return NextResponse.json({ tasks: tasksWithChildren || [] });
@@ -85,12 +118,16 @@ export async function GET(req: NextRequest) {
           due_date,
           reward_points,
           created_at,
+          completed_at,
           task_completions (
             progress_count,
-            progress_duration
+            progress_duration,
+            notes,
+            completed_at
           )
         `)
         .eq('child_id', childId)
+        .neq('task_type', 'conversation_intervention')
         .order('priority', { ascending: true })
         .order('due_date', { ascending: true, nullsFirst: false });
 
@@ -102,11 +139,7 @@ export async function GET(req: NextRequest) {
 
       if (error) throw error;
 
-      const tasksWithProgress = tasks?.map((task) => ({
-        ...task,
-        progress_count: task.task_completions?.[0]?.progress_count || 0,
-        progress_duration: task.task_completions?.[0]?.progress_duration || 0,
-      }));
+      const tasksWithProgress = tasks?.map((task) => mapTaskWithProgress(task));
 
       return NextResponse.json({ tasks: tasksWithProgress || [] });
     }
