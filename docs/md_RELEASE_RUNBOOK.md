@@ -75,9 +75,10 @@ pnpm socrates:stop:local
 
 Notes:
 
-- `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` and records the real listener PID in `.codex-socrates-start.pid`.
+- `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` through a detached Node child process and records the real listener PID in `.codex-socrates-start.pid`.
 - Use `pnpm socrates:status:local` to confirm PID liveness and HTTP readiness instead of waiting on a long-running foreground start command.
-- Stop the local service before rerunning `pnpm --filter @socra/socrates build`, otherwise Windows may hold `.next` files such as `app-path-routes-manifest.json` and trigger `EPERM unlink`.
+- `pnpm --filter @socra/socrates build` and the root `pnpm build` path now fail fast if the helper-managed local Socrates service is still running.
+- If that guard trips, stop the local service first, otherwise Windows may hold `.next` files such as `app-path-routes-manifest.json` and trigger `EPERM unlink`.
 
 Required runtime configuration:
 

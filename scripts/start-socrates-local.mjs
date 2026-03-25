@@ -1,37 +1,21 @@
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import {
+  appDir,
+  defaultHost,
+  defaultPort,
+  findListenerPid,
+  pidFile,
+  probePortOpen,
+  readArg,
+  readNumberArg,
+  repoRoot,
+} from './socrates-local-utils.mjs';
 
-const repoRoot = process.cwd();
-const appDir = path.join(repoRoot, 'apps', 'socrates');
 const nextBin = path.join(appDir, 'node_modules', 'next', 'dist', 'bin', 'next');
-const pidFile = path.join(repoRoot, '.codex-socrates-start.pid');
-
-function readArg(name, fallback = '') {
-  const index = process.argv.indexOf(`--${name}`);
-  if (index === -1 || index === process.argv.length - 1) {
-    return fallback;
-  }
-
-  return process.argv[index + 1];
-}
-
-function readNumberArg(name, fallback) {
-  const rawValue = readArg(name, '');
-  if (!rawValue) {
-    return fallback;
-  }
-
-  const value = Number.parseInt(rawValue, 10);
-  if (!Number.isFinite(value)) {
-    throw new Error(`Invalid --${name}: ${rawValue}`);
-  }
-
-  return value;
-}
 
 function quoteArg(value) {
   if (/[\s"]/u.test(value)) {
@@ -39,10 +23,6 @@ function quoteArg(value) {
   }
 
   return value;
-}
-
-function escapePowerShellSingleQuoted(value) {
-  return String(value).replace(/'/g, "''");
 }
 
 function findExisting(paths) {
@@ -78,36 +58,10 @@ function ensureBuildExists() {
 }
 
 async function ensurePortAvailable(host, port) {
-  await new Promise((resolve, reject) => {
-    const socket = new net.Socket();
-
-    const finalize = (error) => {
-      socket.destroy();
-      if (error) {
-        reject(error);
-      } else {
-        resolve();
-      }
-    };
-
-    socket.setTimeout(1500);
-    socket.once('connect', () => {
-      finalize(new Error(`Port ${port} on ${host} is already listening. Stop the existing service before starting a new one.`));
-    });
-    socket.once('timeout', () => {
-      finalize();
-    });
-    socket.once('error', (error) => {
-      if (error?.code === 'ECONNREFUSED') {
-        finalize();
-        return;
-      }
-
-      finalize(error);
-    });
-
-    socket.connect(port, host);
-  });
+  const open = await probePortOpen(host, port, 1500);
+  if (open) {
+    throw new Error(`Port ${port} on ${host} is already listening. Stop the existing service before starting a new one.`);
+  }
 }
 
 function sleep(delayMs) {
@@ -116,7 +70,7 @@ function sleep(delayMs) {
   });
 }
 
-async function waitForReady({ baseUrl, timeoutMs, intervalMs, child, errLogPath }) {
+async function waitForReady({ baseUrl, timeoutMs, intervalMs }) {
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
@@ -138,58 +92,35 @@ async function waitForReady({ baseUrl, timeoutMs, intervalMs, child, errLogPath 
   throw new Error(`Socrates local start did not become healthy within ${timeoutMs}ms.`);
 }
 
-function findListenerPid(port) {
-  try {
-    const output = execFileSync('netstat.exe', ['-ano'], {
-      encoding: 'utf8',
-      windowsHide: true,
-    });
-    const listenerLine = output
-      .split(/\r?\n/u)
-      .find((line) => line.includes(`:${port}`) && line.includes('LISTENING'));
+function startDetachedProcess({ command, args, cwd, outLogPath, errLogPath }) {
+  const outFd = fs.openSync(outLogPath, 'a');
+  const errFd = fs.openSync(errLogPath, 'a');
 
-    if (!listenerLine) {
-      return null;
-    }
-
-    const match = listenerLine.trim().match(/(\d+)\s*$/u);
-    return match ? Number.parseInt(match[1], 10) : null;
-  } catch {
-    return null;
-  }
-}
-
-function startDetachedWindowsProcess({ command, args, cwd, outLogPath, errLogPath }) {
-  const cwdLiteral = escapePowerShellSingleQuoted(cwd);
-  const outLiteral = escapePowerShellSingleQuoted(outLogPath);
-  const errLiteral = escapePowerShellSingleQuoted(errLogPath);
-  const powershellExe = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
-  const innerCommand = `& '${escapePowerShellSingleQuoted(command)}' ${args.map((arg) => `'${escapePowerShellSingleQuoted(arg)}'`).join(' ')}`;
-  const script = [
-    `$argList = @('-NoProfile', '-Command', "${innerCommand.replace(/"/g, '`"')}")`,
-    `$p = Start-Process -FilePath '${powershellExe}' -ArgumentList $argList -WorkingDirectory '${cwdLiteral}' -RedirectStandardOutput '${outLiteral}' -RedirectStandardError '${errLiteral}' -PassThru -WindowStyle Hidden`,
-    'Write-Output $p.Id',
-  ].join('; ');
-
-  const output = execFileSync(powershellExe, ['-NoProfile', '-Command', script], {
+  const child = spawn(command, args, {
     cwd,
-    encoding: 'utf8',
+    detached: true,
     windowsHide: true,
-  }).trim();
-  const pid = Number.parseInt(output, 10);
+    shell: false,
+    stdio: ['ignore', outFd, errFd],
+    env: process.env,
+  });
 
-  if (!Number.isFinite(pid)) {
-    throw new Error(`Unable to determine started process pid from output: ${output}`);
+  child.unref();
+  fs.closeSync(outFd);
+  fs.closeSync(errFd);
+
+  if (!Number.isFinite(child.pid)) {
+    throw new Error('Unable to determine started process pid.');
   }
 
-  return pid;
+  return child.pid;
 }
 
 async function main() {
-  const port = readNumberArg('port', 3000);
-  const host = readArg('host', '127.0.0.1');
-  const timeoutMs = readNumberArg('timeout-ms', 120000);
-  const intervalMs = readNumberArg('poll-ms', 1000);
+  const port = readNumberArg(process.argv, 'port', defaultPort);
+  const host = readArg(process.argv, 'host', defaultHost);
+  const timeoutMs = readNumberArg(process.argv, 'timeout-ms', 120000);
+  const intervalMs = readNumberArg(process.argv, 'poll-ms', 1000);
   const node22Exe = findNode22Executable();
 
   if (!node22Exe) {
@@ -206,7 +137,7 @@ async function main() {
   const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
   const outLogPath = path.join(repoRoot, `.codex-socrates-start-${stamp}.out.log`);
   const errLogPath = path.join(repoRoot, `.codex-socrates-start-${stamp}.err.log`);
-  const pid = startDetachedWindowsProcess({
+  const pid = startDetachedProcess({
     command: node22Exe,
     args: [nextBin, 'start', '-H', host, '-p', String(port)],
     cwd: appDir,
@@ -220,7 +151,6 @@ async function main() {
     baseUrl,
     timeoutMs,
     intervalMs,
-    errLogPath,
   });
   const listenerPid = findListenerPid(port);
   if (Number.isFinite(listenerPid)) {

@@ -71,8 +71,8 @@ const buildTargets = [
   },
   {
     label: '@socra/socrates',
-    cwd: 'apps/socrates',
-    steps: [['node_modules/next/dist/bin/next', 'build']],
+    cwd: '.',
+    steps: [['scripts/build-socrates-safe.mjs']],
   },
   {
     label: '@socra/essay',
