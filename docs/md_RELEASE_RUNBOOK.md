@@ -65,6 +65,20 @@ Current local release baseline:
 - Node `22.19.0`
 - repo engine expectation: `22.x`
 
+Local helper commands for this machine:
+
+```bash
+pnpm socrates:start:local
+pnpm socrates:status:local
+pnpm socrates:stop:local
+```
+
+Notes:
+
+- `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` and records the real listener PID in `.codex-socrates-start.pid`.
+- Use `pnpm socrates:status:local` to confirm PID liveness and HTTP readiness instead of waiting on a long-running foreground start command.
+- Stop the local service before rerunning `pnpm --filter @socra/socrates build`, otherwise Windows may hold `.next` files such as `app-path-routes-manifest.json` and trigger `EPERM unlink`.
+
 Required runtime configuration:
 
 - `NEXT_PUBLIC_SUPABASE_URL`

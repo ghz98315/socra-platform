@@ -21,6 +21,38 @@ function readArg(name, fallback = '') {
   return args[index + 1];
 }
 
+function readBooleanArg(name) {
+  const rawValue = readArg(name, '');
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalizedValue)) {
+    return false;
+  }
+
+  throw new Error(`Invalid --${name}: ${rawValue}. Use true/false.`);
+}
+
+function readNumberArg(name, fallback) {
+  const rawValue = readArg(name, '');
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(value)) {
+    throw new Error(`Invalid --${name}: ${rawValue}. Use an integer.`);
+  }
+
+  return value;
+}
+
 function print(message) {
   console.log(message);
 }
@@ -139,6 +171,45 @@ function removeNextDir(appDir) {
   }
 }
 
+function captureFileSnapshot(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return {
+      path: filePath,
+      exists: false,
+      content: '',
+    };
+  }
+
+  return {
+    path: filePath,
+    exists: true,
+    content: fs.readFileSync(filePath, 'utf8'),
+  };
+}
+
+function restoreFileSnapshot(snapshot) {
+  if (!snapshot) {
+    return false;
+  }
+
+  if (!snapshot.exists) {
+    if (fs.existsSync(snapshot.path)) {
+      fs.rmSync(snapshot.path, { force: true });
+      return true;
+    }
+
+    return false;
+  }
+
+  const currentContent = fs.existsSync(snapshot.path) ? fs.readFileSync(snapshot.path, 'utf8') : '';
+  if (currentContent === snapshot.content) {
+    return false;
+  }
+
+  fs.writeFileSync(snapshot.path, snapshot.content, 'utf8');
+  return true;
+}
+
 const node22Exe = findNode22Executable();
 if (!node22Exe) {
   throw new Error('Unable to locate a Node 22 executable. Pass --node22 <path> or set NODE22_EXE.');
@@ -155,10 +226,25 @@ const mode = readArg('mode', hasFlag('full') ? 'full' : 'compile');
 const skipClean = hasFlag('skip-clean');
 const traceChildren = hasFlag('trace-children') || Boolean(readArg('trace-file'));
 const disableTelemetry = hasFlag('disable-telemetry');
+const sanitizeExportConfig = hasFlag('sanitize-export-config');
+const retryUnlink = hasFlag('retry-unlink');
+const traceTargetFiles = hasFlag('trace-target-files');
+const retryUnlinkAttempts = readNumberArg('retry-unlink-attempts', 6);
+const retryUnlinkDelayMs = readNumberArg('retry-unlink-delay-ms', 250);
+const distDirOverride = readArg('dist-dir', hasFlag('isolated-dist') ? path.join('.next-probe', `${mode}-${Date.now()}`) : '');
+const webpackBuildWorkerOverride = readBooleanArg('webpack-build-worker');
+const workerThreadsOverride = readBooleanArg('worker-threads');
 const traceFile = traceChildren
   ? path.resolve(readArg('trace-file', path.join(os.tmpdir(), `socrates-build-child-trace-${Date.now()}.log`)))
   : '';
 const tracePreload = path.join(repoRoot, 'scripts', 'trace-child-process.cjs');
+const distDirPath = distDirOverride ? path.resolve(appDir, distDirOverride) : '';
+const distDirFileSnapshots = distDirOverride
+  ? [
+      captureFileSnapshot(path.join(appDir, 'next-env.d.ts')),
+      captureFileSnapshot(path.join(appDir, 'tsconfig.json')),
+    ]
+  : [];
 
 if (!['compile', 'full'].includes(mode)) {
   throw new Error(`Invalid --mode: ${mode}`);
@@ -171,6 +257,18 @@ print(`pnpm.cjs: ${pnpmCjs}`);
 print(`Mode:     ${mode}`);
 print(`SkipClean:${skipClean ? ' yes' : ' no'}`);
 print(`Telemetry:${disableTelemetry ? ' off' : ' on'}`);
+print(`SanitizeExportConfig:${sanitizeExportConfig ? ' yes' : ' no'}`);
+print(`TraceTargetFiles:${traceTargetFiles ? ' yes' : ' no'}`);
+print(`DistDir:  ${distDirOverride || '.next (default)'}`);
+print(
+  `WebpackBuildWorker:${
+    webpackBuildWorkerOverride === undefined ? ' default' : webpackBuildWorkerOverride ? ' on' : ' off'
+  }`,
+);
+print(`WorkerThreads:${workerThreadsOverride === undefined ? ' default' : workerThreadsOverride ? ' on' : ' off'}`);
+print(
+  `RetryUnlink:${retryUnlink ? ` yes (${retryUnlinkAttempts} attempts, ${retryUnlinkDelayMs}ms base delay)` : ' no'}`,
+);
 if (traceChildren) {
   fs.mkdirSync(path.dirname(traceFile), { recursive: true });
   fs.writeFileSync(traceFile, '', 'utf8');
@@ -183,7 +281,11 @@ await run({
   commandArgs: ['-v'],
 });
 
-if (!skipClean && removeNextDir(appDir)) {
+if (!skipClean && distDirPath) {
+  if (removeDirWithFallback(distDirPath)) {
+    print(`Removed stale build output: ${quoteArg(distDirPath)}`);
+  }
+} else if (!skipClean && removeNextDir(appDir)) {
   print(`Removed stale build output: ${quoteArg(path.join(appDir, '.next'))}`);
 }
 
@@ -210,12 +312,46 @@ if (disableTelemetry) {
   buildEnv.NEXT_TELEMETRY_DISABLED = '1';
 }
 
-await run({
-  label: `Socrates webpack ${mode} build`,
-  command: node22Exe,
-  commandArgs: buildArgs,
-  cwd: appDir,
-  env: buildEnv,
-});
+if (sanitizeExportConfig) {
+  buildEnv.SOCRA_SANITIZE_EXPORT_CONFIG = '1';
+}
+
+if (traceTargetFiles) {
+  buildEnv.SOCRA_TRACE_TARGET_FILES = '1';
+}
+
+if (retryUnlink) {
+  buildEnv.SOCRA_RETRY_UNLINK = '1';
+  buildEnv.SOCRA_RETRY_UNLINK_ATTEMPTS = String(retryUnlinkAttempts);
+  buildEnv.SOCRA_RETRY_UNLINK_DELAY_MS = String(retryUnlinkDelayMs);
+}
+
+if (distDirOverride) {
+  buildEnv.SOCRA_NEXT_DIST_DIR = distDirOverride;
+}
+
+if (webpackBuildWorkerOverride !== undefined) {
+  buildEnv.SOCRA_NEXT_WEBPACK_BUILD_WORKER = webpackBuildWorkerOverride ? '1' : '0';
+}
+
+if (workerThreadsOverride !== undefined) {
+  buildEnv.SOCRA_NEXT_WORKER_THREADS = workerThreadsOverride ? '1' : '0';
+}
+
+try {
+  await run({
+    label: `Socrates webpack ${mode} build`,
+    command: node22Exe,
+    commandArgs: buildArgs,
+    cwd: appDir,
+    env: buildEnv,
+  });
+} finally {
+  for (const snapshot of distDirFileSnapshots) {
+    if (restoreFileSnapshot(snapshot)) {
+      print(`Restored probe-mutated file: ${quoteArg(snapshot.path)}`);
+    }
+  }
+}
 
 print('Socrates build probe completed.');

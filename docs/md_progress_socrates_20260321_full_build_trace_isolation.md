@@ -46,6 +46,13 @@ Date: 2026-03-21
   - `Remove-Item -LiteralPath '\\?\D:\github\Socrates_ analysis\socra-platform\apps\socrates\.next' -Recurse -Force`
   - `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children --disable-telemetry`
   - restore `apps/socrates/next.config.ts`
+- temporary local config experiment:
+  - set `experimental.webpackBuildWorker = false`
+  - set `experimental.workerThreads = true`
+  - `Remove-Item -LiteralPath '\\?\D:\github\Socrates_ analysis\socra-platform\apps\socrates\.next' -Recurse -Force`
+  - `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children --disable-telemetry`
+  - `node scripts/probe-socrates-build.mjs --mode full --skip-clean --trace-children --disable-telemetry --sanitize-export-config`
+  - restore `apps/socrates/next.config.ts`
 
 ## Smoke
 
@@ -64,12 +71,25 @@ Date: 2026-03-21
   - webpack full build compiled successfully in about 4 minutes
   - the build then reached `Running TypeScript ...`
   - the later failure still narrowed back to `fork` of `next/dist/compiled/jest-worker/processChild.js`
+- Extending that temporary experiment with `experimental.workerThreads = true` moved the build farther again:
+  - webpack compilation succeeded
+  - TypeScript completed
+  - page-data collection and static-page generation started
+  - the first worker-thread blocker was `DataCloneError: ()=>null could not be cloned`
+- Tracing inside the export path then proved the function-valued `nextConfig` keys at that stage were:
+  - `nextConfig.generateBuildId`
+  - `nextConfig.exportPathMap`
+- The probe-only sanitize path now strips function-valued `nextConfig` keys before the export worker-thread handoff.
+- With that sanitize path enabled, the local full build now gets past the previous `DataCloneError` and reaches:
+  - `Finalizing page optimization`
+  - `Collecting build traces`
+  - then fails later on `EPERM unlink` of `.next/export-detail.json`
 - That temporary config was reverted immediately after the experiment and is not part of the committed app config.
 - The pre-existing untracked `.editorconfig` file was left untouched and excluded from this slice.
 
 ## Next Step
 
 - Inspect whether the failing full-build worker spawn can be bypassed or re-routed without source-level product changes:
-  - confirm which later full-build stage is still creating the failing `processChild.js` worker after `webpackBuildWorker` is disabled
-  - compare that post-compile worker path against `config.experimental.workerThreads`
+  - confirm whether the remaining `.next/export-detail.json` unlink failure is transient file locking or a deterministic Next cleanup/write ordering issue on this Windows machine
+  - if needed, add one more probe-only retry or post-export lock diagnostic around `export-detail.json`
 - Only after the full build path is either working or conclusively environment-blocked should the Socrates smoke commands be retried.
