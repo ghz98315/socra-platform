@@ -6,6 +6,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { VariantQuestion, GenerateVariantRequest, VariantDifficulty } from '@/lib/variant-questions/types';
+import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
+import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate';
 
 // 创建 Supabase Admin 客户端
 function getSupabaseAdmin() {
@@ -53,9 +55,43 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const questions = (data || []) as VariantQuestion[];
+    const variantIds = questions.map((question) => question.id).filter(Boolean);
+    let summary = summarizeVariantEvidence({ questions: [], logs: [] });
+
+    if (variantIds.length > 0) {
+      const { data: logData, error: logError } = await (admin as any)
+        .from('variant_practice_logs')
+        .select('variant_id, is_correct, hints_used, created_at')
+        .in('variant_id', variantIds);
+
+      if (logError) {
+        console.error('Error fetching variant practice logs:', logError);
+      } else {
+        summary = summarizeVariantEvidence({
+          questions: questions.map((question) => ({
+            id: question.id,
+            status: question.status,
+            attempts: question.attempts,
+            correct_attempts: question.correct_attempts,
+            last_practiced_at: question.last_practiced_at || null,
+            completed_at: question.completed_at || null,
+            created_at: question.created_at || null,
+          })),
+          logs: (logData || []) as Array<{
+            variant_id: string;
+            is_correct: boolean | null;
+            hints_used: number | null;
+            created_at: string | null;
+          }>,
+        });
+      }
+    }
+
     return NextResponse.json({
-      data: data || [],
-      total: data?.length || 0,
+      data: questions,
+      total: questions.length,
+      summary,
     });
   } catch (error: any) {
     console.error('Variant questions GET error:', error);

@@ -74,3 +74,30 @@ export interface VariantPracticeStats {
   accuracy_rate: number;
   avg_time_spent: number;
 }
+export type VariantAnswerMatchStrategy =
+  | 'exact'
+  | 'assignment_rhs'
+  | 'numeric'
+  | 'normalized_text'
+  | 'unmatched';
+
+export interface VariantAnswerEvaluation {
+  is_correct: boolean;
+  strategy: VariantAnswerMatchStrategy;
+  normalized_expected: string;
+  normalized_student: string;
+  expected_display: string;
+  student_display: string;
+}
+
+export interface VariantPracticeFeedback {
+  variant_id: string;
+  student_answer: string;
+  hints_used: number;
+  time_spent: number;
+  is_correct: boolean;
+  independent_success: boolean;
+  counts_as_transfer_evidence: boolean;
+  evidence_label: string;
+  evaluation: VariantAnswerEvaluation;
+}

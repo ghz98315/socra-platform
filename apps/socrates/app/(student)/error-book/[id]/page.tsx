@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { AnalysisDialog } from '@/components/AnalysisDialog';
-import { VariantPractice } from '@/components/VariantPractice';
+import { VariantPracticePanel } from '@/components/VariantPracticePanel';
 import { DiagnosisPanel } from '@/components/error-loop/DiagnosisPanel';
 import { GuidedReflectionPanel } from '@/components/error-loop/GuidedReflectionPanel';
 import type { RootCauseCategory, RootCauseSubtype, StructuredDiagnosis } from '@/lib/error-loop/taxonomy';
@@ -651,7 +651,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             </CardHeader>
             {showVariants && (
               <CardContent>
-                <VariantPractice
+                <VariantPracticePanel
                   sessionId={errorSession.id}
                   studentId={profile.id}
                   subject={errorSession.subject as 'math' | 'physics' | 'chemistry'}
