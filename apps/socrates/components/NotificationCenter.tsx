@@ -39,6 +39,7 @@ type ConversationRiskData = {
 
 type MasteryRiskData = {
   intervention_status?: string | null;
+  intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
   intervention_task_title?: string | null;
   intervention_feedback_note?: string | null;
 };
@@ -66,6 +67,14 @@ function conversationRiskStatusLabel(data: ConversationRiskData | null | undefin
 function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
   if (!data?.intervention_status) {
     return null;
+  }
+
+  if (data.intervention_effect === 'risk_lowered') {
+    return '补救后风险暂时下降。';
+  }
+
+  if (data.intervention_effect === 'risk_persisting') {
+    return '补救后同类风险仍在重复。';
   }
 
   if (data.intervention_status === 'completed') {

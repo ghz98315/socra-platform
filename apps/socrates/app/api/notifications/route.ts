@@ -60,6 +60,19 @@ type ParentTaskRow = {
   task_completions: TaskCompletionRow[] | null;
 };
 
+type ReviewAttemptRow = {
+  session_id: string;
+  mastery_judgement: string;
+  created_at: string;
+};
+
+const REVIEW_RISK_JUDGEMENTS = new Set([
+  'not_mastered',
+  'assisted_correct',
+  'explanation_gap',
+  'pseudo_mastery',
+]);
+
 function parseConversationTaskMarkers(description: string | null | undefined) {
   const content = description || '';
   const sessionMatch = content.match(/\[conversation-session:([^\]]+)\]/);
@@ -240,6 +253,13 @@ export async function GET(req: NextRequest) {
             .filter(Boolean),
         ),
       );
+      const reviewSessionIds = Array.from(
+        new Set(
+          masteryRiskNotifications
+            .map((item) => String(item.data?.session_id || ''))
+            .filter(Boolean),
+        ),
+      );
 
       const { data: reviewInterventionTasks, error: reviewInterventionTasksError } = await supabase
         .from('parent_tasks')
@@ -260,16 +280,35 @@ export async function GET(req: NextRequest) {
         .eq('parent_id', userId)
         .eq('task_type', 'review_intervention')
         .in('id', reviewTaskIds);
+      const { data: reviewAttempts, error: reviewAttemptsError } =
+        reviewSessionIds.length > 0
+          ? await supabase
+              .from('review_attempts')
+              .select('session_id, mastery_judgement, created_at')
+              .in('session_id', reviewSessionIds)
+              .order('created_at', { ascending: false })
+          : { data: [], error: null };
 
       if (reviewInterventionTasksError) {
         console.error(
           '[Notifications API] Failed to enrich mastery risk notifications:',
           reviewInterventionTasksError,
         );
+      } else if (reviewAttemptsError) {
+        console.error(
+          '[Notifications API] Failed to load review attempts for mastery risk notifications:',
+          reviewAttemptsError,
+        );
       } else {
         const taskMap = new Map<string, ParentTaskRow>();
         for (const task of (reviewInterventionTasks || []) as ParentTaskRow[]) {
           taskMap.set(task.id, task);
+        }
+        const attemptsBySession = new Map<string, ReviewAttemptRow[]>();
+        for (const attempt of (reviewAttempts || []) as ReviewAttemptRow[]) {
+          const current = attemptsBySession.get(attempt.session_id) ?? [];
+          current.push(attempt);
+          attemptsBySession.set(attempt.session_id, current);
         }
 
         enrichedNotifications = enrichedNotifications.map((notification) => {
@@ -289,6 +328,27 @@ export async function GET(req: NextRequest) {
 
           const completion = getTaskCompletion(matchedTask);
           const interventionCompletedAt = completion?.completed_at ?? matchedTask.completed_at ?? null;
+          const notificationJudgement = String(notification.data.mastery_judgement || '');
+          const sessionId = String(notification.data.session_id || '');
+          const followupAttempts = interventionCompletedAt
+            ? (attemptsBySession.get(sessionId) ?? []).filter(
+                (attempt) => new Date(attempt.created_at).getTime() > new Date(interventionCompletedAt).getTime(),
+              )
+            : [];
+          const postInterventionRepeatCount = followupAttempts.filter(
+            (attempt) => attempt.mastery_judgement === notificationJudgement,
+          ).length;
+          const hasSafeFollowup = followupAttempts.some(
+            (attempt) => !REVIEW_RISK_JUDGEMENTS.has(attempt.mastery_judgement),
+          );
+          const interventionEffect =
+            (matchedTask.status ?? 'pending') === 'completed'
+              ? postInterventionRepeatCount > 0
+                ? 'risk_persisting'
+                : hasSafeFollowup
+                  ? 'risk_lowered'
+                  : 'pending'
+              : 'pending';
 
           return {
             ...notification,
@@ -298,6 +358,8 @@ export async function GET(req: NextRequest) {
               intervention_status: matchedTask.status ?? 'pending',
               intervention_feedback_note: completion?.notes ?? null,
               intervention_completed_at: interventionCompletedAt,
+              intervention_effect: interventionEffect,
+              post_intervention_repeat_count: postInterventionRepeatCount,
             },
           };
         });
