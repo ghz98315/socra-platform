@@ -194,6 +194,20 @@ function excerpt(value: string | null | undefined, maxLength = 40) {
   return `${text.slice(0, maxLength)}...`;
 }
 
+function getRootCauseContext(
+  category: RootCauseCategory | null | undefined,
+  subtype: RootCauseSubtype | null | undefined,
+) {
+  const rootCauseLabel = category ? getRootCauseLabel(category) : null;
+  const rootCauseSubtypeLabel = subtype ? getRootCauseSubtypeOption(subtype)?.label ?? subtype : null;
+
+  return {
+    rootCauseLabel,
+    rootCauseSubtypeLabel,
+    rootCauseDisplayLabel: rootCauseSubtypeLabel || rootCauseLabel,
+  };
+}
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Internal server error';
 }
@@ -603,7 +617,7 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 2)
         .map(([statement]) => statement),
-      playbook: getParentSupportPlaybook(bucket.category as RootCauseCategory),
+      playbook: getParentSupportPlaybook(bucket.category as RootCauseCategory, bucket.subtype ?? null),
     }));
 
     const maxRootCauseScore =
@@ -674,6 +688,10 @@ export async function GET(req: NextRequest) {
         const review = reviewMap.get(session.id);
         const attempts = attemptsBySession.get(session.id) ?? [];
         const latestAttempt = attempts[0];
+        const rootCauseContext = getRootCauseContext(
+          session.primary_root_cause_category,
+          session.primary_root_cause_subtype,
+        );
         const riskScore =
           (review?.reopened_count ?? 0) * 3 +
           (review?.last_judgement === 'pseudo_mastery' ? 4 : 0) +
@@ -699,9 +717,9 @@ export async function GET(req: NextRequest) {
           session_id: session.id,
           title: riskLabel,
           excerpt: excerpt(session.extracted_text),
-          root_cause_label: session.primary_root_cause_category
-            ? getRootCauseLabel(session.primary_root_cause_category)
-            : '待归因',
+          root_cause_label: rootCauseContext.rootCauseLabel || '待归因',
+          root_cause_subtype_label: rootCauseContext.rootCauseSubtypeLabel,
+          root_cause_display_label: rootCauseContext.rootCauseDisplayLabel || '待归因',
           root_cause_statement: session.primary_root_cause_statement,
           mastery_judgement: review?.last_judgement ?? latestAttempt?.mastery_judgement ?? null,
           reopened_count: review?.reopened_count ?? 0,
@@ -795,6 +813,10 @@ export async function GET(req: NextRequest) {
         const interventionTask = interventionTaskMap.get(
           buildConversationTaskKey(item.session_id, item.category),
         );
+        const rootCauseContext = getRootCauseContext(
+          session?.primary_root_cause_category,
+          session?.primary_root_cause_subtype,
+        );
         return {
           session_id: item.session_id,
           message_id: item.message_id,
@@ -806,9 +828,10 @@ export async function GET(req: NextRequest) {
           summary: item.summary,
           message_excerpt: excerpt(item.messageText, 80),
           question_excerpt: excerpt(session?.extracted_text, 46),
-          root_cause_label: session?.primary_root_cause_category
-            ? getRootCauseLabel(session.primary_root_cause_category)
-            : null,
+          root_cause_label: rootCauseContext.rootCauseLabel,
+          root_cause_subtype_label: rootCauseContext.rootCauseSubtypeLabel,
+          root_cause_display_label: rootCauseContext.rootCauseDisplayLabel,
+          root_cause_statement: session?.primary_root_cause_statement ?? null,
           parent_opening: item.parentOpening,
           parent_actions: item.parentActions,
           intervention_task_id: interventionTask?.task_id ?? null,

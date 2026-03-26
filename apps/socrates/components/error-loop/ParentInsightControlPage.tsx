@@ -71,6 +71,8 @@ type RecentRiskItem = {
   title: string;
   excerpt: string;
   root_cause_label: string;
+  root_cause_subtype_label: string | null;
+  root_cause_display_label: string;
   root_cause_statement: string | null;
   mastery_judgement: string | null;
   reopened_count: number;
@@ -91,6 +93,9 @@ type ConversationAlertItem = {
   message_excerpt: string;
   question_excerpt: string;
   root_cause_label: string | null;
+  root_cause_subtype_label: string | null;
+  root_cause_display_label: string | null;
+  root_cause_statement: string | null;
   parent_opening: string;
   parent_actions: string[];
   intervention_task_id: string | null;
@@ -914,13 +919,19 @@ export default function ParentInsightControlPage() {
                                 : '低风险'}
                           </Badge>
                           <span className="font-medium text-slate-900">{item.title}</span>
-                          {item.root_cause_label ? (
-                            <span className="text-sm text-slate-500">{item.root_cause_label}</span>
+                          {item.root_cause_display_label ? (
+                            <span className="text-sm text-slate-500">{item.root_cause_display_label}</span>
+                          ) : null}
+                          {item.root_cause_subtype_label && item.root_cause_label ? (
+                            <span className="text-xs text-slate-400">归属: {item.root_cause_label}</span>
                           ) : null}
                         </div>
                         <span className="text-xs text-slate-400">{formatDateTime(item.created_at)}</span>
                       </div>
                       <div className="mt-2 text-sm text-slate-600">{item.summary}</div>
+                      {item.root_cause_statement ? (
+                        <div className="mt-2 text-sm text-slate-500">{item.root_cause_statement}</div>
+                      ) : null}
                       <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
                         学生原话: {item.message_excerpt}
                       </div>
@@ -1103,7 +1114,10 @@ export default function ParentInsightControlPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <Badge className="bg-red-100 text-red-700">{item.title}</Badge>
-                            <span className="text-sm text-slate-500">{item.root_cause_label}</span>
+                            <span className="text-sm text-slate-500">{item.root_cause_display_label}</span>
+                            {item.root_cause_subtype_label ? (
+                              <span className="text-xs text-slate-400">归属: {item.root_cause_label}</span>
+                            ) : null}
                           </div>
                           <span className="text-xs text-slate-400">{formatDateTime(item.created_at)}</span>
                         </div>

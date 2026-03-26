@@ -563,6 +563,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             studentId={profile.id}
             subject={errorSession.subject}
             rootCauseCategory={errorSession.primary_root_cause_category}
+            rootCauseSubtype={errorSession.primary_root_cause_subtype}
             rootCauseStatement={errorSession.primary_root_cause_statement}
           />
         )}

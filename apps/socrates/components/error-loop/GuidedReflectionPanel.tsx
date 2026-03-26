@@ -9,8 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import {
   DEEP_ERROR_LOOP_V1_SUBJECTS,
   ROOT_CAUSE_CATEGORY_LABELS,
+  getRootCauseSubtypeOption,
   type ErrorLoopSubject,
   type RootCauseCategory,
+  type RootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
 
 interface GuidedReflectionState {
@@ -40,6 +42,8 @@ interface GuidedReflectionResponse {
   student_summary: string | null;
   diagnosis_snapshot?: {
     root_cause_category: RootCauseCategory;
+    root_cause_subtype: RootCauseSubtype | null;
+    root_cause_subtype_label: string | null;
     root_cause_statement: string;
     fix_actions: string[];
   };
@@ -50,12 +54,14 @@ export function GuidedReflectionPanel({
   studentId,
   subject,
   rootCauseCategory,
+  rootCauseSubtype,
   rootCauseStatement,
 }: {
   sessionId: string;
   studentId: string;
   subject: ErrorLoopSubject;
   rootCauseCategory?: RootCauseCategory | null;
+  rootCauseSubtype?: RootCauseSubtype | null;
   rootCauseStatement?: string | null;
 }) {
   const [loading, setLoading] = useState(true);
@@ -66,6 +72,9 @@ export function GuidedReflectionPanel({
 
   const enabled = DEEP_ERROR_LOOP_V1_SUBJECTS.has(subject);
   const diagnosisReady = Boolean(rootCauseCategory && rootCauseStatement);
+  const effectiveSubtypeLabel =
+    payload?.diagnosis_snapshot?.root_cause_subtype_label ||
+    (rootCauseSubtype ? getRootCauseSubtypeOption(rootCauseSubtype)?.label ?? null : null);
 
   useEffect(() => {
     async function loadReflection() {
@@ -175,6 +184,11 @@ export function GuidedReflectionPanel({
                     {ROOT_CAUSE_CATEGORY_LABELS[rootCauseCategory]}
                   </Badge>
                 ) : null}
+                {effectiveSubtypeLabel ? (
+                  <Badge variant="outline" className="border-blue-200 text-blue-700">
+                    {effectiveSubtypeLabel}
+                  </Badge>
+                ) : null}
               </div>
               <p className="mt-3 text-sm leading-6 text-blue-900">{rootCauseStatement}</p>
             </div>
@@ -187,7 +201,7 @@ export function GuidedReflectionPanel({
                       {index + 1}. {step.title}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{step.question}</p>
-                    <p className="mt-3 text-sm whitespace-pre-wrap text-foreground">{step.answer}</p>
+                    <p className="mt-3 whitespace-pre-wrap text-sm text-foreground">{step.answer}</p>
                   </div>
                 ))}
               </div>
@@ -215,7 +229,7 @@ export function GuidedReflectionPanel({
                 <textarea
                   value={answerDraft}
                   onChange={(event) => setAnswerDraft(event.target.value)}
-                  placeholder="把你真实的想法写出来，不要只写“粗心”或“以后认真一点”。"
+                  placeholder="把你当时真实的想法写出来，不要只写“粗心”或“以后认真一点”。"
                   className="mt-4 min-h-28 w-full rounded-2xl border border-warm-200 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-warm-400 focus:border-warm-400 focus:ring-2 focus:ring-warm-400/10"
                 />
 
