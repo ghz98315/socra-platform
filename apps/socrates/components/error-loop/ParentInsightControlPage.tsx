@@ -83,6 +83,9 @@ type RecentRiskItem = {
   intervention_status: string | null;
   intervention_effect: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
   intervention_task_type_label: string | null;
+  closure_gate_summary: string | null;
+  closure_pending_labels: string[];
+  closure_pending_count: number;
 };
 
 type ConversationAlertItem = {
@@ -1310,6 +1313,11 @@ export default function ParentInsightControlPage() {
                         <div className="mt-2 font-medium text-slate-900">{item.excerpt}</div>
                         {item.root_cause_statement ? (
                           <div className="mt-2 text-sm text-slate-600">{item.root_cause_statement}</div>
+                        ) : null}
+                        {item.closure_gate_summary ? (
+                          <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-800">
+                            {item.closure_gate_summary}
+                          </div>
                         ) : null}
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                           <Badge className="bg-slate-100 text-slate-700">

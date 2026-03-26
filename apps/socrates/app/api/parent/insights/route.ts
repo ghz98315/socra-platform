@@ -11,7 +11,13 @@ import {
   getRootCauseLabel,
 } from '@/lib/error-loop/parent-insights';
 import { aggregateConversationRiskSignals } from '@/lib/error-loop/conversation-risk';
-import { MASTERY_JUDGEMENT_META, parseReviewInterventionTaskMarkers } from '@/lib/error-loop/review';
+import {
+  MASTERY_JUDGEMENT_META,
+  evaluateClosureGates,
+  parseReviewInterventionTaskMarkers,
+  type AttemptMode,
+  type ClosureGateAttemptEvidence,
+} from '@/lib/error-loop/review';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -87,6 +93,13 @@ type ReviewAttemptRow = {
   id: string;
   review_id: string;
   session_id: string;
+  attempt_mode: AttemptMode;
+  independent_first: boolean | null;
+  asked_ai: boolean | null;
+  ai_hint_count: number | null;
+  solved_correctly: boolean | null;
+  explained_correctly: boolean | null;
+  variant_passed: boolean | null;
   mastery_judgement: string;
   created_at: string;
 };
@@ -185,6 +198,18 @@ function isOverdue(dateValue: string | null | undefined) {
   }
 
   return dueAt <= Date.now();
+}
+
+function toAttemptEvidence(attempt: ReviewAttemptRow): ClosureGateAttemptEvidence {
+  return {
+    attemptMode: attempt.attempt_mode,
+    independentFirst: attempt.independent_first !== false,
+    askedAi: attempt.asked_ai === true,
+    aiHintCount: Number.isFinite(attempt.ai_hint_count) ? Number(attempt.ai_hint_count) : 0,
+    solvedCorrectly: attempt.solved_correctly === true,
+    explainedCorrectly: attempt.explained_correctly === true,
+    variantPassed: attempt.variant_passed === true ? true : attempt.variant_passed === false ? false : null,
+  };
 }
 
 function excerpt(value: string | null | undefined, maxLength = 40) {
@@ -476,7 +501,9 @@ export async function GET(req: NextRequest) {
       sessionIds.length > 0
         ? supabaseAdmin
             .from('review_attempts')
-            .select('id, review_id, session_id, mastery_judgement, created_at')
+            .select(
+              'id, review_id, session_id, attempt_mode, independent_first, asked_ai, ai_hint_count, solved_correctly, explained_correctly, variant_passed, mastery_judgement, created_at',
+            )
             .eq('student_id', selectedStudent.id)
             .in('session_id', sessionIds)
             .order('created_at', { ascending: false })
@@ -702,6 +729,18 @@ export async function GET(req: NextRequest) {
         const review = reviewMap.get(session.id);
         const attempts = attemptsBySession.get(session.id) ?? [];
         const latestAttempt = attempts[0];
+        const closureGate =
+          review && latestAttempt
+            ? evaluateClosureGates({
+                reviewStage: review.review_stage ?? 1,
+                currentAttempt: toAttemptEvidence(latestAttempt),
+                previousAttempts: attempts.slice(1).map(toAttemptEvidence),
+              })
+            : null;
+        const pendingClosureLabels =
+          review?.is_completed === false && review?.mastery_state === 'provisional_mastered' && closureGate
+            ? closureGate.items.filter((gate) => !gate.passed).map((gate) => gate.shortLabel)
+            : [];
         const rootCauseContext = getRootCauseContext(
           session.primary_root_cause_category,
           session.primary_root_cause_subtype,
@@ -710,7 +749,8 @@ export async function GET(req: NextRequest) {
           (review?.reopened_count ?? 0) * 3 +
           (review?.last_judgement === 'pseudo_mastery' ? 4 : 0) +
           (review?.last_judgement && RISK_JUDGEMENTS.has(review.last_judgement) ? 2 : 0) +
-          (review && review.is_completed === false && isOverdue(review.next_review_at) ? 2 : 0);
+          (review && review.is_completed === false && isOverdue(review.next_review_at) ? 2 : 0) +
+          (pendingClosureLabels.length > 0 ? 1 : 0);
 
         if (riskScore === 0) {
           return null;
@@ -727,6 +767,10 @@ export async function GET(req: NextRequest) {
           riskLabel = '重复复开';
         }
 
+        if (pendingClosureLabels.length > 0) {
+          riskLabel = '待关门验证';
+        }
+
         return {
           session_id: session.id,
           title: riskLabel,
@@ -738,6 +782,9 @@ export async function GET(req: NextRequest) {
           mastery_judgement: review?.last_judgement ?? latestAttempt?.mastery_judgement ?? null,
           reopened_count: review?.reopened_count ?? 0,
           next_review_at: review?.next_review_at ?? null,
+          closure_gate_summary: pendingClosureLabels.length > 0 ? closureGate?.summary ?? null : null,
+          closure_pending_labels: pendingClosureLabels,
+          closure_pending_count: pendingClosureLabels.length,
           risk_score: riskScore,
           created_at: latestAttempt?.created_at ?? review?.updated_at ?? session.created_at,
         };
