@@ -1152,18 +1152,26 @@ export default function ParentInsightControlPage() {
                                 ) : null}
                               </div>
                               <div className="mt-1 text-sm text-slate-600">
-                                {outcome.feedback_note || '暂无家长反馈备注'}
+                                {outcome.feedback_note ||
+                                  (outcome.status === 'completed' ? '暂无家长反馈备注' : '待执行，尚未填写家长反馈')}
                               </div>
                               {outcome.root_cause_statement ? (
                                 <div className="mt-1 text-sm text-slate-500">{outcome.root_cause_statement}</div>
                               ) : null}
                             </div>
                             <div className="flex flex-col items-end gap-2">
+                              <Badge className="bg-slate-100 text-slate-700">
+                                {interventionStatusLabel(outcome.status)}
+                              </Badge>
                               <Badge className={interventionEffectBadge(outcome.effect)}>
                                 {interventionEffectLabel(outcome.effect)}
                               </Badge>
                               <span className="text-xs text-slate-500">
-                                {formatDateTime(outcome.completed_at)}
+                                {outcome.completed_at
+                                  ? formatDateTime(outcome.completed_at)
+                                  : outcome.updated_at
+                                    ? `最近更新 ${formatDateTime(outcome.updated_at)}`
+                                    : '待执行'}
                               </span>
                             </div>
                           </div>

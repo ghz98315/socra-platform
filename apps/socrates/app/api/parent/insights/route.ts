@@ -1048,8 +1048,7 @@ export async function GET(req: NextRequest) {
         review_pending: pendingReviewInterventionCount,
       },
       intervention_outcomes: interventionTaskSnapshots
-        .filter((task) => task.status === 'completed')
-        .slice(0, 6),
+        .slice(0, 8),
       parent_actions: parentActions,
       scoring_model: {
         ...HEAT_SCORE_MODEL,
