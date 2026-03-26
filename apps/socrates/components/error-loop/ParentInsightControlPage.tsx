@@ -79,6 +79,10 @@ type RecentRiskItem = {
   next_review_at: string | null;
   risk_score: number;
   created_at: string;
+  intervention_task_id: string | null;
+  intervention_status: string | null;
+  intervention_effect: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
+  intervention_task_type_label: string | null;
 };
 
 type ConversationAlertItem = {
@@ -1320,6 +1324,19 @@ export default function ParentInsightControlPage() {
                             <Badge className="bg-slate-100 text-slate-700">
                               下次复习: {formatDateTime(item.next_review_at)}
                             </Badge>
+                          ) : null}
+                          {item.intervention_task_id ? (
+                            <>
+                              <Badge className="bg-slate-100 text-slate-700">
+                                {item.intervention_task_type_label || '补救任务'}
+                              </Badge>
+                              <Badge className="bg-slate-100 text-slate-700">
+                                {interventionStatusLabel(item.intervention_status)}
+                              </Badge>
+                              <Badge className={interventionEffectBadge(item.intervention_effect)}>
+                                {interventionEffectLabel(item.intervention_effect)}
+                              </Badge>
+                            </>
                           ) : null}
                         </div>
                       </div>

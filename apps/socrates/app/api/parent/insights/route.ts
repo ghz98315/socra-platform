@@ -697,7 +697,7 @@ export async function GET(req: NextRequest) {
     const knowledgeHotspots = buildHotspotList(knowledgeAggregates);
     const habitHotspots = buildHotspotList(habitAggregates);
 
-    const recentRisks = sessions
+    const rawRecentRisks = sessions
       .map((session) => {
         const review = reviewMap.get(session.id);
         const attempts = attemptsBySession.get(session.id) ?? [];
@@ -901,6 +901,34 @@ export async function GET(req: NextRequest) {
         interventionTaskMap.set(key, task);
       }
     }
+    const reviewInterventionTaskMap = new Map<string, InterventionTaskSnapshot>();
+    for (const task of interventionTaskSnapshots) {
+      if (task.task_type !== 'review_intervention') {
+        continue;
+      }
+
+      const key = buildReviewTaskKey(task.session_id, task.category);
+      if (!reviewInterventionTaskMap.has(key)) {
+        reviewInterventionTaskMap.set(key, task);
+      }
+    }
+
+    const recentRisks = rawRecentRisks
+      .filter((item): item is NonNullable<(typeof rawRecentRisks)[number]> => item !== null)
+      .map((item) => {
+      const reviewTask =
+        item.mastery_judgement && RISK_JUDGEMENTS.has(item.mastery_judgement)
+          ? reviewInterventionTaskMap.get(buildReviewTaskKey(item.session_id, item.mastery_judgement))
+          : undefined;
+
+      return {
+        ...item,
+        intervention_task_id: reviewTask?.task_id ?? null,
+        intervention_status: reviewTask?.status ?? null,
+        intervention_effect: reviewTask?.effect ?? null,
+        intervention_task_type_label: reviewTask?.task_type_label ?? null,
+      };
+    });
 
     const conversationAlerts = conversationAlertSignals
       .map((item) => {
