@@ -140,6 +140,7 @@ type InsightResponse = {
     mastered_closed_count: number;
     provisional_mastered_count: number;
     pseudo_mastery_count: number;
+    missing_transfer_evidence_count: number;
     reopened_total: number;
   };
   root_cause_heatmap: RootCauseItem[];
@@ -830,6 +831,12 @@ export default function ParentInsightControlPage() {
                 value={insights?.summary.pseudo_mastery_count ?? 0}
                 icon={Flame}
                 color="text-red-600"
+              />
+              <StatCard
+                label="缺迁移证据"
+                value={insights?.summary.missing_transfer_evidence_count ?? 0}
+                icon={Target}
+                color="text-orange-600"
               />
               <StatCard
                 label="已稳定关闭"

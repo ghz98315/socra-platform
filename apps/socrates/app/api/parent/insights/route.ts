@@ -455,6 +455,7 @@ export async function GET(req: NextRequest) {
           mastered_closed_count: 0,
           provisional_mastered_count: 0,
           pseudo_mastery_count: 0,
+          missing_transfer_evidence_count: 0,
           reopened_total: 0,
         },
         root_cause_heatmap: [],
@@ -1159,6 +1160,15 @@ export async function GET(req: NextRequest) {
     const provisionalMasteredCount = reviewSchedules.filter(
       (review) => review.mastery_state === 'provisional_mastered',
     ).length;
+    const missingTransferEvidenceCount = sessions.filter((session) => {
+      const sessionVariantQuestions = variantQuestionsBySession.get(session.id) ?? [];
+      const variantEvidence = summarizeVariantEvidence({
+        questions: sessionVariantQuestions,
+        logs: sessionVariantQuestions.flatMap((question) => variantLogsByVariantId.get(question.id) ?? []),
+      });
+
+      return session.closure_state !== 'mastered_closed' && !variantEvidence.qualified_transfer_evidence;
+    }).length;
 
     const parentActions = [
       ...(overdueReviewCount > 0
@@ -1175,6 +1185,15 @@ export async function GET(req: NextRequest) {
             {
               title: '专项盯“假会”',
               summary: `最近共有 ${pseudoMasteryCount} 次假会信号。原题做对不代表真的会，家长陪练时要加一道变式题和一次讲解复述。`,
+              priority: 'high',
+            },
+          ]
+        : []),
+      ...(missingTransferEvidenceCount > 0
+        ? [
+            {
+              title: '优先补齐迁移证据',
+              summary: `当前还有 ${missingTransferEvidenceCount} 道开放中的题缺少独立迁移证据。家长陪练时不要只问“原题会不会”，要专门检查孩子离开原题后能不能不靠提示换题也做对。`,
               priority: 'high',
             },
           ]
@@ -1227,6 +1246,7 @@ export async function GET(req: NextRequest) {
         mastered_closed_count: masteredClosedCount,
         provisional_mastered_count: provisionalMasteredCount,
         pseudo_mastery_count: pseudoMasteryCount,
+        missing_transfer_evidence_count: missingTransferEvidenceCount,
         reopened_total: reopenedTotal,
       },
       root_cause_heatmap: rootCauseHeatmap.slice(0, 8),
