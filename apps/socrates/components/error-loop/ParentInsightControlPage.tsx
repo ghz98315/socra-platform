@@ -276,6 +276,10 @@ function getInterventionTaskKey(item: { session_id: string; category: string }) 
   return `${item.session_id}:${item.category}`;
 }
 
+function getOutcomeFeedbackKey(taskId: string) {
+  return `task:${taskId}`;
+}
+
 export default function ParentInsightControlPage() {
   const { profile } = useAuth();
   const searchParams = useSearchParams();
@@ -486,6 +490,25 @@ export default function ParentInsightControlPage() {
   }, [insights?.conversation_alerts]);
 
   useEffect(() => {
+    if (!insights?.intervention_outcomes.length) {
+      return;
+    }
+
+    setInterventionNotes((current) => {
+      const next = { ...current };
+
+      for (const outcome of insights.intervention_outcomes) {
+        const taskKey = getOutcomeFeedbackKey(outcome.task_id);
+        if (outcome.feedback_note && !next[taskKey]) {
+          next[taskKey] = outcome.feedback_note;
+        }
+      }
+
+      return next;
+    });
+  }, [insights?.intervention_outcomes]);
+
+  useEffect(() => {
     if (
       loading ||
       focusSection !== 'conversation' ||
@@ -661,6 +684,46 @@ export default function ParentInsightControlPage() {
     } catch (saveError) {
       console.error('[ParentInsightControlPage] Failed to save intervention feedback:', saveError);
       window.alert(saveError instanceof Error ? saveError.message : '淇濆瓨骞查鍙嶉澶辫触');
+    } finally {
+      setSavingFeedbackKeys((current) => current.filter((item) => item !== taskKey));
+    }
+  }
+
+  async function saveOutcomeFeedback(outcome: InsightResponse['intervention_outcomes'][number]) {
+    if (!selectedStudent) {
+      return;
+    }
+
+    const taskKey = getOutcomeFeedbackKey(outcome.task_id);
+    if (savingFeedbackKeys.includes(taskKey)) {
+      return;
+    }
+
+    try {
+      setSavingFeedbackKeys((current) => [...current, taskKey]);
+
+      const response = await fetch('/api/task-progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          taskId: outcome.task_id,
+          childId: selectedStudent.id,
+          progressCount: 1,
+          notes: interventionNotes[taskKey]?.trim() || null,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || '保存干预反馈失败');
+      }
+
+      setInsightReloadToken((current) => current + 1);
+    } catch (saveError) {
+      console.error('[ParentInsightControlPage] Failed to save outcome feedback:', saveError);
+      window.alert(saveError instanceof Error ? saveError.message : '保存干预反馈失败');
     } finally {
       setSavingFeedbackKeys((current) => current.filter((item) => item !== taskKey));
     }
@@ -1141,39 +1204,66 @@ export default function ParentInsightControlPage() {
                         {insights.intervention_outcomes.map((outcome) => (
                           <div
                             key={outcome.task_id}
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-3"
+                            className="rounded-xl bg-white p-3"
                           >
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="font-medium text-slate-900">{outcome.title}</div>
-                                <Badge className="bg-slate-100 text-slate-700">{outcome.task_type_label}</Badge>
-                                {outcome.root_cause_display_label ? (
-                                  <Badge className="bg-warm-100 text-warm-700">{outcome.root_cause_display_label}</Badge>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="font-medium text-slate-900">{outcome.title}</div>
+                                  <Badge className="bg-slate-100 text-slate-700">{outcome.task_type_label}</Badge>
+                                  {outcome.root_cause_display_label ? (
+                                    <Badge className="bg-warm-100 text-warm-700">{outcome.root_cause_display_label}</Badge>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 text-sm text-slate-600">
+                                  {outcome.feedback_note ||
+                                    (outcome.status === 'completed' ? '暂无家长反馈备注' : '待执行，尚未填写家长反馈')}
+                                </div>
+                                {outcome.root_cause_statement ? (
+                                  <div className="mt-1 text-sm text-slate-500">{outcome.root_cause_statement}</div>
                                 ) : null}
                               </div>
-                              <div className="mt-1 text-sm text-slate-600">
-                                {outcome.feedback_note ||
-                                  (outcome.status === 'completed' ? '暂无家长反馈备注' : '待执行，尚未填写家长反馈')}
+                              <div className="flex flex-col items-end gap-2">
+                                <Badge className="bg-slate-100 text-slate-700">
+                                  {interventionStatusLabel(outcome.status)}
+                                </Badge>
+                                <Badge className={interventionEffectBadge(outcome.effect)}>
+                                  {interventionEffectLabel(outcome.effect)}
+                                </Badge>
+                                <span className="text-xs text-slate-500">
+                                  {outcome.completed_at
+                                    ? formatDateTime(outcome.completed_at)
+                                    : outcome.updated_at
+                                      ? `最近更新 ${formatDateTime(outcome.updated_at)}`
+                                      : '待执行'}
+                                </span>
                               </div>
-                              {outcome.root_cause_statement ? (
-                                <div className="mt-1 text-sm text-slate-500">{outcome.root_cause_statement}</div>
-                              ) : null}
                             </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <Badge className="bg-slate-100 text-slate-700">
-                                {interventionStatusLabel(outcome.status)}
-                              </Badge>
-                              <Badge className={interventionEffectBadge(outcome.effect)}>
-                                {interventionEffectLabel(outcome.effect)}
-                              </Badge>
-                              <span className="text-xs text-slate-500">
-                                {outcome.completed_at
-                                  ? formatDateTime(outcome.completed_at)
-                                  : outcome.updated_at
-                                    ? `最近更新 ${formatDateTime(outcome.updated_at)}`
-                                    : '待执行'}
-                              </span>
-                            </div>
+                            {outcome.status !== 'completed' ? (
+                              <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                                <Input
+                                  value={interventionNotes[getOutcomeFeedbackKey(outcome.task_id)] ?? ''}
+                                  onChange={(event) =>
+                                    setInterventionNotes((current) => ({
+                                      ...current,
+                                      [getOutcomeFeedbackKey(outcome.task_id)]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="记录本次陪练结果，例如：孩子能讲清第一步，但变式仍需要提醒"
+                                />
+                                <div className="flex justify-end">
+                                  <Button
+                                    size="sm"
+                                    disabled={savingFeedbackKeys.includes(getOutcomeFeedbackKey(outcome.task_id))}
+                                    onClick={() => saveOutcomeFeedback(outcome)}
+                                  >
+                                    {savingFeedbackKeys.includes(getOutcomeFeedbackKey(outcome.task_id))
+                                      ? '保存中...'
+                                      : '标记已完成并写反馈'}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         ))}
                       </div>
