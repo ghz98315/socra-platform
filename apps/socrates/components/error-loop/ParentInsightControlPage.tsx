@@ -139,11 +139,16 @@ type InsightResponse = {
     completed: number;
     risk_lowered: number;
     risk_persisting: number;
+    conversation_total: number;
+    review_total: number;
+    review_pending: number;
   };
   intervention_outcomes: Array<{
     task_id: string;
     session_id: string;
     category: string;
+    task_type: 'conversation_intervention' | 'review_intervention';
+    task_type_label: string;
     title: string;
     status: string;
     feedback_note: string | null;
@@ -151,6 +156,8 @@ type InsightResponse = {
     updated_at: string | null;
     effect: 'pending' | 'risk_lowered' | 'risk_persisting';
     post_intervention_repeat_count: number;
+    root_cause_display_label: string | null;
+    root_cause_statement: string | null;
   }>;
   parent_actions: ParentActionItem[];
   scoring_model: {
@@ -282,6 +289,7 @@ export default function ParentInsightControlPage() {
   const [interventionTaskSummary, setInterventionTaskSummary] = useState({
     total: 0,
     pending: 0,
+    review_total: 0,
   });
   const [savingFeedbackKeys, setSavingFeedbackKeys] = useState<string[]>([]);
   const [interventionNotes, setInterventionNotes] = useState<Record<string, string>>({});
@@ -398,14 +406,14 @@ export default function ParentInsightControlPage() {
     let cancelled = false;
 
     async function loadExistingInterventionTasks() {
-      if (!selectedChildId) {
+      if (!selectedChildId || !profile?.id) {
         setCreatedTaskKeys([]);
-        setInterventionTaskSummary({ total: 0, pending: 0 });
+        setInterventionTaskSummary({ total: 0, pending: 0, review_total: 0 });
         return;
       }
 
       try {
-        const response = await fetch(`/api/parent-tasks?child_id=${selectedChildId}`);
+        const response = await fetch(`/api/parent-tasks?parent_id=${profile.id}`);
         const payload = await response.json();
 
         if (!response.ok) {
@@ -416,8 +424,10 @@ export default function ParentInsightControlPage() {
           return;
         }
 
-        const interventionTasks = (payload.tasks || []).filter((task: { description?: string | null }) =>
-          (task.description || '').includes('[conversation-risk:'),
+        const interventionTasks = (payload.tasks || []).filter(
+          (task: { child_id?: string; description?: string | null; task_type?: string | null }) =>
+            task.child_id === selectedChildId &&
+            ((task.description || '').includes('[conversation-risk:') || task.task_type === 'review_intervention'),
         );
 
         const taskKeys = interventionTasks
@@ -437,6 +447,9 @@ export default function ParentInsightControlPage() {
         setInterventionTaskSummary({
           total: interventionTasks.length,
           pending: interventionTasks.filter((task: { status?: string }) => task.status !== 'completed').length,
+          review_total: interventionTasks.filter(
+            (task: { task_type?: string | null }) => task.task_type === 'review_intervention',
+          ).length,
         });
       } catch (loadError) {
         if (!cancelled) {
@@ -450,7 +463,7 @@ export default function ParentInsightControlPage() {
     return () => {
       cancelled = true;
     };
-  }, [insightReloadToken, selectedChildId]);
+  }, [insightReloadToken, profile?.id, selectedChildId]);
 
   useEffect(() => {
     if (!insights?.conversation_alerts.length) {
@@ -1029,9 +1042,10 @@ export default function ParentInsightControlPage() {
                 {interventionTaskSummary.total > 0 ? (
                   <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     <div>
-                      <div className="font-medium text-slate-900">已生成沟通干预任务</div>
+                      <div className="font-medium text-slate-900">已生成干预任务</div>
                       <div className="mt-1 text-sm text-slate-600">
-                        当前孩子共有 {interventionTaskSummary.total} 条干预任务，其中 {interventionTaskSummary.pending} 条待完成。
+                        当前孩子共有 {interventionTaskSummary.total} 条干预任务，其中 {interventionTaskSummary.pending} 条待完成，
+                        {interventionTaskSummary.review_total} 条属于复习补救。
                       </div>
                     </div>
                     <Button variant="outline" onClick={() => (window.location.href = '/tasks')}>
@@ -1068,6 +1082,26 @@ export default function ParentInsightControlPage() {
                         </div>
                       </div>
                     </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl bg-white p-3">
+                        <div className="text-xs text-slate-500">沟通干预</div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900">
+                          {insights.intervention_summary.conversation_total}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-white p-3">
+                        <div className="text-xs text-slate-500">复习补救</div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900">
+                          {insights.intervention_summary.review_total}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-white p-3">
+                        <div className="text-xs text-slate-500">待补救复习</div>
+                        <div className="mt-1 text-lg font-semibold text-amber-600">
+                          {insights.intervention_summary.review_pending}
+                        </div>
+                      </div>
+                    </div>
                     {insights.intervention_outcomes.length ? (
                       <div className="space-y-2">
                         {insights.intervention_outcomes.map((outcome) => (
@@ -1076,10 +1110,19 @@ export default function ParentInsightControlPage() {
                             className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-3"
                           >
                             <div>
-                              <div className="font-medium text-slate-900">{outcome.title}</div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="font-medium text-slate-900">{outcome.title}</div>
+                                <Badge className="bg-slate-100 text-slate-700">{outcome.task_type_label}</Badge>
+                                {outcome.root_cause_display_label ? (
+                                  <Badge className="bg-warm-100 text-warm-700">{outcome.root_cause_display_label}</Badge>
+                                ) : null}
+                              </div>
                               <div className="mt-1 text-sm text-slate-600">
                                 {outcome.feedback_note || '暂无家长反馈备注'}
                               </div>
+                              {outcome.root_cause_statement ? (
+                                <div className="mt-1 text-sm text-slate-500">{outcome.root_cause_statement}</div>
+                              ) : null}
                             </div>
                             <div className="flex flex-col items-end gap-2">
                               <Badge className={interventionEffectBadge(outcome.effect)}>

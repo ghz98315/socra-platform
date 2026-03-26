@@ -11,6 +11,7 @@ import {
   getRootCauseLabel,
 } from '@/lib/error-loop/parent-insights';
 import { aggregateConversationRiskSignals } from '@/lib/error-loop/conversation-risk';
+import { MASTERY_JUDGEMENT_META, parseReviewInterventionTaskMarkers } from '@/lib/error-loop/review';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -110,6 +111,7 @@ type ParentTaskRow = {
   id: string;
   title: string;
   description: string | null;
+  task_type: string | null;
   status: string | null;
   completed_at: string | null;
   created_at: string;
@@ -123,6 +125,8 @@ type InterventionTaskSnapshot = {
   task_id: string;
   session_id: string;
   category: string;
+  task_type: 'conversation_intervention' | 'review_intervention';
+  task_type_label: string;
   title: string;
   status: string;
   feedback_note: string | null;
@@ -130,6 +134,8 @@ type InterventionTaskSnapshot = {
   updated_at: string | null;
   effect: InterventionEffect;
   post_intervention_repeat_count: number;
+  root_cause_display_label: string | null;
+  root_cause_statement: string | null;
 };
 
 type AggregateBucket = {
@@ -237,6 +243,10 @@ function parseConversationTaskMarkers(description: string | null | undefined) {
 
 function buildConversationTaskKey(sessionId: string, category: string) {
   return `${sessionId}:${category}`;
+}
+
+function buildReviewTaskKey(sessionId: string, judgement: string) {
+  return `${sessionId}:${judgement}`;
 }
 
 function compareIsoDesc(left: string | null | undefined, right: string | null | undefined) {
@@ -387,6 +397,9 @@ export async function GET(req: NextRequest) {
           completed: 0,
           risk_lowered: 0,
           risk_persisting: 0,
+          conversation_total: 0,
+          review_total: 0,
+          review_pending: 0,
         },
         intervention_outcomes: [],
         parent_actions: [],
@@ -483,6 +496,7 @@ export async function GET(req: NextRequest) {
             id,
             title,
             description,
+            task_type,
             status,
             completed_at,
             created_at,
@@ -498,7 +512,7 @@ export async function GET(req: NextRequest) {
         )
         .eq('parent_id', parentUser.id)
         .eq('child_id', selectedStudent.id)
-        .eq('task_type', 'conversation_intervention')
+        .in('task_type', ['conversation_intervention', 'review_intervention'])
         .order('created_at', { ascending: false }),
     ]);
 
@@ -758,8 +772,81 @@ export async function GET(req: NextRequest) {
       conversationSignalsByKey.set(key, current);
     }
 
+    const reviewRiskAttemptsByKey = new Map<string, ReviewAttemptRow[]>();
+    for (const attempt of reviewAttempts) {
+      if (!RISK_JUDGEMENTS.has(attempt.mastery_judgement)) {
+        continue;
+      }
+
+      const key = buildReviewTaskKey(attempt.session_id, attempt.mastery_judgement);
+      const current = reviewRiskAttemptsByKey.get(key) ?? [];
+      current.push(attempt);
+      reviewRiskAttemptsByKey.set(key, current);
+    }
+
     const interventionTaskSnapshots = interventionTasks
       .map((task) => {
+        const session = sessionMap.get(task.task_type === 'review_intervention' ? parseReviewInterventionTaskMarkers(task.description)?.session_id || '' : parseConversationTaskMarkers(task.description)?.sessionId || '');
+
+        if (task.task_type === 'review_intervention') {
+          const markers = parseReviewInterventionTaskMarkers(task.description);
+          if (!markers) {
+            return null;
+          }
+
+          const completion = getTaskCompletion(task);
+          const completedAt = completion?.completed_at ?? task.completed_at ?? null;
+          const status = task.status ?? (completedAt ? 'completed' : 'pending');
+          const relatedAttempts = reviewRiskAttemptsByKey.get(
+            buildReviewTaskKey(markers.session_id, markers.judgement),
+          ) ?? [];
+          const postInterventionRepeatCount = completedAt
+            ? relatedAttempts.filter(
+                (attempt) =>
+                  new Date(attempt.created_at).getTime() > new Date(completedAt).getTime(),
+              ).length
+            : 0;
+          const followupAttempts = completedAt
+            ? (attemptsBySession.get(markers.session_id) ?? []).filter(
+                (attempt) => new Date(attempt.created_at).getTime() > new Date(completedAt).getTime(),
+              )
+            : [];
+          const hasSafeFollowup = followupAttempts.some(
+            (attempt) => !RISK_JUDGEMENTS.has(attempt.mastery_judgement),
+          );
+          const effect: InterventionEffect =
+            status === 'completed'
+              ? postInterventionRepeatCount > 0
+                ? 'risk_persisting'
+                : hasSafeFollowup
+                  ? 'risk_lowered'
+                  : 'pending'
+              : 'pending';
+          const rootCauseContext = getRootCauseContext(
+            session?.primary_root_cause_category,
+            session?.primary_root_cause_subtype,
+          );
+
+          return {
+            task_id: task.id,
+            session_id: markers.session_id,
+            category: markers.judgement,
+            task_type: 'review_intervention',
+            task_type_label: '复习补救',
+            title:
+              task.title ||
+              `复习补救: ${MASTERY_JUDGEMENT_META[markers.judgement as keyof typeof MASTERY_JUDGEMENT_META]?.label ?? markers.judgement}`,
+            status,
+            feedback_note: completion?.notes ?? null,
+            completed_at: completedAt,
+            updated_at: completion?.updated_at ?? task.updated_at ?? null,
+            effect,
+            post_intervention_repeat_count: postInterventionRepeatCount,
+            root_cause_display_label: rootCauseContext.rootCauseDisplayLabel,
+            root_cause_statement: session?.primary_root_cause_statement ?? null,
+          } satisfies InterventionTaskSnapshot;
+        }
+
         const markers = parseConversationTaskMarkers(task.description);
         if (!markers) {
           return null;
@@ -782,11 +869,17 @@ export async function GET(req: NextRequest) {
               ? 'risk_persisting'
               : 'risk_lowered'
             : 'pending';
+        const rootCauseContext = getRootCauseContext(
+          session?.primary_root_cause_category,
+          session?.primary_root_cause_subtype,
+        );
 
         return {
           task_id: task.id,
           session_id: markers.sessionId,
           category: markers.category,
+          task_type: 'conversation_intervention',
+          task_type_label: '沟通干预',
           title: task.title,
           status,
           feedback_note: completion?.notes ?? null,
@@ -794,6 +887,8 @@ export async function GET(req: NextRequest) {
           updated_at: completion?.updated_at ?? task.updated_at ?? null,
           effect,
           post_intervention_repeat_count: postInterventionRepeatCount,
+          root_cause_display_label: rootCauseContext.rootCauseDisplayLabel,
+          root_cause_statement: session?.primary_root_cause_statement ?? null,
         } satisfies InterventionTaskSnapshot;
       })
       .filter((item): item is InterventionTaskSnapshot => item !== null)
@@ -850,6 +945,15 @@ export async function GET(req: NextRequest) {
     const pendingInterventionCount = interventionTaskSnapshots.filter(
       (task) => task.status !== 'completed',
     ).length;
+    const conversationInterventionTotal = interventionTaskSnapshots.filter(
+      (task) => task.task_type === 'conversation_intervention',
+    ).length;
+    const reviewInterventionTotal = interventionTaskSnapshots.filter(
+      (task) => task.task_type === 'review_intervention',
+    ).length;
+    const pendingReviewInterventionCount = interventionTaskSnapshots.filter(
+      (task) => task.task_type === 'review_intervention' && task.status !== 'completed',
+    ).length;
     const loweredRiskInterventionCount = interventionTaskSnapshots.filter(
       (task) => task.effect === 'risk_lowered',
     ).length;
@@ -883,6 +987,15 @@ export async function GET(req: NextRequest) {
             {
               title: '专项盯“假会”',
               summary: `最近共有 ${pseudoMasteryCount} 次假会信号。原题做对不代表真的会，家长陪练时要加一道变式题和一次讲解复述。`,
+              priority: 'high',
+            },
+          ]
+        : []),
+      ...(pendingReviewInterventionCount > 0
+        ? [
+            {
+              title: '优先处理复习补救任务',
+              summary: `当前还有 ${pendingReviewInterventionCount} 条复习补救任务待完成，这些任务直接对应孩子最近的假会、未掌握或讲不清风险。`,
               priority: 'high',
             },
           ]
@@ -930,6 +1043,9 @@ export async function GET(req: NextRequest) {
         completed: completedInterventionCount,
         risk_lowered: loweredRiskInterventionCount,
         risk_persisting: persistingRiskInterventionCount,
+        conversation_total: conversationInterventionTotal,
+        review_total: reviewInterventionTotal,
+        review_pending: pendingReviewInterventionCount,
       },
       intervention_outcomes: interventionTaskSnapshots
         .filter((task) => task.status === 'completed')
