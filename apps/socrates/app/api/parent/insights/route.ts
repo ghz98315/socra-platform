@@ -50,6 +50,7 @@ type DiagnosisRow = {
   root_cause_category: RootCauseCategory;
   root_cause_subtype: RootCauseSubtype | null;
   root_cause_statement: string;
+  guided_reflection: Record<string, unknown> | null;
   knowledge_tags: unknown;
   habit_tags: unknown;
   surface_labels: unknown;
@@ -164,6 +165,12 @@ type AggregateBucket = {
   sessionIds: Set<string>;
 };
 
+type ReflectionQualitySnapshot = {
+  depth_label: 'surface' | 'partial' | 'deep';
+  surface_only_risk: boolean;
+  coach_signal: string | null;
+};
+
 function normalizeStringList(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -223,6 +230,33 @@ function excerpt(value: string | null | undefined, maxLength = 40) {
   }
 
   return `${text.slice(0, maxLength)}...`;
+}
+
+function getReflectionQualitySnapshot(value: unknown): ReflectionQualitySnapshot | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const raw = value as Record<string, unknown>;
+  const quality =
+    raw.reflection_quality && typeof raw.reflection_quality === 'object' && !Array.isArray(raw.reflection_quality)
+      ? (raw.reflection_quality as Record<string, unknown>)
+      : null;
+
+  if (!quality) {
+    return null;
+  }
+
+  const depthLabel =
+    quality.depth_label === 'deep' || quality.depth_label === 'partial' || quality.depth_label === 'surface'
+      ? quality.depth_label
+      : 'surface';
+
+  return {
+    depth_label: depthLabel,
+    surface_only_risk: quality.surface_only_risk === true,
+    coach_signal: typeof quality.coach_signal === 'string' ? quality.coach_signal : null,
+  };
 }
 
 function getRootCauseContext(
@@ -465,7 +499,7 @@ export async function GET(req: NextRequest) {
           ? supabaseAdmin
             .from('error_diagnoses')
             .select(
-              'session_id, root_cause_category, root_cause_subtype, root_cause_statement, knowledge_tags, habit_tags, surface_labels, risk_flags, updated_at, created_at',
+              'session_id, root_cause_category, root_cause_subtype, root_cause_statement, guided_reflection, knowledge_tags, habit_tags, surface_labels, risk_flags, updated_at, created_at',
             )
             .eq('student_id', selectedStudent.id)
             .in('session_id', sessionIds)
@@ -729,6 +763,8 @@ export async function GET(req: NextRequest) {
         const review = reviewMap.get(session.id);
         const attempts = attemptsBySession.get(session.id) ?? [];
         const latestAttempt = attempts[0];
+        const diagnosis = diagnoses.find((item) => item.session_id === session.id);
+        const reflectionQuality = getReflectionQualitySnapshot(diagnosis?.guided_reflection);
         const closureGate =
           review && latestAttempt
             ? evaluateClosureGates({
@@ -750,7 +786,8 @@ export async function GET(req: NextRequest) {
           (review?.last_judgement === 'pseudo_mastery' ? 4 : 0) +
           (review?.last_judgement && RISK_JUDGEMENTS.has(review.last_judgement) ? 2 : 0) +
           (review && review.is_completed === false && isOverdue(review.next_review_at) ? 2 : 0) +
-          (pendingClosureLabels.length > 0 ? 1 : 0);
+          (pendingClosureLabels.length > 0 ? 1 : 0) +
+          (reflectionQuality?.surface_only_risk ? 1 : 0);
 
         if (riskScore === 0) {
           return null;
@@ -769,6 +806,8 @@ export async function GET(req: NextRequest) {
 
         if (pendingClosureLabels.length > 0) {
           riskLabel = '待关门验证';
+        } else if (reflectionQuality?.surface_only_risk) {
+          riskLabel = '根因仍偏表面';
         }
 
         return {
@@ -785,6 +824,9 @@ export async function GET(req: NextRequest) {
           closure_gate_summary: pendingClosureLabels.length > 0 ? closureGate?.summary ?? null : null,
           closure_pending_labels: pendingClosureLabels,
           closure_pending_count: pendingClosureLabels.length,
+          reflection_depth_label: reflectionQuality?.depth_label ?? null,
+          reflection_coach_signal: reflectionQuality?.coach_signal ?? null,
+          reflection_surface_only_risk: reflectionQuality?.surface_only_risk ?? false,
           risk_score: riskScore,
           created_at: latestAttempt?.created_at ?? review?.updated_at ?? session.created_at,
         };
@@ -1041,6 +1083,9 @@ export async function GET(req: NextRequest) {
     const overdueReviewCount = reviewSchedules.filter(
       (review) => review.is_completed === false && isOverdue(review.next_review_at),
     ).length;
+    const surfaceOnlyReflectionCount = diagnoses.filter(
+      (diagnosis) => getReflectionQualitySnapshot(diagnosis.guided_reflection)?.surface_only_risk === true,
+    ).length;
     const reopenedTotal = reviewSchedules.reduce((sum, review) => sum + (review.reopened_count ?? 0), 0);
     const masteredClosedCount = reviewSchedules.filter((review) => review.mastery_state === 'mastered_closed').length;
     const provisionalMasteredCount = reviewSchedules.filter(
@@ -1071,6 +1116,15 @@ export async function GET(req: NextRequest) {
             {
               title: '优先处理复习补救任务',
               summary: `当前还有 ${pendingReviewInterventionCount} 条复习补救任务待完成，这些任务直接对应孩子最近的假会、未掌握或讲不清风险。`,
+              priority: 'high',
+            },
+          ]
+        : []),
+      ...(surfaceOnlyReflectionCount > 0
+        ? [
+            {
+              title: '继续追问表面归因',
+              summary: `当前还有 ${surfaceOnlyReflectionCount} 道题的学生反思仍停留在表层描述。家长先不要急着讲解，优先追到“具体哪一步断了、背后是什么稳定模式、下次先做什么”。`,
               priority: 'high',
             },
           ]

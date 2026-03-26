@@ -86,6 +86,9 @@ type RecentRiskItem = {
   closure_gate_summary: string | null;
   closure_pending_labels: string[];
   closure_pending_count: number;
+  reflection_depth_label: 'surface' | 'partial' | 'deep' | null;
+  reflection_coach_signal: string | null;
+  reflection_surface_only_risk: boolean;
 };
 
 type ConversationAlertItem = {
@@ -1319,6 +1322,11 @@ export default function ParentInsightControlPage() {
                             {item.closure_gate_summary}
                           </div>
                         ) : null}
+                        {item.reflection_coach_signal ? (
+                          <div className="mt-2 rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm text-amber-800">
+                            {item.reflection_coach_signal}
+                          </div>
+                        ) : null}
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                           <Badge className="bg-slate-100 text-slate-700">
                             复开 {item.reopened_count} 次
@@ -1332,6 +1340,14 @@ export default function ParentInsightControlPage() {
                             <Badge className="bg-slate-100 text-slate-700">
                               下次复习: {formatDateTime(item.next_review_at)}
                             </Badge>
+                          ) : null}
+                          {item.reflection_depth_label ? (
+                            <Badge className="bg-slate-100 text-slate-700">
+                              反思深度: {item.reflection_depth_label === 'deep' ? '深' : item.reflection_depth_label === 'partial' ? '中' : '浅'}
+                            </Badge>
+                          ) : null}
+                          {item.reflection_surface_only_risk ? (
+                            <Badge className="bg-amber-100 text-amber-700">仍停留在表面归因</Badge>
                           ) : null}
                           {item.intervention_task_id ? (
                             <>
