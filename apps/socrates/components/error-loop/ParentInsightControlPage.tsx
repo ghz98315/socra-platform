@@ -77,6 +77,10 @@ type RecentRiskItem = {
   mastery_judgement: string | null;
   reopened_count: number;
   next_review_at: string | null;
+  transfer_evidence_status_label: string;
+  transfer_evidence_summary: string;
+  transfer_evidence_next_step: string;
+  transfer_evidence_ready: boolean;
   risk_score: number;
   created_at: string;
   intervention_task_id: string | null;
@@ -1317,6 +1321,26 @@ export default function ParentInsightControlPage() {
                         {item.root_cause_statement ? (
                           <div className="mt-2 text-sm text-slate-600">{item.root_cause_statement}</div>
                         ) : null}
+                        <div
+                          className={`mt-2 rounded-xl border p-3 text-sm ${
+                            item.transfer_evidence_ready
+                              ? 'border-emerald-100 bg-emerald-50/70 text-emerald-800'
+                              : 'border-amber-100 bg-amber-50/70 text-amber-800'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              className={
+                                item.transfer_evidence_ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                              }
+                            >
+                              {item.transfer_evidence_status_label}
+                            </Badge>
+                            <span>迁移证据</span>
+                          </div>
+                          <div className="mt-2">{item.transfer_evidence_summary}</div>
+                          <div className="mt-1 text-xs opacity-80">{item.transfer_evidence_next_step}</div>
+                        </div>
                         {item.closure_gate_summary ? (
                           <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-800">
                             {item.closure_gate_summary}

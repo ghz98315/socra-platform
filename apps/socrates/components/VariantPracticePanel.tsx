@@ -33,6 +33,10 @@ interface VariantEvidenceSummary {
   qualified_transfer_evidence: boolean;
   missing_reason: string | null;
   evidence_label: string;
+  status_label: string;
+  coach_summary: string;
+  parent_summary: string;
+  next_step: string;
 }
 
 interface VariantPracticePanelProps {
@@ -253,17 +257,18 @@ export function VariantPracticePanel({
           <CardContent className="space-y-3 p-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className={variantSummary.qualified_transfer_evidence ? 'bg-emerald-500' : 'bg-amber-500'}>
-                {variantSummary.qualified_transfer_evidence ? '已具备独立迁移证据' : '独立迁移证据未达标'}
+                {variantSummary.status_label}
               </Badge>
               <Badge variant="outline">总题数 {variantSummary.total_variants}</Badge>
               <Badge variant="outline">已练 {variantSummary.practiced_variants}</Badge>
               <Badge variant="outline">做对 {variantSummary.successful_variants}</Badge>
               <Badge variant="outline">独立通过 {variantSummary.independent_success_variants}</Badge>
             </div>
-            <p className="text-sm text-slate-700">{variantSummary.evidence_label}</p>
+            <p className="text-sm text-slate-700">{variantSummary.coach_summary}</p>
             {variantSummary.missing_reason ? (
               <p className="text-sm text-slate-500">{variantSummary.missing_reason}</p>
             ) : null}
+            <p className="text-sm text-slate-600">{variantSummary.next_step}</p>
           </CardContent>
         </Card>
       ) : null}

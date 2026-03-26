@@ -27,6 +27,10 @@ export type VariantEvidenceSummary = {
   recommended_attempt_mode: AttemptMode;
   missing_reason: string | null;
   evidence_label: string;
+  status_label: string;
+  coach_summary: string;
+  parent_summary: string;
+  next_step: string;
 };
 
 function compareIsoDesc(left: string | null | undefined, right: string | null | undefined) {
@@ -91,6 +95,22 @@ export function summarizeVariantEvidence(input: {
     qualified_transfer_evidence: qualifiedTransferEvidence,
     recommended_attempt_mode: qualifiedTransferEvidence ? 'mixed' : 'variant',
     missing_reason: missingReason,
+    status_label: qualifiedTransferEvidence ? '已形成独立迁移证据' : '独立迁移证据未达标',
+    coach_summary: qualifiedTransferEvidence
+      ? `系统已记录 ${independentSuccessVariants} 道无提示独立做对的变式题，可以把这部分视为真实迁移证据。`
+      : practicedVariants > 0
+        ? `虽然已经练过 ${practicedVariants} 道变式题，但还没有出现“无提示独立做对”的记录，暂时不能算真会。`
+        : '目前还没有真实的变式练习记录，系统无法判断这题是否已经形成迁移能力。',
+    parent_summary: qualifiedTransferEvidence
+      ? `孩子已经出现 ${independentSuccessVariants} 次不靠提示独立迁移成功，说明不是只会记原题。`
+      : practicedVariants > 0
+        ? '孩子虽然练过变式题，但还没留下独立迁移成功的证据。家长不要只看“做对过”，还要看是否能不靠提示换题也做对。'
+        : '孩子还没有留下有效的变式迁移记录，当前更像停留在原题记忆，建议先补做变式题再判断是否真会。',
+    next_step: qualifiedTransferEvidence
+      ? '下一步重点看跨间隔复习是否依然稳定，不需要再反复刷同一道题。'
+      : practicedVariants > 0
+        ? '下一步需要安排至少一道无提示独立完成的变式题，确认是否真的能迁移。'
+        : '下一步先生成并完成变式题，优先检查离开原题后是否还会做。',
     evidence_label: qualifiedTransferEvidence
       ? `已记录 ${independentSuccessVariants} 道独立通过的变式题。`
       : practicedVariants > 0

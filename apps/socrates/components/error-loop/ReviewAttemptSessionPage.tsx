@@ -94,6 +94,10 @@ interface ReviewResultPayload {
     recommended_attempt_mode: AttemptMode;
     missing_reason: string | null;
     evidence_label: string;
+    status_label: string;
+    coach_summary: string;
+    parent_summary: string;
+    next_step: string;
   };
 }
 
@@ -107,6 +111,10 @@ interface VariantEvidenceSummary {
   recommended_attempt_mode: AttemptMode;
   missing_reason: string | null;
   evidence_label: string;
+  status_label: string;
+  coach_summary: string;
+  parent_summary: string;
+  next_step: string;
 }
 
 interface ReviewSession {
@@ -916,7 +924,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                           {variantEvidence.qualified_transfer_evidence ? '已具备独立变式证据' : '还缺独立变式证据'}
                         </Badge>
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground">{variantEvidence.evidence_label}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{variantEvidence.coach_summary}</p>
                       {variantEvidence.latest_practiced_at ? (
                         <p className="mt-1 text-xs text-muted-foreground">
                           最近练习: {formatDateTime(variantEvidence.latest_practiced_at)}
@@ -925,6 +933,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                       {variantEvidence.missing_reason ? (
                         <p className="mt-2 text-sm text-blue-800">{variantEvidence.missing_reason}</p>
                       ) : null}
+                      <p className="mt-2 text-sm text-foreground">{variantEvidence.next_step}</p>
                       {!variantEvidence.qualified_transfer_evidence ? (
                         <div className="mt-3">
                           <Button
