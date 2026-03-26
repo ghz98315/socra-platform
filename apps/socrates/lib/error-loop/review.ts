@@ -94,3 +94,68 @@ export const MASTERY_TONE_STYLES: Record<
     panel: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   },
 };
+
+export type ReviewInterventionTaskDraft = {
+  title: string;
+  description: string;
+  taskType: 'review_intervention';
+  subject: string;
+  targetCount: number;
+  targetDuration: number;
+  priority: 1 | 2 | 3;
+  rewardPoints: number;
+};
+
+export function parseReviewInterventionTaskMarkers(description: string | null | undefined) {
+  const content = description || '';
+  const sessionMatch = content.match(/\[review-session:([^\]]+)\]/);
+  const judgementMatch = content.match(/\[review-judgement:([^\]]+)\]/);
+
+  if (!sessionMatch || !judgementMatch) {
+    return null;
+  }
+
+  return {
+    session_id: sessionMatch[1],
+    judgement: judgementMatch[1],
+  };
+}
+
+export function buildReviewInterventionTaskDraft(input: {
+  sessionId: string;
+  judgement: MasteryJudgement;
+  subject?: string | null;
+  rootCauseDisplayLabel?: string | null;
+  rootCauseStatement?: string | null;
+  judgementSummary: string;
+  nextActions: string[];
+}) : ReviewInterventionTaskDraft {
+  const priority: 1 | 2 | 3 =
+    input.judgement === 'not_mastered' || input.judgement === 'pseudo_mastery' ? 1 : 2;
+  const targetDuration =
+    input.judgement === 'not_mastered' ? 25 : input.judgement === 'pseudo_mastery' ? 20 : 15;
+  const label = MASTERY_JUDGEMENT_META[input.judgement].label;
+  const causeLine = input.rootCauseDisplayLabel ? `当前细分根因: ${input.rootCauseDisplayLabel}` : null;
+  const statementLine = input.rootCauseStatement ? `稳定模式: ${input.rootCauseStatement}` : null;
+
+  return {
+    title: `复习补救: ${label}${input.rootCauseDisplayLabel ? ` - ${input.rootCauseDisplayLabel}` : ''}`,
+    description: [
+      input.judgementSummary,
+      causeLine,
+      statementLine,
+      '建议家长陪练动作:',
+      ...input.nextActions.map((action, index) => `${index + 1}. ${action}`),
+      `[review-session:${input.sessionId}]`,
+      `[review-judgement:${input.judgement}]`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    taskType: 'review_intervention',
+    subject: input.subject || 'math',
+    targetCount: 1,
+    targetDuration,
+    priority,
+    rewardPoints: 0,
+  };
+}

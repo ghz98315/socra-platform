@@ -5,6 +5,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { parseReviewInterventionTaskMarkers } from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +28,8 @@ function parseConversationTaskMarkers(description: string | null | undefined) {
 }
 
 function mapTaskWithProgress(task: any) {
-  const markers = parseConversationTaskMarkers(task.description);
+  const conversationMarkers = parseConversationTaskMarkers(task.description);
+  const reviewMarkers = parseReviewInterventionTaskMarkers(task.description);
   const completion = Array.isArray(task.task_completions) ? task.task_completions[0] : null;
 
   return {
@@ -37,9 +39,12 @@ function mapTaskWithProgress(task: any) {
     completion_notes: completion?.notes || null,
     completion_completed_at: completion?.completed_at || null,
     is_conversation_intervention:
-      task.task_type === 'conversation_intervention' || Boolean(markers),
-    intervention_session_id: markers?.session_id || null,
-    intervention_risk_category: markers?.risk_category || null,
+      task.task_type === 'conversation_intervention' || Boolean(conversationMarkers),
+    is_review_intervention:
+      task.task_type === 'review_intervention' || Boolean(reviewMarkers),
+    intervention_session_id: conversationMarkers?.session_id || reviewMarkers?.session_id || null,
+    intervention_risk_category: conversationMarkers?.risk_category || null,
+    intervention_review_judgement: reviewMarkers?.judgement || null,
   };
 }
 
@@ -127,7 +132,7 @@ export async function GET(req: NextRequest) {
           )
         `)
         .eq('child_id', childId)
-        .neq('task_type', 'conversation_intervention')
+        .not('task_type', 'in', '(conversation_intervention,review_intervention)')
         .order('priority', { ascending: true })
         .order('due_date', { ascending: true, nullsFirst: false });
 

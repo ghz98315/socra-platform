@@ -51,8 +51,10 @@ interface Task {
   completion_notes: string | null;
   completion_completed_at: string | null;
   is_conversation_intervention: boolean;
+  is_review_intervention: boolean;
   intervention_session_id: string | null;
   intervention_risk_category: string | null;
+  intervention_review_judgement: string | null;
 }
 
 interface Student {
@@ -66,6 +68,7 @@ const taskTypeLabels: Record<string, { label: string; icon: any; color: string }
   review: { label: '复习', icon: RefreshCw, color: 'text-green-600 bg-green-100' },
   error_book: { label: '错题本', icon: AlertCircle, color: 'text-red-600 bg-red-100' },
   conversation_intervention: { label: '沟通干预', icon: AlertCircle, color: 'text-amber-700 bg-amber-100' },
+  review_intervention: { label: '复习补救', icon: RefreshCw, color: 'text-rose-700 bg-rose-100' },
   custom: { label: '自定义', icon: Star, color: 'text-purple-600 bg-purple-100' },
 };
 
@@ -246,7 +249,7 @@ export default function ParentTasksPage() {
   const pendingTasks = filteredTasks.filter((t) => t.status === 'pending');
   const inProgressTasks = filteredTasks.filter((t) => t.status === 'in_progress');
   const completedTasks = filteredTasks.filter((t) => t.status === 'completed');
-  const interventionTasks = filteredTasks.filter((t) => t.is_conversation_intervention);
+  const interventionTasks = filteredTasks.filter((t) => t.is_conversation_intervention || t.is_review_intervention);
   const pendingInterventionTasks = interventionTasks.filter((t) => t.status !== 'completed');
   const completedInterventionTasks = interventionTasks.filter((t) => t.status === 'completed');
 
@@ -332,9 +335,9 @@ export default function ParentTasksPage() {
               <Card className="border-amber-200 bg-amber-50/70">
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="font-medium text-amber-900">沟通干预任务闭环</div>
+                    <div className="font-medium text-amber-900">干预任务闭环</div>
                     <div className="mt-1 text-sm text-amber-800">
-                      当前共有 {interventionTasks.length} 条家长沟通干预任务，其中 {pendingInterventionTasks.length} 条待完成，
+                      当前共有 {interventionTasks.length} 条家长干预任务，其中 {pendingInterventionTasks.length} 条待完成，
                       {completedInterventionTasks.length} 条已完成。
                     </div>
                   </div>
@@ -616,10 +619,12 @@ function TaskCard({
   const typeInfo = taskTypeLabels[task.task_type] || taskTypeLabels.custom;
   const TypeIcon = typeInfo.icon;
   const progress = showProgress ? Math.round((task.progress_count / task.target_count) * 100) : 0;
-  const hasInterventionLink = Boolean(task.intervention_session_id && task.intervention_risk_category);
-  const interventionUrl = hasInterventionLink
+  const hasConversationInterventionLink = Boolean(task.intervention_session_id && task.intervention_risk_category);
+  const conversationInterventionUrl = hasConversationInterventionLink
     ? `/controls?focus=conversation&student_id=${task.child_id}&session_id=${task.intervention_session_id}&risk_category=${task.intervention_risk_category}`
     : '/controls?focus=conversation';
+  const hasReviewInterventionLink = Boolean(task.intervention_session_id && task.is_review_intervention);
+  const reviewInterventionUrl = hasReviewInterventionLink ? `/controls?student_id=${task.child_id}` : '/tasks';
 
   return (
     <div
@@ -688,10 +693,29 @@ function TaskCard({
                 : '这是从对话风险生成的家长干预任务，沟通完成后请补充反馈备注。'}
             </div>
             <button
-              onClick={() => (window.location.href = interventionUrl)}
+              onClick={() => (window.location.href = conversationInterventionUrl)}
               className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-amber-900 hover:text-amber-700"
             >
               查看闭环
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        {task.is_review_intervention && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
+            <div className="text-sm font-medium text-rose-900">
+              {task.status === 'completed' ? '已完成复习补救陪练' : '待执行复习补救陪练'}
+            </div>
+            <div className="mt-1 text-sm text-rose-800">
+              {task.completion_notes
+                ? `反馈备注：${task.completion_notes}`
+                : '这是由复习失败或假会自动回流生成的家长补救任务，建议先按任务说明陪孩子过一轮。'}
+            </div>
+            <button
+              onClick={() => (window.location.href = reviewInterventionUrl)}
+              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-rose-900 hover:text-rose-700"
+            >
+              查看家长洞察
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

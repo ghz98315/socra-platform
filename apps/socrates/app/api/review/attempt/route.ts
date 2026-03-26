@@ -6,6 +6,11 @@ import {
   type RootCauseCategory,
   type RootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
+import {
+  buildReviewInterventionTaskDraft,
+  parseReviewInterventionTaskMarkers,
+  type MasteryJudgement,
+} from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,18 +20,16 @@ const supabase = createClient(
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
 const VALID_ATTEMPT_MODES = new Set(['original', 'variant', 'mixed']);
 
-type MasteryJudgement =
-  | 'not_mastered'
-  | 'assisted_correct'
-  | 'explanation_gap'
-  | 'pseudo_mastery'
-  | 'provisional_mastered'
-  | 'mastered';
-
 type RootCauseSnapshot = {
   category: RootCauseCategory | null;
   subtype: RootCauseSubtype | null;
   statement: string | null;
+};
+
+type ParentTaskRow = {
+  id: string;
+  description: string | null;
+  status: string | null;
 };
 
 function nextDateByDays(days: number) {
@@ -197,18 +200,115 @@ function buildJudgementGuidance({
   }
 }
 
+async function ensureReviewInterventionTask({
+  studentId,
+  sessionId,
+  subject,
+  judgement,
+  rootCause,
+  judgementSummary,
+  nextActions,
+}: {
+  studentId: string;
+  sessionId: string;
+  subject: string | null | undefined;
+  judgement: MasteryJudgement;
+  rootCause: RootCauseSnapshot;
+  judgementSummary: string;
+  nextActions: string[];
+}) {
+  if (!['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement)) {
+    return null;
+  }
+
+  const { data: student, error: studentError } = await supabase
+    .from('profiles')
+    .select('id, parent_id')
+    .eq('id', studentId)
+    .maybeSingle();
+
+  if (studentError || !student?.parent_id) {
+    return null;
+  }
+
+  const { data: existingTasks, error: existingTasksError } = await supabase
+    .from('parent_tasks')
+    .select('id, description, status')
+    .eq('parent_id', student.parent_id)
+    .eq('child_id', studentId)
+    .eq('task_type', 'review_intervention')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (existingTasksError) {
+    console.error('[review/attempt] Failed to query review intervention tasks:', existingTasksError);
+    return null;
+  }
+
+  const duplicateTask = ((existingTasks || []) as ParentTaskRow[]).find((task) => {
+    if (task.status === 'completed' || task.status === 'cancelled') {
+      return false;
+    }
+
+    const markers = parseReviewInterventionTaskMarkers(task.description);
+    return markers?.session_id === sessionId && markers?.judgement === judgement;
+  });
+
+  if (duplicateTask) {
+    return duplicateTask.id;
+  }
+
+  const rootCauseContext = getRootCauseContext(rootCause);
+  const taskDraft = buildReviewInterventionTaskDraft({
+    sessionId,
+    judgement,
+    subject,
+    rootCauseDisplayLabel: rootCauseContext.displayLabel,
+    rootCauseStatement: rootCause.statement,
+    judgementSummary,
+    nextActions,
+  });
+
+  const { data: createdTask, error: createTaskError } = await supabase
+    .from('parent_tasks')
+    .insert({
+      parent_id: student.parent_id,
+      child_id: studentId,
+      title: taskDraft.title,
+      description: taskDraft.description,
+      task_type: taskDraft.taskType,
+      subject: taskDraft.subject,
+      target_count: taskDraft.targetCount,
+      target_duration: taskDraft.targetDuration,
+      priority: taskDraft.priority,
+      status: 'pending',
+      reward_points: taskDraft.rewardPoints,
+    })
+    .select('id')
+    .single();
+
+  if (createTaskError) {
+    console.error('[review/attempt] Failed to create review intervention task:', createTaskError);
+    return null;
+  }
+
+  return createdTask?.id ?? null;
+}
+
 async function sendParentRiskNotification({
   studentId,
   sessionId,
   reviewId,
   judgement,
   rootCause,
+  interventionTaskId,
 }: {
   studentId: string;
   sessionId: string;
   reviewId: string;
   judgement: MasteryJudgement;
   rootCause: RootCauseSnapshot;
+  interventionTaskId: string | null;
 }) {
   if (!['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement)) {
     return;
@@ -250,9 +350,10 @@ async function sendParentRiskNotification({
         root_cause_category: rootCause.category,
         root_cause_subtype: rootCause.subtype,
         root_cause_statement: rootCause.statement,
+        intervention_task_id: interventionTaskId,
       },
-      action_url: `/review/session/${reviewId}`,
-      action_text: '查看复习详情',
+      action_url: interventionTaskId ? `/tasks` : `/controls?student_id=${studentId}`,
+      action_text: interventionTaskId ? '查看家长任务' : '查看家长洞察',
       is_read: false,
       priority: 2,
     });
@@ -350,7 +451,7 @@ export async function POST(req: NextRequest) {
 
     const { data: sessionRootCause } = await supabase
       .from('error_sessions')
-      .select('primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement')
+      .select('subject, primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement')
       .eq('id', review.session_id)
       .eq('student_id', student_id)
       .maybeSingle();
@@ -360,6 +461,7 @@ export async function POST(req: NextRequest) {
       subtype: sessionRootCause?.primary_root_cause_subtype ?? fallbackRootCause.subtype,
       statement: sessionRootCause?.primary_root_cause_statement ?? fallbackRootCause.statement,
     };
+    const sessionSubject = typeof sessionRootCause?.subject === 'string' ? sessionRootCause.subject : null;
 
     const { count: attemptCount, error: attemptCountError } = await supabase
       .from('review_attempts')
@@ -468,19 +570,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Review attempt saved, but error session update failed' }, { status: 500 });
     }
 
+    const judgementGuidance = buildJudgementGuidance({
+      judgement,
+      rootCause: rootCauseSnapshot,
+    });
+    const rootCauseContext = getRootCauseContext(rootCauseSnapshot);
+    const interventionTaskId = await ensureReviewInterventionTask({
+      studentId: student_id,
+      sessionId: review.session_id,
+      subject: sessionSubject,
+      judgement,
+      rootCause: rootCauseSnapshot,
+      judgementSummary: judgementGuidance.summary,
+      nextActions: judgementGuidance.next_actions,
+    });
+
     await sendParentRiskNotification({
       studentId: student_id,
       sessionId: review.session_id,
       reviewId: review_id,
       judgement,
       rootCause: rootCauseSnapshot,
+      interventionTaskId,
     });
-
-    const judgementGuidance = buildJudgementGuidance({
-      judgement,
-      rootCause: rootCauseSnapshot,
-    });
-    const rootCauseContext = getRootCauseContext(rootCauseSnapshot);
 
     return NextResponse.json({
       success: true,
@@ -496,6 +608,7 @@ export async function POST(req: NextRequest) {
         root_cause_statement: rootCauseSnapshot.statement,
         judgement_summary: judgementGuidance.summary,
         next_actions: judgementGuidance.next_actions,
+        intervention_task_id: interventionTaskId,
       },
     });
   } catch (error: any) {
