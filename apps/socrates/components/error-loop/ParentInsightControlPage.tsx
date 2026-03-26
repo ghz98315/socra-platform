@@ -296,6 +296,7 @@ export default function ParentInsightControlPage() {
   const [insightReloadToken, setInsightReloadToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const conversationSectionRef = useRef<HTMLDivElement | null>(null);
+  const reviewSectionRef = useRef<HTMLDivElement | null>(null);
 
   const focusStudentId = searchParams.get('student_id');
   const focusSessionId = searchParams.get('session_id');
@@ -519,6 +520,28 @@ export default function ParentInsightControlPage() {
     selectedChildId,
   ]);
 
+  useEffect(() => {
+    if (
+      loading ||
+      focusSection !== 'review' ||
+      !focusSessionId ||
+      !reviewSectionRef.current ||
+      (focusStudentId && selectedChildId !== focusStudentId)
+    ) {
+      return;
+    }
+
+    const target = insights?.recent_risks.find((item) => item.session_id === focusSessionId);
+    if (!target) {
+      return;
+    }
+
+    reviewSectionRef.current.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, [focusSection, focusSessionId, focusStudentId, insights?.recent_risks, loading, selectedChildId]);
+
   async function saveTeenMode() {
     if (!selectedChildId) {
       return;
@@ -654,6 +677,9 @@ export default function ParentInsightControlPage() {
         (!focusRiskCategory || item.category === focusRiskCategory),
     ),
   );
+  const hasFocusedReviewRisk = Boolean(
+    insights?.recent_risks.some((item) => item.session_id === focusSessionId),
+  );
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.12),_transparent_30%),linear-gradient(180deg,_#fffaf2_0%,_#ffffff_42%,_#fff7ed_100%)]">
@@ -669,6 +695,9 @@ export default function ParentInsightControlPage() {
               <Badge className="bg-slate-100 text-slate-700">数学 V1</Badge>
               {focusSection === 'conversation' && hasFocusedConversationAlert ? (
                 <Badge className="bg-red-100 text-red-700">已聚焦对话风险</Badge>
+              ) : null}
+              {focusSection === 'review' && hasFocusedReviewRisk ? (
+                <Badge className="bg-amber-100 text-amber-700">已聚焦复习风险</Badge>
               ) : null}
               {selectedStudent ? (
                 <select
@@ -734,7 +763,12 @@ export default function ParentInsightControlPage() {
             </StatsRow>
 
             <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
-              <Card className="border-warm-100 bg-white/90">
+              <Card
+                ref={reviewSectionRef}
+                className={`border-warm-100 bg-white/90 ${
+                  focusSection === 'review' && hasFocusedReviewRisk ? 'ring-2 ring-amber-300' : ''
+                }`}
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-slate-900">
                     <Target className="h-5 w-5 text-warm-500" />
@@ -1153,7 +1187,14 @@ export default function ParentInsightControlPage() {
                 <CardContent className="space-y-3">
                   {insights?.recent_risks.length ? (
                     insights.recent_risks.map((item) => (
-                      <div key={`${item.session_id}-${item.title}`} className="rounded-2xl border border-slate-100 p-4">
+                      <div
+                        key={`${item.session_id}-${item.title}`}
+                        className={`rounded-2xl border p-4 ${
+                          focusSection === 'review' && item.session_id === focusSessionId
+                            ? 'border-amber-300 bg-amber-50/60'
+                            : 'border-slate-100'
+                        }`}
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <Badge className="bg-red-100 text-red-700">{item.title}</Badge>

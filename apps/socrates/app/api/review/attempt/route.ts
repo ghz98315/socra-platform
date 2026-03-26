@@ -352,8 +352,8 @@ async function sendParentRiskNotification({
         root_cause_statement: rootCause.statement,
         intervention_task_id: interventionTaskId,
       },
-      action_url: interventionTaskId ? `/tasks` : `/controls?student_id=${studentId}`,
-      action_text: interventionTaskId ? '查看家长任务' : '查看家长洞察',
+      action_url: `/controls?focus=review&student_id=${studentId}&session_id=${sessionId}`,
+      action_text: interventionTaskId ? '查看复习补救闭环' : '查看复习风险',
       is_read: false,
       priority: 2,
     });

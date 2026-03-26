@@ -624,7 +624,9 @@ function TaskCard({
     ? `/controls?focus=conversation&student_id=${task.child_id}&session_id=${task.intervention_session_id}&risk_category=${task.intervention_risk_category}`
     : '/controls?focus=conversation';
   const hasReviewInterventionLink = Boolean(task.intervention_session_id && task.is_review_intervention);
-  const reviewInterventionUrl = hasReviewInterventionLink ? `/controls?student_id=${task.child_id}` : '/tasks';
+  const reviewInterventionUrl = hasReviewInterventionLink
+    ? `/controls?focus=review&student_id=${task.child_id}&session_id=${task.intervention_session_id}`
+    : '/tasks';
 
   return (
     <div
