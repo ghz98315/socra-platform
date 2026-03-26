@@ -28,6 +28,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import {
   ATTEMPT_MODE_OPTIONS,
+  type ClosureGateItem,
   MASTERY_JUDGEMENT_META,
   MASTERY_TONE_STYLES,
   type AttemptMode,
@@ -80,6 +81,9 @@ interface ReviewResultPayload {
   root_cause_statement?: string | null;
   judgement_summary?: string | null;
   next_actions?: string[];
+  closure_gate_summary?: string | null;
+  closure_gate_pending_keys?: string[];
+  closure_gate_items?: ClosureGateItem[];
 }
 
 interface ReviewSession {
@@ -1056,6 +1060,60 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                           ))}
                         </div>
                       ) : null}
+                    </div>
+                  ) : null}
+
+                  {reviewResult.closure_gate_items?.length ? (
+                    <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-border/60 bg-white/90 px-5 py-4 text-left shadow-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">真会关门条件</p>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            reviewResult.closed
+                              ? 'border-emerald-200 text-emerald-700'
+                              : 'border-amber-200 text-amber-700',
+                          )}
+                        >
+                          {reviewResult.closed ? '已满足，可关闭' : '仍有条件未满足'}
+                        </Badge>
+                      </div>
+                      {reviewResult.closure_gate_summary ? (
+                        <p className="mt-3 text-sm leading-6 text-muted-foreground">{reviewResult.closure_gate_summary}</p>
+                      ) : null}
+                      <div className="mt-4 grid gap-3">
+                        {reviewResult.closure_gate_items.map((item) => (
+                          <div
+                            key={item.key}
+                            className={cn(
+                              'rounded-2xl border px-4 py-3',
+                              item.passed ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70',
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                {item.passed ? (
+                                  <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600" />
+                                ) : (
+                                  <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600" />
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">{item.label}</p>
+                                  <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
+                                </div>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  item.passed ? 'border-emerald-200 text-emerald-700' : 'border-amber-200 text-amber-700',
+                                )}
+                              >
+                                {item.passed ? '已满足' : '待补足'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
 

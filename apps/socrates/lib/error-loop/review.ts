@@ -8,6 +8,33 @@ export type MasteryJudgement =
   | 'provisional_mastered'
   | 'mastered';
 
+export type ClosureGateKey =
+  | 'independent_completion'
+  | 'no_ai_hints'
+  | 'explanation_quality'
+  | 'variant_transfer'
+  | 'interval_stability';
+
+export type ClosureGateItem = {
+  key: ClosureGateKey;
+  label: string;
+  shortLabel: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type ClosureGateAttemptEvidence = {
+  attemptMode: AttemptMode;
+  independentFirst: boolean;
+  askedAi: boolean;
+  aiHintCount: number;
+  solvedCorrectly: boolean;
+  explainedCorrectly: boolean;
+  variantPassed: boolean | null;
+};
+
+export const MIN_CLOSURE_REVIEW_STAGE = 3;
+
 export const ATTEMPT_MODE_OPTIONS: Array<{
   value: AttemptMode;
   label: string;
@@ -94,6 +121,90 @@ export const MASTERY_TONE_STYLES: Record<
     panel: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   },
 };
+
+function isIndependentAttempt(attempt: ClosureGateAttemptEvidence) {
+  return attempt.solvedCorrectly && attempt.independentFirst && !attempt.askedAi && attempt.aiHintCount <= 0;
+}
+
+function hasVariantTransferEvidence(attempt: ClosureGateAttemptEvidence) {
+  return (
+    (attempt.attemptMode === 'variant' || attempt.attemptMode === 'mixed') &&
+    isIndependentAttempt(attempt) &&
+    attempt.explainedCorrectly &&
+    attempt.variantPassed === true
+  );
+}
+
+export function evaluateClosureGates(input: {
+  reviewStage: number;
+  currentAttempt: ClosureGateAttemptEvidence;
+  previousAttempts?: ClosureGateAttemptEvidence[];
+}) {
+  const previousAttempts = input.previousAttempts || [];
+  const variantEvidencePassed = [input.currentAttempt, ...previousAttempts].some(hasVariantTransferEvidence);
+  const items: ClosureGateItem[] = [
+    {
+      key: 'independent_completion',
+      label: '独立完成原题/当前复习任务',
+      shortLabel: '独立完成',
+      passed: input.currentAttempt.solvedCorrectly && input.currentAttempt.independentFirst,
+      detail:
+        input.currentAttempt.solvedCorrectly && input.currentAttempt.independentFirst
+          ? '本轮是先独立作答后再提交。'
+          : '还没有做到先独立完成，当前结果不能作为关门依据。',
+    },
+    {
+      key: 'no_ai_hints',
+      label: '本轮未依赖 AI 提示',
+      shortLabel: '无提示依赖',
+      passed: !input.currentAttempt.askedAi && input.currentAttempt.aiHintCount <= 0,
+      detail:
+        !input.currentAttempt.askedAi && input.currentAttempt.aiHintCount <= 0
+          ? '本轮没有使用 AI 扶手，证据有效。'
+          : '本轮仍有 AI 提示介入，需要下一轮无提示独立验证。',
+    },
+    {
+      key: 'explanation_quality',
+      label: '能讲清楚关键依据',
+      shortLabel: '讲清依据',
+      passed: input.currentAttempt.explainedCorrectly,
+      detail: input.currentAttempt.explainedCorrectly
+        ? '不仅做对了，也能把为什么这样做讲清楚。'
+        : '答案可能对，但解释链路还不完整，暂时不能视为真会。',
+    },
+    {
+      key: 'variant_transfer',
+      label: '有独立通过的变式证据',
+      shortLabel: '变式迁移',
+      passed: variantEvidencePassed,
+      detail: variantEvidencePassed
+        ? '已经出现过至少一次独立通过变式的记录，说明方法具备迁移性。'
+        : '还缺少独立通过变式的证据，系统不会因为只会原题就关闭。',
+    },
+    {
+      key: 'interval_stability',
+      label: `跨间隔稳定到第 ${MIN_CLOSURE_REVIEW_STAGE} 轮`,
+      shortLabel: '跨间隔稳定',
+      passed: input.reviewStage >= MIN_CLOSURE_REVIEW_STAGE,
+      detail:
+        input.reviewStage >= MIN_CLOSURE_REVIEW_STAGE
+          ? `当前已到第 ${input.reviewStage} 轮复习，满足跨间隔稳定验证。`
+          : `当前是第 ${input.reviewStage} 轮，至少需要到第 ${MIN_CLOSURE_REVIEW_STAGE} 轮再关门。`,
+    },
+  ];
+  const pendingItems = items.filter((item) => !item.passed);
+
+  return {
+    eligibleForClosure: pendingItems.length === 0,
+    minClosureReviewStage: MIN_CLOSURE_REVIEW_STAGE,
+    pendingGateKeys: pendingItems.map((item) => item.key),
+    items,
+    summary:
+      pendingItems.length === 0
+        ? '已满足真会关门条件：独立完成、无提示、能讲清、能迁移、并完成跨间隔验证。'
+        : `暂不关闭，还差 ${pendingItems.map((item) => item.shortLabel).join('、')}。`,
+  };
+}
 
 export type ReviewInterventionTaskDraft = {
   title: string;

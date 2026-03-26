@@ -8,7 +8,10 @@ import {
 } from '@/lib/error-loop/taxonomy';
 import {
   buildReviewInterventionTaskDraft,
+  evaluateClosureGates,
   parseReviewInterventionTaskMarkers,
+  type AttemptMode,
+  type ClosureGateAttemptEvidence,
   type MasteryJudgement,
 } from '@/lib/error-loop/review';
 
@@ -32,50 +35,107 @@ type ParentTaskRow = {
   status: string | null;
 };
 
+type ReviewAttemptEvidenceRow = {
+  attempt_mode: AttemptMode;
+  independent_first: boolean | null;
+  asked_ai: boolean | null;
+  ai_hint_count: number | null;
+  solved_correctly: boolean | null;
+  explained_correctly: boolean | null;
+  variant_passed: boolean | null;
+};
+
 function nextDateByDays(days: number) {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString();
 }
 
-function determineJudgement({
-  independentFirst,
-  askedAi,
-  aiHintCount,
-  solvedCorrectly,
-  explainedCorrectly,
-  variantPassed,
-  reviewStage,
-}: {
+function toAttemptEvidence(input: {
+  attemptMode: AttemptMode;
   independentFirst: boolean;
   askedAi: boolean;
   aiHintCount: number;
   solvedCorrectly: boolean;
   explainedCorrectly: boolean;
   variantPassed: boolean | null;
+}): ClosureGateAttemptEvidence {
+  return {
+    attemptMode: input.attemptMode,
+    independentFirst: input.independentFirst,
+    askedAi: input.askedAi,
+    aiHintCount: input.aiHintCount,
+    solvedCorrectly: input.solvedCorrectly,
+    explainedCorrectly: input.explainedCorrectly,
+    variantPassed: input.variantPassed,
+  };
+}
+
+function mapAttemptRowToEvidence(row: ReviewAttemptEvidenceRow): ClosureGateAttemptEvidence {
+  return toAttemptEvidence({
+    attemptMode: row.attempt_mode,
+    independentFirst: row.independent_first !== false,
+    askedAi: row.asked_ai === true,
+    aiHintCount: Number.isFinite(row.ai_hint_count) ? Number(row.ai_hint_count) : 0,
+    solvedCorrectly: row.solved_correctly === true,
+    explainedCorrectly: row.explained_correctly === true,
+    variantPassed: row.variant_passed === true ? true : row.variant_passed === false ? false : null,
+  });
+}
+
+function determineJudgement({
+  currentAttempt,
+  previousAttempts,
+  reviewStage,
+}: {
+  currentAttempt: ClosureGateAttemptEvidence;
+  previousAttempts: ClosureGateAttemptEvidence[];
   reviewStage: number;
-}): MasteryJudgement {
-  if (!solvedCorrectly) {
-    return 'not_mastered';
+}): {
+  judgement: MasteryJudgement;
+  closureGate: ReturnType<typeof evaluateClosureGates>;
+} {
+  const buildClosureGate = () =>
+    evaluateClosureGates({
+      reviewStage,
+      currentAttempt,
+      previousAttempts,
+    });
+
+  if (!currentAttempt.solvedCorrectly) {
+    return {
+      judgement: 'not_mastered',
+      closureGate: buildClosureGate(),
+    };
   }
 
-  if (!independentFirst || askedAi || aiHintCount > 0) {
-    return 'assisted_correct';
+  if (!currentAttempt.independentFirst || currentAttempt.askedAi || currentAttempt.aiHintCount > 0) {
+    return {
+      judgement: 'assisted_correct',
+      closureGate: buildClosureGate(),
+    };
   }
 
-  if (!explainedCorrectly) {
-    return 'explanation_gap';
+  if (!currentAttempt.explainedCorrectly) {
+    return {
+      judgement: 'explanation_gap',
+      closureGate: buildClosureGate(),
+    };
   }
 
-  if (variantPassed === false) {
-    return 'pseudo_mastery';
+  if (currentAttempt.variantPassed === false) {
+    return {
+      judgement: 'pseudo_mastery',
+      closureGate: buildClosureGate(),
+    };
   }
 
-  if (reviewStage >= 2) {
-    return 'mastered';
-  }
+  const closureGate = buildClosureGate();
 
-  return 'provisional_mastered';
+  return {
+    judgement: closureGate.eligibleForClosure ? 'mastered' : 'provisional_mastered',
+    closureGate,
+  };
 }
 
 function deriveScheduleUpdate({
@@ -95,7 +155,7 @@ function deriveScheduleUpdate({
         is_completed: true,
         mastery_state: 'mastered_closed',
         last_judgement: judgement,
-        close_reason: 'stable_independent_recall',
+        close_reason: 'stable_independent_recall_with_transfer',
         reopened_count: currentReopenedCount,
         next_interval_days: null,
         closure_state: 'mastered_closed',
@@ -463,14 +523,18 @@ export async function POST(req: NextRequest) {
     };
     const sessionSubject = typeof sessionRootCause?.subject === 'string' ? sessionRootCause.subject : null;
 
-    const { count: attemptCount, error: attemptCountError } = await supabase
+    const { data: priorAttempts, error: priorAttemptsError } = await supabase
       .from('review_attempts')
-      .select('*', { count: 'exact', head: true })
-      .eq('review_id', review_id);
+      .select(
+        'attempt_mode, independent_first, asked_ai, ai_hint_count, solved_correctly, explained_correctly, variant_passed',
+      )
+      .eq('review_id', review_id)
+      .eq('student_id', student_id)
+      .order('attempt_no', { ascending: true });
 
-    if (attemptCountError) {
-      console.error('[review/attempt] Failed to count review attempts:', attemptCountError);
-      return NextResponse.json({ error: 'Failed to count existing review attempts' }, { status: 500 });
+    if (priorAttemptsError) {
+      console.error('[review/attempt] Failed to load existing review attempts:', priorAttemptsError);
+      return NextResponse.json({ error: 'Failed to load existing review attempts' }, { status: 500 });
     }
 
     const normalizedIndependentFirst = independent_first !== false;
@@ -486,16 +550,24 @@ export async function POST(req: NextRequest) {
         : null;
     const normalizedDurationSeconds =
       Number.isFinite(duration_seconds) && Number(duration_seconds) >= 0 ? Number(duration_seconds) : null;
-    const normalizedAttemptMode =
-      typeof attempt_mode === 'string' && VALID_ATTEMPT_MODES.has(attempt_mode) ? attempt_mode : 'original';
+    const normalizedAttemptMode: AttemptMode =
+      typeof attempt_mode === 'string' && VALID_ATTEMPT_MODES.has(attempt_mode)
+        ? (attempt_mode as AttemptMode)
+        : 'original';
 
-    const judgement = determineJudgement({
+    const currentAttemptEvidence = toAttemptEvidence({
+      attemptMode: normalizedAttemptMode,
       independentFirst: normalizedIndependentFirst,
       askedAi: normalizedAskedAi,
       aiHintCount: normalizedAiHintCount,
       solvedCorrectly: normalizedSolvedCorrectly,
       explainedCorrectly: normalizedExplainedCorrectly,
       variantPassed: normalizedVariantPassed,
+    });
+    const previousAttemptEvidence = ((priorAttempts || []) as ReviewAttemptEvidenceRow[]).map(mapAttemptRowToEvidence);
+    const { judgement, closureGate } = determineJudgement({
+      currentAttempt: currentAttemptEvidence,
+      previousAttempts: previousAttemptEvidence,
       reviewStage: review.review_stage ?? 1,
     });
 
@@ -505,7 +577,7 @@ export async function POST(req: NextRequest) {
         review_id,
         session_id: review.session_id,
         student_id,
-        attempt_no: (attemptCount || 0) + 1,
+        attempt_no: (priorAttempts?.length || 0) + 1,
         attempt_mode: normalizedAttemptMode,
         independent_first: normalizedIndependentFirst,
         asked_ai: normalizedAskedAi,
@@ -608,6 +680,9 @@ export async function POST(req: NextRequest) {
         root_cause_statement: rootCauseSnapshot.statement,
         judgement_summary: judgementGuidance.summary,
         next_actions: judgementGuidance.next_actions,
+        closure_gate_summary: closureGate.summary,
+        closure_gate_pending_keys: closureGate.pendingGateKeys,
+        closure_gate_items: closureGate.items,
         intervention_task_id: interventionTaskId,
       },
     });
