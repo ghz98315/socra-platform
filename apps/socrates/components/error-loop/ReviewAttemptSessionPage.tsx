@@ -74,6 +74,12 @@ interface ReviewResultPayload {
   mastery_judgement: MasteryJudgement;
   closed: boolean;
   next_review_at: string | null;
+  root_cause_label?: string | null;
+  root_cause_subtype_label?: string | null;
+  root_cause_display_label?: string | null;
+  root_cause_statement?: string | null;
+  judgement_summary?: string | null;
+  next_actions?: string[];
 }
 
 interface ReviewSession {
@@ -1024,6 +1030,34 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                       <p className="mt-1 text-sm">累计重开次数: {reviewResult.review.reopened_count}</p>
                     ) : null}
                   </div>
+
+                  {reviewResult.judgement_summary ? (
+                    <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-warm-200 bg-warm-50/80 px-5 py-4 text-left">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-warm-900">这次为什么这样判定</p>
+                        {reviewResult.root_cause_display_label ? (
+                          <Badge variant="outline" className="border-warm-200 text-warm-700">
+                            {reviewResult.root_cause_display_label}
+                          </Badge>
+                        ) : null}
+                        {reviewResult.root_cause_subtype_label && reviewResult.root_cause_label ? (
+                          <Badge variant="outline" className="border-warm-200 text-warm-700">
+                            归属: {reviewResult.root_cause_label}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-warm-900">{reviewResult.judgement_summary}</p>
+                      {reviewResult.next_actions?.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {reviewResult.next_actions.map((action) => (
+                            <Badge key={action} variant="secondary" className="bg-white text-warm-800">
+                              {action}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="mt-8 flex flex-wrap justify-center gap-3">
                     {!reviewResult.closed ? (

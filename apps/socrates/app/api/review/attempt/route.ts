@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  ROOT_CAUSE_CATEGORY_LABELS,
+  getRootCauseSubtypeOption,
+  type RootCauseCategory,
+  type RootCauseSubtype,
+} from '@/lib/error-loop/taxonomy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +22,12 @@ type MasteryJudgement =
   | 'pseudo_mastery'
   | 'provisional_mastered'
   | 'mastered';
+
+type RootCauseSnapshot = {
+  category: RootCauseCategory | null;
+  subtype: RootCauseSubtype | null;
+  statement: string | null;
+};
 
 function nextDateByDays(days: number) {
   const date = new Date();
@@ -124,16 +136,79 @@ function deriveScheduleUpdate({
   }
 }
 
+function getRootCauseContext(snapshot: RootCauseSnapshot) {
+  const categoryLabel = snapshot.category ? ROOT_CAUSE_CATEGORY_LABELS[snapshot.category] : null;
+  const subtypeLabel = snapshot.subtype ? getRootCauseSubtypeOption(snapshot.subtype)?.label ?? snapshot.subtype : null;
+
+  return {
+    categoryLabel,
+    subtypeLabel,
+    displayLabel: subtypeLabel || categoryLabel,
+  };
+}
+
+function buildJudgementGuidance({
+  judgement,
+  rootCause,
+}: {
+  judgement: MasteryJudgement;
+  rootCause: RootCauseSnapshot;
+}) {
+  const context = getRootCauseContext(rootCause);
+  const causeLabel = context.displayLabel || '当前根因';
+  const statementSuffix = rootCause.statement ? `当前暴露的稳定模式是：${rootCause.statement}` : '';
+
+  switch (judgement) {
+    case 'not_mastered':
+      return {
+        summary: `这次还没能独立做对，说明「${causeLabel}」没有被真正处理掉。${statementSuffix}`,
+        next_actions: ['回到错题详情，重新完成根因反思', `先把「${causeLabel}」对应的防错动作写出来再做题`, '下一轮先独立尝试，再决定是否求助'],
+      };
+    case 'assisted_correct':
+      return {
+        summary: `这次结果做对了，但仍依赖提示，说明「${causeLabel}」一离开扶手就容易复发。${statementSuffix}`,
+        next_actions: ['先做 2 分钟独立尝试，避免一上来就求助', `复习前先口头复述「${causeLabel}」的检查动作`, '做完后补一句“如果没提示，我刚才卡在哪里”'],
+      };
+    case 'explanation_gap':
+      return {
+        summary: `这次能得到答案，但还讲不清依据，说明「${causeLabel}」停留在结果层，没有真正内化。${statementSuffix}`,
+        next_actions: ['做完后必须用自己的话复述为什么这么做', '把关键依据写成 2 到 3 句短句', '下一轮优先验证“会不会讲清”，不是只看答案对不对'],
+      };
+    case 'pseudo_mastery':
+      return {
+        summary: `这次原题表现正常，但变式没过，说明你记住了表面路径，还没有把「${causeLabel}」处理到可迁移层。${statementSuffix}`,
+        next_actions: ['回到原题后立刻追加一题变式，不要只重复原题', `专门盯住「${causeLabel}」在变式里会怎么复发`, '下一轮先讲通用方法，再做题'],
+      };
+    case 'provisional_mastered':
+      return {
+        summary: `这次已经能独立做对并讲清，但系统还要跨间隔继续验证「${causeLabel}」是不是真的稳定。${statementSuffix}`,
+        next_actions: ['保留这次有效的防错动作，不要因为做对就撤掉', '下次复习继续先独立完成，再讲清思路', '优先验证变式题，而不是只回看原题'],
+      };
+    case 'mastered':
+      return {
+        summary: `这道题已经通过独立完成和间隔复习验证，「${causeLabel}」当前可以视为稳定关闭。${statementSuffix}`,
+        next_actions: ['保留这类题的通用解法，避免只记这一题', '遇到同结构题先独立迁移，不急着求助', '后续只做抽查，不再重复高频回炉'],
+      };
+    default:
+      return {
+        summary: statementSuffix || '这次复习结果已生成。',
+        next_actions: [],
+      };
+  }
+}
+
 async function sendParentRiskNotification({
   studentId,
   sessionId,
   reviewId,
   judgement,
+  rootCause,
 }: {
   studentId: string;
   sessionId: string;
   reviewId: string;
   judgement: MasteryJudgement;
+  rootCause: RootCauseSnapshot;
 }) {
   if (!['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement)) {
     return;
@@ -150,11 +225,15 @@ async function sendParentRiskNotification({
       return;
     }
 
+    const rootCauseContext = getRootCauseContext(rootCause);
+    const causeLabel = rootCauseContext.displayLabel;
+    const causePrefix = causeLabel ? `当前反复暴露的是「${causeLabel}」。` : '';
+    const statementSuffix = rootCause.statement ? `稳定模式：${rootCause.statement}` : '';
     const judgementMessageMap: Record<Exclude<MasteryJudgement, 'provisional_mastered' | 'mastered'>, string> = {
-      not_mastered: '本轮复习仍未做对，需要重新进入巩固流程。',
-      assisted_correct: '本轮复习做对了，但依赖了 AI 提示，暂不能判定为真正掌握。',
-      explanation_gap: '本轮复习做对了，但学生还无法清楚解释思路，仍需继续巩固。',
-      pseudo_mastery: '本轮复习原题表现正常，但变式未通过，属于典型“假会”信号。',
+      not_mastered: `本轮复习仍未独立做对。${causePrefix}${statementSuffix}`,
+      assisted_correct: `本轮复习虽然做对了，但仍依赖提示。${causePrefix}${statementSuffix}`,
+      explanation_gap: `本轮复习虽然有答案，但还讲不清依据。${causePrefix}${statementSuffix}`,
+      pseudo_mastery: `本轮复习出现典型“假会”信号，原题正常但变式没过。${causePrefix}${statementSuffix}`,
     };
 
     await supabase.from('notifications').insert({
@@ -168,6 +247,9 @@ async function sendParentRiskNotification({
         review_id: reviewId,
         mastery_judgement: judgement,
         risk_type: 'mastery_risk',
+        root_cause_category: rootCause.category,
+        root_cause_subtype: rootCause.subtype,
+        root_cause_statement: rootCause.statement,
       },
       action_url: `/review/session/${reviewId}`,
       action_text: '查看复习详情',
@@ -249,6 +331,35 @@ export async function POST(req: NextRequest) {
     if (!review?.id) {
       return NextResponse.json({ error: 'Review schedule not found for this student' }, { status: 404 });
     }
+
+    const metadataRootCause = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : null;
+    const fallbackRootCause: RootCauseSnapshot = {
+      category:
+        typeof metadataRootCause?.current_root_cause_category === 'string'
+          ? (metadataRootCause.current_root_cause_category as RootCauseCategory)
+          : null,
+      subtype:
+        typeof metadataRootCause?.current_root_cause_subtype === 'string'
+          ? (metadataRootCause.current_root_cause_subtype as RootCauseSubtype)
+          : null,
+      statement:
+        typeof metadataRootCause?.current_root_cause_statement === 'string'
+          ? metadataRootCause.current_root_cause_statement
+          : null,
+    };
+
+    const { data: sessionRootCause } = await supabase
+      .from('error_sessions')
+      .select('primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement')
+      .eq('id', review.session_id)
+      .eq('student_id', student_id)
+      .maybeSingle();
+
+    const rootCauseSnapshot: RootCauseSnapshot = {
+      category: sessionRootCause?.primary_root_cause_category ?? fallbackRootCause.category,
+      subtype: sessionRootCause?.primary_root_cause_subtype ?? fallbackRootCause.subtype,
+      statement: sessionRootCause?.primary_root_cause_statement ?? fallbackRootCause.statement,
+    };
 
     const { count: attemptCount, error: attemptCountError } = await supabase
       .from('review_attempts')
@@ -362,7 +473,14 @@ export async function POST(req: NextRequest) {
       sessionId: review.session_id,
       reviewId: review_id,
       judgement,
+      rootCause: rootCauseSnapshot,
     });
+
+    const judgementGuidance = buildJudgementGuidance({
+      judgement,
+      rootCause: rootCauseSnapshot,
+    });
+    const rootCauseContext = getRootCauseContext(rootCauseSnapshot);
 
     return NextResponse.json({
       success: true,
@@ -372,6 +490,12 @@ export async function POST(req: NextRequest) {
         mastery_judgement: judgement,
         closed: judgement === 'mastered',
         next_review_at: updatedReview?.next_review_at ?? null,
+        root_cause_label: rootCauseContext.categoryLabel,
+        root_cause_subtype_label: rootCauseContext.subtypeLabel,
+        root_cause_display_label: rootCauseContext.displayLabel,
+        root_cause_statement: rootCauseSnapshot.statement,
+        judgement_summary: judgementGuidance.summary,
+        next_actions: judgementGuidance.next_actions,
       },
     });
   } catch (error: any) {
