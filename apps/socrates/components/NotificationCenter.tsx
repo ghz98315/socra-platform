@@ -37,6 +37,12 @@ type ConversationRiskData = {
   intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
 };
 
+type MasteryRiskData = {
+  intervention_status?: string | null;
+  intervention_task_title?: string | null;
+  intervention_feedback_note?: string | null;
+};
+
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
   if (data?.intervention_effect === 'risk_lowered') {
     return 'Parent follow-up reduced the risk.';
@@ -55,6 +61,20 @@ function conversationRiskStatusLabel(data: ConversationRiskData | null | undefin
   }
 
   return null;
+}
+
+function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
+  if (!data?.intervention_status) {
+    return null;
+  }
+
+  if (data.intervention_status === 'completed') {
+    return data.intervention_feedback_note
+      ? `补救任务已完成: ${data.intervention_feedback_note}`
+      : '补救任务已完成。';
+  }
+
+  return data.intervention_task_title ? `已生成补救任务: ${data.intervention_task_title}` : '已生成补救任务。';
 }
 
 const notificationConfig: Record<
@@ -302,6 +322,11 @@ export function NotificationCenter() {
                       ? (notification.data as ConversationRiskData | null)
                       : null;
                   const conversationRiskStatus = conversationRiskStatusLabel(conversationRiskData);
+                  const masteryRiskData =
+                    notification.type === 'mastery_update'
+                      ? (notification.data as MasteryRiskData | null)
+                      : null;
+                  const masteryRiskStatus = masteryRiskStatusLabel(masteryRiskData);
 
                   return (
                     <div
@@ -334,6 +359,9 @@ export function NotificationCenter() {
                                 <p className="mt-1 text-xs text-red-600">
                                   {conversationRiskStatus}
                                 </p>
+                              ) : null}
+                              {masteryRiskStatus ? (
+                                <p className="mt-1 text-xs text-amber-700">{masteryRiskStatus}</p>
                               ) : null}
                             </div>
                             {!notification.is_read ? (

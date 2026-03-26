@@ -53,6 +53,7 @@ type TaskCompletionRow = {
 type ParentTaskRow = {
   id: string;
   description: string | null;
+  title?: string | null;
   status: string | null;
   completed_at: string | null;
   updated_at: string | null;
@@ -218,6 +219,85 @@ export async function GET(req: NextRequest) {
               intervention_completed_at: interventionCompletedAt,
               intervention_effect: interventionEffect,
               post_intervention_repeat_count: postInterventionRepeatCount,
+            },
+          };
+        });
+      }
+    }
+
+    const masteryRiskNotifications = enrichedNotifications.filter(
+      (item) =>
+        item.type === 'mastery_update' &&
+        item.data?.risk_type === 'mastery_risk' &&
+        item.data?.intervention_task_id,
+    );
+
+    if (masteryRiskNotifications.length > 0) {
+      const reviewTaskIds = Array.from(
+        new Set(
+          masteryRiskNotifications
+            .map((item) => String(item.data?.intervention_task_id || ''))
+            .filter(Boolean),
+        ),
+      );
+
+      const { data: reviewInterventionTasks, error: reviewInterventionTasksError } = await supabase
+        .from('parent_tasks')
+        .select(
+          `
+            id,
+            title,
+            status,
+            completed_at,
+            updated_at,
+            task_completions (
+              notes,
+              completed_at,
+              updated_at
+            )
+          `,
+        )
+        .eq('parent_id', userId)
+        .eq('task_type', 'review_intervention')
+        .in('id', reviewTaskIds);
+
+      if (reviewInterventionTasksError) {
+        console.error(
+          '[Notifications API] Failed to enrich mastery risk notifications:',
+          reviewInterventionTasksError,
+        );
+      } else {
+        const taskMap = new Map<string, ParentTaskRow>();
+        for (const task of (reviewInterventionTasks || []) as ParentTaskRow[]) {
+          taskMap.set(task.id, task);
+        }
+
+        enrichedNotifications = enrichedNotifications.map((notification) => {
+          if (
+            notification.type !== 'mastery_update' ||
+            notification.data?.risk_type !== 'mastery_risk' ||
+            !notification.data?.intervention_task_id
+          ) {
+            return notification;
+          }
+
+          const taskId = String(notification.data.intervention_task_id);
+          const matchedTask = taskMap.get(taskId);
+          if (!matchedTask) {
+            return notification;
+          }
+
+          const completion = getTaskCompletion(matchedTask);
+          const interventionCompletedAt = completion?.completed_at ?? matchedTask.completed_at ?? null;
+
+          return {
+            ...notification,
+            data: {
+              ...notification.data,
+              intervention_task_title: matchedTask.title ?? null,
+              intervention_status: matchedTask.status ?? 'pending',
+              intervention_feedback_note: completion?.notes ?? null,
+              intervention_completed_at: interventionCompletedAt,
             },
           };
         });
