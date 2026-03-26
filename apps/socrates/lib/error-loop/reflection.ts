@@ -1,6 +1,8 @@
 import {
+  ROOT_CAUSE_PATTERN_HINT,
   ROOT_CAUSE_CATEGORY_LABELS,
   getRootCauseSubtypeOption,
+  isCarelessnessLike,
   type RootCauseCategory,
   type RootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
@@ -26,11 +28,30 @@ export interface GuidedReflectionAnswer {
   answered_at?: string;
 }
 
+export interface GuidedReflectionMap {
+  error_moment: string | null;
+  breakpoint: string | null;
+  root_pattern: string | null;
+  prevention_actions: string[];
+}
+
+export interface GuidedReflectionQuality {
+  depth_score: number;
+  depth_label: 'surface' | 'partial' | 'deep';
+  surface_only_risk: boolean;
+  has_root_pattern: boolean;
+  has_action_commitment: boolean;
+  is_ready_for_transfer_check: boolean;
+  coach_signal: string;
+}
+
 export interface GuidedReflectionState {
   current_step: number;
   completed: boolean;
   steps: GuidedReflectionAnswer[];
   student_summary: string | null;
+  reflection_map?: GuidedReflectionMap;
+  reflection_quality?: GuidedReflectionQuality;
   updated_at?: string;
 }
 
@@ -253,5 +274,92 @@ export function createEmptyGuidedReflectionState(): GuidedReflectionState {
     completed: false,
     steps: [],
     student_summary: null,
+  };
+}
+
+function getAnswerMap(steps: GuidedReflectionAnswer[]) {
+  return new Map(steps.map((item) => [item.key, item.answer.trim()]));
+}
+
+function splitActionCommitment(answer: string, fixActions: string[]) {
+  const rawItems = answer
+    .split(/\r?\n|,|，|；|;|、/)
+    .map((item) => item.replace(/^\d+[\.\)]\s*/, '').trim())
+    .filter(Boolean);
+
+  if (rawItems.length > 0) {
+    return rawItems.slice(0, 3);
+  }
+
+  return fixActions.filter(Boolean).slice(0, 3);
+}
+
+function isSurfaceOnlyPattern(value: string | null | undefined) {
+  if (!value) {
+    return true;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return true;
+  }
+
+  return isCarelessnessLike(normalized) || !ROOT_CAUSE_PATTERN_HINT.test(normalized);
+}
+
+export function buildGuidedReflectionMap({
+  reflection,
+  rootCauseStatement,
+  fixActions,
+}: {
+  reflection: GuidedReflectionState;
+  rootCauseStatement: string;
+  fixActions: string[];
+}): GuidedReflectionMap {
+  const answerMap = getAnswerMap(reflection.steps);
+  const actionAnswer = answerMap.get('commit_next_action') || '';
+  const reflectedRootPattern = answerMap.get('locate_root_pattern') || rootCauseStatement;
+
+  return {
+    error_moment: answerMap.get('replay_error_moment') || null,
+    breakpoint: answerMap.get('find_breakpoint') || null,
+    root_pattern: reflectedRootPattern || null,
+    prevention_actions: splitActionCommitment(actionAnswer, fixActions),
+  };
+}
+
+export function assessGuidedReflectionQuality({
+  reflection,
+  reflectionMap,
+}: {
+  reflection: GuidedReflectionState;
+  reflectionMap: GuidedReflectionMap;
+}): GuidedReflectionQuality {
+  const answeredCount = reflection.steps.filter((item) => item.answer.trim().length > 0).length;
+  const hasRootPattern = Boolean(reflectionMap.root_pattern && !isSurfaceOnlyPattern(reflectionMap.root_pattern));
+  const hasActionCommitment = reflectionMap.prevention_actions.length >= 2;
+  const surfaceOnlyRisk = isSurfaceOnlyPattern(reflectionMap.root_pattern);
+  const depthScore = Math.min(
+    4,
+    answeredCount + (hasRootPattern ? 1 : 0) + (hasActionCommitment ? 1 : 0) - (surfaceOnlyRisk ? 1 : 0),
+  );
+  const depthLabel: GuidedReflectionQuality['depth_label'] =
+    depthScore >= 4 ? 'deep' : depthScore >= 2 ? 'partial' : 'surface';
+  const isReadyForTransferCheck = reflection.completed && hasRootPattern && hasActionCommitment && !surfaceOnlyRisk;
+
+  return {
+    depth_score: depthScore,
+    depth_label: depthLabel,
+    surface_only_risk: surfaceOnlyRisk,
+    has_root_pattern: hasRootPattern,
+    has_action_commitment: hasActionCommitment,
+    is_ready_for_transfer_check: isReadyForTransferCheck,
+    coach_signal: isReadyForTransferCheck
+      ? '已追到可执行根因，可以进入变式验证和迁移检查。'
+      : surfaceOnlyRisk
+        ? '还停留在表面描述，需要继续追到行为习惯、策略或知识调用模式。'
+        : !hasActionCommitment
+          ? '已经接近根因，但还要写出下次先做什么，才能进入下一轮验证。'
+          : '追问还不够完整，继续把断点和稳定模式说透。',
   };
 }

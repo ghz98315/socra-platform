@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 import {
+  assessGuidedReflectionQuality,
+  buildGuidedReflectionMap,
   buildGuidedReflectionSteps,
   createEmptyGuidedReflectionState,
   type GuidedReflectionState,
@@ -47,6 +49,14 @@ function normalizeGuidedReflection(value: DiagnosisRow['guided_reflection']): Gu
     completed: raw.completed === true,
     steps: steps.map((item) => item as GuidedReflectionState['steps'][number]),
     student_summary: typeof raw.student_summary === 'string' ? raw.student_summary : null,
+    reflection_map:
+      raw.reflection_map && typeof raw.reflection_map === 'object' && !Array.isArray(raw.reflection_map)
+        ? (raw.reflection_map as GuidedReflectionState['reflection_map'])
+        : undefined,
+    reflection_quality:
+      raw.reflection_quality && typeof raw.reflection_quality === 'object' && !Array.isArray(raw.reflection_quality)
+        ? (raw.reflection_quality as GuidedReflectionState['reflection_quality'])
+        : undefined,
     updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : undefined,
   };
 }
@@ -121,11 +131,28 @@ export async function GET(req: NextRequest) {
     });
     const nextStep =
       reflection.completed ? null : stepDefinitions[Math.min(reflection.current_step, stepDefinitions.length - 1)];
+    const reflectionMap =
+      reflection.reflection_map ||
+      buildGuidedReflectionMap({
+        reflection,
+        rootCauseStatement: diagnosis.root_cause_statement,
+        fixActions: diagnosis.fix_actions || [],
+      });
+    const reflectionQuality =
+      reflection.reflection_quality ||
+      assessGuidedReflectionQuality({
+        reflection,
+        reflectionMap,
+      });
 
     return NextResponse.json({
       success: true,
       data: {
-        guided_reflection: reflection,
+        guided_reflection: {
+          ...reflection,
+          reflection_map: reflectionMap,
+          reflection_quality: reflectionQuality,
+        },
         next_step: reflection.current_step,
         next_question: nextStep ?? null,
         is_ready_to_summarize: reflection.completed,
@@ -203,20 +230,32 @@ export async function POST(req: NextRequest) {
 
     const nextStepIndex = normalizedStep + 1;
     const completed = nextStepIndex >= stepDefinitions.length;
+    const nextReflectionBase: GuidedReflectionState = {
+      ...reflection,
+      steps: nextSteps,
+      completed,
+    };
+    const reflectionMap = buildGuidedReflectionMap({
+      reflection: nextReflectionBase,
+      rootCauseStatement: diagnosis.root_cause_statement,
+      fixActions: diagnosis.fix_actions || [],
+    });
+    const reflectionQuality = assessGuidedReflectionQuality({
+      reflection: nextReflectionBase,
+      reflectionMap,
+    });
     const updatedReflection: GuidedReflectionState = {
       current_step: completed ? stepDefinitions.length - 1 : nextStepIndex,
       completed,
       steps: nextSteps,
+      reflection_map: reflectionMap,
+      reflection_quality: reflectionQuality,
       student_summary: completed
         ? buildStudentSummary({
             rootCauseCategory: diagnosis.root_cause_category,
             rootCauseSubtype: diagnosis.root_cause_subtype,
             rootCauseStatement: diagnosis.root_cause_statement,
-            reflection: {
-              ...reflection,
-              steps: nextSteps,
-              completed: true,
-            },
+            reflection: nextReflectionBase,
             fixActions: diagnosis.fix_actions || [],
           })
         : null,

@@ -26,6 +26,21 @@ interface GuidedReflectionState {
     answered_at?: string;
   }>;
   student_summary: string | null;
+  reflection_map?: {
+    error_moment: string | null;
+    breakpoint: string | null;
+    root_pattern: string | null;
+    prevention_actions: string[];
+  };
+  reflection_quality?: {
+    depth_score: number;
+    depth_label: 'surface' | 'partial' | 'deep';
+    surface_only_risk: boolean;
+    has_root_pattern: boolean;
+    has_action_commitment: boolean;
+    is_ready_for_transfer_check: boolean;
+    coach_signal: string;
+  };
   updated_at?: string;
 }
 
@@ -75,6 +90,8 @@ export function GuidedReflectionPanel({
   const effectiveSubtypeLabel =
     payload?.diagnosis_snapshot?.root_cause_subtype_label ||
     (rootCauseSubtype ? getRootCauseSubtypeOption(rootCauseSubtype)?.label ?? null : null);
+  const reflectionMap = payload?.guided_reflection.reflection_map;
+  const reflectionQuality = payload?.guided_reflection.reflection_quality;
 
   useEffect(() => {
     async function loadReflection() {
@@ -204,6 +221,67 @@ export function GuidedReflectionPanel({
                     <p className="mt-3 whitespace-pre-wrap text-sm text-foreground">{step.answer}</p>
                   </div>
                 ))}
+              </div>
+            ) : null}
+
+            {reflectionMap ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-900">根因追问链</p>
+                  {reflectionQuality ? (
+                    <Badge
+                      variant="outline"
+                      className={
+                        reflectionQuality.depth_label === 'deep'
+                          ? 'border-emerald-200 text-emerald-700'
+                          : reflectionQuality.depth_label === 'partial'
+                            ? 'border-amber-200 text-amber-700'
+                            : 'border-red-200 text-red-700'
+                      }
+                    >
+                      {reflectionQuality.depth_label === 'deep'
+                        ? '已挖到稳定模式'
+                        : reflectionQuality.depth_label === 'partial'
+                          ? '还可再挖深'
+                          : '仍偏表面'}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="mt-4 grid gap-3">
+                  {reflectionMap.error_moment ? (
+                    <div className="rounded-2xl bg-white px-4 py-3">
+                      <p className="text-xs font-medium text-slate-500">出错瞬间</p>
+                      <p className="mt-1 text-sm text-slate-900">{reflectionMap.error_moment}</p>
+                    </div>
+                  ) : null}
+                  {reflectionMap.breakpoint ? (
+                    <div className="rounded-2xl bg-white px-4 py-3">
+                      <p className="text-xs font-medium text-slate-500">真正断点</p>
+                      <p className="mt-1 text-sm text-slate-900">{reflectionMap.breakpoint}</p>
+                    </div>
+                  ) : null}
+                  {reflectionMap.root_pattern ? (
+                    <div className="rounded-2xl bg-white px-4 py-3">
+                      <p className="text-xs font-medium text-slate-500">稳定根因模式</p>
+                      <p className="mt-1 text-sm text-slate-900">{reflectionMap.root_pattern}</p>
+                    </div>
+                  ) : null}
+                  {reflectionMap.prevention_actions?.length ? (
+                    <div className="rounded-2xl bg-white px-4 py-3">
+                      <p className="text-xs font-medium text-slate-500">下次先做的动作</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {reflectionMap.prevention_actions.map((action) => (
+                          <Badge key={action} variant="secondary" className="bg-slate-100 text-slate-700">
+                            {action}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                {reflectionQuality ? (
+                  <p className="mt-4 text-sm leading-6 text-slate-600">{reflectionQuality.coach_signal}</p>
+                ) : null}
               </div>
             ) : null}
 
