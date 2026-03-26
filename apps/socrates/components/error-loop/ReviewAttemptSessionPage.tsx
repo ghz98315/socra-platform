@@ -84,6 +84,29 @@ interface ReviewResultPayload {
   closure_gate_summary?: string | null;
   closure_gate_pending_keys?: string[];
   closure_gate_items?: ClosureGateItem[];
+  variant_evidence?: {
+    total_variants: number;
+    practiced_variants: number;
+    successful_variants: number;
+    independent_success_variants: number;
+    latest_practiced_at: string | null;
+    qualified_transfer_evidence: boolean;
+    recommended_attempt_mode: AttemptMode;
+    missing_reason: string | null;
+    evidence_label: string;
+  };
+}
+
+interface VariantEvidenceSummary {
+  total_variants: number;
+  practiced_variants: number;
+  successful_variants: number;
+  independent_success_variants: number;
+  latest_practiced_at: string | null;
+  qualified_transfer_evidence: boolean;
+  recommended_attempt_mode: AttemptMode;
+  missing_reason: string | null;
+  evidence_label: string;
 }
 
 interface ReviewSession {
@@ -262,6 +285,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
   const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [reviewResult, setReviewResult] = useState<ReviewResultPayload | null>(null);
+  const [variantEvidence, setVariantEvidence] = useState<VariantEvidenceSummary | null>(null);
   const [recallStartedAt, setRecallStartedAt] = useState<number | null>(null);
 
   useEffect(() => {
@@ -324,6 +348,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
 
           if (response.ok) {
             setAttemptHistory(payload.data || []);
+            setVariantEvidence(payload.variant_evidence || null);
           }
         }
       } catch (error) {
@@ -468,6 +493,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
       }
 
       setReviewResult(payload.data);
+      setVariantEvidence(payload.data.variant_evidence || null);
       setReviewSession((current) =>
         current
           ? {
@@ -867,6 +893,52 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                       </div>
                     </div>
                   </section>
+
+                  {variantEvidence ? (
+                    <section
+                      className={cn(
+                        'rounded-2xl border px-4 py-4',
+                        variantEvidence.qualified_transfer_evidence
+                          ? 'border-emerald-200 bg-emerald-50/70'
+                          : 'border-blue-200 bg-blue-50/70',
+                      )}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">真实变式证据</p>
+                        <Badge
+                          variant="outline"
+                          className={
+                            variantEvidence.qualified_transfer_evidence
+                              ? 'border-emerald-200 text-emerald-700'
+                              : 'border-blue-200 text-blue-700'
+                          }
+                        >
+                          {variantEvidence.qualified_transfer_evidence ? '已具备独立变式证据' : '还缺独立变式证据'}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">{variantEvidence.evidence_label}</p>
+                      {variantEvidence.latest_practiced_at ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          最近练习: {formatDateTime(variantEvidence.latest_practiced_at)}
+                        </p>
+                      ) : null}
+                      {variantEvidence.missing_reason ? (
+                        <p className="mt-2 text-sm text-blue-800">{variantEvidence.missing_reason}</p>
+                      ) : null}
+                      {!variantEvidence.qualified_transfer_evidence ? (
+                        <div className="mt-3">
+                          <Button
+                            variant="outline"
+                            onClick={() => router.push(`/error-book/${reviewSession.sessionId}`)}
+                            className="gap-2"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            先去做变式练习
+                          </Button>
+                        </div>
+                      ) : null}
+                    </section>
+                  ) : null}
 
                   {(attemptForm.attemptMode === 'variant' || attemptForm.attemptMode === 'mixed') ? (
                     <section className="space-y-3">

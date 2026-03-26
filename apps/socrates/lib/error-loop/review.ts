@@ -139,9 +139,12 @@ export function evaluateClosureGates(input: {
   reviewStage: number;
   currentAttempt: ClosureGateAttemptEvidence;
   previousAttempts?: ClosureGateAttemptEvidence[];
+  externalVariantEvidencePassed?: boolean;
 }) {
   const previousAttempts = input.previousAttempts || [];
-  const variantEvidencePassed = [input.currentAttempt, ...previousAttempts].some(hasVariantTransferEvidence);
+  const variantEvidencePassed =
+    [input.currentAttempt, ...previousAttempts].some(hasVariantTransferEvidence) ||
+    input.externalVariantEvidencePassed === true;
   const items: ClosureGateItem[] = [
     {
       key: 'independent_completion',

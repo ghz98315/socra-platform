@@ -18,6 +18,11 @@ import {
   type AttemptMode,
   type ClosureGateAttemptEvidence,
 } from '@/lib/error-loop/review';
+import {
+  summarizeVariantEvidence,
+  type VariantPracticeLogEvidenceRow,
+  type VariantQuestionEvidenceRow,
+} from '@/lib/error-loop/variant-evidence';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,6 +109,13 @@ type ReviewAttemptRow = {
   mastery_judgement: string;
   created_at: string;
 };
+
+type VariantQuestionRow = VariantQuestionEvidenceRow & {
+  original_session_id: string;
+  student_id: string;
+};
+
+type VariantPracticeLogRow = VariantPracticeLogEvidenceRow;
 
 type ChatMessageRow = {
   id: string;
@@ -492,6 +504,8 @@ export async function GET(req: NextRequest) {
       diagnosesResult,
       reviewSchedulesResult,
       reviewAttemptsResult,
+      variantQuestionsResult,
+      variantPracticeLogsResult,
       chatMessagesResult,
       interventionTasksResult,
     ] = await Promise.all([
@@ -544,6 +558,21 @@ export async function GET(req: NextRequest) {
         : Promise.resolve({ data: [], error: null }),
       sessionIds.length > 0
         ? supabaseAdmin
+            .from('variant_questions')
+            .select('id, original_session_id, student_id, status, attempts, correct_attempts, last_practiced_at, completed_at, created_at')
+            .eq('student_id', selectedStudent.id)
+            .in('original_session_id', sessionIds)
+        : Promise.resolve({ data: [], error: null }),
+      sessionIds.length > 0
+        ? supabaseAdmin
+            .from('variant_practice_logs')
+            .select('variant_id, is_correct, hints_used, created_at')
+            .eq('student_id', selectedStudent.id)
+            .order('created_at', { ascending: false })
+            .limit(500)
+        : Promise.resolve({ data: [], error: null }),
+      sessionIds.length > 0
+        ? supabaseAdmin
             .from('chat_messages')
             .select('id, session_id, role, content, created_at')
             .in('session_id', sessionIds)
@@ -592,6 +621,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to load review attempts' }, { status: 500 });
     }
 
+    if (variantQuestionsResult.error) {
+      console.error('[parent/insights] Failed to load variant questions:', variantQuestionsResult.error);
+      return NextResponse.json({ error: 'Failed to load variant questions' }, { status: 500 });
+    }
+
+    if (variantPracticeLogsResult.error) {
+      console.error('[parent/insights] Failed to load variant practice logs:', variantPracticeLogsResult.error);
+      return NextResponse.json({ error: 'Failed to load variant practice logs' }, { status: 500 });
+    }
+
     if (chatMessagesResult.error) {
       console.error('[parent/insights] Failed to load chat messages:', chatMessagesResult.error);
       return NextResponse.json({ error: 'Failed to load chat messages' }, { status: 500 });
@@ -605,6 +644,8 @@ export async function GET(req: NextRequest) {
     const diagnoses = (diagnosesResult.data ?? []) as DiagnosisRow[];
     const reviewSchedules = (reviewSchedulesResult.data ?? []) as ReviewScheduleRow[];
     const reviewAttempts = (reviewAttemptsResult.data ?? []) as ReviewAttemptRow[];
+    const variantQuestions = (variantQuestionsResult.data ?? []) as VariantQuestionRow[];
+    const variantPracticeLogs = (variantPracticeLogsResult.data ?? []) as VariantPracticeLogRow[];
     const chatMessages = (chatMessagesResult.data ?? []) as ChatMessageRow[];
     const interventionTasks = (interventionTasksResult.data ?? []) as ParentTaskRow[];
 
@@ -614,6 +655,23 @@ export async function GET(req: NextRequest) {
       const current = attemptsBySession.get(attempt.session_id) ?? [];
       current.push(attempt);
       attemptsBySession.set(attempt.session_id, current);
+    }
+    const variantQuestionIds = new Set(variantQuestions.map((question) => question.id));
+    const variantQuestionsBySession = new Map<string, VariantQuestionRow[]>();
+    for (const question of variantQuestions) {
+      const current = variantQuestionsBySession.get(question.original_session_id) ?? [];
+      current.push(question);
+      variantQuestionsBySession.set(question.original_session_id, current);
+    }
+    const variantLogsByVariantId = new Map<string, VariantPracticeLogRow[]>();
+    for (const log of variantPracticeLogs) {
+      if (!variantQuestionIds.has(log.variant_id)) {
+        continue;
+      }
+
+      const current = variantLogsByVariantId.get(log.variant_id) ?? [];
+      current.push(log);
+      variantLogsByVariantId.set(log.variant_id, current);
     }
 
     const rootCauseAggregates = new Map<string, AggregateBucket>();
@@ -765,12 +823,18 @@ export async function GET(req: NextRequest) {
         const latestAttempt = attempts[0];
         const diagnosis = diagnoses.find((item) => item.session_id === session.id);
         const reflectionQuality = getReflectionQualitySnapshot(diagnosis?.guided_reflection);
+        const sessionVariantQuestions = variantQuestionsBySession.get(session.id) ?? [];
+        const variantEvidence = summarizeVariantEvidence({
+          questions: sessionVariantQuestions,
+          logs: sessionVariantQuestions.flatMap((question) => variantLogsByVariantId.get(question.id) ?? []),
+        });
         const closureGate =
           review && latestAttempt
             ? evaluateClosureGates({
                 reviewStage: review.review_stage ?? 1,
                 currentAttempt: toAttemptEvidence(latestAttempt),
                 previousAttempts: attempts.slice(1).map(toAttemptEvidence),
+                externalVariantEvidencePassed: variantEvidence.qualified_transfer_evidence,
               })
             : null;
         const pendingClosureLabels =

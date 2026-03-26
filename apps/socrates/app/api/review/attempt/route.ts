@@ -14,6 +14,12 @@ import {
   type ClosureGateAttemptEvidence,
   type MasteryJudgement,
 } from '@/lib/error-loop/review';
+import {
+  summarizeVariantEvidence,
+  type VariantEvidenceSummary,
+  type VariantPracticeLogEvidenceRow,
+  type VariantQuestionEvidenceRow,
+} from '@/lib/error-loop/variant-evidence';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,6 +50,10 @@ type ReviewAttemptEvidenceRow = {
   explained_correctly: boolean | null;
   variant_passed: boolean | null;
 };
+
+type VariantQuestionRow = VariantQuestionEvidenceRow;
+
+type VariantPracticeLogRow = VariantPracticeLogEvidenceRow;
 
 function nextDateByDays(days: number) {
   const date = new Date();
@@ -83,13 +93,59 @@ function mapAttemptRowToEvidence(row: ReviewAttemptEvidenceRow): ClosureGateAtte
   });
 }
 
+async function loadVariantEvidenceForSession({
+  sessionId,
+  studentId,
+}: {
+  sessionId: string;
+  studentId: string;
+}): Promise<VariantEvidenceSummary> {
+  const { data: variantQuestions, error: variantQuestionsError } = await supabase
+    .from('variant_questions')
+    .select('id, status, attempts, correct_attempts, last_practiced_at, completed_at, created_at')
+    .eq('original_session_id', sessionId)
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false });
+
+  if (variantQuestionsError) {
+    console.error('[review/attempt] Failed to load variant questions:', variantQuestionsError);
+    return summarizeVariantEvidence({ questions: [], logs: [] });
+  }
+
+  const questions = (variantQuestions || []) as VariantQuestionRow[];
+  if (questions.length === 0) {
+    return summarizeVariantEvidence({ questions: [], logs: [] });
+  }
+
+  const variantIds = questions.map((question) => question.id);
+  const { data: practiceLogs, error: practiceLogsError } = await supabase
+    .from('variant_practice_logs')
+    .select('variant_id, is_correct, hints_used, created_at')
+    .in('variant_id', variantIds)
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (practiceLogsError) {
+    console.error('[review/attempt] Failed to load variant practice logs:', practiceLogsError);
+    return summarizeVariantEvidence({ questions, logs: [] });
+  }
+
+  return summarizeVariantEvidence({
+    questions,
+    logs: (practiceLogs || []) as VariantPracticeLogRow[],
+  });
+}
+
 function determineJudgement({
   currentAttempt,
   previousAttempts,
+  externalVariantEvidencePassed,
   reviewStage,
 }: {
   currentAttempt: ClosureGateAttemptEvidence;
   previousAttempts: ClosureGateAttemptEvidence[];
+  externalVariantEvidencePassed: boolean;
   reviewStage: number;
 }): {
   judgement: MasteryJudgement;
@@ -100,6 +156,7 @@ function determineJudgement({
       reviewStage,
       currentAttempt,
       previousAttempts,
+      externalVariantEvidencePassed,
     });
 
   if (!currentAttempt.solvedCorrectly) {
@@ -443,10 +500,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch review attempts' }, { status: 500 });
     }
 
+    const { data: reviewSchedule, error: reviewScheduleError } = await supabase
+      .from('review_schedule')
+      .select('session_id')
+      .eq('id', reviewId)
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (reviewScheduleError) {
+      console.error('[review/attempt] Failed to load review schedule for variant evidence:', reviewScheduleError);
+      return NextResponse.json({ error: 'Failed to load review schedule' }, { status: 500 });
+    }
+
+    const variantEvidence = reviewSchedule?.session_id
+      ? await loadVariantEvidenceForSession({
+          sessionId: reviewSchedule.session_id,
+          studentId,
+        })
+      : summarizeVariantEvidence({ questions: [], logs: [] });
+
     return NextResponse.json({
       success: true,
       data: data ?? [],
       count: data?.length ?? 0,
+      variant_evidence: variantEvidence,
     });
   } catch (error: any) {
     console.error('[review/attempt] GET API error:', error);
@@ -565,9 +642,14 @@ export async function POST(req: NextRequest) {
       variantPassed: normalizedVariantPassed,
     });
     const previousAttemptEvidence = ((priorAttempts || []) as ReviewAttemptEvidenceRow[]).map(mapAttemptRowToEvidence);
+    const variantEvidence = await loadVariantEvidenceForSession({
+      sessionId: review.session_id,
+      studentId: student_id,
+    });
     const { judgement, closureGate } = determineJudgement({
       currentAttempt: currentAttemptEvidence,
       previousAttempts: previousAttemptEvidence,
+      externalVariantEvidencePassed: variantEvidence.qualified_transfer_evidence,
       reviewStage: review.review_stage ?? 1,
     });
 
@@ -683,6 +765,7 @@ export async function POST(req: NextRequest) {
         closure_gate_summary: closureGate.summary,
         closure_gate_pending_keys: closureGate.pendingGateKeys,
         closure_gate_items: closureGate.items,
+        variant_evidence: variantEvidence,
         intervention_task_id: interventionTaskId,
       },
     });
