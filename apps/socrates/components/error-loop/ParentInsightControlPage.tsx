@@ -36,6 +36,8 @@ type StudentInfo = {
 type RootCauseItem = {
   category: string;
   label: string;
+  subtype: string | null;
+  subtype_label: string | null;
   count: number;
   recent_count: number;
   reopened_count: number;
@@ -725,15 +727,18 @@ export default function ParentInsightControlPage() {
                 <CardContent className="space-y-4">
                   {insights?.root_cause_heatmap.length ? (
                     insights.root_cause_heatmap.map((item) => (
-                      <div key={item.category} className="rounded-2xl border border-slate-100 p-4">
+                      <div key={`${item.category}:${item.subtype ?? 'none'}`} className="rounded-2xl border border-slate-100 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-slate-900">{item.label}</h3>
+                              <h3 className="font-semibold text-slate-900">{item.subtype_label || item.label}</h3>
                               <Badge className={heatBadge(item.heat_level)}>
                                 热力 {item.heat_score}
                               </Badge>
                             </div>
+                            {item.subtype_label ? (
+                              <p className="mt-1 text-xs text-slate-500">归属主类: {item.label}</p>
+                            ) : null}
                             <p className="mt-1 text-sm text-slate-600">{item.playbook.summary}</p>
                           </div>
                           <div className="text-right text-sm text-slate-500">

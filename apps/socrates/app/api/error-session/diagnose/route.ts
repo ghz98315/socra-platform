@@ -4,12 +4,14 @@ import {
   ROOT_CAUSE_CATEGORY_OPTIONS,
   ROOT_CAUSE_PATTERN_HINT,
   VALID_ERROR_LOOP_SUBJECTS,
+  getRootCauseSubtypeOption,
   isCarelessnessLike,
+  isValidRootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 const VALID_SUBJECTS = new Set(VALID_ERROR_LOOP_SUBJECTS);
@@ -58,11 +60,20 @@ function assertMeaningfulRootCause({
   }
 
   if (statementIsSurfaceOnly) {
-    throw new Error('root_cause_statement cannot stop at a surface label like carelessness. It must describe the underlying pattern.');
+    throw new Error(
+      'root_cause_statement cannot stop at a surface label like carelessness. It must describe the underlying pattern.',
+    );
   }
 
-  if (containsSurfaceOnlyLabel && !/习惯|检查|策略|审题|概念|知识|注意力|焦虑|pattern|habit|strategy|reading|concept|knowledge|attention/i.test(rootCauseStatement)) {
-    throw new Error('When the surface label is carelessness, the root cause must continue down to a behavior, strategy, knowledge, or attention pattern.');
+  if (
+    containsSurfaceOnlyLabel &&
+    !/习惯|检查|策略|审题|概念|知识|注意力|焦虑|pattern|habit|strategy|reading|concept|knowledge|attention/i.test(
+      rootCauseStatement,
+    )
+  ) {
+    throw new Error(
+      'When the surface label is carelessness, the root cause must continue down to a behavior, strategy, knowledge, or attention pattern.',
+    );
   }
 }
 
@@ -89,7 +100,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: data ?? null,
+      data: data
+        ? {
+            ...data,
+            root_cause_subtype_label: getRootCauseSubtypeOption(data.root_cause_subtype)?.label ?? null,
+          }
+        : null,
     });
   } catch (error: unknown) {
     console.error('[error-session/diagnose] GET API error:', error);
@@ -107,6 +123,7 @@ export async function POST(req: NextRequest) {
       surface_labels,
       surface_error,
       root_cause_category,
+      root_cause_subtype,
       root_cause_statement,
       root_cause_depth,
       why_chain,
@@ -117,11 +134,19 @@ export async function POST(req: NextRequest) {
       risk_flags,
     } = body ?? {};
 
-    if (!session_id || !student_id || !subject || !surface_error || !root_cause_category || !root_cause_statement) {
+    if (
+      !session_id ||
+      !student_id ||
+      !subject ||
+      !surface_error ||
+      !root_cause_category ||
+      !root_cause_subtype ||
+      !root_cause_statement
+    ) {
       return NextResponse.json(
         {
           error:
-            'Missing required fields: session_id, student_id, subject, surface_error, root_cause_category, root_cause_statement',
+            'Missing required fields: session_id, student_id, subject, surface_error, root_cause_category, root_cause_subtype, root_cause_statement',
         },
         { status: 400 },
       );
@@ -133,6 +158,13 @@ export async function POST(req: NextRequest) {
 
     if (!VALID_ROOT_CAUSE_CATEGORIES.has(root_cause_category)) {
       return NextResponse.json({ error: `Unsupported root_cause_category: ${root_cause_category}` }, { status: 400 });
+    }
+
+    if (!isValidRootCauseSubtype(root_cause_category, root_cause_subtype)) {
+      return NextResponse.json(
+        { error: `Unsupported root_cause_subtype for ${root_cause_category}: ${root_cause_subtype}` },
+        { status: 400 },
+      );
     }
 
     const normalizedSurfaceLabels = normalizeStringList(surface_labels);
@@ -177,6 +209,7 @@ export async function POST(req: NextRequest) {
       surface_labels: normalizedSurfaceLabels,
       surface_error: String(surface_error).trim(),
       root_cause_category,
+      root_cause_subtype,
       root_cause_statement: String(root_cause_statement).trim(),
       root_cause_depth: normalizedDepth,
       why_chain: normalizedWhyChain,
@@ -202,6 +235,7 @@ export async function POST(req: NextRequest) {
       .from('error_sessions')
       .update({
         primary_root_cause_category: root_cause_category,
+        primary_root_cause_subtype: root_cause_subtype,
         primary_root_cause_statement: String(root_cause_statement).trim(),
         closure_state: 'open',
       })
@@ -215,7 +249,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: diagnosis,
+      data: {
+        ...diagnosis,
+        root_cause_subtype_label: getRootCauseSubtypeOption(diagnosis.root_cause_subtype)?.label ?? null,
+      },
     });
   } catch (error: unknown) {
     console.error('[error-session/diagnose] API error:', error);

@@ -33,7 +33,12 @@ import {
   type AttemptMode,
   type MasteryJudgement,
 } from '@/lib/error-loop/review';
-import { ROOT_CAUSE_CATEGORY_LABELS, type RootCauseCategory } from '@/lib/error-loop/taxonomy';
+import {
+  ROOT_CAUSE_CATEGORY_LABELS,
+  getRootCauseSubtypeOption,
+  type RootCauseCategory,
+  type RootCauseSubtype,
+} from '@/lib/error-loop/taxonomy';
 import { REVIEW_STAGES } from '@/lib/review/utils';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -93,6 +98,7 @@ interface ReviewSession {
     final_difficulty_rating: number | null;
     concept_tags: string[] | null;
     primary_root_cause_category: RootCauseCategory | null;
+    primary_root_cause_subtype: RootCauseSubtype | null;
     primary_root_cause_statement: string | null;
     created_at: string;
   };
@@ -438,6 +444,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
           metadata: {
             recall_summary: userRecall.trim() || null,
             current_root_cause_category: reviewSession.error_session.primary_root_cause_category,
+            current_root_cause_subtype: reviewSession.error_session.primary_root_cause_subtype,
             current_root_cause_statement: reviewSession.error_session.primary_root_cause_statement,
             student_difficulty_rating: studentDifficulty || null,
           },
@@ -622,6 +629,11 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                         <Badge variant="outline" className="border-warm-200 text-warm-700">
                           {ROOT_CAUSE_CATEGORY_LABELS[reviewSession.error_session.primary_root_cause_category]}
                         </Badge>
+                        {reviewSession.error_session.primary_root_cause_subtype ? (
+                          <Badge variant="outline" className="border-warm-200 text-warm-700">
+                            {getRootCauseSubtypeOption(reviewSession.error_session.primary_root_cause_subtype)?.label}
+                          </Badge>
+                        ) : null}
                       </div>
                       <p className="mt-3 text-sm leading-6 text-warm-900">
                         {reviewSession.error_session.primary_root_cause_statement}

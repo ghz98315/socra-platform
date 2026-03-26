@@ -37,7 +37,7 @@ import { AnalysisDialog } from '@/components/AnalysisDialog';
 import { VariantPractice } from '@/components/VariantPractice';
 import { DiagnosisPanel } from '@/components/error-loop/DiagnosisPanel';
 import { GuidedReflectionPanel } from '@/components/error-loop/GuidedReflectionPanel';
-import type { RootCauseCategory, StructuredDiagnosis } from '@/lib/error-loop/taxonomy';
+import type { RootCauseCategory, RootCauseSubtype, StructuredDiagnosis } from '@/lib/error-loop/taxonomy';
 import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 
 interface Message {
@@ -56,6 +56,7 @@ interface ErrorSession {
   difficulty_rating: number | null;
   concept_tags: string[] | null;
   primary_root_cause_category: RootCauseCategory | null;
+  primary_root_cause_subtype: RootCauseSubtype | null;
   primary_root_cause_statement: string | null;
   closure_state: string | null;
   created_at: string;
@@ -231,6 +232,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         ? {
             ...current,
             primary_root_cause_category: diagnosis.root_cause_category,
+            primary_root_cause_subtype: diagnosis.root_cause_subtype,
             primary_root_cause_statement: diagnosis.root_cause_statement,
             closure_state: 'open',
           }
@@ -549,6 +551,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             subject={errorSession.subject}
             closureState={errorSession.closure_state}
             initialCategory={errorSession.primary_root_cause_category}
+            initialSubtype={errorSession.primary_root_cause_subtype}
             initialStatement={errorSession.primary_root_cause_statement}
             onSaved={handleDiagnosisSaved}
           />

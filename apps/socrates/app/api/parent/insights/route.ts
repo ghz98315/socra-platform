@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import type { RootCauseCategory } from '@/lib/error-loop/taxonomy';
+import { getRootCauseSubtypeOption, type RootCauseCategory, type RootCauseSubtype } from '@/lib/error-loop/taxonomy';
 import {
   HEAT_SCORE_MODEL,
   computeHeatScore,
@@ -33,6 +33,7 @@ type ErrorSessionRow = {
   status: string | null;
   closure_state: string | null;
   primary_root_cause_category: RootCauseCategory | null;
+  primary_root_cause_subtype: RootCauseSubtype | null;
   primary_root_cause_statement: string | null;
   created_at: string;
 };
@@ -40,6 +41,7 @@ type ErrorSessionRow = {
 type DiagnosisRow = {
   session_id: string;
   root_cause_category: RootCauseCategory;
+  root_cause_subtype: RootCauseSubtype | null;
   root_cause_statement: string;
   knowledge_tags: unknown;
   habit_tags: unknown;
@@ -61,11 +63,12 @@ type ReviewScheduleRow = {
   next_interval_days: number | null;
   updated_at: string | null;
   error_sessions:
-    | {
+      | {
         id: string;
         extracted_text: string | null;
         concept_tags: unknown;
         primary_root_cause_category: RootCauseCategory | null;
+        primary_root_cause_subtype: RootCauseSubtype | null;
         primary_root_cause_statement: string | null;
       }
     | Array<{
@@ -73,6 +76,7 @@ type ReviewScheduleRow = {
         extracted_text: string | null;
         concept_tags: unknown;
         primary_root_cause_category: RootCauseCategory | null;
+        primary_root_cause_subtype: RootCauseSubtype | null;
         primary_root_cause_statement: string | null;
       }>
     | null;
@@ -130,6 +134,8 @@ type InterventionTaskSnapshot = {
 
 type AggregateBucket = {
   key: string;
+  category?: RootCauseCategory;
+  subtype?: RootCauseSubtype | null;
   count: number;
   recentCount: number;
   reopenedCount: number;
@@ -233,6 +239,8 @@ function pushIntoAggregate(
     reopenedCount,
     pseudoMasteryCount,
     pendingCount,
+    category,
+    subtype,
   }: {
     key: string;
     statement: string;
@@ -241,10 +249,14 @@ function pushIntoAggregate(
     reopenedCount: number;
     pseudoMasteryCount: number;
     pendingCount: number;
+    category?: RootCauseCategory;
+    subtype?: RootCauseSubtype | null;
   },
 ) {
   const bucket = map.get(key) ?? {
     key,
+    category,
+    subtype,
     count: 0,
     recentCount: 0,
     reopenedCount: 0,
@@ -260,6 +272,12 @@ function pushIntoAggregate(
   bucket.pseudoMasteryCount += pseudoMasteryCount;
   bucket.pendingCount += pendingCount;
   bucket.sessionIds.add(sessionId);
+  if (category) {
+    bucket.category = category;
+  }
+  if (typeof subtype !== 'undefined') {
+    bucket.subtype = subtype;
+  }
 
   const normalizedStatement = statement.trim();
   if (normalizedStatement) {
@@ -369,7 +387,7 @@ export async function GET(req: NextRequest) {
     const { data: errorSessions, error: errorSessionsError } = await supabaseAdmin
       .from('error_sessions')
       .select(
-        'id, extracted_text, concept_tags, status, closure_state, primary_root_cause_category, primary_root_cause_statement, created_at',
+        'id, extracted_text, concept_tags, status, closure_state, primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement, created_at',
       )
       .eq('student_id', selectedStudent.id)
       .eq('subject', subject)
@@ -392,10 +410,10 @@ export async function GET(req: NextRequest) {
       interventionTasksResult,
     ] = await Promise.all([
       sessionIds.length > 0
-        ? supabaseAdmin
+          ? supabaseAdmin
             .from('error_diagnoses')
             .select(
-              'session_id, root_cause_category, root_cause_statement, knowledge_tags, habit_tags, surface_labels, risk_flags, updated_at, created_at',
+              'session_id, root_cause_category, root_cause_subtype, root_cause_statement, knowledge_tags, habit_tags, surface_labels, risk_flags, updated_at, created_at',
             )
             .eq('student_id', selectedStudent.id)
             .in('session_id', sessionIds)
@@ -420,6 +438,7 @@ export async function GET(req: NextRequest) {
                   extracted_text,
                   concept_tags,
                   primary_root_cause_category,
+                  primary_root_cause_subtype,
                   primary_root_cause_statement
                 )
               `,
@@ -519,15 +538,18 @@ export async function GET(req: NextRequest) {
       const pendingCount = review && review.is_completed === false ? 1 : 0;
       const reopenedCount = review?.reopened_count ?? 0;
       const recent = isRecentIso(diagnosis.updated_at || diagnosis.created_at, 7);
+      const rootCauseKey = diagnosis.root_cause_subtype || diagnosis.root_cause_category;
 
       pushIntoAggregate(rootCauseAggregates, {
-        key: diagnosis.root_cause_category,
+        key: rootCauseKey,
         statement: diagnosis.root_cause_statement,
         sessionId: diagnosis.session_id,
         recent,
         reopenedCount,
         pseudoMasteryCount,
         pendingCount,
+        category: diagnosis.root_cause_category,
+        subtype: diagnosis.root_cause_subtype,
       });
 
       const knowledgeTags = normalizeStringList(diagnosis.knowledge_tags);
@@ -561,8 +583,10 @@ export async function GET(req: NextRequest) {
     }
 
     const rawRootCauseItems = Array.from(rootCauseAggregates.values()).map((bucket) => ({
-      category: bucket.key as RootCauseCategory,
-      label: getRootCauseLabel(bucket.key as RootCauseCategory),
+      category: bucket.category as RootCauseCategory,
+      label: getRootCauseLabel(bucket.category as RootCauseCategory),
+      subtype: bucket.subtype ?? null,
+      subtype_label: bucket.subtype ? getRootCauseSubtypeOption(bucket.subtype)?.label ?? bucket.subtype : null,
       count: bucket.count,
       recent_count: bucket.recentCount,
       reopened_count: bucket.reopenedCount,
@@ -579,7 +603,7 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 2)
         .map(([statement]) => statement),
-      playbook: getParentSupportPlaybook(bucket.key as RootCauseCategory),
+      playbook: getParentSupportPlaybook(bucket.category as RootCauseCategory),
     }));
 
     const maxRootCauseScore =
@@ -850,8 +874,8 @@ export async function GET(req: NextRequest) {
           ]
         : []),
       ...rootCauseHeatmap.slice(0, 3).map((item, index) => ({
-        title: `${index + 1}. ${item.label}`,
-        summary: item.playbook.summary,
+        title: `${index + 1}. ${item.subtype_label || item.label}`,
+        summary: item.subtype_label ? `${item.subtype_label} 属于「${item.label}」问题。${item.playbook.summary}` : item.playbook.summary,
         priority: index === 0 ? 'high' : 'medium',
         actions: item.playbook.actions,
         watch_fors: item.playbook.watchFors,

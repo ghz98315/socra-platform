@@ -23,8 +23,11 @@ import {
   ROOT_CAUSE_CATEGORY_OPTIONS,
   SURFACE_LABEL_OPTIONS,
   WHY_CHAIN_PROMPTS,
+  getRootCauseSubtypeOption,
+  getRootCauseSubtypeOptions,
   type ErrorLoopSubject,
   type RootCauseCategory,
+  type RootCauseSubtype,
   type StructuredDiagnosis,
 } from '@/lib/error-loop/taxonomy';
 import { cn } from '@/lib/utils';
@@ -35,6 +38,7 @@ interface DiagnosisPanelProps {
   subject: ErrorLoopSubject;
   closureState?: string | null;
   initialCategory?: RootCauseCategory | null;
+  initialSubtype?: RootCauseSubtype | null;
   initialStatement?: string | null;
   onSaved?: (diagnosis: StructuredDiagnosis) => void;
 }
@@ -43,6 +47,7 @@ interface DiagnosisFormState {
   surfaceLabels: string[];
   surfaceError: string;
   rootCauseCategory: RootCauseCategory;
+  rootCauseSubtype: RootCauseSubtype | null;
   rootCauseStatement: string;
   whyAnswers: string[];
   evidenceText: string;
@@ -56,12 +61,17 @@ const DEFAULT_CATEGORY = ROOT_CAUSE_CATEGORY_OPTIONS[0].value;
 
 function createEmptyFormState(
   initialCategory?: RootCauseCategory | null,
+  initialSubtype?: RootCauseSubtype | null,
   initialStatement?: string | null,
 ): DiagnosisFormState {
+  const category = initialCategory || DEFAULT_CATEGORY;
+  const subtype = initialSubtype && getRootCauseSubtypeOption(initialSubtype)?.category === category ? initialSubtype : null;
+
   return {
     surfaceLabels: [],
     surfaceError: '',
-    rootCauseCategory: initialCategory || DEFAULT_CATEGORY,
+    rootCauseCategory: category,
+    rootCauseSubtype: subtype,
     rootCauseStatement: initialStatement || '',
     whyAnswers: WHY_CHAIN_PROMPTS.map(() => ''),
     evidenceText: '',
@@ -90,6 +100,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 function diagnosisToFormState(
   diagnosis: StructuredDiagnosis,
   fallbackCategory?: RootCauseCategory | null,
+  fallbackSubtype?: RootCauseSubtype | null,
   fallbackStatement?: string | null,
 ): DiagnosisFormState {
   const nextWhyAnswers = WHY_CHAIN_PROMPTS.map(() => '');
@@ -100,10 +111,19 @@ function diagnosisToFormState(
     }
   });
 
+  const category = diagnosis.root_cause_category || fallbackCategory || DEFAULT_CATEGORY;
+  const subtype =
+    diagnosis.root_cause_subtype && getRootCauseSubtypeOption(diagnosis.root_cause_subtype)?.category === category
+      ? diagnosis.root_cause_subtype
+      : fallbackSubtype && getRootCauseSubtypeOption(fallbackSubtype)?.category === category
+        ? fallbackSubtype
+        : null;
+
   return {
     surfaceLabels: diagnosis.surface_labels || [],
     surfaceError: diagnosis.surface_error || '',
-    rootCauseCategory: diagnosis.root_cause_category || fallbackCategory || DEFAULT_CATEGORY,
+    rootCauseCategory: category,
+    rootCauseSubtype: subtype,
     rootCauseStatement: diagnosis.root_cause_statement || fallbackStatement || '',
     whyAnswers: nextWhyAnswers,
     evidenceText: joinListField(diagnosis.evidence),
@@ -120,6 +140,7 @@ export function DiagnosisPanel({
   subject,
   closureState,
   initialCategory,
+  initialSubtype,
   initialStatement,
   onSaved,
 }: DiagnosisPanelProps) {
@@ -128,9 +149,15 @@ export function DiagnosisPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [savedDiagnosis, setSavedDiagnosis] = useState<StructuredDiagnosis | null>(null);
-  const [form, setForm] = useState<DiagnosisFormState>(() => createEmptyFormState(initialCategory, initialStatement));
+  const [form, setForm] = useState<DiagnosisFormState>(() =>
+    createEmptyFormState(initialCategory, initialSubtype, initialStatement),
+  );
 
   const isEnabledSubject = DEEP_ERROR_LOOP_V1_SUBJECTS.has(subject);
+  const subtypeOptions = useMemo(
+    () => getRootCauseSubtypeOptions(form.rootCauseCategory),
+    [form.rootCauseCategory],
+  );
 
   useEffect(() => {
     async function loadDiagnosis() {
@@ -154,10 +181,10 @@ export function DiagnosisPanel({
 
         if (payload.data) {
           setSavedDiagnosis(payload.data);
-          setForm(diagnosisToFormState(payload.data, initialCategory, initialStatement));
+          setForm(diagnosisToFormState(payload.data, initialCategory, initialSubtype, initialStatement));
         } else {
           setSavedDiagnosis(null);
-          setForm(createEmptyFormState(initialCategory, initialStatement));
+          setForm(createEmptyFormState(initialCategory, initialSubtype, initialStatement));
         }
       } catch (error: unknown) {
         console.error('Failed to load structured diagnosis:', error);
@@ -167,8 +194,8 @@ export function DiagnosisPanel({
       }
     }
 
-    loadDiagnosis();
-  }, [initialCategory, initialStatement, isEnabledSubject, sessionId, studentId]);
+    void loadDiagnosis();
+  }, [initialCategory, initialSubtype, initialStatement, isEnabledSubject, sessionId, studentId]);
 
   const whyChain = useMemo(
     () =>
@@ -192,12 +219,24 @@ export function DiagnosisPanel({
     }));
   };
 
+  const handleCategoryChange = (nextCategory: RootCauseCategory) => {
+    setSuccessMessage(null);
+    setForm((current) => ({
+      ...current,
+      rootCauseCategory: nextCategory,
+      rootCauseSubtype:
+        current.rootCauseSubtype && getRootCauseSubtypeOption(current.rootCauseSubtype)?.category === nextCategory
+          ? current.rootCauseSubtype
+          : null,
+    }));
+  };
+
   const handleSave = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
     if (!form.surfaceError.trim()) {
-      setErrorMessage('先写清楚这次题目表面错在了哪里。');
+      setErrorMessage('先写清这次题目表面错在了哪里。');
       return;
     }
 
@@ -206,8 +245,13 @@ export function DiagnosisPanel({
       return;
     }
 
+    if (!form.rootCauseSubtype) {
+      setErrorMessage('先从细分根因里选出最贴近的一项。');
+      return;
+    }
+
     if (form.rootCauseStatement.trim().length < 8) {
-      setErrorMessage('根因描述太短，先写到能指导下次防错。');
+      setErrorMessage('根因描述太短，先写到能指导下一次防错。');
       return;
     }
 
@@ -221,6 +265,7 @@ export function DiagnosisPanel({
         surface_labels: form.surfaceLabels,
         surface_error: form.surfaceError.trim(),
         root_cause_category: form.rootCauseCategory,
+        root_cause_subtype: form.rootCauseSubtype,
         root_cause_statement: form.rootCauseStatement.trim(),
         root_cause_depth: derivedDepth,
         why_chain: whyChain,
@@ -246,7 +291,7 @@ export function DiagnosisPanel({
       }
 
       setSavedDiagnosis(result.data);
-      setSuccessMessage('错因诊断已保存，后续可以继续接复盘与复习判断。');
+      setSuccessMessage('错因诊断已保存，后面可以继续做引导反思和复习判定。');
       onSaved?.(result.data);
     } catch (error: unknown) {
       console.error('Failed to save structured diagnosis:', error);
@@ -286,10 +331,13 @@ export function DiagnosisPanel({
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary" className="bg-warm-100 text-warm-700">
-                8 类根因
+                8 个主类
+              </Badge>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                24 个细分根因
               </Badge>
               <Badge variant="outline" className="border-warm-200 text-warm-700">
-                “粗心”只能做表层标签
+                “粗心”只能做表象标签
               </Badge>
               {closureState ? (
                 <Badge variant="outline" className="border-border/60 text-muted-foreground">
@@ -305,8 +353,17 @@ export function DiagnosisPanel({
                 <CheckCircle2 className="h-4 w-4" />
                 已有诊断
               </div>
-              <p className="mt-1">{ROOT_CAUSE_CATEGORY_LABELS[savedDiagnosis.root_cause_category]}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-emerald-600">{savedDiagnosis.root_cause_statement}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="outline" className="border-emerald-200 text-emerald-700">
+                  {ROOT_CAUSE_CATEGORY_LABELS[savedDiagnosis.root_cause_category]}
+                </Badge>
+                {savedDiagnosis.root_cause_subtype ? (
+                  <Badge variant="outline" className="border-emerald-200 text-emerald-700">
+                    {getRootCauseSubtypeOption(savedDiagnosis.root_cause_subtype)?.label}
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="mt-2 line-clamp-2 text-xs text-emerald-700">{savedDiagnosis.root_cause_statement}</p>
             </div>
           ) : null}
         </div>
@@ -355,7 +412,7 @@ export function DiagnosisPanel({
                   setSuccessMessage(null);
                   setForm((current) => ({ ...current, surfaceError: event.target.value }));
                 }}
-                placeholder="写清楚这次到底错在什么地方，例如：列方程时漏掉了“最简整数比”的限制条件。"
+                placeholder="写清这次到底错在什么地方，例如：列方程时漏掉了“最简整数比”的限制条件。"
                 className="min-h-24 w-full rounded-2xl border-2 border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-900 outline-none transition-colors placeholder:text-warm-400 focus:border-warm-400 focus:bg-white focus:ring-2 focus:ring-warm-400/20"
               />
             </section>
@@ -381,7 +438,11 @@ export function DiagnosisPanel({
                           return { ...current, whyAnswers: nextAnswers };
                         });
                       }}
-                      placeholder={index === 0 ? '还原你当时是怎么想的。' : '继续往下挖，不要重复上一层答案。'}
+                      placeholder={
+                        index === 0
+                          ? '先还原你当时是怎么想的。'
+                          : '继续往下挖，不要重复上一层答案。'
+                      }
                       className="mt-3 min-h-24 w-full rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-warm-300 focus:bg-white focus:ring-2 focus:ring-warm-400/10"
                     />
                   </div>
@@ -402,10 +463,7 @@ export function DiagnosisPanel({
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => {
-                        setSuccessMessage(null);
-                        setForm((current) => ({ ...current, rootCauseCategory: option.value }));
-                      }}
+                      onClick={() => handleCategoryChange(option.value)}
                       className={cn(
                         'rounded-2xl border px-4 py-4 text-left transition-colors',
                         active
@@ -421,17 +479,57 @@ export function DiagnosisPanel({
                   );
                 })}
               </div>
+
+              <div className="rounded-2xl border border-blue-200 bg-blue-50/70 px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900">细分根因</p>
+                    <p className="mt-1 text-xs text-blue-700">主类定方向，细分根因决定后面怎么追问、怎么干预。</p>
+                  </div>
+                  <Badge variant="outline" className="border-blue-200 text-blue-700">
+                    {ROOT_CAUSE_CATEGORY_LABELS[form.rootCauseCategory]}
+                  </Badge>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {subtypeOptions.map((option) => {
+                    const active = form.rootCauseSubtype === option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setSuccessMessage(null);
+                          setForm((current) => ({ ...current, rootCauseSubtype: option.value }));
+                        }}
+                        className={cn(
+                          'rounded-2xl border px-4 py-4 text-left transition-colors',
+                          active
+                            ? 'border-blue-400 bg-white shadow-sm'
+                            : 'border-blue-100 bg-white/80 hover:border-blue-200',
+                        )}
+                      >
+                        <p className={cn('text-sm font-semibold', active ? 'text-blue-900' : 'text-foreground')}>
+                          {option.label}
+                        </p>
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{option.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <textarea
                 value={form.rootCauseStatement}
                 onChange={(event) => {
                   setSuccessMessage(null);
                   setForm((current) => ({ ...current, rootCauseStatement: event.target.value }));
                 }}
-                placeholder="例如：缺少固定的审题检查动作，简单题一上手就直接列式，导致限制条件反复漏掉。"
+                placeholder="例如：缺少固定的圈条件动作，简单题一上手就直接列式，导致限制条件反复漏掉。"
                 className="min-h-24 w-full rounded-2xl border-2 border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-900 outline-none transition-colors placeholder:text-warm-400 focus:border-warm-400 focus:bg-white focus:ring-2 focus:ring-warm-400/20"
               />
               <div className="text-xs text-muted-foreground">
-                当前根因深度: {derivedDepth} / 3。至少要到第 2 层，才能说明没有停在表面。
+                当前根因深度: {derivedDepth} / 3。至少要到第 2 层，才说明没有停在表面。
               </div>
             </section>
 
@@ -478,7 +576,7 @@ export function DiagnosisPanel({
                     setSuccessMessage(null);
                     setForm((current) => ({ ...current, knowledgeTagsText: event.target.value }));
                   }}
-                  placeholder="一元二次方程, 最简比"
+                  placeholder="一元二次方程, 最简整数比"
                 />
               </div>
               <div className="space-y-2">
