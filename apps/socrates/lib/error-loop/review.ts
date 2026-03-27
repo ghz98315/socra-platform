@@ -220,10 +220,13 @@ export type ReviewInterventionTaskDraft = {
   rewardPoints: number;
 };
 
+export type ReviewInterventionReason = 'mastery_risk' | 'transfer_evidence_gap';
+
 export function parseReviewInterventionTaskMarkers(description: string | null | undefined) {
   const content = description || '';
   const sessionMatch = content.match(/\[review-session:([^\]]+)\]/);
   const judgementMatch = content.match(/\[review-judgement:([^\]]+)\]/);
+  const reasonMatch = content.match(/\[review-reason:([^\]]+)\]/);
 
   if (!sessionMatch || !judgementMatch) {
     return null;
@@ -232,23 +235,37 @@ export function parseReviewInterventionTaskMarkers(description: string | null | 
   return {
     session_id: sessionMatch[1],
     judgement: judgementMatch[1],
+    reason: reasonMatch?.[1] || null,
   };
 }
 
 export function buildReviewInterventionTaskDraft(input: {
   sessionId: string;
   judgement: MasteryJudgement;
+  reason?: ReviewInterventionReason;
   subject?: string | null;
   rootCauseDisplayLabel?: string | null;
   rootCauseStatement?: string | null;
   judgementSummary: string;
   nextActions: string[];
 }) : ReviewInterventionTaskDraft {
+  const reason = input.reason || 'mastery_risk';
   const priority: 1 | 2 | 3 =
-    input.judgement === 'not_mastered' || input.judgement === 'pseudo_mastery' ? 1 : 2;
+    reason === 'transfer_evidence_gap'
+      ? 2
+      : input.judgement === 'not_mastered' || input.judgement === 'pseudo_mastery'
+        ? 1
+        : 2;
   const targetDuration =
-    input.judgement === 'not_mastered' ? 25 : input.judgement === 'pseudo_mastery' ? 20 : 15;
-  const label = MASTERY_JUDGEMENT_META[input.judgement].label;
+    reason === 'transfer_evidence_gap'
+      ? 15
+      : input.judgement === 'not_mastered'
+        ? 25
+        : input.judgement === 'pseudo_mastery'
+          ? 20
+          : 15;
+  const label =
+    reason === 'transfer_evidence_gap' ? '补齐迁移证据' : MASTERY_JUDGEMENT_META[input.judgement].label;
   const causeLine = input.rootCauseDisplayLabel ? `当前细分根因: ${input.rootCauseDisplayLabel}` : null;
   const statementLine = input.rootCauseStatement ? `稳定模式: ${input.rootCauseStatement}` : null;
 
@@ -262,6 +279,7 @@ export function buildReviewInterventionTaskDraft(input: {
       ...input.nextActions.map((action, index) => `${index + 1}. ${action}`),
       `[review-session:${input.sessionId}]`,
       `[review-judgement:${input.judgement}]`,
+      `[review-reason:${reason}]`,
     ]
       .filter(Boolean)
       .join('\n'),

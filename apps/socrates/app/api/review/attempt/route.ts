@@ -12,7 +12,9 @@ import {
   parseReviewInterventionTaskMarkers,
   type AttemptMode,
   type ClosureGateAttemptEvidence,
+  type ClosureGateKey,
   type MasteryJudgement,
+  type ReviewInterventionReason,
 } from '@/lib/error-loop/review';
 import {
   summarizeVariantEvidence,
@@ -317,11 +319,16 @@ function buildJudgementGuidance({
   }
 }
 
+function hasPendingClosureGate(pendingGateKeys: string[] | undefined, key: ClosureGateKey) {
+  return Array.isArray(pendingGateKeys) && pendingGateKeys.includes(key);
+}
+
 async function ensureReviewInterventionTask({
   studentId,
   sessionId,
   subject,
   judgement,
+  reason,
   rootCause,
   judgementSummary,
   nextActions,
@@ -330,11 +337,16 @@ async function ensureReviewInterventionTask({
   sessionId: string;
   subject: string | null | undefined;
   judgement: MasteryJudgement;
+  reason?: ReviewInterventionReason;
   rootCause: RootCauseSnapshot;
   judgementSummary: string;
   nextActions: string[];
 }) {
-  if (!['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement)) {
+  const normalizedReason = reason || 'mastery_risk';
+  if (
+    !['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement) &&
+    normalizedReason !== 'transfer_evidence_gap'
+  ) {
     return null;
   }
 
@@ -368,7 +380,11 @@ async function ensureReviewInterventionTask({
     }
 
     const markers = parseReviewInterventionTaskMarkers(task.description);
-    return markers?.session_id === sessionId && markers?.judgement === judgement;
+    return (
+      markers?.session_id === sessionId &&
+      markers?.judgement === judgement &&
+      (markers?.reason || 'mastery_risk') === normalizedReason
+    );
   });
 
   if (duplicateTask) {
@@ -379,6 +395,7 @@ async function ensureReviewInterventionTask({
   const taskDraft = buildReviewInterventionTaskDraft({
     sessionId,
     judgement,
+    reason: normalizedReason,
     subject,
     rootCauseDisplayLabel: rootCauseContext.displayLabel,
     rootCauseStatement: rootCause.statement,
@@ -417,17 +434,25 @@ async function sendParentRiskNotification({
   sessionId,
   reviewId,
   judgement,
+  reason,
   rootCause,
   interventionTaskId,
+  notificationSummary,
 }: {
   studentId: string;
   sessionId: string;
   reviewId: string;
   judgement: MasteryJudgement;
+  reason?: ReviewInterventionReason;
   rootCause: RootCauseSnapshot;
   interventionTaskId: string | null;
+  notificationSummary?: string | null;
 }) {
-  if (!['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement)) {
+  const normalizedReason = reason || 'mastery_risk';
+  if (
+    !['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement) &&
+    normalizedReason !== 'transfer_evidence_gap'
+  ) {
     return;
   }
 
@@ -453,17 +478,21 @@ async function sendParentRiskNotification({
       pseudo_mastery: `本轮复习出现典型“假会”信号，原题正常但变式没过。${causePrefix}${statementSuffix}`,
     };
 
+    const isTransferEvidenceGap = normalizedReason === 'transfer_evidence_gap';
+
     await supabase.from('notifications').insert({
       user_id: student.parent_id,
       type: 'mastery_update',
       title: `${student.display_name || '孩子'}出现掌握风险提醒`,
-      content: judgementMessageMap[judgement as Exclude<MasteryJudgement, 'provisional_mastered' | 'mastered'>],
+      content: isTransferEvidenceGap
+        ? notificationSummary || '这题虽然本轮做对了，但还没有形成独立迁移证据，暂时不能按真会关闭。'
+        : judgementMessageMap[judgement as Exclude<MasteryJudgement, 'provisional_mastered' | 'mastered'>],
       data: {
         student_id: studentId,
         session_id: sessionId,
         review_id: reviewId,
         mastery_judgement: judgement,
-        risk_type: 'mastery_risk',
+        risk_type: normalizedReason,
         root_cause_category: rootCause.category,
         root_cause_subtype: rootCause.subtype,
         root_cause_statement: rootCause.statement,
@@ -472,7 +501,7 @@ async function sendParentRiskNotification({
       action_url: `/controls?focus=review&student_id=${studentId}&session_id=${sessionId}`,
       action_text: interventionTaskId ? '查看复习补救闭环' : '查看复习风险',
       is_read: false,
-      priority: 2,
+      priority: isTransferEvidenceGap ? 1 : 2,
     });
   } catch (error) {
     console.error('[review/attempt] Failed to create parent notification:', error);
@@ -728,15 +757,27 @@ export async function POST(req: NextRequest) {
       judgement,
       rootCause: rootCauseSnapshot,
     });
+    const requiresTransferEvidenceIntervention =
+      judgement === 'provisional_mastered' && hasPendingClosureGate(closureGate.pendingGateKeys, 'variant_transfer');
+    const interventionReason: ReviewInterventionReason | undefined = requiresTransferEvidenceIntervention
+      ? 'transfer_evidence_gap'
+      : undefined;
+    const interventionSummary = requiresTransferEvidenceIntervention
+      ? `${judgementGuidance.summary} ${variantEvidence.coach_summary}`
+      : judgementGuidance.summary;
+    const interventionActions = requiresTransferEvidenceIntervention
+      ? [...judgementGuidance.next_actions, variantEvidence.next_step]
+      : judgementGuidance.next_actions;
     const rootCauseContext = getRootCauseContext(rootCauseSnapshot);
     const interventionTaskId = await ensureReviewInterventionTask({
       studentId: student_id,
       sessionId: review.session_id,
       subject: sessionSubject,
       judgement,
+      reason: interventionReason,
       rootCause: rootCauseSnapshot,
-      judgementSummary: judgementGuidance.summary,
-      nextActions: judgementGuidance.next_actions,
+      judgementSummary: interventionSummary,
+      nextActions: interventionActions,
     });
 
     await sendParentRiskNotification({
@@ -744,8 +785,10 @@ export async function POST(req: NextRequest) {
       sessionId: review.session_id,
       reviewId: review_id,
       judgement,
+      reason: interventionReason,
       rootCause: rootCauseSnapshot,
       interventionTaskId,
+      notificationSummary: requiresTransferEvidenceIntervention ? variantEvidence.parent_summary : interventionSummary,
     });
 
     return NextResponse.json({

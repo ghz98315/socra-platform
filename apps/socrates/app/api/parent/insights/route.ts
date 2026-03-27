@@ -893,6 +893,7 @@ export async function GET(req: NextRequest) {
           closure_gate_summary: pendingClosureLabels.length > 0 ? closureGate?.summary ?? null : null,
           closure_pending_labels: pendingClosureLabels,
           closure_pending_count: pendingClosureLabels.length,
+          transfer_evidence_pending: Boolean(closureGate?.pendingGateKeys.includes('variant_transfer')),
           reflection_depth_label: reflectionQuality?.depth_label ?? null,
           reflection_coach_signal: reflectionQuality?.coach_signal ?? null,
           reflection_surface_only_risk: reflectionQuality?.surface_only_risk ?? false,
@@ -1075,7 +1076,9 @@ export async function GET(req: NextRequest) {
       .filter((item): item is NonNullable<(typeof rawRecentRisks)[number]> => item !== null)
       .map((item) => {
       const reviewTask =
-        item.mastery_judgement && RISK_JUDGEMENTS.has(item.mastery_judgement)
+        item.mastery_judgement &&
+        (RISK_JUDGEMENTS.has(item.mastery_judgement) ||
+          (item.mastery_judgement === 'provisional_mastered' && item.transfer_evidence_pending))
           ? reviewInterventionTaskMap.get(buildReviewTaskKey(item.session_id, item.mastery_judgement))
           : undefined;
 
