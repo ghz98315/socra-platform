@@ -35,6 +35,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorBookPDF } from '@/lib/pdf/ErrorBookPDF';
+import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 
 type ErrorSession = {
   id: string;
@@ -43,9 +44,16 @@ type ErrorSession = {
   original_image_url: string | null;
   extracted_text: string | null;
   status: 'analyzing' | 'guided_learning' | 'mastered';
+  closure_state: string | null;
   difficulty_rating: number | null;
   concept_tags: string[] | null;
   created_at: string;
+};
+
+type ReviewSessionMeta = {
+  mastery_state: string | null;
+  last_judgement: MasteryJudgement | null;
+  reopened_count: number;
 };
 
 type ErrorBookStats = {
@@ -95,6 +103,19 @@ const subjectBgColors: Record<string, string> = {
   chemistry: 'bg-green-50 dark:bg-green-950/30',
 };
 
+function getClosureStateMeta(state: string | null | undefined) {
+  switch (state) {
+    case 'mastered_closed':
+      return { label: '稳定掌握', className: 'bg-emerald-100 text-emerald-700' };
+    case 'provisional_mastered':
+      return { label: '暂时会了，继续验证', className: 'bg-blue-100 text-blue-700' };
+    case 'reopened':
+      return { label: '已复开', className: 'bg-red-100 text-red-700' };
+    default:
+      return { label: '闭环进行中', className: 'bg-slate-100 text-slate-700' };
+  }
+}
+
 export default function ErrorBookPage() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -107,6 +128,7 @@ export default function ErrorBookPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [reviewSessionMap, setReviewSessionMap] = useState<Record<string, string>>({});
+  const [reviewSessionMetaMap, setReviewSessionMetaMap] = useState<Record<string, ReviewSessionMeta>>({});
   const [addingToReview, setAddingToReview] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -154,6 +176,7 @@ export default function ErrorBookPage() {
 
       setErrors(payload.data || []);
       setReviewSessionMap(payload.review_session_map || {});
+      setReviewSessionMetaMap(payload.review_session_meta_map || {});
       setStats(payload.stats || { total: 0, analyzing: 0, guided_learning: 0, mastered: 0 });
       setCurrentPage(payload.page || 1);
       setTotalPages(payload.total_pages || 1);
@@ -515,6 +538,10 @@ export default function ErrorBookPage() {
             {/* Error Cards */}
             {filteredErrors.map((error) => {
               const StatusIcon = statusLabels[error.status]?.icon || Clock;
+              const reviewMeta = reviewSessionMetaMap[error.id] || null;
+              const closureMeta = getClosureStateMeta(reviewMeta?.mastery_state || error.closure_state);
+              const lastJudgementMeta =
+                reviewMeta?.last_judgement ? MASTERY_JUDGEMENT_META[reviewMeta.last_judgement] : null;
               return (
                 <Card
                   key={error.id}
@@ -553,6 +580,12 @@ export default function ErrorBookPage() {
                             <StatusIcon className="w-3 h-3" />
                             {statusLabels[error.status]?.label}
                           </Badge>
+                          <Badge className={closureMeta.className}>{closureMeta.label}</Badge>
+                          {reviewMeta?.reopened_count ? (
+                            <Badge variant="outline" className="border-red-200 text-red-700">
+                              复开 {reviewMeta.reopened_count} 次
+                            </Badge>
+                          ) : null}
 
                           {/* Difficulty */}
                           {error.difficulty_rating && (
@@ -573,6 +606,19 @@ export default function ErrorBookPage() {
                         <p className="text-sm line-clamp-2 mb-2 text-warm-900">
                           {error.extracted_text || '暂无题目内容'}
                         </p>
+                        {lastJudgementMeta ? (
+                          <p className="mb-2 text-xs text-warm-700">上次判定: {lastJudgementMeta.label}</p>
+                        ) : null}
+                        {reviewMeta?.mastery_state === 'provisional_mastered' ? (
+                          <p className="mb-2 text-xs text-blue-700">
+                            这题当前只是“暂时会了”，还要继续验证，不能直接当成真会。
+                          </p>
+                        ) : null}
+                        {reviewMeta?.mastery_state === 'reopened' ? (
+                          <p className="mb-2 text-xs text-red-700">
+                            这题出现过复开，说明之前的掌握还不稳定。
+                          </p>
+                        ) : null}
 
                         {/* Tags */}
                         {error.concept_tags && error.concept_tags.length > 0 && (

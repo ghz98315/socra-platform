@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
         original_image_url,
         extracted_text,
         status,
+        closure_state,
         difficulty_rating,
         concept_tags,
         created_at
@@ -121,7 +122,7 @@ export async function GET(req: NextRequest) {
     const reviewResult = sessionIds.length > 0
       ? await supabase
           .from('review_schedule')
-          .select('id, session_id')
+          .select('id, session_id, mastery_state, last_judgement, reopened_count')
           .eq('student_id', studentId)
           .in('session_id', sessionIds)
       : { data: [], error: null };
@@ -135,11 +136,29 @@ export async function GET(req: NextRequest) {
     const reviewSessionMap = Object.fromEntries(
       reviewRows.map((row: { id: string; session_id: string }) => [row.session_id, row.id])
     );
+    const reviewSessionMetaMap = Object.fromEntries(
+      reviewRows.map(
+        (row: {
+          session_id: string;
+          mastery_state: string | null;
+          last_judgement: string | null;
+          reopened_count: number | null;
+        }) => [
+          row.session_id,
+          {
+            mastery_state: row.mastery_state ?? null,
+            last_judgement: row.last_judgement ?? null,
+            reopened_count: row.reopened_count ?? 0,
+          },
+        ],
+      ),
+    );
 
     return NextResponse.json({
       data: pageItems,
       review_session_ids: reviewRows.map((row: { session_id: string }) => row.session_id),
       review_session_map: reviewSessionMap,
+      review_session_meta_map: reviewSessionMetaMap,
       count: errorsResult.count || 0,
       page,
       page_size: pageSize,
