@@ -27,13 +27,16 @@ export async function POST(req: NextRequest) {
 
     const { data: sessionInfo } = await supabase
       .from('error_sessions')
-      .select('subject, extracted_text')
+      .select('subject, extracted_text, closure_state')
       .eq('id', session_id)
       .maybeSingle();
 
     const { error: updateError } = await supabase
       .from('error_sessions')
-      .update({ status: 'mastered' })
+      .update({
+        status: 'guided_learning',
+        closure_state: sessionInfo?.closure_state || 'open',
+      })
       .eq('id', session_id)
       .eq('student_id', student_id);
 
@@ -54,14 +57,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingReview) {
-      await sendMasteryNotification(student_id, session_id, existingReview.id, sessionInfo);
-
       return NextResponse.json({
         success: true,
-        message: 'Error session marked as mastered',
+        message: 'Review loop already exists',
         review_exists: true,
         review_id: existingReview.id,
-        can_analyze: true,
+        status: 'guided_learning',
+        closure_state: sessionInfo?.closure_state || 'open',
       });
     }
 
@@ -84,39 +86,23 @@ export async function POST(req: NextRequest) {
       console.error('Error creating review schedule:', reviewError);
       return NextResponse.json({
         success: true,
-        message: 'Error session marked as mastered, but review schedule creation failed',
+        message: 'Review loop not created, but session remains in guided learning',
         review_created: false,
-        can_analyze: true,
+        status: 'guided_learning',
+        closure_state: sessionInfo?.closure_state || 'open',
       });
     }
 
-    await sendMasteryNotification(student_id, session_id, reviewData?.id, sessionInfo);
-
-    try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-      await fetch(`${baseUrl}/api/achievements`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: student_id,
-          action: 'error_mastered',
-          data: { count: 1 },
-        }),
-      });
-    } catch (achievementError) {
-      console.error('Failed to update achievements:', achievementError);
-    }
+    await sendReviewLoopNotification(student_id, session_id, reviewData?.id, sessionInfo);
 
     return NextResponse.json({
       success: true,
-      message: 'Error session mastered and review schedule created',
+      message: 'Review loop created',
       review_created: true,
       review_id: reviewData?.id,
       next_review_at: firstReviewDate.toISOString(),
-      can_analyze: true,
+      status: 'guided_learning',
+      closure_state: sessionInfo?.closure_state || 'open',
     });
   } catch (error: any) {
     console.error('Complete error session API error:', error);
@@ -124,7 +110,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function sendMasteryNotification(studentId: string, sessionId: string, reviewId: string | undefined, sessionInfo: any) {
+async function sendReviewLoopNotification(
+  studentId: string,
+  sessionId: string,
+  reviewId: string | undefined,
+  sessionInfo: any,
+) {
   try {
     const { data: student } = await supabase
       .from('profiles')
@@ -142,17 +133,18 @@ async function sendMasteryNotification(studentId: string, sessionId: string, rev
 
     const { error: notificationError } = await supabase.from('notifications').insert({
       user_id: student.parent_id,
-      type: 'mastery_update',
-      title: `${studentName}完成了一道${subjectName}题目`,
-      content: `${studentName}刚刚完成了一道${subjectName}错题的学习，点击查看 AI 分析报告，了解孩子的学习状态和沟通建议。`,
+      type: 'review_reminder',
+      title: `${studentName}进入${subjectName}错题复习闭环`,
+      content: `${studentName}完成了首轮学习，接下来需要按节奏复习、独立作答和变式验证，暂时还不能按“已掌握”关闭。`,
       data: {
         session_id: sessionId,
         student_id: studentId,
         subject: sessionInfo?.subject,
-        can_analyze: true,
+        review_id: reviewId,
+        closure_state: sessionInfo?.closure_state || 'open',
       },
       action_url: reviewId ? `/review/session/${reviewId}` : `/error-book/${sessionId}`,
-      action_text: '查看分析',
+      action_text: '查看复习闭环',
       is_read: false,
       priority: 1,
     });

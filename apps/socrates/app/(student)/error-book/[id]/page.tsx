@@ -142,8 +142,8 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [mastering, setMastering] = useState(false);
-  const [masterMessage, setMasterMessage] = useState<string | null>(null);
+  const [startingReviewLoop, setStartingReviewLoop] = useState(false);
+  const [reviewActionMessage, setReviewActionMessage] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -240,12 +240,11 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
     );
   };
 
-  // 标记为已掌握
-  const handleMarkMastered = async () => {
+  const handleStartReviewLoop = async () => {
     if (!errorSession || !profile?.id) return;
 
-    setMastering(true);
-    setMasterMessage(null);
+    setStartingReviewLoop(true);
+    setReviewActionMessage(null);
 
     try {
       const response = await fetch('/api/error-session/complete', {
@@ -260,24 +259,19 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // 更新本地状态
-        setErrorSession({
-          ...errorSession,
-          status: 'mastered',
-        });
         if (data.review_id) {
           setReviewId(data.review_id);
         }
         void loadErrorDetail();
-        setMasterMessage('已标记为掌握，可进入复习');
+        setReviewActionMessage('已加入复习闭环，接下来要靠独立复习和变式证据来证明真会。');
       } else {
-        setMasterMessage(data.error || '操作失败，请重试');
+        setReviewActionMessage(data.error || '操作失败，请重试');
       }
     } catch (error) {
-      console.error('Failed to mark as mastered:', error);
-      setMasterMessage('网络错误，请重试');
+      console.error('Failed to start review loop:', error);
+      setReviewActionMessage('网络错误，请重试');
     } finally {
-      setMastering(false);
+      setStartingReviewLoop(false);
     }
   };
 
@@ -353,14 +347,14 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {masterMessage && (
+              {reviewActionMessage && (
                 <span className={cn(
                   "text-xs px-2 py-1 rounded",
-                  (masterMessage.includes('恭喜') || masterMessage.includes('已标记')) ? "text-green-600 bg-green-50" :
-                  masterMessage.includes('失败') || masterMessage.includes('错误') ? "text-red-600 bg-red-50" :
+                  reviewActionMessage.includes('失败') || reviewActionMessage.includes('错误') ? "text-red-600 bg-red-50" :
+                  reviewActionMessage.includes('已加入') ? "text-green-600 bg-green-50" :
                   "text-muted-foreground"
                 )}>
-                  {masterMessage}
+                  {reviewActionMessage}
                 </span>
               )}
               <Button
@@ -383,22 +377,22 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   AI分析对话
                 </Button>
               )}
-              {errorSession.status === 'guided_learning' && (
+              {errorSession.status === 'guided_learning' && !reviewId && (
                 <Button
                   size="sm"
-                  onClick={handleMarkMastered}
-                  disabled={mastering}
-                  className="gap-2 bg-green-500 hover:bg-green-600 text-white"
+                  onClick={handleStartReviewLoop}
+                  disabled={startingReviewLoop}
+                  className="gap-2 bg-warm-500 hover:bg-warm-600 text-white"
                 >
-                  {mastering ? (
+                  {startingReviewLoop ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       处理中...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-4 h-4" />
-                      已掌握
+                      <Target className="w-4 h-4" />
+                      加入复习闭环
                     </>
                   )}
                 </Button>
