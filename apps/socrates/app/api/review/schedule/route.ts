@@ -30,6 +30,9 @@ export async function GET(req: NextRequest) {
         review_stage,
         next_review_at,
         is_completed,
+        mastery_state,
+        last_judgement,
+        reopened_count,
         created_at,
         error_sessions (
           id,
@@ -104,6 +107,9 @@ export async function GET(req: NextRequest) {
         review_stage: review.review_stage,
         next_review_at: review.next_review_at,
         is_completed: review.is_completed,
+        mastery_state: review.mastery_state ?? null,
+        last_judgement: review.last_judgement ?? null,
+        reopened_count: review.reopened_count ?? 0,
         days_until_due: daysUntilDue,
         is_overdue: daysUntilDue <= 0,
         error_session: session

@@ -22,6 +22,7 @@ import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 import { cn } from '@/lib/utils';
 import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
 
@@ -33,6 +34,9 @@ interface ReviewHubItem {
   previewText: string | null;
   nextReviewAt: string;
   reviewStage: number;
+  masteryState: string | null;
+  lastJudgement: MasteryJudgement | null;
+  reopenedCount: number;
   daysUntilDue: number;
   isOverdue: boolean;
   difficultyRating: number | null;
@@ -76,6 +80,9 @@ function mapReview(review: any): ReviewHubItem {
     previewText: session?.extracted_text ?? null,
     nextReviewAt: review.next_review_at,
     reviewStage: review.review_stage,
+    masteryState: review.mastery_state ?? null,
+    lastJudgement: review.last_judgement ?? null,
+    reopenedCount: review.reopened_count ?? 0,
     daysUntilDue: review.days_until_due,
     isOverdue: review.is_overdue,
     difficultyRating: session?.difficulty_rating ?? null,
@@ -102,6 +109,19 @@ function getStageName(stage: number) {
   return REVIEW_STAGES.find((item) => item.stage === stage)?.name || `第 ${stage} 轮复习`;
 }
 
+function getClosureStateMeta(state: string | null | undefined) {
+  switch (state) {
+    case 'mastered_closed':
+      return { label: '稳定掌握', badgeClassName: 'bg-emerald-100 text-emerald-700' };
+    case 'provisional_mastered':
+      return { label: '暂时会了，继续验证', badgeClassName: 'bg-blue-100 text-blue-700' };
+    case 'reopened':
+      return { label: '已复开，说明还没闭环', badgeClassName: 'bg-red-100 text-red-700' };
+    default:
+      return { label: '仍在闭环中', badgeClassName: 'bg-slate-100 text-slate-700' };
+  }
+}
+
 function ReviewHubCard({
   review,
   completed = false,
@@ -114,6 +134,8 @@ function ReviewHubCard({
   onOpenSource: (sessionId: string) => void;
 }) {
   const difficulty = getDifficultyMeta(review);
+  const closureMeta = getClosureStateMeta(review.masteryState);
+  const judgementMeta = review.lastJudgement ? MASTERY_JUDGEMENT_META[review.lastJudgement] : null;
 
   return (
     <Card
@@ -143,12 +165,21 @@ function ReviewHubCard({
               >
                 {completed ? '已完成' : getUrgencyLabel(review.daysUntilDue)}
               </Badge>
+              <Badge className={closureMeta.badgeClassName}>{closureMeta.label}</Badge>
+              {review.reopenedCount > 0 ? (
+                <Badge variant="outline" className="border-red-200 text-red-700">
+                  复开 {review.reopenedCount} 次
+                </Badge>
+              ) : null}
             </div>
             <div>
               <p className="text-sm font-semibold text-warm-900">{getStageName(review.reviewStage)}</p>
               <p className="text-xs text-warm-600">
                 {completed ? '最近完成' : '计划时间'}：{formatReviewDate(review.nextReviewAt)}
               </p>
+              {judgementMeta ? (
+                <p className="mt-1 text-xs text-warm-700">上次判定：{judgementMeta.label}</p>
+              ) : null}
             </div>
           </div>
 
@@ -166,6 +197,16 @@ function ReviewHubCard({
           <p className="line-clamp-3 min-h-[60px] text-sm leading-6 text-warm-800">
             {review.previewText || '该题暂无文字预览，进入复习后可查看完整题目内容。'}
           </p>
+          {review.masteryState === 'provisional_mastered' ? (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/80 px-3 py-3 text-sm text-blue-800">
+              这题本轮表现不错，但还不能直接关题，系统仍在继续验证是否真的掌握。
+            </div>
+          ) : null}
+          {review.masteryState === 'reopened' ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50/80 px-3 py-3 text-sm text-red-800">
+              这题之前出现过“会了又掉”的情况，说明还要继续把根因挖透并做独立复习。
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {(review.conceptTags || []).slice(0, 3).map((tag) => (
               <Badge key={tag} variant="outline" className="border-warm-200 text-warm-700">
