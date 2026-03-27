@@ -72,6 +72,21 @@ interface ReviewSummary {
   reopened_count: number | null;
 }
 
+interface VariantEvidenceSummary {
+  total_variants: number;
+  practiced_variants: number;
+  successful_variants: number;
+  independent_success_variants: number;
+  latest_practiced_at: string | null;
+  qualified_transfer_evidence: boolean;
+  missing_reason: string | null;
+  evidence_label: string;
+  status_label: string;
+  coach_summary: string;
+  parent_summary: string;
+  next_step: string;
+}
+
 const subjectLabels: Record<string, string> = {
   chinese: '语文',
   english: '英语',
@@ -146,12 +161,13 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [reviewActionMessage, setReviewActionMessage] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(null);
+  const [variantEvidence, setVariantEvidence] = useState<VariantEvidenceSummary | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
 
   useEffect(() => {
     loadErrorDetail();
-  }, [resolvedParams.id]);
+  }, [profile?.id, resolvedParams.id]);
 
   const loadErrorDetail = async () => {
     setLoading(true);
@@ -178,8 +194,30 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
       .eq('session_id', resolvedParams.id)
       .maybeSingle();
 
-    setReviewId((reviewData as { id?: string } | null)?.id || null);
-    setReviewSummary((reviewData as ReviewSummary | null) || null);
+    const resolvedReviewData = reviewData as ReviewSummary | null;
+
+    setReviewId(resolvedReviewData?.id || null);
+    setReviewSummary(resolvedReviewData || null);
+
+    if (resolvedReviewData?.id && profile?.id) {
+      try {
+        const response = await fetch(
+          `/api/review/attempt?review_id=${encodeURIComponent(resolvedReviewData.id)}&student_id=${encodeURIComponent(profile.id)}`,
+        );
+        const payload = await response.json();
+
+        if (response.ok) {
+          setVariantEvidence(payload.variant_evidence || null);
+        } else {
+          setVariantEvidence(null);
+        }
+      } catch (error) {
+        console.error('Failed to load variant evidence:', error);
+        setVariantEvidence(null);
+      }
+    } else {
+      setVariantEvidence(null);
+    }
 
     // 加载对话历史
     const { data: messagesData } = await supabase
@@ -527,6 +565,58 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 </p>
               </div>
             </div>
+            {supportsVariantPractice && reviewSummary ? (
+              <div
+                className={cn(
+                  'rounded-2xl border px-4 py-4',
+                  variantEvidence?.qualified_transfer_evidence
+                    ? 'border-emerald-200 bg-emerald-50/70'
+                    : 'border-amber-200 bg-amber-50/70',
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">独立迁移证据</p>
+                  <Badge
+                    className={
+                      variantEvidence?.qualified_transfer_evidence ? 'bg-emerald-500' : 'bg-amber-500'
+                    }
+                  >
+                    {variantEvidence?.status_label || '待生成迁移证据'}
+                  </Badge>
+                  {variantEvidence ? <Badge variant="outline">总题数 {variantEvidence.total_variants}</Badge> : null}
+                  {variantEvidence ? <Badge variant="outline">已练 {variantEvidence.practiced_variants}</Badge> : null}
+                  {variantEvidence ? (
+                    <Badge variant="outline">独立通过 {variantEvidence.independent_success_variants}</Badge>
+                  ) : null}
+                </div>
+                <p className="mt-3 text-sm text-foreground">
+                  {variantEvidence?.coach_summary || '这题还没有形成可用于关题的独立迁移证据，先做变式练习再看是否真的会。'}
+                </p>
+                {reviewSummary.last_judgement === 'provisional_mastered' && !variantEvidence?.qualified_transfer_evidence ? (
+                  <p className="mt-2 text-sm text-amber-700">
+                    这题虽然本轮表现不错，但还不能按“真会”关闭，系统还在等独立迁移证据。
+                  </p>
+                ) : null}
+                {variantEvidence?.missing_reason ? (
+                  <p className="mt-2 text-sm text-muted-foreground">{variantEvidence.missing_reason}</p>
+                ) : null}
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {variantEvidence?.next_step || '先打开变式练习，补做至少一道能独立完成的新题。'}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Button variant="outline" onClick={() => setShowVariants(true)} className="gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    打开变式练习
+                  </Button>
+                  {reviewId ? (
+                    <Button variant="ghost" onClick={handleOpenReview} className="gap-2">
+                      <BookOpen className="w-4 h-4" />
+                      去复习判定
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-3">
               {reviewId ? (
                 <Button variant="outline" onClick={handleOpenReview} className="gap-2">
