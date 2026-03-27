@@ -95,6 +95,13 @@ const notificationTypeConfig: Record<string, {
   },
 };
 
+notificationTypeConfig.mastery_update = {
+  label: '掌握风险',
+  icon: AlertCircle,
+  color: 'text-amber-700',
+  bgColor: 'bg-amber-100',
+};
+
 interface Notification {
   id: string;
   user_id: string;
@@ -117,6 +124,14 @@ type ConversationRiskData = {
   intervention_feedback_note?: string | null;
 };
 
+type MasteryRiskData = {
+  risk_type?: 'mastery_risk' | 'transfer_evidence_gap' | string;
+  intervention_status?: string | null;
+  intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
+  intervention_feedback_note?: string | null;
+  intervention_task_title?: string | null;
+};
+
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
   if (data?.intervention_effect === 'risk_lowered') {
     return '家长已沟通，风险暂时下降';
@@ -135,6 +150,36 @@ function conversationRiskStatusLabel(data: ConversationRiskData | null | undefin
   }
 
   return null;
+}
+
+function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
+  if (!data?.intervention_status) {
+    return null;
+  }
+
+  const isTransferEvidenceGap = data.risk_type === 'transfer_evidence_gap';
+
+  if (data.intervention_effect === 'risk_lowered') {
+    return isTransferEvidenceGap ? '补做后已形成迁移证据' : '补救后风险已下降';
+  }
+
+  if (data.intervention_effect === 'risk_persisting') {
+    return isTransferEvidenceGap ? '补做后仍缺迁移证据' : '补救后同类风险仍在重复';
+  }
+
+  if (data.intervention_status === 'completed') {
+    return data.intervention_feedback_note
+      ? `任务已完成: ${data.intervention_feedback_note}`
+      : isTransferEvidenceGap
+        ? '补齐迁移证据任务已完成'
+        : '补救任务已完成';
+  }
+
+  return data.intervention_task_title
+    ? `${isTransferEvidenceGap ? '已生成迁移证据任务' : '已生成补救任务'}: ${data.intervention_task_title}`
+    : isTransferEvidenceGap
+      ? '已生成补齐迁移证据任务'
+      : '已生成补救任务';
 }
 
 export default function NotificationsPage() {
@@ -249,6 +294,11 @@ export default function NotificationsPage() {
         ? (notification.data as ConversationRiskData | null)
         : null;
     const conversationRiskStatus = conversationRiskStatusLabel(conversationRiskData);
+    const masteryRiskData =
+      notification.type === 'mastery_update'
+        ? (notification.data as MasteryRiskData | null)
+        : null;
+    const masteryRiskStatus = masteryRiskStatusLabel(masteryRiskData);
 
     return (
       <Card
@@ -296,6 +346,11 @@ export default function NotificationsPage() {
               {conversationRiskStatus ? (
                 <p className="text-sm text-red-600 mb-2">
                   {conversationRiskStatus}
+                </p>
+              ) : null}
+              {masteryRiskStatus ? (
+                <p className="text-sm text-amber-700 mb-2">
+                  {masteryRiskStatus}
                 </p>
               ) : null}
               {conversationRiskData?.intervention_feedback_note ? (

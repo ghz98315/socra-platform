@@ -479,11 +479,19 @@ async function sendParentRiskNotification({
     };
 
     const isTransferEvidenceGap = normalizedReason === 'transfer_evidence_gap';
+    const notificationTitle = isTransferEvidenceGap
+      ? `${student.display_name || '孩子'}还缺迁移证据`
+      : `${student.display_name || '孩子'}出现掌握风险提醒`;
+    const notificationActionText = isTransferEvidenceGap
+      ? '查看迁移证据缺口'
+      : interventionTaskId
+        ? '查看复习补救闭环'
+        : '查看复习风险';
 
     await supabase.from('notifications').insert({
       user_id: student.parent_id,
       type: 'mastery_update',
-      title: `${student.display_name || '孩子'}出现掌握风险提醒`,
+      title: notificationTitle,
       content: isTransferEvidenceGap
         ? notificationSummary || '这题虽然本轮做对了，但还没有形成独立迁移证据，暂时不能按真会关闭。'
         : judgementMessageMap[judgement as Exclude<MasteryJudgement, 'provisional_mastered' | 'mastered'>],
@@ -499,7 +507,7 @@ async function sendParentRiskNotification({
         intervention_task_id: interventionTaskId,
       },
       action_url: `/controls?focus=review&student_id=${studentId}&session_id=${sessionId}`,
-      action_text: interventionTaskId ? '查看复习补救闭环' : '查看复习风险',
+      action_text: notificationActionText,
       is_read: false,
       priority: isTransferEvidenceGap ? 1 : 2,
     });

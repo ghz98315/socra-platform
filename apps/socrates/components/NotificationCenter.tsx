@@ -38,6 +38,7 @@ type ConversationRiskData = {
 };
 
 type MasteryRiskData = {
+  risk_type?: 'mastery_risk' | 'transfer_evidence_gap' | string;
   intervention_status?: string | null;
   intervention_effect?: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
   intervention_task_title?: string | null;
@@ -84,6 +85,34 @@ function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
   }
 
   return data.intervention_task_title ? `已生成补救任务: ${data.intervention_task_title}` : '已生成补救任务。';
+}
+
+function transferAwareMasteryStatusLabel(data: MasteryRiskData | null | undefined) {
+  if (!data?.intervention_status) {
+    return null;
+  }
+
+  if (data.risk_type !== 'transfer_evidence_gap') {
+    return masteryRiskStatusLabel(data);
+  }
+
+  if (data.intervention_effect === 'risk_lowered') {
+    return '补做后已形成迁移证据。';
+  }
+
+  if (data.intervention_effect === 'risk_persisting') {
+    return '补做后仍然缺少迁移证据。';
+  }
+
+  if (data.intervention_status === 'completed') {
+    return data.intervention_feedback_note
+      ? `补齐迁移证据任务已完成。${data.intervention_feedback_note}`
+      : '补齐迁移证据任务已完成，等待后续验证。';
+  }
+
+  return data.intervention_task_title
+    ? `已生成迁移证据任务。${data.intervention_task_title}`
+    : '已生成补齐迁移证据任务。';
 }
 
 const notificationConfig: Record<
@@ -335,7 +364,7 @@ export function NotificationCenter() {
                     notification.type === 'mastery_update'
                       ? (notification.data as MasteryRiskData | null)
                       : null;
-                  const masteryRiskStatus = masteryRiskStatusLabel(masteryRiskData);
+                  const masteryRiskStatus = transferAwareMasteryStatusLabel(masteryRiskData);
 
                   return (
                     <div

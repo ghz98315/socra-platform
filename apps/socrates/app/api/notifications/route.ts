@@ -73,6 +73,8 @@ const REVIEW_RISK_JUDGEMENTS = new Set([
   'pseudo_mastery',
 ]);
 
+const REVIEW_NOTIFICATION_RISK_TYPES = new Set(['mastery_risk', 'transfer_evidence_gap']);
+
 function parseConversationTaskMarkers(description: string | null | undefined) {
   const content = description || '';
   const sessionMatch = content.match(/\[conversation-session:([^\]]+)\]/);
@@ -241,7 +243,7 @@ export async function GET(req: NextRequest) {
     const masteryRiskNotifications = enrichedNotifications.filter(
       (item) =>
         item.type === 'mastery_update' &&
-        item.data?.risk_type === 'mastery_risk' &&
+        REVIEW_NOTIFICATION_RISK_TYPES.has(String(item.data?.risk_type || '')) &&
         item.data?.intervention_task_id,
     );
 
@@ -314,7 +316,7 @@ export async function GET(req: NextRequest) {
         enrichedNotifications = enrichedNotifications.map((notification) => {
           if (
             notification.type !== 'mastery_update' ||
-            notification.data?.risk_type !== 'mastery_risk' ||
+            !REVIEW_NOTIFICATION_RISK_TYPES.has(String(notification.data?.risk_type || '')) ||
             !notification.data?.intervention_task_id
           ) {
             return notification;
@@ -329,18 +331,21 @@ export async function GET(req: NextRequest) {
           const completion = getTaskCompletion(matchedTask);
           const interventionCompletedAt = completion?.completed_at ?? matchedTask.completed_at ?? null;
           const notificationJudgement = String(notification.data.mastery_judgement || '');
+          const notificationRiskType = String(notification.data.risk_type || 'mastery_risk');
           const sessionId = String(notification.data.session_id || '');
           const followupAttempts = interventionCompletedAt
             ? (attemptsBySession.get(sessionId) ?? []).filter(
                 (attempt) => new Date(attempt.created_at).getTime() > new Date(interventionCompletedAt).getTime(),
               )
             : [];
-          const postInterventionRepeatCount = followupAttempts.filter(
-            (attempt) => attempt.mastery_judgement === notificationJudgement,
-          ).length;
-          const hasSafeFollowup = followupAttempts.some(
-            (attempt) => !REVIEW_RISK_JUDGEMENTS.has(attempt.mastery_judgement),
-          );
+          const postInterventionRepeatCount =
+            notificationRiskType === 'transfer_evidence_gap'
+              ? followupAttempts.filter((attempt) => attempt.mastery_judgement === 'provisional_mastered').length
+              : followupAttempts.filter((attempt) => attempt.mastery_judgement === notificationJudgement).length;
+          const hasSafeFollowup =
+            notificationRiskType === 'transfer_evidence_gap'
+              ? followupAttempts.some((attempt) => attempt.mastery_judgement === 'mastered')
+              : followupAttempts.some((attempt) => !REVIEW_RISK_JUDGEMENTS.has(attempt.mastery_judgement));
           const interventionEffect =
             (matchedTask.status ?? 'pending') === 'completed'
               ? postInterventionRepeatCount > 0
