@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { ChildSelector, type ChildInfo } from '@/components/ChildSelector';
+import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 
 interface Task {
   id: string;
@@ -54,7 +55,8 @@ interface Task {
   is_review_intervention: boolean;
   intervention_session_id: string | null;
   intervention_risk_category: string | null;
-  intervention_review_judgement: string | null;
+  intervention_review_judgement: MasteryJudgement | null;
+  intervention_review_reason: 'mastery_risk' | 'transfer_evidence_gap' | string | null;
 }
 
 interface Student {
@@ -90,6 +92,30 @@ function formatDate(dateStr: string | null): string | null {
   if (!dateStr) return null;
   const date = new Date(dateStr);
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+
+function getReviewInterventionMeta(task: Task) {
+  const isTransferEvidenceGap = task.intervention_review_reason === 'transfer_evidence_gap';
+  const judgementMeta = task.intervention_review_judgement
+    ? MASTERY_JUDGEMENT_META[task.intervention_review_judgement]
+    : null;
+
+  return {
+    title: isTransferEvidenceGap
+      ? '待补齐迁移证据'
+      : task.status === 'completed'
+        ? '已完成复习补救陪练'
+        : '待执行复习补救陪练',
+    summary: task.completion_notes
+      ? `反馈备注: ${task.completion_notes}`
+      : isTransferEvidenceGap
+        ? '这题当前不是普通做错，而是还缺独立迁移证据，建议陪孩子补做变式并确认是否真的能独立迁移。'
+        : '这是由复习失败、假会或解释断层自动回流生成的家长补救任务，建议先按任务说明陪孩子过一轮。',
+    badgeLabel: isTransferEvidenceGap ? '迁移证据缺口' : '掌握风险补救',
+    badgeClassName: isTransferEvidenceGap ? 'border-amber-200 text-amber-700' : 'border-rose-200 text-rose-700',
+    judgementLabel: judgementMeta?.label || null,
+    actionLabel: isTransferEvidenceGap ? '查看迁移证据缺口' : '查看家长洞察',
+  };
 }
 
 export default function ParentTasksPage() {
@@ -627,6 +653,7 @@ function TaskCard({
   const reviewInterventionUrl = hasReviewInterventionLink
     ? `/controls?focus=review&student_id=${task.child_id}&session_id=${task.intervention_session_id}`
     : '/tasks';
+  const reviewInterventionMeta = task.is_review_intervention ? getReviewInterventionMeta(task) : null;
 
   return (
     <div
@@ -666,6 +693,22 @@ function TaskCard({
             </span>
           )}
         </div>
+
+        {task.is_review_intervention && reviewInterventionMeta ? (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50/70 p-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className={reviewInterventionMeta.badgeClassName}>
+                {reviewInterventionMeta.badgeLabel}
+              </Badge>
+              {reviewInterventionMeta.judgementLabel ? (
+                <Badge variant="outline" className="border-rose-200 text-rose-700">
+                  判定: {reviewInterventionMeta.judgementLabel}
+                </Badge>
+              ) : null}
+            </div>
+            <p className="mt-2 text-sm text-rose-900">{reviewInterventionMeta.summary}</p>
+          </div>
+        ) : null}
 
         {/* Progress Bar */}
         {showProgress && !completed && (

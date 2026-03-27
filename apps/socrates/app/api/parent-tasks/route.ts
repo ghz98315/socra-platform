@@ -45,6 +45,7 @@ function mapTaskWithProgress(task: any) {
     intervention_session_id: conversationMarkers?.session_id || reviewMarkers?.session_id || null,
     intervention_risk_category: conversationMarkers?.risk_category || null,
     intervention_review_judgement: reviewMarkers?.judgement || null,
+    intervention_review_reason: reviewMarkers?.reason || null,
   };
 }
 
