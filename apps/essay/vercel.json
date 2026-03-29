@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs --app essay",
   "buildCommand": "cd ../.. && pnpm --filter=@socra/essay build",
   "installCommand": "cd ../.. && pnpm install",
   "outputDirectory": "dist",

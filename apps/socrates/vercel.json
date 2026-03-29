@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs --app socrates",
   "buildCommand": "cd ../.. && pnpm --filter=@socra/socrates build",
   "installCommand": "cd ../.. && pnpm install",
   "outputDirectory": ".next",

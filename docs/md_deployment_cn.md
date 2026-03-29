@@ -70,6 +70,11 @@
 - A stray project named `socrates` was created on 2026-03-29 by an accidental local relink. Do not use it for production deployment or project inspection.
 - Run `pnpm check:vercel-links` before any manual Vercel CLI deployment to confirm the local `.vercel/project.json` files still point at the canonical projects.
 - Vercel monorepos do not become "single-app deploy only" from repo code alone. Unaffected-project skipping and ignored-build-step behavior are controlled in each project's Vercel Dashboard settings.
+- This repo now ships app-local `ignoreCommand` rules in each `vercel.json`:
+  - `apps/landing` -> `node ../../scripts/vercel-ignore-build.mjs --app landing`
+  - `apps/socrates` -> `node ../../scripts/vercel-ignore-build.mjs --app socrates`
+  - `apps/essay` -> `node ../../scripts/vercel-ignore-build.mjs --app essay`
+- These rules skip deploys when the latest commit does not touch the app itself or its declared internal dependencies.
 
 ---
 

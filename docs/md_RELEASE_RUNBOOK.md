@@ -105,6 +105,7 @@ Known Vercel deployment requirement:
 - The Vercel project Root Directory for Socrates must point to `apps/socrates`, otherwise the remote builder will fail with `No Next.js version detected` because it only sees the monorepo root `package.json`.
 - A stray project named `socrates` was observed on March 29, 2026 after an accidental relink and should not be used for production deploys.
 - Run `pnpm check:vercel-links` before any manual Vercel CLI deployment to confirm local `.vercel/project.json` files still point at the canonical projects.
+- The checked-in `vercel.json` files now define app-local `ignoreCommand` rules so docs-only or unrelated app changes can be skipped before build.
 - Vercel monorepo deploys are project settings, not repo-only settings. If unaffected projects are still deploying, review each project's Root Directory settings for `Skip deployment`, or configure an `Ignored Build Step` in the Vercel Dashboard.
 - If `vercel inspect` or `vercel build` crashes locally with `ProxyAgent is not a constructor`, treat that as a Vercel CLI issue on the machine, not an app regression. Use the Vercel dashboard build logs or another machine/CLI version for deployment diagnostics.
 
