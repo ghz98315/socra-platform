@@ -171,7 +171,7 @@ const smokeResults = [
         keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
       },
     ],
-    optional: [],
+    optional: ['SMOKE_PARENT_ID'],
   }),
 ];
 

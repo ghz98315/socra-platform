@@ -8,6 +8,7 @@ const smokeEnv = validateSmokeEnv({
       keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
     },
   ],
+  optional: ['SMOKE_PARENT_ID'],
 });
 
 if (!smokeEnv.ready) {
@@ -18,9 +19,15 @@ if (!smokeEnv.ready) {
 const env = smokeEnv.env;
 const baseUrl = env.SMOKE_BASE_URL || env.NEXT_PUBLIC_APP_URL;
 const studentId = env.SMOKE_STUDY_USER_ID || '';
+const parentId = env.SMOKE_PARENT_ID || '';
 
-if (!isUuidLike(studentId)) {
-  console.error(formatInvalidSmokeValueFailure('Transfer-evidence smoke', ['SMOKE_STUDY_USER_ID']));
+const invalidUuidKeys = [
+  ['SMOKE_STUDY_USER_ID', studentId],
+  ['SMOKE_PARENT_ID', parentId],
+].flatMap(([key, value]) => (value && !isUuidLike(value) ? [key] : []));
+
+if (invalidUuidKeys.length > 0) {
+  console.error(formatInvalidSmokeValueFailure('Transfer-evidence smoke', invalidUuidKeys));
   process.exit(1);
 }
 
@@ -55,6 +62,16 @@ function assertIncludes(list, value, label) {
   if (!Array.isArray(list) || !list.includes(value)) {
     throw new Error(`${label} is missing ${value}`);
   }
+}
+
+function findBySessionId(list, sessionId) {
+  if (!Array.isArray(list)) {
+    return null;
+  }
+
+  return (
+    list.find((item) => item?.intervention_session_id === sessionId || item?.data?.session_id === sessionId) || null
+  );
 }
 
 const stamp = new Date().toISOString();
@@ -138,6 +155,64 @@ const firstAttempt = await request(
     }
   },
 );
+
+if (parentId) {
+  await request(
+    'parent-review-task-transfer-gap',
+    `/api/parent-tasks?parent_id=${encodeURIComponent(parentId)}`,
+    {},
+    (payload) => {
+      if (!Array.isArray(payload?.tasks)) {
+        throw new Error('parent tasks payload is missing tasks');
+      }
+
+      const matchedTask = findBySessionId(payload.tasks, sessionId);
+      if (!matchedTask) {
+        throw new Error('parent review intervention task was not created for transfer-evidence gap');
+      }
+
+      if (matchedTask?.task_type !== 'review_intervention') {
+        throw new Error('parent task should be review_intervention');
+      }
+
+      if (matchedTask?.intervention_review_reason !== 'transfer_evidence_gap') {
+        throw new Error('parent review task reason should be transfer_evidence_gap');
+      }
+
+      if (matchedTask?.status !== 'pending') {
+        throw new Error('new parent review task should start as pending');
+      }
+    },
+  );
+
+  await request(
+    'parent-mastery-notification-transfer-gap',
+    `/api/notifications?user_id=${encodeURIComponent(parentId)}&type=mastery_update&limit=20`,
+    {},
+    (payload) => {
+      if (!Array.isArray(payload?.data)) {
+        throw new Error('notifications payload is missing data');
+      }
+
+      const matchedNotification = findBySessionId(payload.data, sessionId);
+      if (!matchedNotification) {
+        throw new Error('mastery_update notification was not created for transfer-evidence gap');
+      }
+
+      if (matchedNotification?.data?.risk_type !== 'transfer_evidence_gap') {
+        throw new Error('mastery_update notification risk_type should be transfer_evidence_gap');
+      }
+
+      if (matchedNotification?.data?.intervention_status !== 'pending') {
+        throw new Error('mastery_update notification should expose pending intervention status');
+      }
+
+      if (typeof matchedNotification?.data?.intervention_task_id !== 'string') {
+        throw new Error('mastery_update notification is missing intervention_task_id');
+      }
+    },
+  );
+}
 
 const generatedVariants = await request(
   'variant-generate',
