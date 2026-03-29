@@ -10,19 +10,42 @@ import {
   getParentSupportPlaybook,
   getRootCauseLabel,
 } from '@/lib/error-loop/parent-insights';
-import { aggregateConversationRiskSignals } from '@/lib/error-loop/conversation-risk';
+import {
+  aggregateConversationRiskSignals,
+  evaluateConversationInterventionEffect,
+} from '@/lib/error-loop/conversation-risk';
+import {
+  getParentInterventionTaskPriorityWeight,
+  getParentRecentRiskPriorityWeight,
+} from '@/lib/error-loop/parent-priority';
 import {
   MASTERY_JUDGEMENT_META,
+  REVIEW_INTERVENTION_RISK_JUDGEMENTS,
+  evaluateReviewInterventionEffect,
   evaluateClosureGates,
+  isMasteryJudgement,
   parseReviewInterventionTaskMarkers,
   type AttemptMode,
   type ClosureGateAttemptEvidence,
+  type ReviewInterventionEffect,
 } from '@/lib/error-loop/review';
 import {
   summarizeVariantEvidence,
   type VariantPracticeLogEvidenceRow,
   type VariantQuestionEvidenceRow,
 } from '@/lib/error-loop/variant-evidence';
+import {
+  getParentMasteryBalanceCopy,
+  getParentOverdueReviewActionCopy,
+  getParentPseudoMasteryActionCopy,
+  getParentRecentRiskTitle,
+  getParentReviewInterventionFocusCopy,
+  getParentReviewInterventionPendingActionCopy,
+  getParentReviewInterventionPersistingActionCopy,
+  getParentReviewInterventionLoweredActionCopy,
+  getParentSurfaceReflectionActionCopy,
+  getParentTransferGapInsightCopy,
+} from '@/lib/error-loop/parent-insight-copy';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +53,7 @@ const supabaseAdmin = createClient(
 );
 
 const VALID_SUBJECTS = new Set(['math', 'chinese', 'english', 'physics', 'chemistry', 'generic']);
-const RISK_JUDGEMENTS = new Set(['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery']);
+const RISK_JUDGEMENTS = REVIEW_INTERVENTION_RISK_JUDGEMENTS;
 
 type StudentRow = {
   id: string;
@@ -145,8 +168,6 @@ type ParentTaskRow = {
   task_completions: TaskCompletionRow[] | null;
 };
 
-type InterventionEffect = 'pending' | 'risk_lowered' | 'risk_persisting';
-
 type InterventionTaskSnapshot = {
   task_id: string;
   session_id: string;
@@ -158,7 +179,7 @@ type InterventionTaskSnapshot = {
   feedback_note: string | null;
   completed_at: string | null;
   updated_at: string | null;
-  effect: InterventionEffect;
+  effect: ReviewInterventionEffect;
   post_intervention_repeat_count: number;
   root_cause_display_label: string | null;
   root_cause_statement: string | null;
@@ -287,6 +308,14 @@ function getRootCauseContext(
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Internal server error';
+}
+
+function toPercent(part: number, total: number) {
+  if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) {
+    return 0;
+  }
+
+  return Math.round((part / total) * 100);
 }
 
 function getTaskCompletion(task: ParentTaskRow) {
@@ -457,6 +486,22 @@ export async function GET(req: NextRequest) {
           pseudo_mastery_count: 0,
           missing_transfer_evidence_count: 0,
           reopened_total: 0,
+        },
+        summary_chain: {
+          mastery_signal_total: 0,
+          stable_mastery_rate: 0,
+          provisional_mastery_rate: 0,
+          pseudo_mastery_rate: 0,
+          transfer_gap_rate: 0,
+          intervention_focus_value: 0,
+          intervention_focus_value_label: '当前无积压',
+          review_intervention_pending: 0,
+          mastery_balance_label: '暂无足够样本',
+          mastery_balance_summary: '等孩子完成更多复习判定后，再看真掌握和假会的比例。',
+          transfer_gap_label: '暂无迁移缺口',
+          transfer_gap_summary: '当前还没有可用于计算迁移证据缺口的开放题样本。',
+          intervention_focus_label: '暂无待跟进项',
+          intervention_focus_summary: '当前没有待处理的复习补救任务。',
         },
         root_cause_heatmap: [],
         knowledge_hotspots: [],
@@ -849,7 +894,7 @@ export async function GET(req: NextRequest) {
         const riskScore =
           (review?.reopened_count ?? 0) * 3 +
           (review?.last_judgement === 'pseudo_mastery' ? 4 : 0) +
-          (review?.last_judgement && RISK_JUDGEMENTS.has(review.last_judgement) ? 2 : 0) +
+          (review?.last_judgement && isMasteryJudgement(review.last_judgement) && RISK_JUDGEMENTS.has(review.last_judgement) ? 2 : 0) +
           (review && review.is_completed === false && isOverdue(review.next_review_at) ? 2 : 0) +
           (pendingClosureLabels.length > 0 ? 1 : 0) +
           (reflectionQuality?.surface_only_risk ? 1 : 0);
@@ -858,22 +903,13 @@ export async function GET(req: NextRequest) {
           return null;
         }
 
-        let riskLabel = '需要关注';
-        if (review?.last_judgement === 'pseudo_mastery') {
-          riskLabel = '假会风险';
-        } else if (review?.last_judgement === 'not_mastered') {
-          riskLabel = '复习未过';
-        } else if (review && review.is_completed === false && isOverdue(review.next_review_at)) {
-          riskLabel = '复习已到期';
-        } else if ((review?.reopened_count ?? 0) > 0) {
-          riskLabel = '重复复开';
-        }
-
-        if (pendingClosureLabels.length > 0) {
-          riskLabel = '待关门验证';
-        } else if (reflectionQuality?.surface_only_risk) {
-          riskLabel = '根因仍偏表面';
-        }
+        const riskLabel = getParentRecentRiskTitle({
+          masteryJudgement: review?.last_judgement ?? latestAttempt?.mastery_judgement ?? null,
+          isOverdue: Boolean(review && review.is_completed === false && isOverdue(review.next_review_at)),
+          reopenedCount: review?.reopened_count ?? 0,
+          hasPendingClosureLabels: pendingClosureLabels.length > 0,
+          hasSurfaceReflectionRisk: reflectionQuality?.surface_only_risk ?? false,
+        });
 
         return {
           session_id: session.id,
@@ -909,8 +945,7 @@ export async function GET(req: NextRequest) {
           return right.risk_score - left.risk_score;
         }
         return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-      })
-      .slice(0, 6);
+      });
 
     const conversationAlertSignals = aggregateConversationRiskSignals(
       chatMessages
@@ -931,18 +966,6 @@ export async function GET(req: NextRequest) {
       conversationSignalsByKey.set(key, current);
     }
 
-    const reviewRiskAttemptsByKey = new Map<string, ReviewAttemptRow[]>();
-    for (const attempt of reviewAttempts) {
-      if (!RISK_JUDGEMENTS.has(attempt.mastery_judgement)) {
-        continue;
-      }
-
-      const key = buildReviewTaskKey(attempt.session_id, attempt.mastery_judgement);
-      const current = reviewRiskAttemptsByKey.get(key) ?? [];
-      current.push(attempt);
-      reviewRiskAttemptsByKey.set(key, current);
-    }
-
     const interventionTaskSnapshots = interventionTasks
       .map((task) => {
         const session = sessionMap.get(task.task_type === 'review_intervention' ? parseReviewInterventionTaskMarkers(task.description)?.session_id || '' : parseConversationTaskMarkers(task.description)?.sessionId || '');
@@ -956,31 +979,18 @@ export async function GET(req: NextRequest) {
           const completion = getTaskCompletion(task);
           const completedAt = completion?.completed_at ?? task.completed_at ?? null;
           const status = task.status ?? (completedAt ? 'completed' : 'pending');
-          const relatedAttempts = reviewRiskAttemptsByKey.get(
-            buildReviewTaskKey(markers.session_id, markers.judgement),
-          ) ?? [];
-          const postInterventionRepeatCount = completedAt
-            ? relatedAttempts.filter(
-                (attempt) =>
-                  new Date(attempt.created_at).getTime() > new Date(completedAt).getTime(),
-              ).length
-            : 0;
           const followupAttempts = completedAt
             ? (attemptsBySession.get(markers.session_id) ?? []).filter(
                 (attempt) => new Date(attempt.created_at).getTime() > new Date(completedAt).getTime(),
               )
             : [];
-          const hasSafeFollowup = followupAttempts.some(
-            (attempt) => !RISK_JUDGEMENTS.has(attempt.mastery_judgement),
-          );
-          const effect: InterventionEffect =
-            status === 'completed'
-              ? postInterventionRepeatCount > 0
-                ? 'risk_persisting'
-                : hasSafeFollowup
-                  ? 'risk_lowered'
-                  : 'pending'
-              : 'pending';
+          const { effect, postInterventionRepeatCount } = evaluateReviewInterventionEffect({
+            status,
+            completedAt,
+            judgement: markers.judgement,
+            reason: markers.reason,
+            followupAttempts,
+          });
           const rootCauseContext = getRootCauseContext(
             session?.primary_root_cause_category,
             session?.primary_root_cause_subtype,
@@ -1016,18 +1026,11 @@ export async function GET(req: NextRequest) {
         const status = task.status ?? (completedAt ? 'completed' : 'pending');
         const taskKey = buildConversationTaskKey(markers.sessionId, markers.category);
         const relatedSignals = conversationSignalsByKey.get(taskKey) ?? [];
-        const postInterventionRepeatCount = completedAt
-          ? relatedSignals.filter(
-              (signal) =>
-                new Date(signal.created_at).getTime() > new Date(completedAt).getTime(),
-            ).length
-          : 0;
-        const effect: InterventionEffect =
-          status === 'completed'
-            ? postInterventionRepeatCount > 0
-              ? 'risk_persisting'
-              : 'risk_lowered'
-            : 'pending';
+        const { effect, postInterventionRepeatCount } = evaluateConversationInterventionEffect({
+          status,
+          completedAt,
+          signalTimestamps: relatedSignals.map((signal) => signal.created_at),
+        });
         const rootCauseContext = getRootCauseContext(
           session?.primary_root_cause_category,
           session?.primary_root_cause_subtype,
@@ -1051,7 +1054,26 @@ export async function GET(req: NextRequest) {
         } satisfies InterventionTaskSnapshot;
       })
       .filter((item): item is InterventionTaskSnapshot => item !== null)
-      .sort((a, b) => compareIsoDesc(a.updated_at ?? a.completed_at, b.updated_at ?? b.completed_at));
+      .sort((a, b) => {
+        const leftPriority = getParentInterventionTaskPriorityWeight({
+          taskType: a.task_type,
+          status: a.status,
+          effect: a.effect,
+          hasFeedbackNote: Boolean(a.feedback_note?.trim()),
+        });
+        const rightPriority = getParentInterventionTaskPriorityWeight({
+          taskType: b.task_type,
+          status: b.status,
+          effect: b.effect,
+          hasFeedbackNote: Boolean(b.feedback_note?.trim()),
+        });
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+
+        return compareIsoDesc(a.updated_at ?? a.completed_at, b.updated_at ?? b.completed_at);
+      });
 
     const interventionTaskMap = new Map<string, InterventionTaskSnapshot>();
     for (const task of interventionTaskSnapshots) {
@@ -1077,7 +1099,7 @@ export async function GET(req: NextRequest) {
       .map((item) => {
       const reviewTask =
         item.mastery_judgement &&
-        (RISK_JUDGEMENTS.has(item.mastery_judgement) ||
+        ((isMasteryJudgement(item.mastery_judgement) && RISK_JUDGEMENTS.has(item.mastery_judgement)) ||
           (item.mastery_judgement === 'provisional_mastered' && item.transfer_evidence_pending))
           ? reviewInterventionTaskMap.get(buildReviewTaskKey(item.session_id, item.mastery_judgement))
           : undefined;
@@ -1089,7 +1111,30 @@ export async function GET(req: NextRequest) {
         intervention_effect: reviewTask?.effect ?? null,
         intervention_task_type_label: reviewTask?.task_type_label ?? null,
       };
-    });
+    })
+      .sort((a, b) => {
+        const leftPriority = getParentRecentRiskPriorityWeight({
+          interventionEffect: a.intervention_effect,
+          hasInterventionTask: Boolean(a.intervention_task_id),
+          interventionStatus: a.intervention_status,
+          closurePendingCount: a.closure_pending_count,
+        });
+        const rightPriority = getParentRecentRiskPriorityWeight({
+          interventionEffect: b.intervention_effect,
+          hasInterventionTask: Boolean(b.intervention_task_id),
+          interventionStatus: b.intervention_status,
+          closurePendingCount: b.closure_pending_count,
+        });
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+        if (b.risk_score !== a.risk_score) {
+          return b.risk_score - a.risk_score;
+        }
+        return compareIsoDesc(a.created_at, b.created_at);
+      })
+      .slice(0, 6);
 
     const conversationAlerts = conversationAlertSignals
       .map((item) => {
@@ -1143,6 +1188,18 @@ export async function GET(req: NextRequest) {
     const pendingReviewInterventionCount = interventionTaskSnapshots.filter(
       (task) => task.task_type === 'review_intervention' && task.status !== 'completed',
     ).length;
+    const pendingReviewInterventionWithoutFeedbackCount = interventionTaskSnapshots.filter(
+      (task) =>
+        task.task_type === 'review_intervention' &&
+        task.status !== 'completed' &&
+        !(task.feedback_note || '').trim(),
+    ).length;
+    const reviewInterventionRiskPersistingCount = interventionTaskSnapshots.filter(
+      (task) => task.task_type === 'review_intervention' && task.effect === 'risk_persisting',
+    ).length;
+    const reviewInterventionRiskLoweredCount = interventionTaskSnapshots.filter(
+      (task) => task.task_type === 'review_intervention' && task.effect === 'risk_lowered',
+    ).length;
     const loweredRiskInterventionCount = interventionTaskSnapshots.filter(
       (task) => task.effect === 'risk_lowered',
     ).length;
@@ -1172,59 +1229,145 @@ export async function GET(req: NextRequest) {
 
       return session.closure_state !== 'mastered_closed' && !variantEvidence.qualified_transfer_evidence;
     }).length;
+    const openErrorsCount = sessions.filter((session) => session.closure_state !== 'mastered_closed').length;
+    const masterySignalTotal = masteredClosedCount + provisionalMasteredCount + pseudoMasteryCount;
+    const stableMasteryRate = toPercent(masteredClosedCount, masterySignalTotal);
+    const provisionalMasteryRate = toPercent(provisionalMasteredCount, masterySignalTotal);
+    const pseudoMasteryRate = toPercent(pseudoMasteryCount, masterySignalTotal);
+    const transferGapRate = toPercent(missingTransferEvidenceCount, openErrorsCount);
+    const highSeverityConversationAlertCount = conversationAlerts.filter((item) => item.severity === 'high').length;
+    const masteryBalanceCopy = getParentMasteryBalanceCopy({
+      masterySignalTotal,
+      masteredClosedCount,
+      provisionalMasteredCount,
+      pseudoMasteryCount,
+    });
+    const masteryBalanceLabel = masteryBalanceCopy.label;
+    const masteryBalanceSummary = masteryBalanceCopy.summary;
+    const transferGapInsightCopy = getParentTransferGapInsightCopy({
+      openErrorsCount,
+      missingTransferEvidenceCount,
+      transferGapRate,
+    });
+    const transferGapLabel = transferGapInsightCopy.label;
+    const transferGapSummary = transferGapInsightCopy.summary;
+    const reviewInterventionFocusCopy = getParentReviewInterventionFocusCopy({
+      reviewInterventionRiskPersistingCount,
+      pendingReviewInterventionCount,
+      pendingReviewInterventionWithoutFeedbackCount,
+      overdueReviewCount,
+    });
+    const interventionFocusLabel = reviewInterventionFocusCopy.label;
+    const interventionFocusSummary = reviewInterventionFocusCopy.summary;
+    const interventionFocusValue = reviewInterventionFocusCopy.value;
+    const interventionFocusValueLabel = reviewInterventionFocusCopy.valueLabel;
+    const reviewInterventionPersistingActionCopy = getParentReviewInterventionPersistingActionCopy({
+      reviewInterventionRiskPersistingCount,
+    });
+    const reviewInterventionPendingActionCopy = getParentReviewInterventionPendingActionCopy({
+      pendingReviewInterventionCount,
+      pendingReviewInterventionWithoutFeedbackCount,
+    });
+    const reviewInterventionLoweredActionCopy = getParentReviewInterventionLoweredActionCopy({
+      reviewInterventionRiskLoweredCount,
+    });
+    const overdueReviewActionCopy = getParentOverdueReviewActionCopy({
+      overdueReviewCount,
+    });
+    const pseudoMasteryActionCopy = getParentPseudoMasteryActionCopy({
+      pseudoMasteryCount,
+      pseudoMasteryRate,
+    });
+    const surfaceReflectionActionCopy = getParentSurfaceReflectionActionCopy({
+      surfaceOnlyReflectionCount,
+    });
 
     const parentActions = [
-      ...(overdueReviewCount > 0
+      ...(overdueReviewActionCopy
         ? [
             {
-              title: '先清掉到期复习',
-              summary: `当前有 ${overdueReviewCount} 个复习点已到期，建议优先处理这些题，避免错误记忆继续固化。`,
+              title: overdueReviewActionCopy.title,
+              summary: overdueReviewActionCopy.summary,
               priority: 'high',
+              driver_label: overdueReviewActionCopy.driverLabel,
+              driver_value: overdueReviewActionCopy.driverValue,
             },
           ]
         : []),
-      ...(pseudoMasteryCount > 0
+      ...(pseudoMasteryActionCopy
         ? [
             {
-              title: '专项盯“假会”',
-              summary: `最近共有 ${pseudoMasteryCount} 次假会信号。原题做对不代表真的会，家长陪练时要加一道变式题和一次讲解复述。`,
+              title: pseudoMasteryActionCopy.title,
+              summary: pseudoMasteryActionCopy.summary,
               priority: 'high',
+              driver_label: pseudoMasteryActionCopy.driverLabel,
+              driver_value: pseudoMasteryActionCopy.driverValue,
             },
           ]
         : []),
       ...(missingTransferEvidenceCount > 0
         ? [
             {
-              title: '优先补齐迁移证据',
-              summary: `当前还有 ${missingTransferEvidenceCount} 道开放中的题缺少独立迁移证据。家长陪练时不要只问“原题会不会”，要专门检查孩子离开原题后能不能不靠提示换题也做对。`,
+              title: transferGapInsightCopy.actionTitle!,
+              summary: transferGapInsightCopy.actionSummary!,
               priority: 'high',
+              driver_label: transferGapInsightCopy.driverLabel,
+              driver_value: transferGapInsightCopy.driverValue,
             },
           ]
         : []),
-      ...(pendingReviewInterventionCount > 0
+      ...(reviewInterventionPersistingActionCopy
         ? [
             {
-              title: '优先处理复习补救任务',
-              summary: `当前还有 ${pendingReviewInterventionCount} 条复习补救任务待完成，这些任务直接对应孩子最近的假会、未掌握或讲不清风险。`,
+              title: reviewInterventionPersistingActionCopy.title,
+              summary: reviewInterventionPersistingActionCopy.summary,
               priority: 'high',
+              driver_label: reviewInterventionPersistingActionCopy.driverLabel,
+              driver_value: reviewInterventionPersistingActionCopy.driverValue,
             },
           ]
         : []),
-      ...(surfaceOnlyReflectionCount > 0
+      ...(reviewInterventionPendingActionCopy
         ? [
             {
-              title: '继续追问表面归因',
-              summary: `当前还有 ${surfaceOnlyReflectionCount} 道题的学生反思仍停留在表层描述。家长先不要急着讲解，优先追到“具体哪一步断了、背后是什么稳定模式、下次先做什么”。`,
+              title: reviewInterventionPendingActionCopy.title,
+              summary: reviewInterventionPendingActionCopy.summary,
               priority: 'high',
+              driver_label: reviewInterventionPendingActionCopy.driverLabel,
+              driver_value: reviewInterventionPendingActionCopy.driverValue,
             },
           ]
         : []),
-      ...(conversationAlerts.some((item) => item.severity === 'high')
+      ...(reviewInterventionLoweredActionCopy
+        ? [
+            {
+              title: reviewInterventionLoweredActionCopy.title,
+              summary: reviewInterventionLoweredActionCopy.summary,
+              priority: 'medium',
+              driver_label: reviewInterventionLoweredActionCopy.driverLabel,
+              driver_value: reviewInterventionLoweredActionCopy.driverValue,
+            },
+          ]
+        : []),
+      ...(surfaceReflectionActionCopy
+        ? [
+            {
+              title: surfaceReflectionActionCopy.title,
+              summary: surfaceReflectionActionCopy.summary,
+              priority: 'high',
+              driver_label: surfaceReflectionActionCopy.driverLabel,
+              driver_value: surfaceReflectionActionCopy.driverValue,
+            },
+          ]
+        : []),
+      ...(highSeverityConversationAlertCount > 0
         ? [
             {
               title: '优先处理高风险对话信号',
               summary: '最近对话里出现了高强度情绪/边界/自我否定表达，建议先稳关系和情绪，再推进讲题。',
               priority: 'high',
+              driver_label: '高风险对话',
+              driver_value: `${highSeverityConversationAlertCount} 条高风险`,
             },
           ]
         : []),
@@ -1232,6 +1375,8 @@ export async function GET(req: NextRequest) {
         title: `${index + 1}. ${item.subtype_label || item.label}`,
         summary: item.subtype_label ? `${item.subtype_label} 属于「${item.label}」问题。${item.playbook.summary}` : item.playbook.summary,
         priority: index === 0 ? 'high' : 'medium',
+        driver_label: '错因热区',
+        driver_value: `热力 ${item.heat_score} / 近7天 ${item.recent_count} 次`,
         actions: item.playbook.actions,
         watch_fors: item.playbook.watchFors,
       })),
@@ -1243,7 +1388,7 @@ export async function GET(req: NextRequest) {
       subject,
       summary: {
         total_errors: sessions.length,
-        open_errors: sessions.filter((session) => session.closure_state !== 'mastered_closed').length,
+        open_errors: openErrorsCount,
         pending_review_count: pendingReviewCount,
         overdue_review_count: overdueReviewCount,
         mastered_closed_count: masteredClosedCount,
@@ -1251,6 +1396,22 @@ export async function GET(req: NextRequest) {
         pseudo_mastery_count: pseudoMasteryCount,
         missing_transfer_evidence_count: missingTransferEvidenceCount,
         reopened_total: reopenedTotal,
+      },
+      summary_chain: {
+        mastery_signal_total: masterySignalTotal,
+        stable_mastery_rate: stableMasteryRate,
+        provisional_mastery_rate: provisionalMasteryRate,
+        pseudo_mastery_rate: pseudoMasteryRate,
+        transfer_gap_rate: transferGapRate,
+        intervention_focus_value: interventionFocusValue,
+        intervention_focus_value_label: interventionFocusValueLabel,
+        review_intervention_pending: pendingReviewInterventionCount,
+        mastery_balance_label: masteryBalanceLabel,
+        mastery_balance_summary: masteryBalanceSummary,
+        transfer_gap_label: transferGapLabel,
+        transfer_gap_summary: transferGapSummary,
+        intervention_focus_label: interventionFocusLabel,
+        intervention_focus_summary: interventionFocusSummary,
       },
       root_cause_heatmap: rootCauseHeatmap.slice(0, 8),
       knowledge_hotspots: knowledgeHotspots,

@@ -72,10 +72,11 @@ async function ensureSafeToBuild({ host, port }) {
   const trackedPid = readTrackedPid(fs);
   const trackedPidAlive = Number.isFinite(trackedPid) && isPidAlive(trackedPid);
   const listenerPid = findListenerPid(port);
+  const trackedPidMatchesListener = Number.isFinite(trackedPid) && Number.isFinite(listenerPid) && trackedPid === listenerPid;
   const allowActivePortBuild = process.env.SOCRA_ALLOW_ACTIVE_PORT_3000_BUILD === '1';
   const portOpen = await probePortOpen(host, port, 1200);
 
-  if (trackedPidAlive) {
+  if (trackedPidAlive && trackedPidMatchesListener) {
     printBuildBlockedMessage({ host, port, trackedPid, listenerPid, source: 'tracked-pid' });
     process.exit(1);
   }

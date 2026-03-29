@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,8 +9,10 @@ import {
   defaultHost,
   defaultPort,
   findListenerPid,
-  pidFile,
+  getPidFile,
+  isHealthyHttpStatus,
   probePortOpen,
+  requestHttpStatus,
   readArg,
   readNumberArg,
   repoRoot,
@@ -64,6 +67,30 @@ async function ensurePortAvailable(host, port) {
   }
 }
 
+async function inspectExistingService(host, port) {
+  const portOpen = await probePortOpen(host, port, 1500);
+  if (!portOpen) {
+    return {
+      portOpen: false,
+      statusCode: null,
+      healthy: false,
+    };
+  }
+
+  let statusCode = null;
+  try {
+    statusCode = await requestHttpStatus(`http://${host}:${port}`, 2000);
+  } catch {
+    statusCode = null;
+  }
+
+  return {
+    portOpen,
+    statusCode,
+    healthy: isHealthyHttpStatus(statusCode),
+  };
+}
+
 function sleep(delayMs) {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
@@ -75,12 +102,9 @@ async function waitForReady({ baseUrl, timeoutMs, intervalMs }) {
 
   while (Date.now() - start < timeoutMs) {
     try {
-      const response = await fetch(baseUrl, {
-        redirect: 'manual',
-      });
-
-      if (response.status >= 200 && response.status < 500) {
-        return response.status;
+      const statusCode = await requestHttpStatus(baseUrl, intervalMs);
+      if (statusCode >= 200 && statusCode < 500) {
+        return statusCode;
       }
     } catch {
       // Keep polling until timeout.
@@ -116,12 +140,30 @@ function startDetachedProcess({ command, args, cwd, outLogPath, errLogPath }) {
   return child.pid;
 }
 
+function stopPid(pid) {
+  if (!Number.isFinite(pid)) {
+    return;
+  }
+
+  try {
+    process.kill(pid);
+    return;
+  } catch {
+    execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: 'pipe',
+    });
+  }
+}
+
 async function main() {
   const port = readNumberArg(process.argv, 'port', defaultPort);
   const host = readArg(process.argv, 'host', defaultHost);
   const timeoutMs = readNumberArg(process.argv, 'timeout-ms', 120000);
   const intervalMs = readNumberArg(process.argv, 'poll-ms', 1000);
   const node22Exe = findNode22Executable();
+  const pidFile = getPidFile(port);
 
   if (!node22Exe) {
     throw new Error('Unable to locate a Node 22 executable. Pass --node22 <path> or set NODE22_EXE.');
@@ -132,36 +174,67 @@ async function main() {
   }
 
   ensureBuildExists();
+
+  const existing = await inspectExistingService(host, port);
+  if (existing.healthy) {
+    const baseUrl = `http://${host}:${port}`;
+    const listenerPid = findListenerPid(port);
+    if (Number.isFinite(listenerPid)) {
+      fs.writeFileSync(pidFile, String(listenerPid), 'utf8');
+    }
+    console.log('EXISTING=yes');
+    console.log(`URL=${baseUrl}`);
+    console.log(`STATUS=${existing.statusCode}`);
+    console.log('NOTE=Local Socrates is already healthy. Reusing the existing service.');
+    return;
+  }
+
+  if (existing.portOpen) {
+    throw new Error(
+      `Port ${port} on ${host} is already listening but did not return a healthy HTTP response. Stop the existing service and inspect the local start logs before retrying.`,
+    );
+  }
+
   await ensurePortAvailable(host, port);
 
   const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
   const outLogPath = path.join(repoRoot, `.codex-socrates-start-${stamp}.out.log`);
   const errLogPath = path.join(repoRoot, `.codex-socrates-start-${stamp}.err.log`);
-  const pid = startDetachedProcess({
-    command: node22Exe,
-    args: [nextBin, 'start', '-H', host, '-p', String(port)],
-    cwd: appDir,
-    outLogPath,
-    errLogPath,
-  });
-  fs.writeFileSync(pidFile, String(pid), 'utf8');
+  let pid = null;
 
-  const baseUrl = `http://${host}:${port}`;
-  const statusCode = await waitForReady({
-    baseUrl,
-    timeoutMs,
-    intervalMs,
-  });
-  const listenerPid = findListenerPid(port);
-  if (Number.isFinite(listenerPid)) {
-    fs.writeFileSync(pidFile, String(listenerPid), 'utf8');
+  try {
+    pid = startDetachedProcess({
+      command: node22Exe,
+      args: [nextBin, 'start', '-H', host, '-p', String(port)],
+      cwd: appDir,
+      outLogPath,
+      errLogPath,
+    });
+    fs.writeFileSync(pidFile, String(pid), 'utf8');
+
+    const baseUrl = `http://${host}:${port}`;
+    const statusCode = await waitForReady({
+      baseUrl,
+      timeoutMs,
+      intervalMs,
+    });
+
+    console.log(`PID=${pid}`);
+    console.log(`URL=${baseUrl}`);
+    console.log(`STATUS=${statusCode}`);
+    console.log(`OUT=${quoteArg(outLogPath)}`);
+    console.log(`ERR=${quoteArg(errLogPath)}`);
+  } catch (error) {
+    if (Number.isFinite(pid)) {
+      try {
+        stopPid(pid);
+      } catch {
+        // Best-effort cleanup only.
+      }
+    }
+
+    throw error;
   }
-
-  console.log(`PID=${Number.isFinite(listenerPid) ? listenerPid : pid}`);
-  console.log(`URL=${baseUrl}`);
-  console.log(`STATUS=${statusCode}`);
-  console.log(`OUT=${quoteArg(outLogPath)}`);
-  console.log(`ERR=${quoteArg(errLogPath)}`);
 }
 
 try {

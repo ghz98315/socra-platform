@@ -22,7 +22,7 @@ import { PageHeader, StatCard, StatsRow } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
+import { getClosureStateMeta, MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 import { cn } from '@/lib/utils';
 import { formatReviewDate, getUrgencyLabel, REVIEW_STAGES } from '@/lib/review/utils';
 
@@ -37,6 +37,10 @@ interface ReviewHubItem {
   masteryState: string | null;
   lastJudgement: MasteryJudgement | null;
   reopenedCount: number;
+  transferEvidenceReady: boolean;
+  transferEvidenceStatusLabel: string;
+  transferEvidenceNextStep: string;
+  transferEvidenceSummary: string;
   daysUntilDue: number;
   isOverdue: boolean;
   difficultyRating: number | null;
@@ -83,6 +87,10 @@ function mapReview(review: any): ReviewHubItem {
     masteryState: review.mastery_state ?? null,
     lastJudgement: review.last_judgement ?? null,
     reopenedCount: review.reopened_count ?? 0,
+    transferEvidenceReady: review.transfer_evidence_ready === true,
+    transferEvidenceStatusLabel: review.transfer_evidence_status_label ?? '迁移证据待验证',
+    transferEvidenceNextStep: review.transfer_evidence_next_step ?? '下一步继续做变式题并跨间隔复习。',
+    transferEvidenceSummary: review.transfer_evidence_summary ?? '系统仍在验证这题是否真正形成迁移能力。',
     daysUntilDue: review.days_until_due,
     isOverdue: review.is_overdue,
     difficultyRating: session?.difficulty_rating ?? null,
@@ -107,19 +115,6 @@ function getDifficultyMeta(review: ReviewHubItem) {
 
 function getStageName(stage: number) {
   return REVIEW_STAGES.find((item) => item.stage === stage)?.name || `第 ${stage} 轮复习`;
-}
-
-function getClosureStateMeta(state: string | null | undefined) {
-  switch (state) {
-    case 'mastered_closed':
-      return { label: '稳定掌握', badgeClassName: 'bg-emerald-100 text-emerald-700' };
-    case 'provisional_mastered':
-      return { label: '暂时会了，继续验证', badgeClassName: 'bg-blue-100 text-blue-700' };
-    case 'reopened':
-      return { label: '已复开，说明还没闭环', badgeClassName: 'bg-red-100 text-red-700' };
-    default:
-      return { label: '仍在闭环中', badgeClassName: 'bg-slate-100 text-slate-700' };
-  }
 }
 
 function ReviewHubCard({
@@ -165,7 +160,7 @@ function ReviewHubCard({
               >
                 {completed ? '已完成' : getUrgencyLabel(review.daysUntilDue)}
               </Badge>
-              <Badge className={closureMeta.badgeClassName}>{closureMeta.label}</Badge>
+              <Badge className={closureMeta.badgeClassName}>{closureMeta.compactLabel}</Badge>
               {review.reopenedCount > 0 ? (
                 <Badge variant="outline" className="border-red-200 text-red-700">
                   复开 {review.reopenedCount} 次
@@ -197,16 +192,27 @@ function ReviewHubCard({
           <p className="line-clamp-3 min-h-[60px] text-sm leading-6 text-warm-800">
             {review.previewText || '该题暂无文字预览，进入复习后可查看完整题目内容。'}
           </p>
-          {review.masteryState === 'provisional_mastered' ? (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50/80 px-3 py-3 text-sm text-blue-800">
-              这题本轮表现不错，但还不能直接关题，系统仍在继续验证是否真的掌握。
+          {review.masteryState === 'provisional_mastered' || review.masteryState === 'reopened' ? (
+            <div className={cn('rounded-2xl border px-3 py-3 text-sm', closureMeta.panelClassName)}>
+              {closureMeta.description}
             </div>
           ) : null}
-          {review.masteryState === 'reopened' ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50/80 px-3 py-3 text-sm text-red-800">
-              这题之前出现过“会了又掉”的情况，说明还要继续把根因挖透并做独立复习。
+          <div
+            className={cn(
+              'rounded-2xl border px-3 py-3 text-sm',
+              review.transferEvidenceReady
+                ? 'border-emerald-200 bg-emerald-50/80 text-emerald-800'
+                : 'border-amber-200 bg-amber-50/80 text-amber-800',
+            )}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={review.transferEvidenceReady ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>
+                {review.transferEvidenceStatusLabel}
+              </Badge>
             </div>
-          ) : null}
+            <p className="mt-2 leading-6">{review.transferEvidenceSummary}</p>
+            <p className="mt-1 text-xs opacity-80">{review.transferEvidenceNextStep}</p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {(review.conceptTags || []).slice(0, 3).map((tag) => (
               <Badge key={tag} variant="outline" className="border-warm-200 text-warm-700">
@@ -372,6 +378,10 @@ export default function ReviewPage() {
     () => pendingReviews.filter((review) => !review.isOverdue && review.daysUntilDue > 1),
     [pendingReviews]
   );
+  const transferGapCount = useMemo(
+    () => pendingReviews.filter((review) => !review.transferEvidenceReady).length,
+    [pendingReviews]
+  );
 
   const openReview = (reviewId: string) => router.push(`/review/session/${reviewId}`);
   const openSource = (sessionId: string) => router.push(`/error-book/${sessionId}`);
@@ -416,6 +426,7 @@ export default function ReviewPage() {
             <StatCard label="现在该复习" value={summary.due_today_count} icon={Clock} color="text-orange-500" delay={0.1} />
             <StatCard label="已逾期" value={summary.overdue_count} icon={AlertCircle} color="text-red-500" delay={0.2} />
             <StatCard label="最近已完成" value={summary.completed_count} icon={CheckCircle} color="text-green-500" delay={0.3} />
+            <StatCard label="迁移证据缺口" value={transferGapCount} icon={Target} color="text-amber-500" delay={0.3} />
           </StatsRow>
         </PageHeader>
       </div>

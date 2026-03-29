@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  buildMissingMathErrorLoopMigrationResponse,
+  isMissingMathErrorLoopMigrationError,
+} from '@/lib/error-loop/migration-guard';
+import { getScheduledReviewDate } from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const REVIEW_INTERVALS = [1, 3, 7, 30];
 
 const SUBJECT_NAMES: Record<string, string> = {
   math: '数学',
@@ -25,11 +28,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: session_id, student_id' }, { status: 400 });
     }
 
-    const { data: sessionInfo } = await supabase
+    const { data: sessionInfo, error: sessionInfoError } = await supabase
       .from('error_sessions')
       .select('subject, extracted_text, closure_state')
       .eq('id', session_id)
       .maybeSingle();
+
+    if (sessionInfoError) {
+      console.error('Error loading error session:', sessionInfoError);
+      if (isMissingMathErrorLoopMigrationError(sessionInfoError)) {
+        return buildMissingMathErrorLoopMigrationResponse('error-session.complete.load-session');
+      }
+
+      return NextResponse.json({ error: 'Failed to load error session' }, { status: 500 });
+    }
 
     const { error: updateError } = await supabase
       .from('error_sessions')
@@ -42,6 +54,10 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error('Error updating session status:', updateError);
+      if (isMissingMathErrorLoopMigrationError(updateError)) {
+        return buildMissingMathErrorLoopMigrationResponse('error-session.complete.update-session');
+      }
+
       return NextResponse.json({ error: 'Failed to update session status' }, { status: 500 });
     }
 
@@ -54,6 +70,9 @@ export async function POST(req: NextRequest) {
 
     if (existingReviewError) {
       console.error('Error checking review schedule:', existingReviewError);
+      if (isMissingMathErrorLoopMigrationError(existingReviewError)) {
+        return buildMissingMathErrorLoopMigrationResponse('error-session.complete.load-review-schedule');
+      }
     }
 
     if (existingReview) {
@@ -67,8 +86,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const firstReviewDate = new Date();
-    firstReviewDate.setDate(firstReviewDate.getDate() + REVIEW_INTERVALS[0]);
+    const firstReviewDate = getScheduledReviewDate(1);
 
     const { data: reviewData, error: reviewError } = await supabase
       .from('review_schedule')
@@ -76,7 +94,7 @@ export async function POST(req: NextRequest) {
         session_id,
         student_id,
         review_stage: 1,
-        next_review_at: firstReviewDate.toISOString(),
+        next_review_at: firstReviewDate,
         is_completed: false,
       })
       .select()
@@ -84,6 +102,10 @@ export async function POST(req: NextRequest) {
 
     if (reviewError) {
       console.error('Error creating review schedule:', reviewError);
+      if (isMissingMathErrorLoopMigrationError(reviewError)) {
+        return buildMissingMathErrorLoopMigrationResponse('error-session.complete.create-review-schedule');
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Review loop not created, but session remains in guided learning',
@@ -100,7 +122,7 @@ export async function POST(req: NextRequest) {
       message: 'Review loop created',
       review_created: true,
       review_id: reviewData?.id,
-      next_review_at: firstReviewDate.toISOString(),
+      next_review_at: firstReviewDate,
       status: 'guided_learning',
       closure_state: sessionInfo?.closure_state || 'open',
     });

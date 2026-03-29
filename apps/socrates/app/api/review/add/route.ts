@@ -5,6 +5,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getScheduledReviewDate } from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,9 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, exists: true, review_id: existing.id });
     }
 
-    // Keep consistent with /api/error-session/complete: first review scheduled for tomorrow.
-    const firstReviewDate = new Date();
-    firstReviewDate.setDate(firstReviewDate.getDate() + 1);
+    const firstReviewDate = getScheduledReviewDate(1);
 
     const { data: inserted, error: insertError } = await supabase
       .from('review_schedule')
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest) {
         session_id,
         student_id,
         review_stage: 1,
-        next_review_at: firstReviewDate.toISOString(),
+        next_review_at: firstReviewDate,
         is_completed: false,
       })
       .select('id, next_review_at')
@@ -71,4 +70,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });
   }
 }
-

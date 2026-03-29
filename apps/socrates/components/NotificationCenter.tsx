@@ -17,6 +17,10 @@ import {
 
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import {
+  formatConversationInterventionStatus,
+  formatMasteryInterventionStatus,
+} from '@/lib/notifications/intervention-status';
 import { cn } from '@/lib/utils';
 
 interface NotificationItem {
@@ -46,73 +50,12 @@ type MasteryRiskData = {
 };
 
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
-  if (data?.intervention_effect === 'risk_lowered') {
-    return 'Parent follow-up reduced the risk.';
-  }
-
-  if (data?.intervention_effect === 'risk_persisting') {
-    return 'Risk repeated after follow-up.';
-  }
-
-  if (data?.intervention_status === 'completed') {
-    return 'Parent follow-up completed.';
-  }
-
-  if (data?.intervention_status) {
-    return 'Intervention task created.';
-  }
-
-  return null;
-}
-
-function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
-  if (!data?.intervention_status) {
-    return null;
-  }
-
-  if (data.intervention_effect === 'risk_lowered') {
-    return '补救后风险暂时下降。';
-  }
-
-  if (data.intervention_effect === 'risk_persisting') {
-    return '补救后同类风险仍在重复。';
-  }
-
-  if (data.intervention_status === 'completed') {
-    return data.intervention_feedback_note
-      ? `补救任务已完成: ${data.intervention_feedback_note}`
-      : '补救任务已完成。';
-  }
-
-  return data.intervention_task_title ? `已生成补救任务: ${data.intervention_task_title}` : '已生成补救任务。';
+  return formatConversationInterventionStatus(data);
 }
 
 function transferAwareMasteryStatusLabel(data: MasteryRiskData | null | undefined) {
-  if (!data?.intervention_status) {
-    return null;
-  }
-
-  if (data.risk_type !== 'transfer_evidence_gap') {
-    return masteryRiskStatusLabel(data);
-  }
-
-  if (data.intervention_effect === 'risk_lowered') {
-    return '补做后已形成迁移证据。';
-  }
-
-  if (data.intervention_effect === 'risk_persisting') {
-    return '补做后仍然缺少迁移证据。';
-  }
-
-  if (data.intervention_status === 'completed') {
-    return data.intervention_feedback_note
-      ? `补齐迁移证据任务已完成。${data.intervention_feedback_note}`
-      : '补齐迁移证据任务已完成，等待后续验证。';
-  }
-
-  return data.intervention_task_title
-    ? `已生成迁移证据任务。${data.intervention_task_title}`
-    : '已生成补齐迁移证据任务。';
+  const label = formatMasteryInterventionStatus(data);
+  return label ? `${label}。` : null;
 }
 
 const notificationConfig: Record<

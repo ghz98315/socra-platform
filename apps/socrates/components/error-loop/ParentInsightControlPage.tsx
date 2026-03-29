@@ -26,6 +26,16 @@ import {
   buildConversationRiskInterventionTaskDraft,
   type ConversationRiskCategory,
 } from '@/lib/error-loop/conversation-risk';
+import {
+  getMasteryJudgementMeta,
+  type MasteryJudgement,
+} from '@/lib/error-loop/review';
+import {
+  getConversationInterventionEffectMeta,
+  getConversationInterventionFeedbackFallback,
+  getConversationInterventionStatusLabel,
+  getParentMasteryInterventionTaskMeta,
+} from '@/lib/notifications/intervention-status';
 
 type StudentInfo = {
   id: string;
@@ -74,13 +84,14 @@ type RecentRiskItem = {
   root_cause_subtype_label: string | null;
   root_cause_display_label: string;
   root_cause_statement: string | null;
-  mastery_judgement: string | null;
+  mastery_judgement: MasteryJudgement | null;
   reopened_count: number;
   next_review_at: string | null;
   transfer_evidence_status_label: string;
   transfer_evidence_summary: string;
   transfer_evidence_next_step: string;
   transfer_evidence_ready: boolean;
+  transfer_evidence_pending?: boolean;
   risk_score: number;
   created_at: string;
   intervention_task_id: string | null;
@@ -124,6 +135,8 @@ type ParentActionItem = {
   title: string;
   summary: string;
   priority: 'high' | 'medium' | 'low';
+  driver_label?: string;
+  driver_value?: string;
   actions?: string[];
   watch_fors?: string[];
 };
@@ -142,6 +155,22 @@ type InsightResponse = {
     pseudo_mastery_count: number;
     missing_transfer_evidence_count: number;
     reopened_total: number;
+  };
+  summary_chain: {
+    mastery_signal_total: number;
+    stable_mastery_rate: number;
+    provisional_mastery_rate: number;
+    pseudo_mastery_rate: number;
+    transfer_gap_rate: number;
+    intervention_focus_value: number;
+    intervention_focus_value_label: string;
+    review_intervention_pending: number;
+    mastery_balance_label: string;
+    mastery_balance_summary: string;
+    transfer_gap_label: string;
+    transfer_gap_summary: string;
+    intervention_focus_label: string;
+    intervention_focus_summary: string;
   };
   root_cause_heatmap: RootCauseItem[];
   knowledge_hotspots: HotspotItem[];
@@ -248,45 +277,6 @@ function severityBadge(level: ConversationAlertItem['severity']) {
   }
 }
 
-function interventionEffectBadge(effect: ConversationAlertItem['intervention_effect']) {
-  switch (effect) {
-    case 'risk_lowered':
-      return 'bg-emerald-100 text-emerald-700';
-    case 'risk_persisting':
-      return 'bg-red-100 text-red-700';
-    case 'pending':
-      return 'bg-amber-100 text-amber-700';
-    default:
-      return 'bg-slate-100 text-slate-700';
-  }
-}
-
-function interventionEffectLabel(effect: ConversationAlertItem['intervention_effect']) {
-  switch (effect) {
-    case 'risk_lowered':
-      return '风险暂时下降';
-    case 'risk_persisting':
-      return '风险仍在重复';
-    case 'pending':
-      return '待反馈';
-    default:
-      return '未开始';
-  }
-}
-
-function interventionStatusLabel(status: string | null) {
-  switch (status) {
-    case 'completed':
-      return '已沟通';
-    case 'in_progress':
-      return '进行中';
-    case 'pending':
-      return '待执行';
-    default:
-      return '未建任务';
-  }
-}
-
 function getInterventionTaskKey(item: { session_id: string; category: string }) {
   return `${item.session_id}:${item.category}`;
 }
@@ -316,6 +306,9 @@ export default function ParentInsightControlPage() {
   const [error, setError] = useState<string | null>(null);
   const conversationSectionRef = useRef<HTMLDivElement | null>(null);
   const reviewSectionRef = useRef<HTMLDivElement | null>(null);
+  const interventionSectionRef = useRef<HTMLDivElement | null>(null);
+  const [linkedReviewSessionId, setLinkedReviewSessionId] = useState<string | null>(null);
+  const [linkedOutcomeTaskId, setLinkedOutcomeTaskId] = useState<string | null>(null);
 
   const focusStudentId = searchParams.get('student_id');
   const focusSessionId = searchParams.get('session_id');
@@ -580,6 +573,24 @@ export default function ParentInsightControlPage() {
     });
   }, [focusSection, focusSessionId, focusStudentId, insights?.recent_risks, loading, selectedChildId]);
 
+  function focusReviewRisk(sessionId: string) {
+    setLinkedReviewSessionId(sessionId);
+    setLinkedOutcomeTaskId(null);
+    reviewSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }
+
+  function focusInterventionTask(taskId: string, sessionId: string) {
+    setLinkedOutcomeTaskId(taskId);
+    setLinkedReviewSessionId(sessionId);
+    interventionSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }
+
   async function saveTeenMode() {
     if (!selectedChildId) {
       return;
@@ -747,6 +758,8 @@ export default function ParentInsightControlPage() {
   const students = insights?.students ?? [];
   const selectedStudent =
     students.find((student) => student.id === selectedChildId) ?? insights?.selected_student ?? null;
+  const activeReviewSessionId = linkedReviewSessionId ?? (focusSection === 'review' ? focusSessionId : null);
+  const activeOutcomeTaskId = linkedOutcomeTaskId;
 
   const hasFocusedConversationAlert = Boolean(
     insights?.conversation_alerts.some(
@@ -756,7 +769,7 @@ export default function ParentInsightControlPage() {
     ),
   );
   const hasFocusedReviewRisk = Boolean(
-    insights?.recent_risks.some((item) => item.session_id === focusSessionId),
+    activeReviewSessionId && insights?.recent_risks.some((item) => item.session_id === activeReviewSessionId),
   );
 
   return (
@@ -774,7 +787,7 @@ export default function ParentInsightControlPage() {
               {focusSection === 'conversation' && hasFocusedConversationAlert ? (
                 <Badge className="bg-red-100 text-red-700">已聚焦对话风险</Badge>
               ) : null}
-              {focusSection === 'review' && hasFocusedReviewRisk ? (
+              {hasFocusedReviewRisk ? (
                 <Badge className="bg-amber-100 text-amber-700">已聚焦复习风险</Badge>
               ) : null}
               {selectedStudent ? (
@@ -845,6 +858,77 @@ export default function ParentInsightControlPage() {
                 color="text-emerald-600"
               />
             </StatsRow>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    掌握结构
+                  </CardTitle>
+                  <CardDescription>{insights?.summary_chain.mastery_balance_label}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <div className="text-2xl font-semibold text-emerald-700">
+                        {insights?.summary_chain.stable_mastery_rate ?? 0}%
+                      </div>
+                      <div className="text-xs text-slate-500">稳定掌握占比</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-amber-600">
+                        {insights?.summary_chain.provisional_mastery_rate ?? 0}%
+                      </div>
+                      <div className="text-xs text-slate-500">暂时掌握占比</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-red-600">
+                        {insights?.summary_chain.pseudo_mastery_rate ?? 0}%
+                      </div>
+                      <div className="text-xs text-slate-500">假会信号占比</div>
+                    </div>
+                  </div>
+                  <p>{insights?.summary_chain.mastery_balance_summary}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                    <Target className="h-4 w-4 text-orange-600" />
+                    迁移证据缺口
+                  </CardTitle>
+                  <CardDescription>{insights?.summary_chain.transfer_gap_label}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  <div className="text-2xl font-semibold text-orange-600">
+                    {insights?.summary_chain.transfer_gap_rate ?? 0}%
+                  </div>
+                  <div className="text-xs text-slate-500">开放错题中的缺口占比</div>
+                  <p>{insights?.summary_chain.transfer_gap_summary}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                    <Shield className="h-4 w-4 text-amber-600" />
+                    当前干预重点
+                  </CardTitle>
+                  <CardDescription>{insights?.summary_chain.intervention_focus_label}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  <div className="text-2xl font-semibold text-amber-700">
+                    {insights?.summary_chain.intervention_focus_value ?? 0}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {insights?.summary_chain.intervention_focus_value_label || '当前无积压'}
+                  </div>
+                  <p>{insights?.summary_chain.intervention_focus_summary}</p>
+                </CardContent>
+              </Card>
+            </div>
 
             <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
               <Card
@@ -926,6 +1010,16 @@ export default function ParentInsightControlPage() {
                           </Badge>
                         </div>
                         <p className="mt-2 text-sm text-slate-600">{action.summary}</p>
+                        {action.driver_label || action.driver_value ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {action.driver_label ? (
+                              <Badge className="bg-slate-100 text-slate-700">来源: {action.driver_label}</Badge>
+                            ) : null}
+                            {action.driver_value ? (
+                              <Badge className="bg-amber-50 text-amber-700">{action.driver_value}</Badge>
+                            ) : null}
+                          </div>
+                        ) : null}
                         {action.actions?.length ? (
                           <div className="mt-3 space-y-2 text-sm text-slate-600">
                             {action.actions.map((item) => (
@@ -1030,7 +1124,9 @@ export default function ParentInsightControlPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {insights?.conversation_alerts.length ? (
-                  insights.conversation_alerts.map((item) => (
+                  insights.conversation_alerts.map((item) => {
+                    const conversationEffectMeta = getConversationInterventionEffectMeta(item.intervention_effect);
+                    return (
                     <div
                       key={item.message_id}
                       className={`rounded-2xl border p-4 ${
@@ -1101,10 +1197,10 @@ export default function ParentInsightControlPage() {
                         <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge className="bg-slate-100 text-slate-700">
-                              {interventionStatusLabel(item.intervention_status)}
+                              {getConversationInterventionStatusLabel(item.intervention_status)}
                             </Badge>
-                            <Badge className={interventionEffectBadge(item.intervention_effect)}>
-                              {interventionEffectLabel(item.intervention_effect)}
+                            <Badge className={conversationEffectMeta.badgeClassName}>
+                              {conversationEffectMeta.label}
                             </Badge>
                             {item.intervention_completed_at ? (
                               <span className="text-xs text-slate-500">
@@ -1114,7 +1210,11 @@ export default function ParentInsightControlPage() {
                           </div>
                           {item.intervention_effect === 'risk_persisting' ? (
                             <div className="mt-2 text-sm text-red-600">
-                              干预后又出现 {item.post_intervention_repeat_count} 次同类风险信号，需要继续跟进。
+                              {getConversationInterventionFeedbackFallback({
+                                status: item.intervention_status,
+                                effect: item.intervention_effect,
+                                postInterventionRepeatCount: item.post_intervention_repeat_count,
+                              })}
                             </div>
                           ) : null}
                           {item.intervention_feedback_note ? (
@@ -1144,14 +1244,14 @@ export default function ParentInsightControlPage() {
                                   ? '保存中...'
                                   : item.intervention_status === 'completed'
                                     ? '更新反馈'
-                                    : '标记已沟通'}
+                                  : '标记已沟通'}
                               </Button>
                             </div>
                           </div>
                         </div>
                       ) : null}
                     </div>
-                  ))
+                  )})
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
                     最近没有识别到明显对话风险信号。
@@ -1172,7 +1272,10 @@ export default function ParentInsightControlPage() {
                   </div>
                 ) : null}
                 {insights?.intervention_summary.total ? (
-                  <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div
+                    ref={interventionSectionRef}
+                    className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                  >
                     <div className="font-medium text-slate-900">干预反馈闭环</div>
                     <div className="grid gap-3 sm:grid-cols-4">
                       <div className="rounded-xl bg-white p-3">
@@ -1222,10 +1325,14 @@ export default function ParentInsightControlPage() {
                     </div>
                     {insights.intervention_outcomes.length ? (
                       <div className="space-y-2">
-                        {insights.intervention_outcomes.map((outcome) => (
+                        {insights.intervention_outcomes.map((outcome) => {
+                          const outcomeEffectMeta = getConversationInterventionEffectMeta(outcome.effect);
+                          return (
                           <div
                             key={outcome.task_id}
-                            className="rounded-xl bg-white p-3"
+                            className={`rounded-xl bg-white p-3 ${
+                              activeOutcomeTaskId === outcome.task_id ? 'ring-2 ring-amber-300' : ''
+                            }`}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
@@ -1238,7 +1345,11 @@ export default function ParentInsightControlPage() {
                                 </div>
                                 <div className="mt-1 text-sm text-slate-600">
                                   {outcome.feedback_note ||
-                                    (outcome.status === 'completed' ? '暂无家长反馈备注' : '待执行，尚未填写家长反馈')}
+                                    getConversationInterventionFeedbackFallback({
+                                      status: outcome.status,
+                                      effect: outcome.effect,
+                                      postInterventionRepeatCount: outcome.post_intervention_repeat_count,
+                                    })}
                                 </div>
                                 {outcome.root_cause_statement ? (
                                   <div className="mt-1 text-sm text-slate-500">{outcome.root_cause_statement}</div>
@@ -1246,10 +1357,10 @@ export default function ParentInsightControlPage() {
                               </div>
                               <div className="flex flex-col items-end gap-2">
                                 <Badge className="bg-slate-100 text-slate-700">
-                                  {interventionStatusLabel(outcome.status)}
+                                  {getConversationInterventionStatusLabel(outcome.status)}
                                 </Badge>
-                                <Badge className={interventionEffectBadge(outcome.effect)}>
-                                  {interventionEffectLabel(outcome.effect)}
+                                <Badge className={outcomeEffectMeta.badgeClassName}>
+                                  {outcomeEffectMeta.label}
                                 </Badge>
                                 <span className="text-xs text-slate-500">
                                   {outcome.completed_at
@@ -1258,6 +1369,13 @@ export default function ParentInsightControlPage() {
                                       ? `最近更新 ${formatDateTime(outcome.updated_at)}`
                                       : '待执行'}
                                 </span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => focusReviewRisk(outcome.session_id)}
+                                >
+                                  查看对应风险
+                                </Button>
                               </div>
                             </div>
                             {outcome.status !== 'completed' ? (
@@ -1286,7 +1404,7 @@ export default function ParentInsightControlPage() {
                               </div>
                             ) : null}
                           </div>
-                        ))}
+                        )})}
                       </div>
                     ) : null}
                   </div>
@@ -1305,97 +1423,133 @@ export default function ParentInsightControlPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {insights?.recent_risks.length ? (
-                    insights.recent_risks.map((item) => (
-                      <div
-                        key={`${item.session_id}-${item.title}`}
-                        className={`rounded-2xl border p-4 ${
-                          focusSection === 'review' && item.session_id === focusSessionId
-                            ? 'border-amber-300 bg-amber-50/60'
-                            : 'border-slate-100'
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-red-100 text-red-700">{item.title}</Badge>
-                            <span className="text-sm text-slate-500">{item.root_cause_display_label}</span>
-                            {item.root_cause_subtype_label ? (
-                              <span className="text-xs text-slate-400">归属: {item.root_cause_label}</span>
-                            ) : null}
-                          </div>
-                          <span className="text-xs text-slate-400">{formatDateTime(item.created_at)}</span>
-                        </div>
-                        <div className="mt-2 font-medium text-slate-900">{item.excerpt}</div>
-                        {item.root_cause_statement ? (
-                          <div className="mt-2 text-sm text-slate-600">{item.root_cause_statement}</div>
-                        ) : null}
+                    insights.recent_risks.map((item) => {
+                      const linkedOutcome = item.intervention_task_id
+                        ? insights.intervention_outcomes.find((outcome) => outcome.task_id === item.intervention_task_id) ?? null
+                        : null;
+                      const judgementMeta = getMasteryJudgementMeta(item.mastery_judgement);
+                      const genericInterventionEffectMeta = getConversationInterventionEffectMeta(item.intervention_effect);
+                      const reviewInterventionMeta = item.intervention_task_id
+                        ? getParentMasteryInterventionTaskMeta({
+                            riskType: item.transfer_evidence_pending ? 'transfer_evidence_gap' : 'mastery_risk',
+                            status: item.intervention_status,
+                            effect: item.intervention_effect,
+                            completionNotes: linkedOutcome?.feedback_note ?? null,
+                            postInterventionRepeatCount: linkedOutcome?.post_intervention_repeat_count ?? 0,
+                          })
+                        : null;
+
+                      return (
                         <div
-                          className={`mt-2 rounded-xl border p-3 text-sm ${
-                            item.transfer_evidence_ready
-                              ? 'border-emerald-100 bg-emerald-50/70 text-emerald-800'
-                              : 'border-amber-100 bg-amber-50/70 text-amber-800'
+                          key={`${item.session_id}-${item.title}`}
+                          className={`rounded-2xl border p-4 ${
+                            item.session_id === activeReviewSessionId ? 'border-amber-300 bg-amber-50/60' : 'border-slate-100'
                           }`}
                         >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge
-                              className={
-                                item.transfer_evidence_ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                              }
-                            >
-                              {item.transfer_evidence_status_label}
-                            </Badge>
-                            <span>迁移证据</span>
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-red-100 text-red-700">{item.title}</Badge>
+                              <span className="text-sm text-slate-500">{item.root_cause_display_label}</span>
+                              {item.root_cause_subtype_label ? (
+                                <span className="text-xs text-slate-400">归属: {item.root_cause_label}</span>
+                              ) : null}
+                            </div>
+                            <span className="text-xs text-slate-400">{formatDateTime(item.created_at)}</span>
                           </div>
-                          <div className="mt-2">{item.transfer_evidence_summary}</div>
-                          <div className="mt-1 text-xs opacity-80">{item.transfer_evidence_next_step}</div>
-                        </div>
-                        {item.closure_gate_summary ? (
-                          <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-800">
-                            {item.closure_gate_summary}
+                          <div className="mt-2 font-medium text-slate-900">{item.excerpt}</div>
+                          {item.root_cause_statement ? (
+                            <div className="mt-2 text-sm text-slate-600">{item.root_cause_statement}</div>
+                          ) : null}
+                          <div
+                            className={`mt-2 rounded-xl border p-3 text-sm ${
+                              item.transfer_evidence_ready
+                                ? 'border-emerald-100 bg-emerald-50/70 text-emerald-800'
+                                : 'border-amber-100 bg-amber-50/70 text-amber-800'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge
+                                className={
+                                  item.transfer_evidence_ready ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                }
+                              >
+                                {item.transfer_evidence_status_label}
+                              </Badge>
+                              <span>迁移证据</span>
+                            </div>
+                            <div className="mt-2">{item.transfer_evidence_summary}</div>
+                            <div className="mt-1 text-xs opacity-80">{item.transfer_evidence_next_step}</div>
                           </div>
-                        ) : null}
-                        {item.reflection_coach_signal ? (
-                          <div className="mt-2 rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm text-amber-800">
-                            {item.reflection_coach_signal}
+                          {item.closure_gate_summary ? (
+                            <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-800">
+                              {item.closure_gate_summary}
+                            </div>
+                          ) : null}
+                          {item.reflection_coach_signal ? (
+                            <div className="mt-2 rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm text-amber-800">
+                              {item.reflection_coach_signal}
+                            </div>
+                          ) : null}
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                            <Badge className="bg-slate-100 text-slate-700">
+                              复开 {item.reopened_count} 次
+                            </Badge>
+                            {item.mastery_judgement ? (
+                              <Badge className="bg-slate-100 text-slate-700">
+                                判定: {judgementMeta?.label || item.mastery_judgement}
+                              </Badge>
+                            ) : null}
+                            {item.next_review_at ? (
+                              <Badge className="bg-slate-100 text-slate-700">
+                                下次复习: {formatDateTime(item.next_review_at)}
+                              </Badge>
+                            ) : null}
+                            {item.reflection_depth_label ? (
+                              <Badge className="bg-slate-100 text-slate-700">
+                                反思深度: {item.reflection_depth_label === 'deep' ? '深' : item.reflection_depth_label === 'partial' ? '中' : '浅'}
+                              </Badge>
+                            ) : null}
+                            {item.reflection_surface_only_risk ? (
+                              <Badge className="bg-amber-100 text-amber-700">仍停留在表面归因</Badge>
+                            ) : null}
+                            {item.intervention_task_id ? (
+                              <>
+                                <Badge className="bg-slate-100 text-slate-700">
+                                  {item.intervention_task_type_label || '补救任务'}
+                                </Badge>
+                                <Badge className="bg-slate-100 text-slate-700">
+                                  {getConversationInterventionStatusLabel(item.intervention_status)}
+                                </Badge>
+                                <Badge className={reviewInterventionMeta?.stateClassName || genericInterventionEffectMeta.badgeClassName}>
+                                  {reviewInterventionMeta?.stateLabel || genericInterventionEffectMeta.label}
+                                </Badge>
+                              </>
+                            ) : null}
                           </div>
-                        ) : null}
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                          <Badge className="bg-slate-100 text-slate-700">
-                            复开 {item.reopened_count} 次
-                          </Badge>
-                          {item.mastery_judgement ? (
-                            <Badge className="bg-slate-100 text-slate-700">
-                              判定: {item.mastery_judgement}
-                            </Badge>
-                          ) : null}
-                          {item.next_review_at ? (
-                            <Badge className="bg-slate-100 text-slate-700">
-                              下次复习: {formatDateTime(item.next_review_at)}
-                            </Badge>
-                          ) : null}
-                          {item.reflection_depth_label ? (
-                            <Badge className="bg-slate-100 text-slate-700">
-                              反思深度: {item.reflection_depth_label === 'deep' ? '深' : item.reflection_depth_label === 'partial' ? '中' : '浅'}
-                            </Badge>
-                          ) : null}
-                          {item.reflection_surface_only_risk ? (
-                            <Badge className="bg-amber-100 text-amber-700">仍停留在表面归因</Badge>
-                          ) : null}
                           {item.intervention_task_id ? (
-                            <>
-                              <Badge className="bg-slate-100 text-slate-700">
-                                {item.intervention_task_type_label || '补救任务'}
-                              </Badge>
-                              <Badge className="bg-slate-100 text-slate-700">
-                                {interventionStatusLabel(item.intervention_status)}
-                              </Badge>
-                              <Badge className={interventionEffectBadge(item.intervention_effect)}>
-                                {interventionEffectLabel(item.intervention_effect)}
-                              </Badge>
-                            </>
+                            <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="font-medium text-slate-900">已关联补救任务</div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => focusInterventionTask(item.intervention_task_id!, item.session_id)}
+                                >
+                                  查看干预闭环
+                                </Button>
+                              </div>
+                              <div className="mt-2">
+                                {linkedOutcome?.feedback_note || reviewInterventionMeta?.summary}
+                              </div>
+                            </div>
+                          ) : item.closure_pending_count > 0 ? (
+                            <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                              这条复习风险还没有看到对应补救任务闭环，先继续跟进下一次复习结果和迁移证据变化。
+                            </div>
                           ) : null}
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
                       近期没有高风险复习事件。

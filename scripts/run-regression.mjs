@@ -44,6 +44,10 @@ function hasStudyFlowSmokeEnv() {
   return Boolean(process.env.SMOKE_STUDY_USER_ID) && Boolean(process.env.SMOKE_BASE_URL || process.env.NEXT_PUBLIC_APP_URL);
 }
 
+function hasTransferEvidenceSmokeEnv() {
+  return Boolean(process.env.SMOKE_STUDY_USER_ID) && Boolean(process.env.SMOKE_BASE_URL || process.env.NEXT_PUBLIC_APP_URL);
+}
+
 function quoteArg(value) {
   if (/[\s"]/u.test(value)) {
     return `"${value.replace(/"/g, '\\"')}"`;
@@ -197,6 +201,12 @@ if (['smoke', 'full'].includes(profile) && ['socrates', 'workspace'].includes(ta
     await run('Study flow smoke', 'pnpm smoke:study-flow');
   } else {
     console.warn('Study-flow smoke env is incomplete. Skipping pnpm smoke:study-flow.');
+  }
+
+  if (hasTransferEvidenceSmokeEnv()) {
+    await run('Transfer-evidence smoke', 'pnpm smoke:transfer-evidence');
+  } else {
+    console.warn('Transfer-evidence smoke env is incomplete. Skipping pnpm smoke:transfer-evidence.');
   }
 }
 

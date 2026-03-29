@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import process from 'node:process';
-import { defaultPort, findListenerPid, pidFile, readTrackedPid } from './socrates-local-utils.mjs';
+import { defaultPort, findListenerPid, getPidFile, readNumberArg, readTrackedPid } from './socrates-local-utils.mjs';
 
-const port = defaultPort;
+const port = readNumberArg(process.argv, 'port', defaultPort);
+const pidFile = getPidFile(port);
 
 function stopPid(pid) {
   try {
@@ -20,10 +21,15 @@ function stopPid(pid) {
 
 let pid = null;
 
-pid = readTrackedPid(fs);
+pid = readTrackedPid(fs, port);
+const listenerPid = findListenerPid(port);
+
+if (pid && listenerPid && pid !== listenerPid) {
+  pid = listenerPid;
+}
 
 if (!pid) {
-  pid = findListenerPid(port);
+  pid = listenerPid;
 }
 
 if (!pid) {

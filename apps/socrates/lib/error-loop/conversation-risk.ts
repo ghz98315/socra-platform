@@ -1,3 +1,5 @@
+import type { ReviewInterventionEffect } from '@/lib/error-loop/review';
+
 export type ConversationRiskCategory =
   | 'frustration_escalation'
   | 'avoidance_resistance'
@@ -45,6 +47,32 @@ export interface ConversationRiskInterventionTaskDraft {
   targetDuration: number;
   priority: 1 | 2 | 3;
   rewardPoints: number;
+}
+
+export function evaluateConversationInterventionEffect(input: {
+  status?: string | null;
+  completedAt?: string | null;
+  signalTimestamps: string[];
+}) {
+  const status = input.status ?? 'pending';
+  if (status !== 'completed' || !input.completedAt) {
+    return {
+      effect: 'pending' as ReviewInterventionEffect,
+      postInterventionRepeatCount: 0,
+    };
+  }
+
+  const postInterventionRepeatCount = input.signalTimestamps.filter(
+    (timestamp) => new Date(timestamp).getTime() > new Date(input.completedAt || 0).getTime(),
+  ).length;
+
+  return {
+    effect:
+      postInterventionRepeatCount > 0
+        ? ('risk_persisting' as ReviewInterventionEffect)
+        : ('risk_lowered' as ReviewInterventionEffect),
+    postInterventionRepeatCount,
+  };
 }
 
 type RiskRule = {

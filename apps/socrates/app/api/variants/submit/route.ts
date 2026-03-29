@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
-import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate';
+import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate-answer';
 import type { VariantQuestion } from '@/lib/variant-questions/types';
 
 function getSupabaseAdmin() {

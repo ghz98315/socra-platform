@@ -8,7 +8,9 @@ import {
 } from '@/lib/error-loop/taxonomy';
 import {
   buildReviewInterventionTaskDraft,
+  deriveReviewScheduleUpdate,
   evaluateClosureGates,
+  getMasteryJudgementMeta,
   parseReviewInterventionTaskMarkers,
   type AttemptMode,
   type ClosureGateAttemptEvidence,
@@ -22,13 +24,17 @@ import {
   type VariantPracticeLogEvidenceRow,
   type VariantQuestionEvidenceRow,
 } from '@/lib/error-loop/variant-evidence';
+import { buildMasteryRiskNotificationCopy } from '@/lib/notifications/intervention-status';
+import {
+  buildMissingMathErrorLoopMigrationResponse,
+  isMissingMathErrorLoopMigrationError,
+} from '@/lib/error-loop/migration-guard';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
 const VALID_ATTEMPT_MODES = new Set(['original', 'variant', 'mixed']);
 
 type RootCauseSnapshot = {
@@ -56,12 +62,6 @@ type ReviewAttemptEvidenceRow = {
 type VariantQuestionRow = VariantQuestionEvidenceRow;
 
 type VariantPracticeLogRow = VariantPracticeLogEvidenceRow;
-
-function nextDateByDays(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString();
-}
 
 function toAttemptEvidence(input: {
   attemptMode: AttemptMode;
@@ -197,67 +197,6 @@ function determineJudgement({
   };
 }
 
-function deriveScheduleUpdate({
-  currentReviewStage,
-  currentReopenedCount,
-  judgement,
-}: {
-  currentReviewStage: number;
-  currentReopenedCount: number;
-  judgement: MasteryJudgement;
-}) {
-  switch (judgement) {
-    case 'mastered':
-      return {
-        review_stage: currentReviewStage,
-        next_review_at: null,
-        is_completed: true,
-        mastery_state: 'mastered_closed',
-        last_judgement: judgement,
-        close_reason: 'stable_independent_recall_with_transfer',
-        reopened_count: currentReopenedCount,
-        next_interval_days: null,
-        closure_state: 'mastered_closed',
-        error_status: 'mastered',
-      };
-    case 'provisional_mastered': {
-      const nextStage = Math.min(currentReviewStage + 1, REVIEW_INTERVALS.length);
-      const nextIntervalDays = REVIEW_INTERVALS[Math.max(nextStage - 1, 0)];
-      return {
-        review_stage: nextStage,
-        next_review_at: nextDateByDays(nextIntervalDays),
-        is_completed: false,
-        mastery_state: 'provisional_mastered',
-        last_judgement: judgement,
-        close_reason: null,
-        reopened_count: currentReopenedCount,
-        next_interval_days: nextIntervalDays,
-        closure_state: 'provisional_mastered',
-        error_status: 'guided_learning',
-      };
-    }
-    case 'assisted_correct':
-    case 'explanation_gap':
-    case 'pseudo_mastery':
-    case 'not_mastered':
-    default: {
-      const nextIntervalDays = REVIEW_INTERVALS[0];
-      return {
-        review_stage: 1,
-        next_review_at: nextDateByDays(nextIntervalDays),
-        is_completed: false,
-        mastery_state: 'reopened',
-        last_judgement: judgement,
-        close_reason: null,
-        reopened_count: currentReopenedCount + 1,
-        next_interval_days: nextIntervalDays,
-        closure_state: 'reopened',
-        error_status: 'guided_learning',
-      };
-    }
-  }
-}
-
 function getRootCauseContext(snapshot: RootCauseSnapshot) {
   const categoryLabel = snapshot.category ? ROOT_CAUSE_CATEGORY_LABELS[snapshot.category] : null;
   const subtypeLabel = snapshot.subtype ? getRootCauseSubtypeOption(snapshot.subtype)?.label ?? snapshot.subtype : null;
@@ -279,36 +218,37 @@ function buildJudgementGuidance({
   const context = getRootCauseContext(rootCause);
   const causeLabel = context.displayLabel || '当前根因';
   const statementSuffix = rootCause.statement ? `当前暴露的稳定模式是：${rootCause.statement}` : '';
+  const judgementMeta = getMasteryJudgementMeta(judgement);
 
   switch (judgement) {
     case 'not_mastered':
       return {
-        summary: `这次还没能独立做对，说明「${causeLabel}」没有被真正处理掉。${statementSuffix}`,
+        summary: `这次${judgementMeta?.messaging.studentSummaryObserved || '还没能独立做对'}，说明「${causeLabel}」${judgementMeta?.messaging.studentSummaryImplication || '没有被真正处理掉'}。${statementSuffix}`,
         next_actions: ['回到错题详情，重新完成根因反思', `先把「${causeLabel}」对应的防错动作写出来再做题`, '下一轮先独立尝试，再决定是否求助'],
       };
     case 'assisted_correct':
       return {
-        summary: `这次结果做对了，但仍依赖提示，说明「${causeLabel}」一离开扶手就容易复发。${statementSuffix}`,
+        summary: `这次${judgementMeta?.messaging.studentSummaryObserved || '结果做对了，但仍依赖提示'}，说明「${causeLabel}」${judgementMeta?.messaging.studentSummaryImplication || '一离开扶手就容易复发'}。${statementSuffix}`,
         next_actions: ['先做 2 分钟独立尝试，避免一上来就求助', `复习前先口头复述「${causeLabel}」的检查动作`, '做完后补一句“如果没提示，我刚才卡在哪里”'],
       };
     case 'explanation_gap':
       return {
-        summary: `这次能得到答案，但还讲不清依据，说明「${causeLabel}」停留在结果层，没有真正内化。${statementSuffix}`,
+        summary: `这次${judgementMeta?.messaging.studentSummaryObserved || '能得到答案，但还讲不清依据'}，说明「${causeLabel}」${judgementMeta?.messaging.studentSummaryImplication || '停留在结果层，没有真正内化'}。${statementSuffix}`,
         next_actions: ['做完后必须用自己的话复述为什么这么做', '把关键依据写成 2 到 3 句短句', '下一轮优先验证“会不会讲清”，不是只看答案对不对'],
       };
     case 'pseudo_mastery':
       return {
-        summary: `这次原题表现正常，但变式没过，说明你记住了表面路径，还没有把「${causeLabel}」处理到可迁移层。${statementSuffix}`,
+        summary: `这次${judgementMeta?.messaging.studentSummaryObserved || '原题表现正常，但变式没过'}，说明你记住了表面路径，还没有把「${causeLabel}」${judgementMeta?.messaging.studentSummaryImplication || '处理到可迁移层'}。${statementSuffix}`,
         next_actions: ['回到原题后立刻追加一题变式，不要只重复原题', `专门盯住「${causeLabel}」在变式里会怎么复发`, '下一轮先讲通用方法，再做题'],
       };
     case 'provisional_mastered':
       return {
-        summary: `这次已经能独立做对并讲清，但系统还要跨间隔继续验证「${causeLabel}」是不是真的稳定。${statementSuffix}`,
+        summary: `这次${judgementMeta?.messaging.studentSummaryObserved || '已经能独立做对并讲清'}，系统还要继续验证「${causeLabel}」${judgementMeta?.messaging.studentSummaryImplication || '是不是真的稳定'}。${statementSuffix}`,
         next_actions: ['保留这次有效的防错动作，不要因为做对就撤掉', '下次复习继续先独立完成，再讲清思路', '优先验证变式题，而不是只回看原题'],
       };
     case 'mastered':
       return {
-        summary: `这道题已经通过独立完成和间隔复习验证，「${causeLabel}」当前可以视为稳定关闭。${statementSuffix}`,
+        summary: `这道题${judgementMeta?.messaging.studentSummaryObserved || '已经通过独立完成和间隔复习验证'}，「${causeLabel}」${judgementMeta?.messaging.studentSummaryImplication || '当前可以视为稳定关闭'}。${statementSuffix}`,
         next_actions: ['保留这类题的通用解法，避免只记这一题', '遇到同结构题先独立迁移，不急着求助', '后续只做抽查，不再重复高频回炉'],
       };
     default:
@@ -468,33 +408,24 @@ async function sendParentRiskNotification({
     }
 
     const rootCauseContext = getRootCauseContext(rootCause);
-    const causeLabel = rootCauseContext.displayLabel;
-    const causePrefix = causeLabel ? `当前反复暴露的是「${causeLabel}」。` : '';
-    const statementSuffix = rootCause.statement ? `稳定模式：${rootCause.statement}` : '';
-    const judgementMessageMap: Record<Exclude<MasteryJudgement, 'provisional_mastered' | 'mastered'>, string> = {
-      not_mastered: `本轮复习仍未独立做对。${causePrefix}${statementSuffix}`,
-      assisted_correct: `本轮复习虽然做对了，但仍依赖提示。${causePrefix}${statementSuffix}`,
-      explanation_gap: `本轮复习虽然有答案，但还讲不清依据。${causePrefix}${statementSuffix}`,
-      pseudo_mastery: `本轮复习出现典型“假会”信号，原题正常但变式没过。${causePrefix}${statementSuffix}`,
-    };
-
-    const isTransferEvidenceGap = normalizedReason === 'transfer_evidence_gap';
-    const notificationTitle = isTransferEvidenceGap
-      ? `${student.display_name || '孩子'}还缺迁移证据`
-      : `${student.display_name || '孩子'}出现掌握风险提醒`;
-    const notificationActionText = isTransferEvidenceGap
-      ? '查看迁移证据缺口'
-      : interventionTaskId
-        ? '查看复习补救闭环'
-        : '查看复习风险';
+    const notificationCopy = buildMasteryRiskNotificationCopy({
+      studentName: student.display_name,
+      judgement,
+      reason: normalizedReason,
+      causeLabel: rootCauseContext.displayLabel,
+      rootCauseStatement: rootCause.statement,
+      interventionTaskId,
+      notificationSummary,
+    });
+    if (!notificationCopy) {
+      return;
+    }
 
     await supabase.from('notifications').insert({
       user_id: student.parent_id,
       type: 'mastery_update',
-      title: notificationTitle,
-      content: isTransferEvidenceGap
-        ? notificationSummary || '这题虽然本轮做对了，但还没有形成独立迁移证据，暂时不能按真会关闭。'
-        : judgementMessageMap[judgement as Exclude<MasteryJudgement, 'provisional_mastered' | 'mastered'>],
+      title: notificationCopy.title,
+      content: notificationCopy.content,
       data: {
         student_id: studentId,
         session_id: sessionId,
@@ -507,9 +438,9 @@ async function sendParentRiskNotification({
         intervention_task_id: interventionTaskId,
       },
       action_url: `/controls?focus=review&student_id=${studentId}&session_id=${sessionId}`,
-      action_text: notificationActionText,
+      action_text: notificationCopy.actionText,
       is_read: false,
-      priority: isTransferEvidenceGap ? 1 : 2,
+      priority: notificationCopy.priority,
     });
   } catch (error) {
     console.error('[review/attempt] Failed to create parent notification:', error);
@@ -534,6 +465,10 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('[review/attempt] Failed to fetch review attempts:', error);
+      if (isMissingMathErrorLoopMigrationError(error)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.get.load-attempts');
+      }
+
       return NextResponse.json({ error: 'Failed to fetch review attempts' }, { status: 500 });
     }
 
@@ -546,6 +481,10 @@ export async function GET(req: NextRequest) {
 
     if (reviewScheduleError) {
       console.error('[review/attempt] Failed to load review schedule for variant evidence:', reviewScheduleError);
+      if (isMissingMathErrorLoopMigrationError(reviewScheduleError)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.get.load-review-schedule');
+      }
+
       return NextResponse.json({ error: 'Failed to load review schedule' }, { status: 500 });
     }
 
@@ -593,13 +532,17 @@ export async function POST(req: NextRequest) {
 
     const { data: review, error: reviewError } = await supabase
       .from('review_schedule')
-      .select('id, session_id, student_id, review_stage, reopened_count, is_completed')
+      .select('id, session_id, student_id, review_stage, reopened_count, is_completed, next_review_at')
       .eq('id', review_id)
       .eq('student_id', student_id)
       .maybeSingle();
 
     if (reviewError) {
       console.error('[review/attempt] Failed to load review schedule:', reviewError);
+      if (isMissingMathErrorLoopMigrationError(reviewError)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.post.load-review-schedule');
+      }
+
       return NextResponse.json({ error: 'Failed to load review schedule' }, { status: 500 });
     }
 
@@ -648,6 +591,10 @@ export async function POST(req: NextRequest) {
 
     if (priorAttemptsError) {
       console.error('[review/attempt] Failed to load existing review attempts:', priorAttemptsError);
+      if (isMissingMathErrorLoopMigrationError(priorAttemptsError)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.post.load-prior-attempts');
+      }
+
       return NextResponse.json({ error: 'Failed to load existing review attempts' }, { status: 500 });
     }
 
@@ -715,12 +662,17 @@ export async function POST(req: NextRequest) {
 
     if (insertAttemptError) {
       console.error('[review/attempt] Failed to insert review attempt:', insertAttemptError);
+      if (isMissingMathErrorLoopMigrationError(insertAttemptError)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.post.insert-attempt');
+      }
+
       return NextResponse.json({ error: 'Failed to save review attempt' }, { status: 500 });
     }
 
-    const scheduleUpdate = deriveScheduleUpdate({
+    const scheduleUpdate = deriveReviewScheduleUpdate({
       currentReviewStage: review.review_stage ?? 1,
       currentReopenedCount: review.reopened_count ?? 0,
+      currentNextReviewAt: review.next_review_at ?? null,
       judgement,
     });
 
@@ -744,6 +696,10 @@ export async function POST(req: NextRequest) {
 
     if (updateReviewError) {
       console.error('[review/attempt] Failed to update review schedule:', updateReviewError);
+      if (isMissingMathErrorLoopMigrationError(updateReviewError)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.post.update-review-schedule');
+      }
+
       return NextResponse.json({ error: 'Review attempt saved, but schedule update failed' }, { status: 500 });
     }
 
@@ -758,6 +714,10 @@ export async function POST(req: NextRequest) {
 
     if (updateSessionError) {
       console.error('[review/attempt] Failed to update error session closure state:', updateSessionError);
+      if (isMissingMathErrorLoopMigrationError(updateSessionError)) {
+        return buildMissingMathErrorLoopMigrationResponse('review.attempt.post.update-error-session');
+      }
+
       return NextResponse.json({ error: 'Review attempt saved, but error session update failed' }, { status: 500 });
     }
 

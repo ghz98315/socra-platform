@@ -5,7 +5,10 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { parseReviewInterventionTaskMarkers } from '@/lib/error-loop/review';
+import {
+  evaluateReviewInterventionEffect,
+  parseReviewInterventionTaskMarkers,
+} from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,6 +49,8 @@ function mapTaskWithProgress(task: any) {
     intervention_risk_category: conversationMarkers?.risk_category || null,
     intervention_review_judgement: reviewMarkers?.judgement || null,
     intervention_review_reason: reviewMarkers?.reason || null,
+    intervention_effect: null,
+    post_intervention_repeat_count: 0,
   };
 }
 
@@ -99,12 +104,69 @@ export async function GET(req: NextRequest) {
 
       const childMap = new Map(children?.map((c) => [c.id, c.display_name]) || []);
 
-      const tasksWithChildren = tasks?.map((task) => ({
+      let tasksWithChildren = tasks?.map((task) => ({
         ...mapTaskWithProgress(task),
         child_name: childMap.get(task.child_id) || '未知',
-      }));
+      })) || [];
 
-      return NextResponse.json({ tasks: tasksWithChildren || [] });
+      const reviewInterventionTasks = tasksWithChildren.filter(
+        (task) =>
+          task.is_review_intervention &&
+          task.intervention_session_id &&
+          task.intervention_review_judgement,
+      );
+
+      if (reviewInterventionTasks.length > 0) {
+        const reviewSessionIds = Array.from(
+          new Set(reviewInterventionTasks.map((task) => task.intervention_session_id).filter(Boolean)),
+        );
+        const { data: reviewAttempts, error: reviewAttemptsError } = await supabase
+          .from('review_attempts')
+          .select('session_id, mastery_judgement, created_at')
+          .in('session_id', reviewSessionIds);
+
+        if (reviewAttemptsError) {
+          throw reviewAttemptsError;
+        }
+
+        const attemptsBySession = new Map<string, Array<{
+          session_id: string;
+          mastery_judgement: string;
+          created_at: string;
+        }>>();
+        for (const attempt of reviewAttempts || []) {
+          const current = attemptsBySession.get(attempt.session_id) ?? [];
+          current.push(attempt);
+          attemptsBySession.set(attempt.session_id, current);
+        }
+
+        tasksWithChildren = tasksWithChildren.map((task) => {
+          if (
+            !task.is_review_intervention ||
+            !task.intervention_session_id ||
+            !task.intervention_review_judgement
+          ) {
+            return task;
+          }
+
+          const completedAt = task.completion_completed_at || task.completed_at || null;
+          const { effect, postInterventionRepeatCount } = evaluateReviewInterventionEffect({
+            status: task.status,
+            completedAt,
+            judgement: task.intervention_review_judgement,
+            reason: task.intervention_review_reason,
+            followupAttempts: attemptsBySession.get(task.intervention_session_id) ?? [],
+          });
+
+          return {
+            ...task,
+            intervention_effect: effect,
+            post_intervention_repeat_count: postInterventionRepeatCount,
+          };
+        });
+      }
+
+      return NextResponse.json({ tasks: tasksWithChildren });
     }
 
     if (childId) {

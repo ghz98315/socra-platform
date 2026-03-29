@@ -75,8 +75,11 @@ pnpm socrates:stop:local
 
 Notes:
 
-- `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` through a detached Node child process and records the real listener PID in `.codex-socrates-start.pid`.
-- Use `pnpm socrates:status:local` to confirm PID liveness and HTTP readiness instead of waiting on a long-running foreground start command.
+- `pnpm socrates:start:local` now runs behind the local guard wrapper. If startup exceeds 5 minutes, the guard stops it and prints local diagnostics instead of waiting indefinitely.
+- `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` through a detached Node child process and records the tracked PID in `.codex-socrates-start.pid`.
+- Use `pnpm socrates:status:local` to confirm local readiness instead of waiting on a long-running foreground start command.
+- Treat `HTTP=307` as healthy for the local Socrates app.
+- `HEALTH=yes` is the primary signal. If `STATE=healthy_port_stale_pid`, the app is still usable and the tracked PID is just stale or unavailable on that machine.
 - `pnpm --filter @socra/socrates build` and the root `pnpm build` path now fail fast if the helper-managed local Socrates service is still running.
 - If that guard trips, stop the local service first, otherwise Windows may hold `.next` files such as `app-path-routes-manifest.json` and trigger `EPERM unlink`.
 
@@ -170,6 +173,20 @@ Do not release if any item below is still open:
   - `socrates`
   - `essay`
 - This ordering matters on the current Windows machine because it avoids the memory instability observed in the previous workspace build sequence.
+
+## 2026-03-27 Long-Run Guard Note
+
+- Long-running local points are now guarded by `scripts/run-with-guard.mjs`.
+- Default thresholds:
+  - `pnpm socrates:start:local`: 5 minutes
+  - `pnpm smoke:socrates`: 20 minutes
+  - `pnpm smoke:study-flow`: 20 minutes
+  - `pnpm smoke:transfer-evidence`: 20 minutes
+  - `pnpm --filter @socra/socrates build`: 20 minutes
+- If one of these commands exceeds its threshold, the guard will stop the command, then automatically run local diagnostics instead of waiting indefinitely.
+- For startup and smoke timeouts, the guard will run `pnpm socrates:status:local` and print the latest local start logs.
+- For Socrates build timeouts, the guard will run `pnpm socrates:status:local` and `node scripts/probe-socrates-build.mjs --trace-children`.
+- If you intentionally need to bypass the guard for a one-off experiment, set `SOCRA_GUARD_DISABLE=1` for that command only.
 
 ## 2026-03-17 Study Flow Smoke Addendum
 

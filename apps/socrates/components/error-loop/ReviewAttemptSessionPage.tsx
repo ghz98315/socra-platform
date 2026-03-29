@@ -28,11 +28,18 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import {
   ATTEMPT_MODE_OPTIONS,
+  buildClosureGateSummary,
+  type ClosureGateAttemptEvidence,
   type ClosureGateItem,
+  getClosureStateMeta,
+  getClosureGateStatusMeta,
+  getClosureOutcomeMeta,
   MASTERY_JUDGEMENT_META,
   MASTERY_TONE_STYLES,
+  MIN_CLOSURE_REVIEW_STAGE,
   type AttemptMode,
   type MasteryJudgement,
+  evaluateClosureGates,
 } from '@/lib/error-loop/review';
 import {
   ROOT_CAUSE_CATEGORY_LABELS,
@@ -52,6 +59,12 @@ interface AttemptHistoryItem {
   attempt_mode: AttemptMode;
   mastery_judgement: MasteryJudgement;
   created_at: string;
+  independent_first?: boolean | null;
+  asked_ai?: boolean | null;
+  ai_hint_count?: number | null;
+  solved_correctly?: boolean | null;
+  explained_correctly?: boolean | null;
+  variant_passed?: boolean | null;
 }
 
 interface ReviewResultPayload {
@@ -224,31 +237,121 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function getClosureStateMeta(state: string | null | undefined) {
-  switch (state) {
-    case 'mastered_closed':
-      return {
-        label: '稳定会了，已关闭',
-        badgeClassName: 'bg-emerald-100 text-emerald-700',
-      };
-    case 'provisional_mastered':
-      return {
-        label: '暂时会了，还要继续验证',
-        badgeClassName: 'bg-blue-100 text-blue-700',
-      };
-    case 'reopened':
-      return {
-        label: '重新打开，说明之前是假会',
-        badgeClassName: 'bg-red-100 text-red-700',
-      };
-    default:
-      return {
-        label: '仍在闭环中',
-        badgeClassName: 'bg-slate-100 text-slate-700',
-      };
-  }
+function toClosureGateAttemptEvidence(attempt: AttemptHistoryItem): ClosureGateAttemptEvidence {
+  return {
+    attemptMode: attempt.attempt_mode,
+    independentFirst: attempt.independent_first !== false,
+    askedAi: attempt.asked_ai === true,
+    aiHintCount: Number.isFinite(attempt.ai_hint_count) ? Number(attempt.ai_hint_count) : 0,
+    solvedCorrectly: attempt.solved_correctly === true,
+    explainedCorrectly: attempt.explained_correctly === true,
+    variantPassed: attempt.variant_passed === true ? true : attempt.variant_passed === false ? false : null,
+  };
 }
 
+function getCurrentClosureNextStep({
+  isCompleted,
+  hasCurrentPreview,
+  eligibleForClosure,
+  currentReviewStage,
+  minClosureReviewStage,
+  hasVariantEvidence,
+  variantNextStep,
+  pendingGateKeys,
+}: {
+  isCompleted: boolean;
+  hasCurrentPreview: boolean;
+  eligibleForClosure: boolean;
+  currentReviewStage: number;
+  minClosureReviewStage: number | null;
+  hasVariantEvidence: boolean;
+  variantNextStep: string | null;
+  pendingGateKeys: string[];
+}) {
+  if (isCompleted) {
+    return getClosureStateMeta('mastered_closed').description;
+  }
+
+  if (!hasCurrentPreview) {
+    return '先独立回忆并提交这轮真实证据，系统会根据独立性、解释质量、迁移证据和间隔稳定性判断是否能继续关单。';
+  }
+
+  if (eligibleForClosure) {
+    return '当前已经走到可关闭阶段。本轮只要继续独立完成、无提示并讲清思路，就可以进入关闭判定。';
+  }
+
+  if (pendingGateKeys.includes('variant_transfer') && hasVariantEvidence && variantNextStep) {
+    return variantNextStep;
+  }
+
+  if (pendingGateKeys.includes('interval_stability') && minClosureReviewStage) {
+    return `当前还在第 ${currentReviewStage} 轮，至少到第 ${minClosureReviewStage} 轮并继续保持独立完成，系统才会关单。`;
+  }
+
+  return '这轮先按真实表现提交，不要为了关单而美化结果。系统只认独立完成、无提示、讲清依据和跨间隔稳定。';
+}
+
+function ClosureGatePreviewCard({
+  title,
+  statusLabel,
+  statusClassName,
+  summary,
+  nextStep,
+  items,
+}: {
+  title: string;
+  statusLabel: string;
+  statusClassName: string;
+  summary: string;
+  nextStep: string;
+  items: ClosureGateItem[];
+}) {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-white/90 px-4 py-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <Badge variant="outline" className={statusClassName}>
+          {statusLabel}
+        </Badge>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{summary}</p>
+      <p className="mt-2 text-sm text-foreground">{nextStep}</p>
+      <div className="mt-4 grid gap-3">
+        {items.map((item) => (
+          <div
+            key={item.key}
+            className={cn(
+              'rounded-2xl border px-4 py-3',
+              item.passed ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70',
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                {item.passed ? (
+                  <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-amber-600" />
+                )}
+                <div>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  item.passed ? 'border-emerald-200 text-emerald-700' : 'border-amber-200 text-amber-700',
+                )}
+              >
+                {item.passed ? '已满足' : '待补足'}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 function AttemptToggle({
   active,
   label,
@@ -388,6 +491,79 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
     reviewSession?.mastery_state || reviewSession?.error_session.closure_state,
   );
 
+  const latestAttempt = useMemo(
+    () => (attemptHistory.length ? attemptHistory[attemptHistory.length - 1] : null),
+    [attemptHistory],
+  );
+  const currentClosurePreview = useMemo(() => {
+    if (!reviewSession || !latestAttempt) {
+      return null;
+    }
+
+    return evaluateClosureGates({
+      reviewStage: reviewSession.review_stage,
+      currentAttempt: toClosureGateAttemptEvidence(latestAttempt),
+      previousAttempts: attemptHistory.slice(0, -1).map(toClosureGateAttemptEvidence),
+      externalVariantEvidencePassed: variantEvidence?.qualified_transfer_evidence === true,
+    });
+  }, [attemptHistory, latestAttempt, reviewSession, variantEvidence]);
+  const currentClosurePreviewStatus = useMemo(
+    () =>
+      getClosureGateStatusMeta({
+        isCompleted: reviewSession?.is_completed === true,
+        eligibleForClosure: currentClosurePreview?.eligibleForClosure === true,
+        closureState: reviewSession?.mastery_state || reviewSession?.error_session.closure_state,
+      }),
+    [currentClosurePreview?.eligibleForClosure, reviewSession?.error_session.closure_state, reviewSession?.is_completed, reviewSession?.mastery_state],
+  );
+  const currentClosureNextStep = useMemo(
+    () =>
+      getCurrentClosureNextStep({
+        isCompleted: reviewSession?.is_completed === true,
+        hasCurrentPreview: Boolean(currentClosurePreview),
+        eligibleForClosure: currentClosurePreview?.eligibleForClosure === true,
+        currentReviewStage: reviewSession?.review_stage || 1,
+        minClosureReviewStage: currentClosurePreview?.minClosureReviewStage ?? null,
+        hasVariantEvidence: Boolean(variantEvidence),
+        variantNextStep: variantEvidence?.next_step ?? null,
+        pendingGateKeys: currentClosurePreview?.pendingGateKeys || [],
+      }),
+    [currentClosurePreview, reviewSession?.is_completed, reviewSession?.review_stage, variantEvidence],
+  );
+  const completionPendingItems = useMemo(
+    () => (reviewResult?.closure_gate_items || []).filter((item) => !item.passed),
+    [reviewResult],
+  );
+  const completionPendingLabels = useMemo(
+    () => completionPendingItems.map((item) => item.shortLabel || item.label),
+    [completionPendingItems],
+  );
+  const completionOutcomeMeta = useMemo(
+    () =>
+      reviewResult
+        ? getClosureOutcomeMeta({
+            closed: reviewResult.closed,
+            pendingLabels: completionPendingLabels,
+          })
+        : null,
+    [completionPendingLabels, reviewResult],
+  );
+  const completionNextStep = useMemo(() => {
+    if (!reviewResult) {
+      return '';
+    }
+
+    return getCurrentClosureNextStep({
+      isCompleted: reviewResult.closed,
+      hasCurrentPreview: true,
+      eligibleForClosure: reviewResult.closed,
+      currentReviewStage: reviewResult.review.review_stage || 1,
+      minClosureReviewStage: MIN_CLOSURE_REVIEW_STAGE,
+      hasVariantEvidence: Boolean(reviewResult.variant_evidence),
+      variantNextStep: reviewResult.variant_evidence?.next_step ?? null,
+      pendingGateKeys: reviewResult.closure_gate_pending_keys || [],
+    });
+  }, [reviewResult]);
   const handleStartRecall = () => {
     setRecallStartedAt(Date.now());
     setReviewStep('recall');
@@ -529,6 +705,12 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
           attempt_mode: attemptForm.attemptMode,
           mastery_judgement: payload.data.mastery_judgement,
           created_at: payload.data.attempt.created_at,
+          independent_first: attemptForm.independentFirst,
+          asked_ai: attemptForm.askedAi,
+          ai_hint_count: attemptForm.askedAi ? attemptForm.aiHintCount : 0,
+          solved_correctly: attemptForm.solvedCorrectly,
+          explained_correctly: attemptForm.solvedCorrectly ? attemptForm.explainedCorrectly : false,
+          variant_passed: attemptForm.attemptMode === 'original' ? null : attemptForm.variantPassed,
         },
       ]);
       setReviewStep('complete');
@@ -689,6 +871,16 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     这一步不要急着点“已掌握”。先验证 4 件事：是否独立开始、是否做对、是否讲清思路、变式是否也能过。
                   </div>
 
+                  {currentClosurePreview ? (
+                    <ClosureGatePreviewCard
+                      title="当前离关单还差什么"
+                      statusLabel={currentClosurePreviewStatus.label}
+                      statusClassName={currentClosurePreviewStatus.className}
+                      summary={currentClosurePreview.summary}
+                      nextStep={currentClosureNextStep}
+                      items={currentClosurePreview.items}
+                    />
+                  ) : null}
                   <div className="flex gap-3 pt-4">
                     <Button
                       variant="outline"
@@ -775,6 +967,16 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     </div>
                   ) : null}
 
+                  {currentClosurePreview ? (
+                    <ClosureGatePreviewCard
+                      title="提交前再确认一次关单条件"
+                      statusLabel={currentClosurePreviewStatus.label}
+                      statusClassName={currentClosurePreviewStatus.className}
+                      summary={currentClosurePreview.summary}
+                      nextStep={currentClosureNextStep}
+                      items={currentClosurePreview.items}
+                    />
+                  ) : null}
                   <section className="space-y-3">
                     <p className="text-sm font-medium">这轮复习模式</p>
                     <div className="grid gap-3 md:grid-cols-3">
@@ -921,7 +1123,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                               : 'border-blue-200 text-blue-700'
                           }
                         >
-                          {variantEvidence.qualified_transfer_evidence ? '已具备独立变式证据' : '还缺独立变式证据'}
+                          {variantEvidence.status_label}
                         </Badge>
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">{variantEvidence.coach_summary}</p>
@@ -1116,6 +1318,43 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     ) : null}
                   </div>
 
+                  <div
+                    className={cn(
+                      'mx-auto mt-6 max-w-3xl rounded-2xl border px-5 py-4 text-left',
+                      reviewResult.closed
+                        ? 'border-emerald-200 bg-emerald-50/80'
+                        : 'border-amber-200 bg-amber-50/80',
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {completionOutcomeMeta?.title}
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          reviewResult.closed
+                            ? 'border-emerald-200 text-emerald-700'
+                            : 'border-amber-200 text-amber-700',
+                        )}
+                      >
+                        {completionOutcomeMeta?.badgeLabel}
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-foreground">
+                      {completionOutcomeMeta?.summary || buildClosureGateSummary(completionPendingLabels)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{completionNextStep}</p>
+                    {!reviewResult.closed && completionPendingLabels.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {completionPendingLabels.map((label) => (
+                          <Badge key={label} variant="secondary" className="bg-white text-amber-800">
+                            {label}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                   {reviewResult.judgement_summary ? (
                     <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-warm-200 bg-warm-50/80 px-5 py-4 text-left">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1156,7 +1395,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                               : 'border-amber-200 text-amber-700',
                           )}
                         >
-                          {reviewResult.closed ? '已满足，可关闭' : '仍有条件未满足'}
+                          {completionOutcomeMeta?.gateBadgeLabel}
                         </Badge>
                       </div>
                       {reviewResult.closure_gate_summary ? (

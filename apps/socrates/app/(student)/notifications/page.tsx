@@ -31,6 +31,10 @@ import {
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { PageHeader } from '@/components/PageHeader';
+import {
+  formatConversationInterventionStatus,
+  formatMasteryInterventionStatus,
+} from '@/lib/notifications/intervention-status';
 
 // 通知类型配置
 const notificationTypeConfig: Record<string, {
@@ -133,53 +137,23 @@ type MasteryRiskData = {
 };
 
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
-  if (data?.intervention_effect === 'risk_lowered') {
-    return '家长已沟通，风险暂时下降';
-  }
-
-  if (data?.intervention_effect === 'risk_persisting') {
-    return '家长已沟通，但风险仍在重复';
-  }
-
-  if (data?.intervention_status === 'completed') {
-    return '家长已完成沟通';
-  }
-
-  if (data?.intervention_status) {
-    return '已创建家长干预任务';
-  }
-
-  return null;
+  return formatConversationInterventionStatus(data);
 }
 
 function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
-  if (!data?.intervention_status) {
-    return null;
-  }
+  return formatMasteryInterventionStatus(data);
+}
 
-  const isTransferEvidenceGap = data.risk_type === 'transfer_evidence_gap';
+function getMasteryRiskMeta(data: MasteryRiskData | null | undefined) {
+  const isTransferEvidenceGap = data?.risk_type === 'transfer_evidence_gap';
 
-  if (data.intervention_effect === 'risk_lowered') {
-    return isTransferEvidenceGap ? '补做后已形成迁移证据' : '补救后风险已下降';
-  }
-
-  if (data.intervention_effect === 'risk_persisting') {
-    return isTransferEvidenceGap ? '补做后仍缺迁移证据' : '补救后同类风险仍在重复';
-  }
-
-  if (data.intervention_status === 'completed') {
-    return data.intervention_feedback_note
-      ? `任务已完成: ${data.intervention_feedback_note}`
-      : isTransferEvidenceGap
-        ? '补齐迁移证据任务已完成'
-        : '补救任务已完成';
-  }
-
-  return data.intervention_task_title
-    ? `${isTransferEvidenceGap ? '已生成迁移证据任务' : '已生成补救任务'}: ${data.intervention_task_title}`
-    : isTransferEvidenceGap
-      ? '已生成补齐迁移证据任务'
-      : '已生成补救任务';
+  return {
+    label: isTransferEvidenceGap ? '迁移证据缺口' : '掌握风险',
+    badgeClassName: isTransferEvidenceGap
+      ? 'border-orange-200 bg-orange-100 text-orange-700'
+      : 'border-amber-200 bg-amber-100 text-amber-700',
+    statusClassName: isTransferEvidenceGap ? 'text-orange-700' : 'text-amber-700',
+  };
 }
 
 export default function NotificationsPage() {
@@ -299,6 +273,7 @@ export default function NotificationsPage() {
         ? (notification.data as MasteryRiskData | null)
         : null;
     const masteryRiskStatus = masteryRiskStatusLabel(masteryRiskData);
+    const masteryRiskMeta = notification.type === 'mastery_update' ? getMasteryRiskMeta(masteryRiskData) : null;
 
     return (
       <Card
@@ -334,6 +309,11 @@ export default function NotificationsPage() {
                 )}>
                   {notification.title}
                 </h3>
+                {masteryRiskMeta ? (
+                  <Badge variant="outline" className={masteryRiskMeta.badgeClassName}>
+                    {masteryRiskMeta.label}
+                  </Badge>
+                ) : null}
                 {!notification.is_read && (
                   <span className="w-2 h-2 rounded-full bg-warm-500 flex-shrink-0" />
                 )}
@@ -349,7 +329,7 @@ export default function NotificationsPage() {
                 </p>
               ) : null}
               {masteryRiskStatus ? (
-                <p className="text-sm text-amber-700 mb-2">
+                <p className={cn('text-sm mb-2', masteryRiskMeta?.statusClassName || 'text-amber-700')}>
                   {masteryRiskStatus}
                 </p>
               ) : null}

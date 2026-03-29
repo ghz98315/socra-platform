@@ -161,6 +161,18 @@ const smokeResults = [
       'SMOKE_STUDY_ADVANCE_REVIEW',
     ],
   }),
+  validateSmoke({
+    name: 'Transfer-evidence smoke',
+    env: socratesEnv,
+    required: ['SMOKE_STUDY_USER_ID'],
+    oneOf: [
+      {
+        label: 'base URL: SMOKE_BASE_URL or NEXT_PUBLIC_APP_URL',
+        keys: ['SMOKE_BASE_URL', 'NEXT_PUBLIC_APP_URL'],
+      },
+    ],
+    optional: [],
+  }),
 ];
 
 let hasBlockingIssue = false;

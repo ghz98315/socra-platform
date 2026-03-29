@@ -27,6 +27,10 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import {
+  formatConversationInterventionStatus,
+  formatMasteryInterventionStatus,
+} from '@/lib/notifications/intervention-status';
 
 // 通知类型配置
 const notificationTypeConfig: Record<string, {
@@ -128,73 +132,11 @@ type MasteryRiskData = {
 };
 
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
-  if (data?.intervention_effect === 'risk_lowered') {
-    return '已沟通，风险下降';
-  }
-
-  if (data?.intervention_effect === 'risk_persisting') {
-    return '已沟通，风险仍在';
-  }
-
-  if (data?.intervention_status === 'completed') {
-    return '已沟通，待继续观察';
-  }
-
-  if (data?.intervention_status) {
-    return '已建干预任务';
-  }
-
-  return null;
-}
-
-function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
-  if (!data?.intervention_status) {
-    return null;
-  }
-
-  if (data.intervention_effect === 'risk_lowered') {
-    return '补救后风险下降';
-  }
-
-  if (data.intervention_effect === 'risk_persisting') {
-    return '补救后仍有重复';
-  }
-
-  if (data.intervention_status === 'completed') {
-    return data.intervention_feedback_note
-      ? `补救任务已完成: ${data.intervention_feedback_note}`
-      : '补救任务已完成';
-  }
-
-  return data.intervention_task_title ? `已生成补救任务: ${data.intervention_task_title}` : '已生成补救任务';
+  return formatConversationInterventionStatus(data);
 }
 
 function transferAwareMasteryStatusLabel(data: MasteryRiskData | null | undefined) {
-  if (!data?.intervention_status) {
-    return null;
-  }
-
-  if (data.risk_type !== 'transfer_evidence_gap') {
-    return masteryRiskStatusLabel(data);
-  }
-
-  if (data.intervention_effect === 'risk_lowered') {
-    return '已补齐迁移证据';
-  }
-
-  if (data.intervention_effect === 'risk_persisting') {
-    return '补做后仍缺迁移证据';
-  }
-
-  if (data.intervention_status === 'completed') {
-    return data.intervention_feedback_note
-      ? `任务已完成: ${data.intervention_feedback_note}`
-      : '补齐迁移证据任务已完成';
-  }
-
-  return data.intervention_task_title
-    ? `已生成迁移证据任务: ${data.intervention_task_title}`
-    : '已生成补齐迁移证据任务';
+  return formatMasteryInterventionStatus(data);
 }
 
 interface NotificationBellProps {

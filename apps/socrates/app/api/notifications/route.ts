@@ -5,6 +5,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { evaluateConversationInterventionEffect } from '@/lib/error-loop/conversation-risk';
+import { evaluateReviewInterventionEffect } from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,13 +67,6 @@ type ReviewAttemptRow = {
   mastery_judgement: string;
   created_at: string;
 };
-
-const REVIEW_RISK_JUDGEMENTS = new Set([
-  'not_mastered',
-  'assisted_correct',
-  'explanation_gap',
-  'pseudo_mastery',
-]);
 
 const REVIEW_NOTIFICATION_RISK_TYPES = new Set(['mastery_risk', 'transfer_evidence_gap']);
 
@@ -212,17 +207,12 @@ export async function GET(req: NextRequest) {
 
           const completion = getTaskCompletion(matchedTask);
           const interventionCompletedAt = completion?.completed_at ?? matchedTask.completed_at ?? null;
-          const postInterventionRepeatCount =
-            interventionCompletedAt &&
-            new Date(notification.created_at).getTime() > new Date(interventionCompletedAt).getTime()
-              ? 1
-              : 0;
-          const interventionEffect =
-            (matchedTask.status ?? 'pending') === 'completed'
-              ? postInterventionRepeatCount > 0
-                ? 'risk_persisting'
-                : 'risk_lowered'
-              : 'pending';
+          const { effect: interventionEffect, postInterventionRepeatCount } =
+            evaluateConversationInterventionEffect({
+              status: matchedTask.status,
+              completedAt: interventionCompletedAt,
+              signalTimestamps: [notification.created_at],
+            });
 
           return {
             ...notification,
@@ -333,27 +323,13 @@ export async function GET(req: NextRequest) {
           const notificationJudgement = String(notification.data.mastery_judgement || '');
           const notificationRiskType = String(notification.data.risk_type || 'mastery_risk');
           const sessionId = String(notification.data.session_id || '');
-          const followupAttempts = interventionCompletedAt
-            ? (attemptsBySession.get(sessionId) ?? []).filter(
-                (attempt) => new Date(attempt.created_at).getTime() > new Date(interventionCompletedAt).getTime(),
-              )
-            : [];
-          const postInterventionRepeatCount =
-            notificationRiskType === 'transfer_evidence_gap'
-              ? followupAttempts.filter((attempt) => attempt.mastery_judgement === 'provisional_mastered').length
-              : followupAttempts.filter((attempt) => attempt.mastery_judgement === notificationJudgement).length;
-          const hasSafeFollowup =
-            notificationRiskType === 'transfer_evidence_gap'
-              ? followupAttempts.some((attempt) => attempt.mastery_judgement === 'mastered')
-              : followupAttempts.some((attempt) => !REVIEW_RISK_JUDGEMENTS.has(attempt.mastery_judgement));
-          const interventionEffect =
-            (matchedTask.status ?? 'pending') === 'completed'
-              ? postInterventionRepeatCount > 0
-                ? 'risk_persisting'
-                : hasSafeFollowup
-                  ? 'risk_lowered'
-                  : 'pending'
-              : 'pending';
+          const { effect: interventionEffect, postInterventionRepeatCount } = evaluateReviewInterventionEffect({
+            status: matchedTask.status,
+            completedAt: interventionCompletedAt,
+            judgement: notificationJudgement,
+            reason: notificationRiskType,
+            followupAttempts: attemptsBySession.get(sessionId) ?? [],
+          });
 
           return {
             ...notification,

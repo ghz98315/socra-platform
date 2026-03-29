@@ -38,7 +38,7 @@ import { VariantPracticePanel } from '@/components/VariantPracticePanel';
 import { DiagnosisPanel } from '@/components/error-loop/DiagnosisPanel';
 import { GuidedReflectionPanel } from '@/components/error-loop/GuidedReflectionPanel';
 import type { RootCauseCategory, RootCauseSubtype, StructuredDiagnosis } from '@/lib/error-loop/taxonomy';
-import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
+import { getClosureStateMeta, MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 
 interface Message {
   id: string;
@@ -102,40 +102,6 @@ const statusLabels: Record<string, { label: string; color: string; icon: React.E
 };
 
 const VARIANT_PRACTICE_SUBJECTS = new Set(['math', 'physics', 'chemistry']);
-
-const closureStateMeta: Record<
-  string,
-  {
-    label: string;
-    description: string;
-    badgeClassName: string;
-  }
-> = {
-  open: {
-    label: '待进入复习闭环',
-    description: '这道题还处于开放状态，需要先完成诊断、反思和首次掌握。',
-    badgeClassName: 'bg-slate-100 text-slate-700',
-  },
-  provisional_mastered: {
-    label: '暂时会了，还要继续验证',
-    description: '当前这题表现不错，但还没到最终关闭，需要按节奏继续复习。',
-    badgeClassName: 'bg-blue-100 text-blue-700',
-  },
-  reopened: {
-    label: '重新打开，说明之前是假会',
-    description: '系统发现这题又暴露问题，已经回到闭环里重新练。',
-    badgeClassName: 'bg-red-100 text-red-700',
-  },
-  mastered_closed: {
-    label: '稳定会了，已关闭',
-    description: '这题已经通过多轮验证，暂时不用重复追着刷。',
-    badgeClassName: 'bg-emerald-100 text-emerald-700',
-  },
-};
-
-function getClosureStateMeta(state: string | null | undefined) {
-  return closureStateMeta[state || 'open'] || closureStateMeta.open;
-}
 
 function formatReviewDate(dateStr: string | null) {
   if (!dateStr) {
@@ -592,11 +558,6 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="mt-3 text-sm text-foreground">
                   {variantEvidence?.coach_summary || '这题还没有形成可用于关题的独立迁移证据，先做变式练习再看是否真的会。'}
                 </p>
-                {reviewSummary.last_judgement === 'provisional_mastered' && !variantEvidence?.qualified_transfer_evidence ? (
-                  <p className="mt-2 text-sm text-amber-700">
-                    这题虽然本轮表现不错，但还不能按“真会”关闭，系统还在等独立迁移证据。
-                  </p>
-                ) : null}
                 {variantEvidence?.missing_reason ? (
                   <p className="mt-2 text-sm text-muted-foreground">{variantEvidence.missing_reason}</p>
                 ) : null}

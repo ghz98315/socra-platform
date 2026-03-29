@@ -5,9 +5,10 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import type { VariantQuestion, GenerateVariantRequest, VariantDifficulty } from '@/lib/variant-questions/types';
 import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
-import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate';
+import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate-answer';
 
 // 创建 Supabase Admin 客户端
 function getSupabaseAdmin() {
@@ -297,7 +298,7 @@ ${difficultyLabels[difficulty]}
 
     const parsed = JSON.parse(jsonMatch[0]);
     const variants: VariantQuestion[] = (parsed.variants || []).map((v: any, index: number) => ({
-      id: `temp_${Date.now()}_${index}`, // 临时ID，数据库会生成真实ID
+      id: randomUUID(),
       original_session_id: session_id,
       student_id,
       subject,
@@ -319,7 +320,7 @@ ${difficultyLabels[difficulty]}
 
     // 返回模拟数据作为降级方案
     return Array.from({ length: count }, (_, index) => ({
-      id: `temp_${Date.now()}_${index}`,
+      id: randomUUID(),
       original_session_id: session_id,
       student_id,
       subject,

@@ -28,8 +28,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
+import { getParentInterventionTaskPriorityWeight } from '@/lib/error-loop/parent-priority';
 import { ChildSelector, type ChildInfo } from '@/components/ChildSelector';
 import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
+import { getParentMasteryInterventionTaskMeta } from '@/lib/notifications/intervention-status';
 
 interface Task {
   id: string;
@@ -57,6 +59,8 @@ interface Task {
   intervention_risk_category: string | null;
   intervention_review_judgement: MasteryJudgement | null;
   intervention_review_reason: 'mastery_risk' | 'transfer_evidence_gap' | string | null;
+  intervention_effect: 'pending' | 'risk_lowered' | 'risk_persisting' | null;
+  post_intervention_repeat_count: number;
 }
 
 interface Student {
@@ -95,27 +99,68 @@ function formatDate(dateStr: string | null): string | null {
 }
 
 function getReviewInterventionMeta(task: Task) {
-  const isTransferEvidenceGap = task.intervention_review_reason === 'transfer_evidence_gap';
   const judgementMeta = task.intervention_review_judgement
     ? MASTERY_JUDGEMENT_META[task.intervention_review_judgement]
     : null;
-
+  const taskMeta = getParentMasteryInterventionTaskMeta({
+    riskType: task.intervention_review_reason,
+    status: task.status,
+    effect: task.intervention_effect,
+    completionNotes: task.completion_notes,
+    postInterventionRepeatCount: task.post_intervention_repeat_count,
+  });
   return {
-    title: isTransferEvidenceGap
-      ? '待补齐迁移证据'
-      : task.status === 'completed'
-        ? '已完成复习补救陪练'
-        : '待执行复习补救陪练',
-    summary: task.completion_notes
-      ? `反馈备注: ${task.completion_notes}`
-      : isTransferEvidenceGap
-        ? '这题当前不是普通做错，而是还缺独立迁移证据，建议陪孩子补做变式并确认是否真的能独立迁移。'
-        : '这是由复习失败、假会或解释断层自动回流生成的家长补救任务，建议先按任务说明陪孩子过一轮。',
-    badgeLabel: isTransferEvidenceGap ? '迁移证据缺口' : '掌握风险补救',
-    badgeClassName: isTransferEvidenceGap ? 'border-amber-200 text-amber-700' : 'border-rose-200 text-rose-700',
+    ...taskMeta,
     judgementLabel: judgementMeta?.label || null,
-    actionLabel: isTransferEvidenceGap ? '查看迁移证据缺口' : '查看家长洞察',
   };
+}
+
+function compareDateAsc(left: string | null, right: string | null) {
+  if (!left && !right) {
+    return 0;
+  }
+  if (!left) {
+    return 1;
+  }
+  if (!right) {
+    return -1;
+  }
+  return new Date(left).getTime() - new Date(right).getTime();
+}
+
+function compareTasks(left: Task, right: Task) {
+  const weightDiff =
+    getParentInterventionTaskPriorityWeight({
+      taskType: left.is_review_intervention
+        ? 'review_intervention'
+        : left.is_conversation_intervention
+          ? 'conversation_intervention'
+          : 'other',
+      status: left.status,
+      effect: left.intervention_effect,
+      hasFeedbackNote: Boolean(left.completion_notes?.trim()),
+    }) -
+    getParentInterventionTaskPriorityWeight({
+      taskType: right.is_review_intervention
+        ? 'review_intervention'
+        : right.is_conversation_intervention
+          ? 'conversation_intervention'
+          : 'other',
+      status: right.status,
+      effect: right.intervention_effect,
+      hasFeedbackNote: Boolean(right.completion_notes?.trim()),
+    });
+  if (weightDiff !== 0) {
+    return weightDiff;
+  }
+  if (left.priority !== right.priority) {
+    return left.priority - right.priority;
+  }
+  const dueDateDiff = compareDateAsc(left.due_date, right.due_date);
+  if (dueDateDiff !== 0) {
+    return dueDateDiff;
+  }
+  return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
 }
 
 export default function ParentTasksPage() {
@@ -270,14 +315,25 @@ export default function ParentTasksPage() {
   const filteredTasks = selectedChildId
     ? tasks.filter((t) => t.child_id === selectedChildId)
     : tasks;
+  const sortedTasks = [...filteredTasks].sort(compareTasks);
 
   // Group tasks by status
-  const pendingTasks = filteredTasks.filter((t) => t.status === 'pending');
-  const inProgressTasks = filteredTasks.filter((t) => t.status === 'in_progress');
-  const completedTasks = filteredTasks.filter((t) => t.status === 'completed');
-  const interventionTasks = filteredTasks.filter((t) => t.is_conversation_intervention || t.is_review_intervention);
+  const pendingTasks = sortedTasks.filter((t) => t.status === 'pending');
+  const inProgressTasks = sortedTasks.filter((t) => t.status === 'in_progress');
+  const completedTasks = sortedTasks.filter((t) => t.status === 'completed');
+  const interventionTasks = sortedTasks.filter((t) => t.is_conversation_intervention || t.is_review_intervention);
   const pendingInterventionTasks = interventionTasks.filter((t) => t.status !== 'completed');
   const completedInterventionTasks = interventionTasks.filter((t) => t.status === 'completed');
+  const reviewInterventionTasks = interventionTasks.filter((t) => t.is_review_intervention);
+  const persistingReviewInterventions = reviewInterventionTasks.filter(
+    (t) => t.intervention_effect === 'risk_persisting',
+  );
+  const loweredReviewInterventions = reviewInterventionTasks.filter(
+    (t) => t.intervention_effect === 'risk_lowered',
+  );
+  const feedbackMissingReviewInterventions = reviewInterventionTasks.filter(
+    (t) => t.status !== 'completed' && !t.completion_notes?.trim(),
+  );
 
   // Calculate progress percentage
   const getProgressPercentage = (task: Task) => {
@@ -360,13 +416,16 @@ export default function ParentTasksPage() {
             {interventionTasks.length > 0 && (
               <Card className="border-amber-200 bg-amber-50/70">
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="font-medium text-amber-900">干预任务闭环</div>
-                    <div className="mt-1 text-sm text-amber-800">
-                      当前共有 {interventionTasks.length} 条家长干预任务，其中 {pendingInterventionTasks.length} 条待完成，
-                      {completedInterventionTasks.length} 条已完成。
+                    <div>
+                      <div className="font-medium text-amber-900">干预任务闭环</div>
+                      <div className="mt-1 text-sm text-amber-800">
+                        当前共有 {interventionTasks.length} 条家长干预任务，其中 {pendingInterventionTasks.length} 条待完成，
+                        {completedInterventionTasks.length} 条已完成，
+                        {persistingReviewInterventions.length} 条补救后仍在重复，
+                        {feedbackMissingReviewInterventions.length} 条还没回填反馈，
+                        {loweredReviewInterventions.length} 条已看到风险下降。
+                      </div>
                     </div>
-                  </div>
                   <Button
                     variant="outline"
                     className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
@@ -700,13 +759,22 @@ function TaskCard({
               <Badge variant="outline" className={reviewInterventionMeta.badgeClassName}>
                 {reviewInterventionMeta.badgeLabel}
               </Badge>
+              <Badge className={reviewInterventionMeta.stateClassName}>
+                {reviewInterventionMeta.stateLabel}
+              </Badge>
               {reviewInterventionMeta.judgementLabel ? (
                 <Badge variant="outline" className="border-rose-200 text-rose-700">
                   判定: {reviewInterventionMeta.judgementLabel}
                 </Badge>
               ) : null}
             </div>
+            <div className="mt-2 text-sm font-medium text-rose-950">{reviewInterventionMeta.title}</div>
             <p className="mt-2 text-sm text-rose-900">{reviewInterventionMeta.summary}</p>
+            {task.intervention_effect === 'risk_persisting' ? (
+              <div className="mt-2 text-sm text-red-700">
+                补救后又出现 {task.post_intervention_repeat_count} 次同类风险，优先回到家长洞察复盘。
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -760,7 +828,7 @@ function TaskCard({
               onClick={() => (window.location.href = reviewInterventionUrl)}
               className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-rose-900 hover:text-rose-700"
             >
-              查看家长洞察
+              {reviewInterventionMeta?.actionLabel || '查看家长洞察'}
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

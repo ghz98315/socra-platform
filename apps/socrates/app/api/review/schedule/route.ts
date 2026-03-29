@@ -4,12 +4,76 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  summarizeVariantEvidence,
+  type VariantEvidenceSummary,
+  type VariantPracticeLogEvidenceRow,
+  type VariantQuestionEvidenceRow,
+} from '@/lib/error-loop/variant-evidence';
 
 // 创建 Supabase 客户端
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+async function buildVariantEvidenceBySession(studentId: string, sessionIds: string[]) {
+  const normalizedSessionIds = Array.from(new Set(sessionIds.filter(Boolean)));
+  if (normalizedSessionIds.length === 0) {
+    return new Map<string, VariantEvidenceSummary>();
+  }
+
+  const { data: questions, error: questionsError } = await supabase
+    .from('variant_questions')
+    .select('id, original_session_id, status, attempts, correct_attempts, last_practiced_at, completed_at, created_at')
+    .eq('student_id', studentId)
+    .in('original_session_id', normalizedSessionIds);
+
+  if (questionsError) {
+    throw questionsError;
+  }
+
+  const questionRows = (questions || []) as Array<
+    VariantQuestionEvidenceRow & {
+      original_session_id: string;
+    }
+  >;
+  const questionIds = questionRows.map((item) => item.id).filter(Boolean);
+
+  const logsByVariantId = new Map<string, VariantPracticeLogEvidenceRow[]>();
+  if (questionIds.length > 0) {
+    const { data: logs, error: logsError } = await supabase
+      .from('variant_practice_logs')
+      .select('variant_id, is_correct, hints_used, created_at')
+      .eq('student_id', studentId)
+      .in('variant_id', questionIds);
+
+    if (logsError) {
+      throw logsError;
+    }
+
+    for (const log of (logs || []) as VariantPracticeLogEvidenceRow[]) {
+      const current = logsByVariantId.get(log.variant_id) || [];
+      current.push(log);
+      logsByVariantId.set(log.variant_id, current);
+    }
+  }
+
+  const evidenceBySession = new Map<string, VariantEvidenceSummary>();
+  for (const sessionId of normalizedSessionIds) {
+    const sessionQuestions = questionRows.filter((item) => item.original_session_id === sessionId);
+    const sessionLogs = sessionQuestions.flatMap((item) => logsByVariantId.get(item.id) || []);
+    evidenceBySession.set(
+      sessionId,
+      summarizeVariantEvidence({
+        questions: sessionQuestions,
+        logs: sessionLogs,
+      }),
+    );
+  }
+
+  return evidenceBySession;
+}
 
 // GET - 获取待复习列表
 export async function GET(req: NextRequest) {
@@ -94,11 +158,22 @@ export async function GET(req: NextRequest) {
       console.error('Error fetching completed review schedule:', completedListError);
     }
 
+    const allReviews = [...(reviews || []), ...(completedReviews || [])];
+    const evidenceBySession = await buildVariantEvidenceBySession(
+      student_id,
+      allReviews.map((review: any) => review.session_id).filter((value: unknown): value is string => typeof value === 'string'),
+    );
     const now = Date.now();
     const mapReview = (review: any) => {
       const session = Array.isArray(review.error_sessions) ? review.error_sessions[0] : review.error_sessions;
       const nextReviewAt = new Date(review.next_review_at);
       const daysUntilDue = Math.ceil((nextReviewAt.getTime() - now) / (1000 * 60 * 60 * 24));
+      const variantEvidence =
+        evidenceBySession.get(review.session_id) ||
+        summarizeVariantEvidence({
+          questions: [],
+          logs: [],
+        });
 
       return {
         id: review.id,
@@ -110,6 +185,10 @@ export async function GET(req: NextRequest) {
         mastery_state: review.mastery_state ?? null,
         last_judgement: review.last_judgement ?? null,
         reopened_count: review.reopened_count ?? 0,
+        transfer_evidence_ready: variantEvidence.qualified_transfer_evidence,
+        transfer_evidence_status_label: variantEvidence.status_label,
+        transfer_evidence_next_step: variantEvidence.next_step,
+        transfer_evidence_summary: variantEvidence.coach_summary,
         days_until_due: daysUntilDue,
         is_overdue: daysUntilDue <= 0,
         error_session: session

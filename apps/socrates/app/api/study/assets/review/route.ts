@@ -8,6 +8,7 @@ import {
   buildStudyAssetExtractedText,
   readStudyAssetReviewBridge,
 } from '@/lib/study/bridges-v2';
+import { getScheduledReviewDate } from '@/lib/error-loop/review';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,8 +44,7 @@ async function ensureReviewSchedule(sessionId: string, studentId: string) {
     };
   }
 
-  const firstReviewDate = new Date();
-  firstReviewDate.setDate(firstReviewDate.getDate() + 1);
+  const firstReviewDate = getScheduledReviewDate(1);
 
   const { data: inserted, error: insertError } = await (supabase as any)
     .from('review_schedule')
@@ -52,7 +52,7 @@ async function ensureReviewSchedule(sessionId: string, studentId: string) {
       session_id: sessionId,
       student_id: studentId,
       review_stage: 1,
-      next_review_at: firstReviewDate.toISOString(),
+      next_review_at: firstReviewDate,
       is_completed: false,
     })
     .select('id')

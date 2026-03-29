@@ -1,11 +1,13 @@
+import { REVIEW_INTERVAL_DAYS } from '@/lib/error-loop/review';
+
+const REVIEW_STAGE_NAMES = ['初次复习', '第二次复习', '第三次复习', '第四次复习', '已掌握'] as const;
+
 // Review stages for spaced repetition (Ebbinghaus forgetting curve)
-export const REVIEW_STAGES = [
-  { stage: 1, name: '初次复习', days: 1 },
-  { stage: 2, name: '第二次复习', days: 3 },
-  { stage: 3, name: '第三次复习', days: 7 },
-  { stage: 4, name: '第四次复习', days: 15 },
-  { stage: 5, name: '已掌握', days: 30 },
-];
+export const REVIEW_STAGES = REVIEW_INTERVAL_DAYS.map((days, index) => ({
+  stage: index + 1,
+  name: REVIEW_STAGE_NAMES[index] || `第 ${index + 1} 次复习`,
+  days,
+}));
 
 // Format review date for display
 export function formatReviewDate(dateString: string): string {

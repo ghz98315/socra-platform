@@ -35,7 +35,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { downloadErrorBookPDF } from '@/lib/pdf/ErrorBookPDF';
-import { MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
+import { getClosureStateMeta, MASTERY_JUDGEMENT_META, type MasteryJudgement } from '@/lib/error-loop/review';
 
 type ErrorSession = {
   id: string;
@@ -102,19 +102,6 @@ const subjectBgColors: Record<string, string> = {
   physics: 'bg-purple-50 dark:bg-purple-950/30',
   chemistry: 'bg-green-50 dark:bg-green-950/30',
 };
-
-function getClosureStateMeta(state: string | null | undefined) {
-  switch (state) {
-    case 'mastered_closed':
-      return { label: '稳定掌握', className: 'bg-emerald-100 text-emerald-700' };
-    case 'provisional_mastered':
-      return { label: '暂时会了，继续验证', className: 'bg-blue-100 text-blue-700' };
-    case 'reopened':
-      return { label: '已复开', className: 'bg-red-100 text-red-700' };
-    default:
-      return { label: '闭环进行中', className: 'bg-slate-100 text-slate-700' };
-  }
-}
 
 export default function ErrorBookPage() {
   const { profile } = useAuth();
@@ -580,7 +567,7 @@ export default function ErrorBookPage() {
                             <StatusIcon className="w-3 h-3" />
                             {statusLabels[error.status]?.label}
                           </Badge>
-                          <Badge className={closureMeta.className}>{closureMeta.label}</Badge>
+                          <Badge className={closureMeta.badgeClassName}>{closureMeta.compactLabel}</Badge>
                           {reviewMeta?.reopened_count ? (
                             <Badge variant="outline" className="border-red-200 text-red-700">
                               复开 {reviewMeta.reopened_count} 次
@@ -609,14 +596,9 @@ export default function ErrorBookPage() {
                         {lastJudgementMeta ? (
                           <p className="mb-2 text-xs text-warm-700">上次判定: {lastJudgementMeta.label}</p>
                         ) : null}
-                        {reviewMeta?.mastery_state === 'provisional_mastered' ? (
-                          <p className="mb-2 text-xs text-blue-700">
-                            这题当前只是“暂时会了”，还要继续验证，不能直接当成真会。
-                          </p>
-                        ) : null}
-                        {reviewMeta?.mastery_state === 'reopened' ? (
-                          <p className="mb-2 text-xs text-red-700">
-                            这题出现过复开，说明之前的掌握还不稳定。
+                        {reviewMeta?.mastery_state === 'provisional_mastered' || reviewMeta?.mastery_state === 'reopened' ? (
+                          <p className={cn('mb-2 text-xs', closureMeta.detailClassName)}>
+                            {closureMeta.description}
                           </p>
                         ) : null}
 
