@@ -75,6 +75,7 @@
   - `apps/socrates` -> `node ../../scripts/vercel-ignore-build.mjs --app socrates`
   - `apps/essay` -> `node ../../scripts/vercel-ignore-build.mjs --app essay`
 - These rules skip deploys when the latest commit does not touch the app itself or its declared internal dependencies.
+- The `socrates.socra.cn` custom domain currently sits behind Cloudflare-managed DNS rather than Vercel nameservers. If smoke fails only on the custom domain but passes on `https://socra-platform.vercel.app`, treat that as a Cloudflare/custom-domain path issue first, not an app deploy regression.
 
 ---
 
