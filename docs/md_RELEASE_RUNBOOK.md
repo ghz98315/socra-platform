@@ -7,11 +7,12 @@ Run:
 ```bash
 pnpm check:node
 pnpm check:env
+pnpm check:vercel-links
 pnpm --filter @socra/socrates build
 pnpm build
 ```
 
-Do not continue unless all four commands pass.
+Do not continue unless all five commands pass.
 
 ## 2. Database Rollout
 
@@ -100,7 +101,11 @@ Recommended before payment verification:
 
 Known Vercel deployment requirement:
 
-- The Vercel project Root Directory must point to `apps/socrates`, otherwise the remote builder will fail with `No Next.js version detected` because it only sees the monorepo root `package.json`.
+- The canonical production projects are `socra-landing`, `socra-socrates`, and `socra-essay`.
+- The Vercel project Root Directory for Socrates must point to `apps/socrates`, otherwise the remote builder will fail with `No Next.js version detected` because it only sees the monorepo root `package.json`.
+- A stray project named `socrates` was observed on March 29, 2026 after an accidental relink and should not be used for production deploys.
+- Run `pnpm check:vercel-links` before any manual Vercel CLI deployment to confirm local `.vercel/project.json` files still point at the canonical projects.
+- Vercel monorepo deploys are project settings, not repo-only settings. If unaffected projects are still deploying, review each project's Root Directory settings for `Skip deployment`, or configure an `Ignored Build Step` in the Vercel Dashboard.
 - If `vercel inspect` or `vercel build` crashes locally with `ProxyAgent is not a constructor`, treat that as a Vercel CLI issue on the machine, not an app regression. Use the Vercel dashboard build logs or another machine/CLI version for deployment diagnostics.
 
 ## 4. Smoke Test
@@ -129,42 +134,6 @@ Notes:
 
 - `node scripts/smoke-transfer-evidence-gap.mjs` validates the student-side transfer-evidence closure path.
 - If `SMOKE_PARENT_ID` is configured and is the real parent of `SMOKE_STUDY_USER_ID`, the same smoke also verifies parent-side review intervention task creation and `mastery_update` notification enrichment for the transfer-evidence gap.
-*** Add File: D:\github\Socrates_ analysis\socra-platform\docs\md_progress_socrates_20260329_transfer_evidence_parent_followup_smoke.md
-# Socrates Transfer-Evidence Parent Follow-Up Smoke
-Date: 2026-03-29
-
-## Shipped In This Slice
-
-- Extended `scripts/smoke-transfer-evidence-gap.mjs` beyond the student closure path.
-- The smoke can now optionally verify parent-side artifacts when `SMOKE_PARENT_ID` is available:
-  - pending `review_intervention` task creation in `/api/parent-tasks`
-  - `mastery_update` notification enrichment in `/api/notifications`
-- Updated env readiness output so `SMOKE_PARENT_ID` shows up as an optional transfer-evidence smoke input.
-- Synced the release runbook so this smoke is listed alongside the other non-destructive validation commands.
-
-## Why This Matters
-
-- The recent Stage B/C work centralized wording and semantics for transfer-evidence follow-up across student, parent task, and notification surfaces.
-- Before this slice, regression coverage proved the student closure logic but did not automatically assert that the parent follow-up loop still materialized with the expected metadata.
-- This closes a real validation gap: the same review outcome now has an automated check on both sides of the loop.
-
-## Validation
-
-- Static verification pending local command run after this edit.
-
-## Affected Files
-
-- `scripts/smoke-transfer-evidence-gap.mjs`
-- `scripts/check-env.mjs`
-- `docs/md_RELEASE_RUNBOOK.md`
-- `docs/md_progress_socrates_20260329_transfer_evidence_parent_followup_smoke.md`
-
-## Next Step
-
-- Run local verification:
-  - `pnpm check:env`
-  - `SMOKE_BASE_URL=http://127.0.0.1:3001 pnpm smoke:transfer-evidence`
-- If that passes, treat the parent follow-up smoke as the new latest checkpoint.
 
 Run order creation smoke only on a disposable test user:
 

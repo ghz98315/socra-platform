@@ -49,7 +49,7 @@
 **apps/socrates/.vercel/project.json**
 ```json
 {
-  "projectId": "prj_01RxzRX1wioYrnyV2JAdjMmZSDzg",
+  "projectId": "prj_f4pBZ4BLpWGEK5N5hEcStj0cRs2A",
   "orgId": "team_oGAI73uHlj5rSJavgqQ1mANw",
   "projectName": "socra-socrates"
 }
@@ -63,6 +63,13 @@
   "projectName": "socra-essay"
 }
 ```
+
+### 2026-03-29 Audit Note
+
+- The canonical production projects are `socra-landing`, `socra-socrates`, and `socra-essay`.
+- A stray project named `socrates` was created on 2026-03-29 by an accidental local relink. Do not use it for production deployment or project inspection.
+- Run `pnpm check:vercel-links` before any manual Vercel CLI deployment to confirm the local `.vercel/project.json` files still point at the canonical projects.
+- Vercel monorepos do not become "single-app deploy only" from repo code alone. Unaffected-project skipping and ignored-build-step behavior are controlled in each project's Vercel Dashboard settings.
 
 ---
 
