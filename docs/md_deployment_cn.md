@@ -1,336 +1,225 @@
-# Project Socrates - 国内部署指南
+# Project Socrates - 国内部署与运维指南
 
-> 版本: v2.3
-> 更新日期: 2026-03-14
-> 域名: socra.cn
-> 状态: ✅ 已部署完成
-
----
-
-## 当前部署架构
-
-```
-用户(国内) → Cloudflare CDN → Vercel (香港节点 hkg1)
-```
-
-### 已配置域名
-
-| 域名 | 应用 | 状态 |
-|------|------|------|
-| socra.cn | apps/landing (落地页) | ✅ |
-| socrates.socra.cn | apps/socrates (苏格拉底) | ✅ |
-| essay.socra.cn | apps/essay (作文批改) | ✅ |
+> 版本: v2.4
+> 更新日期: 2026-03-30
+> 适用仓库: `socra-platform`
+> 当前结论: 生产应用可用，部署主路径已稳定，剩余风险集中在 Cloudflare 自定义域名链路和个别机器的 DNS / 网络路径异常
 
 ---
 
-## Vercel 项目配置
+## 一、当前线上基线
 
-### 项目列表
+### 域名与应用
 
-| 项目名 | Root Directory | 域名 | 状态 |
-|--------|----------------|------|------|
-| socra-landing | apps/landing | socra.cn | ✅ 已部署 |
-| socra-socrates | apps/socrates | socrates.socra.cn | ✅ 已部署 |
-| socra-essay | apps/essay | essay.socra.cn | ✅ 已部署 |
+| 域名 | 应用 | 当前角色 |
+|------|------|----------|
+| `socra.cn` | `apps/landing` | 营销落地页 |
+| `socrates.socra.cn` | `apps/socrates` | Socrates 正式域名 |
+| `essay.socra.cn` | `apps/essay` | Essay 正式域名 |
+| `socra-platform.vercel.app` | `socra-socrates` | Socrates 生产 alias，用于隔离 Cloudflare 问题 |
 
-> 规则: 线上只维护 `socra-landing`、`socra-socrates`、`socra-essay` 这 3 个项目，不单独部署根目录 `socra-platform`。
+### Vercel Canonical Projects
 
-### .vercel/project.json 配置
+只把下面 3 个项目当作线上正式项目：
 
-**apps/landing/.vercel/project.json**
-```json
-{
-  "projectId": "prj_c3so0fHNZadONoXDM5hp7RObCOE5",
-  "orgId": "team_oGAI73uHlj5rSJavgqQ1mANw",
-  "projectName": "socra-landing"
-}
-```
+| 项目名 | Root Directory | 说明 |
+|--------|----------------|------|
+| `socra-landing` | `apps/landing` | Landing 正式项目 |
+| `socra-socrates` | `apps/socrates` | Socrates 正式项目 |
+| `socra-essay` | `apps/essay` | Essay 正式项目 |
 
-**apps/socrates/.vercel/project.json**
-```json
-{
-  "projectId": "prj_f4pBZ4BLpWGEK5N5hEcStj0cRs2A",
-  "orgId": "team_oGAI73uHlj5rSJavgqQ1mANw",
-  "projectName": "socra-socrates"
-}
-```
+注意：
 
-**apps/essay/.vercel/project.json**
-```json
-{
-  "projectId": "prj_30eHoHt8CCkzaLZDQ0IHgVZ5x8K2",
-  "orgId": "team_oGAI73uHlj5rSJavgqQ1mANw",
-  "projectName": "socra-essay"
-}
-```
-
-### 2026-03-29 Audit Note
-
-- The canonical production projects are `socra-landing`, `socra-socrates`, and `socra-essay`.
-- A stray project named `socrates` was created on 2026-03-29 by an accidental local relink. Do not use it for production deployment or project inspection.
-- Run `pnpm check:vercel-links` before any manual Vercel CLI deployment to confirm the local `.vercel/project.json` files still point at the canonical projects.
-- Vercel monorepos do not become "single-app deploy only" from repo code alone. Unaffected-project skipping and ignored-build-step behavior are controlled in each project's Vercel Dashboard settings.
-- This repo now ships app-local `ignoreCommand` rules in each `vercel.json`:
-  - `apps/landing` -> `node ../../scripts/vercel-ignore-build.mjs --app landing`
-  - `apps/socrates` -> `node ../../scripts/vercel-ignore-build.mjs --app socrates`
-  - `apps/essay` -> `node ../../scripts/vercel-ignore-build.mjs --app essay`
-- These rules skip deploys when the latest commit does not touch the app itself or its declared internal dependencies.
-- The `socrates.socra.cn` custom domain currently sits behind Cloudflare-managed DNS rather than Vercel nameservers. If smoke fails only on the custom domain but passes on `https://socra-platform.vercel.app`, treat that as a Cloudflare/custom-domain path issue first, not an app deploy regression.
-- The current Cloudflare follow-up checklist is tracked in `docs/md_socrates_cloudflare_followup_20260329.md`.
+- 不要新增或使用根目录项目 `socra-platform`
+- 2026-03-29 曾出现一个误创建的重复项目 `socrates`，它不是正式项目
+- 在任何手动 Vercel CLI 操作前，先运行 `pnpm check:vercel-links`
 
 ---
 
-## 部署方式
+## 二、默认发布路径
 
-## 发布 SOP
-
-### 默认流程: 只走 Git Push
-
-这是唯一默认流程，优先级最高。
+默认只走这一条路径：
 
 ```bash
-# 1. 本地验证
-pnpm --filter @socra/landing build
+pnpm check:node
+pnpm check:env
+pnpm check:vercel-links
 pnpm --filter @socra/socrates build
-pnpm --filter @socra/essay build
+pnpm build
 
-# 2. 提交并推送
 git add .
 git commit -m "your message"
 git push origin main
 ```
 
-推送后由 Vercel 自动部署以下 3 个项目：
+原则：
 
-- `socra-landing`
-- `socra-socrates`
-- `socra-essay`
-
-### 禁止事项
-
-- 不要从 monorepo 根目录运行 `vercel`
-- 不要在 `git push origin main` 之后，再手动执行一次 `vercel`
+- 默认发布入口是 `git push origin main`
+- 不要在根目录直接运行 `vercel`
+- 不要在已经 push 之后再额外手动执行一次 `vercel`
 - 不要把 Preview 部署当成正式发布结果
-- 不要新增第 4 个根项目 `socra-platform`
 
-### 例外流程: 仅在自动部署失败时手动补发
+更完整的发布前检查、数据库迁移、烟测与放行门槛，统一看 `docs/md_RELEASE_RUNBOOK.md`。
 
-只有 Git 自动部署失败，才允许手动执行 Vercel CLI。
+---
+
+## 三、何时允许手动 Vercel CLI
+
+只在 Git 触发的自动部署失败时，才允许手动补发。
 
 ```bash
 # Landing
-cd socra-platform/apps/landing
+cd apps/landing
 npx vercel --prod
 
 # Socrates
-cd socra-platform/apps/socrates
+cd apps/socrates
 npx vercel --prod
 
 # Essay
-cd socra-platform/apps/essay
+cd apps/essay
 npx vercel --prod
 ```
 
-手动补发时必须满足：
+手动补发约束：
 
 - 只能在对应 app 目录执行
 - 必须使用 `--prod`
 - 一次只补发一个项目
-- 补发前先确认该项目没有正在运行的 Production 部署
+- 补发前先确认本项目没有正在进行中的 Production 部署
+- 如果 CLI 显示的项目名不对，先修复对应目录下的 `.vercel/project.json`
 
-### 本地 Vercel 链接校验
+---
 
-如果 CLI 输出的项目名不对，先检查各应用目录下的 `.vercel/project.json`：
+## 四、Vercel 绑定与跳过构建规则
+
+### 本地绑定校验
+
+各应用目录的 `.vercel/project.json` 应保持如下绑定：
 
 - `apps/landing` -> `socra-landing`
 - `apps/socrates` -> `socra-socrates`
 - `apps/essay` -> `socra-essay`
 
-若本地被错误重绑，先修正 `.vercel/project.json`，再执行部署。
-
-### 方式 1: Vercel CLI 部署 (推荐)
-
-从各个应用目录分别部署：
+推荐命令：
 
 ```bash
-# 部署 Landing 页面
-cd socra-platform/apps/landing
-npx vercel --prod
-
-# 部署 Socrates 主应用
-cd socra-platform/apps/socrates
-npx vercel --prod
-
-# 部署 Essay 作文批改
-cd socra-platform/apps/essay
-npx vercel --prod
+pnpm check:vercel-links
 ```
 
-### 方式 2: Vercel Dashboard 手动触发
+### ignoreCommand
 
-1. 登录 [Vercel Dashboard](https://vercel.com/login)
-2. 选择对应项目
-3. 点击 **Deployments** 标签
-4. 点击 **Redeploy** 按钮
+仓库已经为三个 app 配置了 app-local `ignoreCommand`：
 
-### 方式 3: Git Push 自动触发
+- `apps/landing` -> `node ../../scripts/vercel-ignore-build.mjs --app landing`
+- `apps/socrates` -> `node ../../scripts/vercel-ignore-build.mjs --app socrates`
+- `apps/essay` -> `node ../../scripts/vercel-ignore-build.mjs --app essay`
 
-Vercel 会自动监听 GitHub 仓库的 main 分支：
-- 推送到 `socra-platform` 仓库后
-- Vercel 会自动检测并部署所有三个项目
+用途：
+
+- docs-only 改动默认应跳过应用构建
+- 只有命中 app 自身目录、共享依赖或根构建文件时才触发构建
+
+注意：
+
+- `ignoreCommand` 只能减少无关改动触发的部署
+- Vercel monorepo 的最终行为仍受各项目 Dashboard 配置影响
+- 如果发现无关项目仍在部署，继续检查项目级 Root Directory、Ignored Build Step 和 Skip deployment 配置
 
 ---
 
-## Monorepo 架构
+## 五、自定义域名与网络排障基线
 
-```
-socra-platform/                    # GitHub 仓库
-├── apps/
-│   ├── landing/                   # 落地页 → socra.cn
-│   │   ├── .vercel/               # Vercel 配置
-│   │   ├── app/                   # Next.js App Router
-│   │   └── package.json
-│   ├── socrates/                  # 苏格拉底 → socrates.socra.cn
-│   │   ├── .vercel/               # Vercel 配置
-│   │   ├── app/                   # Next.js App Router
-│   │   │   ├── (student)/         # 学生端路由
-│   │   │   ├── (parent)/          # 家长端路由
-│   │   │   └── api/               # API 路由
-│   │   └── package.json
-│   └── essay/                     # 作文批改 → essay.socra.cn
-│       ├── .vercel/               # Vercel 配置
-│       ├── app/                   # Next.js App Router
-│       └── package.json
-├── packages/
-│   ├── ui/                        # 共享 UI 组件
-│   ├── auth/                      # 认证逻辑
-│   ├── database/                  # 数据库配置
-│   └── config/                    # 共享配置
-├── supabase/
-│   └── migrations/                # 数据库迁移文件
-├── package.json                   # 根 package.json
-├── pnpm-workspace.yaml           # pnpm workspace 配置
-└── turbo.json                     # Turborepo 配置
-```
+### 当前判断
+
+截至 2026-03-30，已确认三件事：
+
+1. `socra-socrates` 生产应用本身是健康的
+2. `socrates.socra.cn` 的问题优先视为 Cloudflare / 自定义域名链路问题
+3. 当前这台验证机器对 `*.vercel.app` 还出现过异常 DNS / 网络路径结果，不能把所有 alias 失败都直接当作应用回归
+
+### 诊断顺序
+
+如果 `socrates.socra.cn` 出现异常，按这个顺序判断：
+
+1. 先用 `pnpm probe:socrates-domain` 对比自定义域名和 Vercel alias
+2. 如果 alias 正常、自定义域名异常，先查 Cloudflare
+3. 如果 alias 也异常，再检查当前机器的 DNS / 网络路径
+4. 只有在多网络、多机器都能稳定复现时，才把问题升级为应用或部署回归
+
+### Cloudflare 侧优先检查项
+
+- DNS 记录是否仍指向正确目标
+- `socrates` 记录在 proxied / DNS-only 下是否有行为差异
+- SSL mode 是否为 `Full` 或 `Full (strict)`
+- 是否有 Redirect Rules、Transform Rules、Cache Rules、WAF、Bot Fight、Workers 干扰 `POST /api/*`
+
+专项排障清单见 `docs/md_socrates_cloudflare_followup_20260329.md`。
 
 ---
 
-## 环境变量配置
+## 六、环境变量最小要求
 
-### Socrates 应用 (apps/socrates)
+### `apps/socrates`
 
-在 Vercel Dashboard 中配置以下环境变量：
+必需：
 
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-DASHSCOPE_API_KEY=
-NEXT_PUBLIC_SITE_URL=https://socrates.socra.cn
-```
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `AI_API_KEY_LOGIC` 或 `DASHSCOPE_API_KEY`
+- `AI_API_KEY_VISION` 或 `DASHSCOPE_API_KEY`
 
-### Landing 应用 (apps/landing)
+建议：
 
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_SITE_URL`
+- `WECHAT_APP_ID`
+- `WECHAT_APP_SECRET`
 
-### Essay 应用 (apps/essay)
+### `apps/landing`
 
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-DASHSCOPE_API_KEY=
-```
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
----
+### `apps/essay`
 
-## 本地开发
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `DASHSCOPE_API_KEY`
 
-```bash
-# 克隆仓库
-git clone https://github.com/ghz98315/socra-platform.git
-cd socra-platform
-
-# 安装依赖
-pnpm install
-
-# 启动所有应用
-pnpm dev
-
-# 或单独启动
-cd apps/landing && pnpm dev    # http://localhost:3001
-cd apps/socrates && pnpm dev   # http://localhost:3000
-cd apps/essay && pnpm dev      # http://localhost:3002
-```
+更完整的发布前环境校验看 `pnpm check:env` 和 `docs/md_RELEASE_RUNBOOK.md`。
 
 ---
 
-## 开发进度 (v1.7.19)
+## 七、常见误判
 
-| Phase | 功能 | 状态 |
-|-------|------|------|
-| Phase 0 | 合规基础 (隐私政策、用户协议) | ✅ |
-| Phase 1 | 基础设施 (积分、邀请系统) | ✅ |
-| Phase 1.5 | 学习诊断 (知识图谱、学习风格) | ✅ |
-| Phase 2 | 用户增长 (分享海报、微信分享) | ✅ |
-| Phase 2.5 | 家长增强 (多子女Dashboard、周报) | ✅ |
-| Phase 3 | 商业化 (订阅、支付、Pro权限) | ✅ |
-| Phase 4 | 合规功能 (青少年模式、时长限制) | ✅ |
+### 1. 看到 Preview 还在 Building，就以为正式部署失败
 
----
+不成立。先看对应项目的 Production 部署是否成功，再决定是否需要介入。
 
-## 常见问题
+### 2. `socrates.socra.cn` 失败，就直接判定 Socrates 应用挂了
 
-### Q1: 部署失败？
+不成立。先用 `socra-platform.vercel.app` 做同路径对比，区分应用问题和 Cloudflare 路径问题。
 
-检查 Vercel 项目配置：
-- Root Directory 是否正确 (如 `apps/socrates`)
-- Build Command: `pnpm build`
-- Install Command: `pnpm install`
-- 确保从正确的应用目录部署
-- 确保没有误触发根目录项目 `socra-platform`
+### 3. 当前机器解析到异常 IP 或 alias TLS 超时，就判定 Vercel 故障
 
-### Q2: 环境变量未生效？
+不成立。2026-03-30 已出现过本机 DNS / 网络路径异常样本，必须换网络、换解析器或换机器复核。
 
-1. 在 Vercel Dashboard 添加环境变量
-2. 确保环境变量添加到正确的项目
-3. 重新部署项目
+### 4. docs 改动触发了多个应用部署，就说明 ignoreCommand 失效
 
-### Q3: 域名无法访问？
-
-1. 检查 Cloudflare DNS 是否正确
-2. 确认代理状态为橙色云朵
-3. 等待 DNS 生效（最多 24 小时）
-
-### Q4: Monorepo 部署问题？
-
-- 不要从根目录部署
-- 每个应用需要单独部署
-- 确保每个应用的 `.vercel/project.json` 配置正确
-
-### Q5: 为什么会出现卡 20 分钟以上的 Preview 部署？
-
-- 常见原因是 `git push` 已触发自动部署后，又手动执行了 `vercel`
-- 如果同批次 `Production` 已成功，而 `Preview` 仍显示 `Building`，一般可直接忽略或取消
-- 这种情况优先检查是否重复触发，而不是先怀疑代码编译失败
+不一定。先确认 Vercel Dashboard 是否真的读取了当前 repo 中的 `vercel.json` 与项目 Root Directory 设置。
 
 ---
 
-## 相关链接
+## 八、配套文档
 
-- [Vercel Dashboard](https://vercel.com/dashboard)
-- [Cloudflare Dashboard](https://dash.cloudflare.com)
-- [Supabase Dashboard](https://supabase.com/dashboard)
-- [GitHub 仓库](https://github.com/ghz98315/socra-platform)
-
-## 相关文档 (本仓库)
-
-- `./md_DEPLOYMENT_CHECKLIST.md` (部署清单)
-- `./md_RELEASE_RUNBOOK.md` (发布 Runbook)
+- `docs/md_RELEASE_RUNBOOK.md`
+- `docs/md_TEST_GUIDE.md`
+- `docs/md_socrates_cloudflare_followup_20260329.md`
+- `docs/md_progress_socrates_20260330_deployment_validation_rollup.md`
 
 ---
 
-**文档版本**: v2.3
-**最后更新**: 2026-03-14
+**文档版本**: v2.4
+**最后更新**: 2026-03-30

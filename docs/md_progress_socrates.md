@@ -4,7 +4,24 @@
 
 ---
 
-## 最新节点: 2026-03-10 v1.7.19
+## 最新运维节点: 2026-03-30
+
+### 当前判断
+
+- 生产 Socrates 应用已经完成 2026-03-29/30 这一轮部署验证
+- 正式 Vercel 项目以 `socra-socrates` 为准，不再使用误创建的 `socrates`
+- 自定义域名 `socrates.socra.cn` 的异常优先按 Cloudflare / 域名链路问题处理
+- 当前验证机器对 `*.vercel.app` 出现过异常 DNS / 网络路径结果，alias 失败不能单机直接判定为应用回归
+
+### 当前主文档入口
+
+- 发布与烟测: `docs/md_RELEASE_RUNBOOK.md`
+- 国内部署与域名诊断: `docs/md_deployment_cn.md`
+- 2026-03-29/30 部署汇总: `docs/md_progress_socrates_20260330_deployment_validation_rollup.md`
+
+---
+
+## 最近产品完成节点: 2026-03-10 v1.7.19
 
 ### 当前状态
 - **版本**: v1.7.19

@@ -1,5 +1,14 @@
 # Release Runbook
 
+Updated: 2026-03-30
+
+Companion docs:
+
+- `docs/md_deployment_cn.md`
+- `docs/md_TEST_GUIDE.md`
+- `docs/md_socrates_cloudflare_followup_20260329.md`
+- `docs/md_progress_socrates_20260330_deployment_validation_rollup.md`
+
 ## 1. Preflight
 
 Run:
