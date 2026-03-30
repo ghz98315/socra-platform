@@ -136,6 +136,8 @@ Notes:
 - `node scripts/smoke-transfer-evidence-gap.mjs` validates the student-side transfer-evidence closure path.
 - If `SMOKE_PARENT_ID` is configured and is the real parent of `SMOKE_STUDY_USER_ID`, the same smoke also verifies parent-side review intervention task creation and `mastery_update` notification enrichment for the transfer-evidence gap.
 - If `socrates.socra.cn` shows transport-level failures for POST requests or TLS handshakes from the current validation machine, rerun the smoke against `https://socra-platform.vercel.app` to separate application regressions from custom-domain or edge-proxy issues.
+- Use `pnpm probe:socrates-domain` when you need a quick side-by-side comparison of custom-domain vs Vercel-alias GET/POST behavior from the current machine.
+- If the probe shows `*.vercel.app` resolving to obviously non-Vercel addresses or timing out before TLS, treat that as a machine-local DNS / network-path problem before drawing any release conclusion from that machine.
 
 Run order creation smoke only on a disposable test user:
 

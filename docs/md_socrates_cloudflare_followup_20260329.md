@@ -12,6 +12,7 @@ Recover healthy custom-domain access on `socrates.socra.cn` after the deployed a
 - From the current validation machine:
   - some `http://socrates.socra.cn` requests returned empty replies or socket closes
   - direct `https://socrates.socra.cn` TLS handshakes failed
+- On 2026-03-30, the same machine also resolved `*.vercel.app` aliases to obviously non-Vercel addresses and timed out before TLS, so not every later alias failure can be blamed on the deployed app.
 
 ## Check Order
 
@@ -40,14 +41,19 @@ Recover healthy custom-domain access on `socrates.socra.cn` after the deployed a
 - `https://socrates.socra.cn/api/error-session` with a disposable POST body
 - Compare the result with the same calls against `https://socra-platform.vercel.app`.
 
+7. If the Vercel alias also fails, inspect the machine DNS path
+- Check `Resolve-DnsName socra-platform.vercel.app`
+- If it resolves to clearly non-Vercel IP space or times out before TLS, switch to another network or resolver before continuing app-level diagnosis
+
 ## Fastest Isolation Path
 
 If you want the shortest operational test:
 
 1. Set `socrates` to DNS-only in Cloudflare.
 2. Wait for propagation.
-3. Re-run `pnpm smoke:study-flow` and `pnpm smoke:transfer-evidence` against `https://socrates.socra.cn`.
-4. If that clears the failures, reintroduce Cloudflare features one layer at a time.
+3. Run `pnpm probe:socrates-domain`.
+4. Re-run `pnpm smoke:study-flow` and `pnpm smoke:transfer-evidence` against `https://socrates.socra.cn`.
+5. If that clears the failures, reintroduce Cloudflare features one layer at a time.
 
 ## Reference
 

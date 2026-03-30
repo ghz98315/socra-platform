@@ -16,6 +16,7 @@
     "autopilot": "node scripts/autopilot.mjs",
     "regression:run": "node scripts/run-regression.mjs",
     "probe:socrates-build": "node scripts/probe-socrates-build.mjs",
+    "probe:socrates-domain": "node scripts/probe-socrates-domain-path.mjs",
     "smoke:socrates": "node scripts/run-with-guard.mjs --label \"Socrates smoke\" --timeout-ms 1200000 --diagnose socrates-smoke -- node scripts/smoke-socrates.mjs",
     "smoke:study-flow": "node scripts/run-with-guard.mjs --label \"Study flow smoke\" --timeout-ms 1200000 --diagnose socrates-smoke -- node scripts/smoke-study-flow.mjs",
     "smoke:transfer-evidence": "node scripts/run-with-guard.mjs --label \"Transfer-evidence smoke\" --timeout-ms 1200000 --diagnose socrates-smoke -- node scripts/smoke-transfer-evidence-gap.mjs",
