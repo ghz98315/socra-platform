@@ -18,6 +18,7 @@
 - `md_RELEASE_RUNBOOK.md`: 发布前检查、数据库迁移、烟测、放行门槛
 - `md_deployment_cn.md`: 国内部署、Vercel 项目绑定、Cloudflare / DNS 诊断原则
 - `md_TEST_GUIDE.md`: 人工业务验收清单
+- `md_TEST_CHECKLIST_20260330.md`: 本轮完整度测试清单
 - `md_socrates_cloudflare_followup_20260329.md`: Cloudflare 专项排障清单
 
 ### 近期关键归档
@@ -42,6 +43,7 @@
 - `md_RELEASE_RUNBOOK.md`
 - `md_deployment_cn.md`
 - `md_TEST_GUIDE.md`
+- `md_TEST_CHECKLIST_20260330.md`
 - `md_socrates_cloudflare_followup_20260329.md`
 - `md_progress_socrates_20260330_deployment_validation_rollup.md`
 
@@ -50,6 +52,7 @@
 - `md_progress_recall.md`
 - `md_QUICKSTART.md`
 - `md_QUICKSTART_20260315_latest.md`
+- `md_QUICKSTART_20260330_restart_resume.md`
 
 ### 其他专项文档
 
