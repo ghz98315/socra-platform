@@ -200,7 +200,7 @@ export default function TermsPage() {
       {/* Footer */}
       <footer className="py-8 border-t border-gray-200 mt-12">
         <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
-          <p>© 2026 Socrates. All rights reserved.</p>
+          <p>© 2026 Socrates。保留所有权利。</p>
         </div>
       </footer>
     </div>

@@ -297,7 +297,7 @@ export default function PricingPage() {
       {/* Footer */}
       <footer className="py-8 border-t border-gray-100">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between text-sm text-gray-500">
-          <p>© 2026 Socrates. All rights reserved.</p>
+          <p>© 2026 Socrates。保留所有权利。</p>
           <div className="flex items-center gap-6">
             <Link href="/privacy" className="hover:text-gray-900">隐私政策</Link>
             <Link href="/terms" className="hover:text-gray-900">用户协议</Link>

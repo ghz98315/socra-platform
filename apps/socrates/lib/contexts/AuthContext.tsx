@@ -8,6 +8,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
+import type { PhoneCodePurpose } from '@/lib/auth/phone-auth';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
@@ -33,6 +34,19 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
+  requestPhoneCode: (params: {
+    phone: string;
+    purpose: PhoneCodePurpose;
+    displayName?: string;
+    avatarUrl?: string | null;
+    studentAvatarUrl?: string | null;
+    parentAvatarUrl?: string | null;
+  }) => Promise<{ debugCode?: string }>;
+  verifyPhoneCode: (params: {
+    phone: string;
+    code: string;
+    purpose: PhoneCodePurpose;
+  }) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -310,6 +324,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
+  const requestPhoneCode = async ({
+    phone,
+    purpose,
+    displayName,
+    avatarUrl,
+    studentAvatarUrl,
+    parentAvatarUrl,
+  }: {
+    phone: string;
+    purpose: PhoneCodePurpose;
+    displayName?: string;
+    avatarUrl?: string | null;
+    studentAvatarUrl?: string | null;
+    parentAvatarUrl?: string | null;
+  }) => {
+    const response = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        phone,
+        purpose,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        student_avatar_url: studentAvatarUrl,
+        parent_avatar_url: parentAvatarUrl,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || '验证码发送失败，请稍后重试。');
+    }
+
+    return {
+      debugCode: typeof data.debugCode === 'string' ? data.debugCode : undefined,
+    };
+  };
+
+  const verifyPhoneCode = async ({
+    phone,
+    code,
+    purpose,
+  }: {
+    phone: string;
+    code: string;
+    purpose: PhoneCodePurpose;
+  }) => {
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone,
+          code,
+          purpose,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || '验证码校验失败，请重试。');
+      }
+
+      const accessToken = data?.session?.access_token;
+      const refreshToken = data?.session?.refresh_token;
+      if (!accessToken || !refreshToken) {
+        throw new Error('登录状态创建失败，请稍后重试。');
+      }
+
+      const { data: sessionData, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error || !sessionData.user) {
+        throw error || new Error('登录状态创建失败，请稍后重试。');
+      }
+
+      setUser(sessionData.user);
+      const userProfile = await fetchProfile(sessionData.user.id);
+      setProfile(userProfile);
+      lastFetchedUserId.current = sessionData.user.id;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -412,6 +519,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signIn,
         signUp,
+        requestPhoneCode,
+        verifyPhoneCode,
         signOut,
         updateProfile,
         refreshProfile,

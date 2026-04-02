@@ -6,6 +6,7 @@ Companion docs:
 
 - `docs/md_deployment_cn.md`
 - `docs/md_TEST_GUIDE.md`
+- `docs/md_socrates_full_test_execution_20260402.md`
 - `docs/md_socrates_cloudflare_followup_20260329.md`
 - `docs/md_progress_socrates_20260330_deployment_validation_rollup.md`
 
@@ -31,17 +32,25 @@ Apply these SQL files in order to the target Supabase project:
 supabase/migrations/20260228_prompt_v2_upgrade.sql
 supabase/migrations/20260310_learning_style.sql
 supabase/migrations/20260310_points_and_invite.sql
+supabase/migrations/20260402_add_profiles_email_compat.sql
+supabase/migrations/20260402_fix_auth_user_bootstrap_functions.sql
+supabase/migrations/20260402_fix_legacy_auth_points_trigger.sql
 supabase/migrations/20260312_add_phone_to_profiles.sql
 supabase/migrations/20260312_create_link_requests_table.sql
 supabase/migrations/20260312_add_notifications_table.sql
 supabase/migrations/20260312_core_business_runtime.sql
 supabase/migrations/20260316_add_study_assets_tables.sql
 supabase/migrations/20260317_expand_error_session_subjects.sql
+supabase/migrations/20260402_add_auth_verification_tables.sql
 ```
 
 Notes:
 
 - `supabase/migrations/20260312_core_business_runtime.sql` is designed to be re-runnable. It includes compatibility `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...` and will `DROP FUNCTION ...` before recreating certain RPC functions whose return shapes changed between migrations.
+- `supabase/migrations/20260402_add_profiles_email_compat.sql` restores the legacy `profiles.email` compatibility column. This is required if the target Supabase project still has older auth/profile triggers or code paths that write `email` into `profiles`.
+- `supabase/migrations/20260402_fix_auth_user_bootstrap_functions.sql` re-qualifies the legacy auth bootstrap writes to `public.invite_codes` and `public.socra_points`. This is required when `auth.users` creation runs under a search path that does not include `public`.
+- `supabase/migrations/20260402_fix_legacy_auth_points_trigger.sql` also replaces the older `init_user_points` function and removes the legacy `on_user_created_init_points` trigger name, so only one public-qualified points bootstrap trigger remains on `auth.users`.
+- If new-user creation still fails after that compatibility migration, use the read-only SQL probe in `supabase/manual/20260402_auth_trigger_drift_probe.sql` from the Supabase SQL Editor to inspect the live `auth.users` trigger chain and schema drift.
 
 After rollout, confirm these runtime objects exist:
 
@@ -60,6 +69,8 @@ After rollout, confirm these runtime objects exist:
 - `study_asset_messages`
 - `socra_points`
 - `point_transactions`
+- `auth_verification_codes`
+- `user_auth_identities`
 - `get_user_points`
 - `add_points`
 - `check_feature_limit`
@@ -140,6 +151,12 @@ node scripts/smoke-study-flow.mjs
 node scripts/smoke-transfer-evidence-gap.mjs
 ```
 
+Auth recovery smoke after any auth/profile migration:
+
+```bash
+pnpm smoke:auth-phone
+```
+
 Notes:
 
 - `node scripts/smoke-transfer-evidence-gap.mjs` validates the student-side transfer-evidence closure path.
@@ -147,6 +164,10 @@ Notes:
 - If `socrates.socra.cn` shows transport-level failures for POST requests or TLS handshakes from the current validation machine, rerun the smoke against `https://socra-platform.vercel.app` to separate application regressions from custom-domain or edge-proxy issues.
 - Use `pnpm probe:socrates-domain` when you need a quick side-by-side comparison of custom-domain vs Vercel-alias GET/POST behavior from the current machine.
 - If the probe shows `*.vercel.app` resolving to obviously non-Vercel addresses or timing out before TLS, treat that as a machine-local DNS / network-path problem before drawing any release conclusion from that machine.
+- `pnpm smoke:auth-phone` covers three auth recovery checks in sequence:
+  - direct Supabase anon `signUp`
+  - legacy `/api/auth/register`
+  - new `/api/auth/send-code` + `/api/auth/verify-code`
 
 Run order creation smoke only on a disposable test user:
 
@@ -222,3 +243,11 @@ Do not release if any item below is still open:
 - If `/api/study/assets` returns `missing_study_assets_migration`, the target Supabase project is missing `supabase/migrations/20260316_add_study_assets_tables.sql`; apply it before treating the failure as an app regression.
 - If `study-assets-review-bridge` fails with `error_sessions_subject_check`, the target Supabase project is missing `supabase/migrations/20260317_expand_error_session_subjects.sql`; apply it before treating the failure as an app regression.
 - If the deployed smoke hits `404` on `/api/study/assets`, the active Socrates deployment is stale or mapped to the wrong app root; redeploy the current `apps/socrates` build before continuing internal beta.
+
+## 2026-04-02 Auth Phase 1 Validation Note
+
+- Root cause of the April 2 auth creation failures was not the SMS provider. The failing layer was legacy auth bootstrap SQL still writing to unqualified `invite_codes` / `socra_points` relations inside the Auth transaction context.
+- After applying the auth bootstrap fixes and the OTP length fix, the local Phase 1 phone auth smoke passed end-to-end.
+- When the smoke target is localhost and the helper-managed Socrates app is running in production mode, `/api/auth/send-code` will not expose `debugCode` even with `PHONE_AUTH_SMS_PROVIDER=console`. The repo smoke now falls back to the latest `.codex-socrates-start-*.out.log` entry so the local production-like auth smoke can still complete without weakening production API behavior.
+- Production deployment `socra-socrates-4h0wgnqnc-ghz98315s-projects.vercel.app` completed successfully and `/api/auth/send-code` is live on the Vercel production alias.
+- If `socrates.socra.cn` still fails from one machine while the alias succeeds, continue troubleshooting Cloudflare / custom-domain TLS or routing before declaring a Socrates app regression.

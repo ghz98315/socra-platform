@@ -10,6 +10,7 @@
 
 - 这份文档只保留人工业务验收清单
 - 构建、数据库迁移、环境变量、烟测、发布门槛统一看 `docs/md_RELEASE_RUNBOOK.md`
+- 如果要按完整执行顺序重测，直接使用 `docs/md_socrates_full_test_execution_20260402.md`
 - 如果当前机器访问 `socrates.socra.cn` 有明显网络异常，先改用 `https://socra-platform.vercel.app` 验证应用，再单独记录 Cloudflare / DNS 问题
 
 ---

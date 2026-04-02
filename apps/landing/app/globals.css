@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fffaf4;
-  --foreground: #1f1a17;
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Source Han Serif SC", "Songti SC", serif;
+  --background: #f3ede4;
+  --foreground: #17130f;
+  --font-display: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong", "Iowan Old Style", "Palatino Linotype", serif;
   --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
 }
 
@@ -21,9 +21,9 @@ body {
   background: var(--background);
   font-family: var(--font-body);
   background-image:
-    radial-gradient(circle at top, rgba(252, 214, 160, 0.24), transparent 28%),
-    radial-gradient(circle at 85% 12%, rgba(255, 244, 226, 0.82), transparent 22%),
-    linear-gradient(180deg, #fff8ef 0%, #fffefb 44%, #fff9f1 100%);
+    radial-gradient(circle at top, rgba(157, 78, 45, 0.06), transparent 22%),
+    radial-gradient(circle at 82% 9%, rgba(255, 249, 240, 0.56), transparent 16%),
+    linear-gradient(180deg, #f4efe7 0%, #f5f0e8 44%, #f1ebe2 100%);
   font-feature-settings: "liga" 1, "kern" 1;
 }
 
@@ -32,6 +32,6 @@ a {
 }
 
 ::selection {
-  background: rgba(245, 123, 55, 0.18);
-  color: #2e2219;
+  background: rgba(169, 79, 40, 0.18);
+  color: #241a15;
 }

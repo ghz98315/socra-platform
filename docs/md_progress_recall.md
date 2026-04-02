@@ -1,15 +1,16 @@
 # Socra Platform - 开发进度总览
 
-> 本文档为项目总览，详细进度请查看各产品文档
+> 最后更新: 2026-04-02
+> 用途: 给接手当前仓库的人一个最短的全局入口
 
 ---
 
-## 产品矩阵
+## 一、产品矩阵
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Landing Page                                 │
-│                   https://socra.cn                               │
+│                         socra.cn                                │
+│                      Landing 品牌首页                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                              │                                   │
 │        ┌─────────────────────┴─────────────────────┐            │
@@ -18,177 +19,127 @@
 │  │   Socrates 错题本    │              │   Essay 作文批改    │   │
 │  │  socrates.socra.cn  │              │   essay.socra.cn    │   │
 │  ├─────────────────────┤              ├─────────────────────┤   │
-│  │ • OCR错题识别       │              │ • 作文图片上传      │   │
-│  │ • AI苏格拉底对话    │              │ • AI批改评分        │   │
-│  │ • 几何图形渲染      │              │ • 闪光点挖掘        │   │
-│  │ • 复习计划管理      │              │ • 魔法修改建议      │   │
-│  │ • 时间规划+专注计时 │              │ • 金句百宝箱        │   │
-│  │ • 成就系统          │              │ • PDF导出           │   │
-│  │ • 家长端报告        │              │                     │   │
+│  │ • 错题学习闭环       │              │ • 作文图片上传      │   │
+│  │ • AI 苏格拉底对话    │              │ • AI 批改评分       │   │
+│  │ • 复习与报告         │              │ • 闪光点与建议      │   │
+│  │ • 家长跟进链路       │              │ • PDF 导出          │   │
+│  │ • 订阅与支付         │              │                     │   │
 │  └─────────────────────┘              └─────────────────────┘   │
 │                              │                                   │
 │                              ▼                                   │
 │                   ┌─────────────────────┐                       │
 │                   │   Supabase Auth     │                       │
-│                   │   (共享用户系统)     │                       │
-│                   │  同一账号双角色切换   │                       │
+│                   │   共享账号体系       │                       │
 │                   └─────────────────────┘                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 进度文档
+## 二、当前状态
 
-| 产品 | 文档 | 当前版本 | 状态 |
-|------|------|----------|------|
-| **Landing Page** | [md_progress_landing.md](./md_progress_landing.md) | v1.1.0 | 🟢 运行中 |
-| **Socrates 错题本** | [md_progress_socrates.md](./md_progress_socrates.md) | v1.7.12 | 🟢 运行中 |
-| **Essay 作文批改** | [md_progress_essay.md](./md_progress_essay.md) | v1.3.1 | 🟢 运行中 |
+### Socrates
 
----
+- 当前状态: 已完成主功能开发，进入全功能重测准备阶段
+- 正式域名: `https://socrates.socra.cn`
+- 生产 alias: `https://socra-platform.vercel.app`
+- 正式 Vercel 项目: `socra-socrates`
+- 关键主文档:
+  - `docs/md_progress_socrates.md`
+  - `docs/md_RELEASE_RUNBOOK.md`
+  - `docs/md_deployment_cn.md`
+  - `docs/md_TEST_GUIDE.md`
+  - `docs/md_socrates_full_test_execution_20260402.md`
 
-## 当前开发重点
+### Landing
 
-### 2026-03-14 更新 (Landing v1.1.0)
-- ✅ **Landing 首页重构**
-  - 首页结构从产品总览页升级为高转化品牌首页
-  - 采用家长决策主线 + 双入口辅助 + 搜索场景预埋
-- ✅ **首页风格调整**
-  - 统一为“温暖的学习工作台”视觉方向
-  - 强化真实产品感与页面停留节奏
-- ✅ **首页 SEO 基础补强**
-  - 更新 metadata
-  - 增加 Organization / WebSite 结构化数据
-- ✅ **Landing 构建通过**
-  - `pnpm --filter @socra/landing build`
+- 当前状态: 已完成多轮规划与实验性改版，现等待外部设计稿 / 代码迁移
+- 正式域名: `https://socra.cn`
+- 正式 Vercel 项目: `socra-landing`
+- 当前主文档:
+  - `docs/md_progress_landing.md`
+  - `docs/md_landing_homepage_book_style_refresh_20260401.md`
+  - `docs/md_landing_prd_20260401.md`
+  - `docs/md_landing_final_page_spec_20260401.md`
 
-### 2026-03-10 更新 (v1.7.12)
-- ✅ **Vercel 部署修复**
-  - 修复路由冲突 (删除重复 dashboard)
-  - 添加 canvas-confetti 依赖
-  - 修复 TypeScript 类型错误
-  - 修复 formatDate 函数作用域问题
-- ✅ **学科 AI Prompt 完善**
-  - 语文学科配置完成
-  - 英语学科配置完成
-- ✅ **Dashboard 页面**
-  - 今日统计卡片
-  - 学科进度卡片
-  - 学科切换组件
+### Essay
 
-### 2026-03-09 更新 (v1.7.5-1.7.8)
-- ✅ **时间规划功能增强**
-  - 任务编辑功能
-  - 专注模式提示音 + 浏览器通知
-  - AI智能优化API
-  - 拖拽排序
-  - 周统计视图
-- ✅ **双角色自由切换**
-  - 同一账号可自由切换学生/家长角色
-  - 移除家长角色锁定限制
-- ✅ **Landing Page 链接修复**
-  - 学习规划链接: `socrates.socra.cn/planner`
-
-### 2026-03-06 更新 (v1.7.4)
-- ✅ Workbench 页面左右分栏布局
-- ✅ Vercel 部署问题修复
-- ✅ TypeScript 类型错误修复
-
-### 2026-03-05 更新 (v1.7.0-1.7.3)
-- ✅ 全局导航栏暖色主题统一
-- ✅ 登录/注册页面 Logo 更新
-- ✅ 家长端 Dashboard 完善
-- ✅ 时间规划页面 (`/planner`)
-- ✅ 几何图形识别修复
-- ✅ Essay 模块增强（API重试、搜索、PDF导出）
+- 当前状态: 已有可用产品形态，继续作为独立入口运行
+- 正式域名: `https://essay.socra.cn`
+- 正式 Vercel 项目: `socra-essay`
+- 主文档:
+  - `docs/md_progress_essay.md`
 
 ---
 
-## 功能完成度
+## 三、当前开发重点
 
-### Socrates (错题本平台)
+### P0
 
-| 模块 | 功能 | 状态 |
-|------|------|------|
-| **错题学习** | OCR识别 + 几何渲染 | ✅ 完成 |
-| **AI对话** | 苏格拉底式引导 | ✅ 完成 |
-| **学科AI** | 数学/语文/英语 Prompt | ✅ 完成 |
-| **复习系统** | 艾宾浩斯 + 难度评估 | ✅ 完成 |
-| **时间规划** | 任务管理 + 专注计时 | ✅ 完成 |
-| **成就系统** | XP积分 + 徽章 | ✅ 完成 |
-| **家长端** | 报告 + 分析 | ✅ 完成 |
-| **家庭管理** | 多子女 + 任务布置 | ✅ 完成 |
-| **通知系统** | 站内通知中心 | ✅ 完成 |
-| **商业化** | 支付流程 + 会员权益 | ✅ 完成 |
-| **社区** | 帖子 + 评论 | ✅ 完成 |
-| **角色系统** | 双角色自由切换 | ✅ 完成 |
-| **Dashboard** | 今日统计 + 学科进度 | ✅ 完成 |
+- Socrates 全功能重测
+- 用统一执行版文档收口测试过程与问题记录
+- 保持对主域名 / alias / Cloudflare 问题的正确诊断顺序
 
-### Essay (作文批改)
+### P1
 
-| 模块 | 功能 | 状态 |
-|------|------|------|
-| **批改** | AI评分 + 分析 | ✅ 完成 |
-| **用户** | Supabase认证 | ✅ 完成 |
-| **历史** | 搜索 + 分页 | ✅ 完成 |
-| **导出** | PDF报告 | ✅ 完成 |
-| **同步** | 数据同步到Socrates | ⏳ 待开发 |
+- Landing 等待新的完整设计稿或页面代码后迁移
+- 不再沿旧首页方向继续微调
+
+### P2
+
+- 继续压缩 docs 碎片，保持主文档优先
 
 ---
 
-## 技术架构
+## 四、当前必须记住的判断
 
-### 共享组件
-- **认证**: Supabase Auth (同一账号双角色)
-- **数据库**: Supabase PostgreSQL
-- **AI服务**: 阿里云通义千问
-- **部署**: Vercel
-
-### 独立组件
-| 组件 | Socrates | Essay |
-|------|----------|-------|
-| 框架 | Next.js 15 | Vite + React |
-| 部署 | Vercel | Vercel |
-| 仓库 | socra-platform (monorepo) |
+1. Socrates 正式 Vercel 项目只有 `socra-socrates`
+2. `socrates.socra.cn` 出问题时，先排 Cloudflare / 域名链路，不直接判应用回归
+3. 某些机器对 `*.vercel.app` 也可能出现 DNS / 网络路径异常，单机结果不能直接下结论
+4. Landing 当前不应再从旧碎片文档重建方案，应从 2026-04-01 主文档继续
+5. 文档整理后，优先从 `docs/md_README_DOCS.md` 进入
 
 ---
 
-## 快速启动提示词
+## 五、推荐阅读顺序
 
-复制以下内容到新的对话中继续开发：
+1. `docs/md_README_DOCS.md`
+2. `docs/md_progress_socrates.md`
+3. `docs/md_RELEASE_RUNBOOK.md`
+4. `docs/md_deployment_cn.md`
+5. `docs/md_TEST_GUIDE.md`
+6. `docs/md_socrates_full_test_execution_20260402.md`
 
+如果处理 landing，再看:
+
+1. `docs/md_progress_landing.md`
+2. `docs/md_landing_homepage_book_style_refresh_20260401.md`
+3. `docs/md_landing_prd_20260401.md`
+4. `docs/md_landing_dev_execution_plan_20260401.md`
+
+---
+
+## 六、当前推荐操作
+
+### 做 Socrates 测试前
+
+```bash
+pnpm check:node
+pnpm check:env
+pnpm check:vercel-links
+pnpm probe:socrates-domain
 ```
-我是 Socra 平台的开发者。请阅读以下文件了解项目当前状态：
 
-1. 读取 D:\github\Socrates_ analysis\socra-platform\docs\md_progress_recall.md 了解项目总览
-2. 根据需要阅读：
-   - D:\github\Socrates_ analysis\socra-platform\docs\md_progress_landing.md (Landing 首页)
-   - D:\github\Socrates_ analysis\socra-platform\docs\md_progress_socrates.md (错题本平台)
-   - D:\github\Socrates_ analysis\socra-platform\docs\md_progress_essay.md (作文批改)
+### 做本地 Socrates 运行态检查
 
-项目目录 (统一 monorepo):
-- 主仓库: D:\github\Socrates_ analysis\socra-platform
-- Socrates: socra-platform/apps/socrates
-- Essay: socra-platform/apps/essay
-- Landing: socra-platform/apps/landing
-- 共享包: socra-platform/packages
-- 文档: D:\github\Socrates_ analysis\
-
-请确认已了解项目状态，我需要继续开发：
-[在此填写具体需求]
+```bash
+pnpm socrates:status:local
 ```
 
 ---
 
-## 相关文档
+## 七、快速恢复提示
 
-| 文档 | 说明 |
-|------|------|
-| [prd.md](./prd.md) | 产品需求文档 |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | 部署指南 |
-| [mathpromote.md](./mathpromote.md) | Prompt设计参考 |
+如果需要在新会话恢复上下文，优先使用:
 
----
-
-*文档最后更新: 2026-03-10*
+- `docs/md_QUICKSTART_20260330_restart_resume.md`

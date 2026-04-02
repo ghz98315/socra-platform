@@ -4,11 +4,12 @@
 
 ---
 
-## 最新运维节点: 2026-03-30
+## 最新运维节点: 2026-04-02
 
 ### 当前判断
 
 - 生产 Socrates 应用已经完成 2026-03-29/30 这一轮部署验证
+- 当前进入全功能重测准备阶段，测试执行以 2026-04-02 新整理的执行版文档为准
 - 正式 Vercel 项目以 `socra-socrates` 为准，不再使用误创建的 `socrates`
 - 自定义域名 `socrates.socra.cn` 的异常优先按 Cloudflare / 域名链路问题处理
 - 当前验证机器对 `*.vercel.app` 出现过异常 DNS / 网络路径结果，alias 失败不能单机直接判定为应用回归
@@ -17,7 +18,22 @@
 
 - 发布与烟测: `docs/md_RELEASE_RUNBOOK.md`
 - 国内部署与域名诊断: `docs/md_deployment_cn.md`
+- 人工验收主清单: `docs/md_TEST_GUIDE.md`
+- 全功能重测执行版: `docs/md_socrates_full_test_execution_20260402.md`
+- 认证升级方案: `docs/md_socrates_auth_upgrade_prd_20260402.md`
 - 2026-03-29/30 部署汇总: `docs/md_progress_socrates_20260330_deployment_validation_rollup.md`
+- 经验总结: `docs/md_lessonlearn.md`
+
+### 当前下一步建议
+
+- 先按 `docs/md_socrates_full_test_execution_20260402.md` 完成全功能重测
+- 并行推进 `docs/md_socrates_auth_upgrade_prd_20260402.md` 的 Phase 1：
+  - 手机号验证码登录 / 注册
+  - 保留旧密码登录作为兼容入口
+  - 当前已落地第一批代码骨架：
+    - `send-code` / `verify-code` API
+    - 登录页 / 注册页双入口
+    - `auth_verification_codes` / `user_auth_identities` migration
 
 ---
 
@@ -281,3 +297,21 @@ NEXT_PUBLIC_SITE_URL=https://socrates.socra.cn
 
 *文档最后更新: 2026-03-10 v1.7.19*
 *所有 Phase 开发完成*
+
+## 2026-04-02 Auth Phase 1 Latest
+
+- Phone auth Phase 1 core path is now structurally unblocked.
+- Supabase-side legacy auth bootstrap drift was fixed with new migrations for `profiles.email` compatibility and qualified writes to `public.invite_codes` / `public.socra_points`.
+- The new phone code flow now accepts 6-8 digit OTPs end-to-end, matching the current Supabase `generateLink` behavior.
+- Local validation status:
+  - `pnpm check:node` passed on Node `22.19.0`
+  - `pnpm check:env` passed
+  - `pnpm.cmd --filter @socra/socrates build` passed
+  - `pnpm.cmd smoke:auth-phone` passed against `http://127.0.0.1:3000`
+- Deployment status:
+  - Vercel production project remains `socra-socrates`
+  - Latest confirmed deployment: `socra-socrates-4h0wgnqnc-ghz98315s-projects.vercel.app`
+  - `https://socra-platform.vercel.app/api/auth/send-code` returned success after deploy, confirming the previous stale-route problem is cleared on the production alias
+- Current remaining risk is not app code but custom-domain transport on some machines:
+  - `pnpm probe:socrates-domain` showed the alias healthy
+  - `socrates.socra.cn` still hit TLS setup failure from this machine, so Cloudflare / custom-domain diagnosis remains the correct next track when custom-domain validation is required
