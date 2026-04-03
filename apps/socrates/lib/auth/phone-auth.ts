@@ -56,6 +56,11 @@ export function getMaxSendAttemptsPerWindow() {
   return Number.isFinite(raw) && raw > 0 ? raw : 5;
 }
 
+export function getMaxSendAttemptsPerIpWindow() {
+  const raw = Number(process.env.AUTH_CODE_MAX_ATTEMPTS_PER_IP_10_MIN || '12');
+  return Number.isFinite(raw) && raw > 0 ? raw : 12;
+}
+
 export function formatOtpMessage(code: string, expiryMinutes: number) {
   return `【Socrates】您的验证码为 ${code}，用于登录或注册，${expiryMinutes} 分钟内有效，请勿泄露给他人。`;
 }

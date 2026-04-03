@@ -245,7 +245,7 @@ export default function LoginPage() {
                   <Input
                     id="code"
                     type="text"
-                    placeholder="请输入 6 位验证码"
+                    placeholder="请输入 6 到 8 位验证码"
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
                     inputMode="numeric"

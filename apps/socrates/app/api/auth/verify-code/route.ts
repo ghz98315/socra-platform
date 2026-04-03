@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!isValidVerificationCode(code)) {
-      return NextResponse.json({ error: '请输入正确的 6 位验证码。' }, { status: 400 });
+      return NextResponse.json({ error: '请输入正确的 6 到 8 位验证码。' }, { status: 400 });
     }
 
     const admin = createSupabaseAdminClient();

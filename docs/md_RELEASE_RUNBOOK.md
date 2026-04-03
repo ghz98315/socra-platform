@@ -42,6 +42,7 @@ supabase/migrations/20260312_core_business_runtime.sql
 supabase/migrations/20260316_add_study_assets_tables.sql
 supabase/migrations/20260317_expand_error_session_subjects.sql
 supabase/migrations/20260402_add_auth_verification_tables.sql
+supabase/migrations/20260403_add_auth_verification_send_ip_index.sql
 ```
 
 Notes:
@@ -50,6 +51,7 @@ Notes:
 - `supabase/migrations/20260402_add_profiles_email_compat.sql` restores the legacy `profiles.email` compatibility column. This is required if the target Supabase project still has older auth/profile triggers or code paths that write `email` into `profiles`.
 - `supabase/migrations/20260402_fix_auth_user_bootstrap_functions.sql` re-qualifies the legacy auth bootstrap writes to `public.invite_codes` and `public.socra_points`. This is required when `auth.users` creation runs under a search path that does not include `public`.
 - `supabase/migrations/20260402_fix_legacy_auth_points_trigger.sql` also replaces the older `init_user_points` function and removes the legacy `on_user_created_init_points` trigger name, so only one public-qualified points bootstrap trigger remains on `auth.users`.
+- `supabase/migrations/20260403_add_auth_verification_send_ip_index.sql` adds the query index used by the new auth-code IP throttle path.
 - If new-user creation still fails after that compatibility migration, use the read-only SQL probe in `supabase/manual/20260402_auth_trigger_drift_probe.sql` from the Supabase SQL Editor to inspect the live `auth.users` trigger chain and schema drift.
 
 After rollout, confirm these runtime objects exist:

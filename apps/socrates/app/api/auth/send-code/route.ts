@@ -4,6 +4,7 @@ import {
   formatOtpMessage,
   generateRandomPassword,
   getMaxSendAttemptsPerWindow,
+  getMaxSendAttemptsPerIpWindow,
   getOtpExpiryMinutes,
   getOtpTypeForPurpose,
   getResendCooldownSeconds,
@@ -37,6 +38,11 @@ function getProfilePayload(body: Record<string, unknown>): PhoneCodeProfilePaylo
   };
 }
 
+function getWindowRetryAfterSeconds(now: number, oldestCreatedAt: string) {
+  const elapsedSeconds = Math.floor((now - new Date(oldestCreatedAt).getTime()) / 1000);
+  return Math.max(1, 10 * 60 - elapsedSeconds);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Record<string, unknown>;
@@ -53,9 +59,11 @@ export async function POST(req: NextRequest) {
     const pseudoEmail = phoneToPseudoEmail(phone);
     const cooldownSeconds = getResendCooldownSeconds();
     const maxAttemptsPerWindow = getMaxSendAttemptsPerWindow();
+    const maxAttemptsPerIpWindow = getMaxSendAttemptsPerIpWindow();
     const expiryMinutes = getOtpExpiryMinutes();
     const now = Date.now();
     const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
+    const requestIp = getRequestIp(req);
     const db = admin as any;
 
     const { data: authUsers } = await authAdmin.listUsers();
@@ -79,10 +87,45 @@ export async function POST(req: NextRequest) {
     }
 
     if (recentCodes.length >= maxAttemptsPerWindow) {
+      const retryAfterSeconds = getWindowRetryAfterSeconds(
+        now,
+        recentCodes[recentCodes.length - 1].created_at,
+      );
       return NextResponse.json(
-        { error: '验证码发送过于频繁，请 10 分钟后再试。' },
+        {
+          error: '该手机号验证码发送过于频繁，请 10 分钟后再试。',
+          retryAfterSeconds,
+        },
         { status: 429 },
       );
+    }
+
+    if (requestIp) {
+      const { data: recentCodesByIp, error: recentCodesByIpError } = await db
+        .from('auth_verification_codes')
+        .select('id, created_at')
+        .eq('send_ip', requestIp)
+        .gte('created_at', tenMinutesAgo)
+        .order('created_at', { ascending: false });
+
+      if (recentCodesByIpError) {
+        console.error('[auth/send-code] failed to query recent codes by ip:', recentCodesByIpError);
+        return NextResponse.json({ error: '验证码服务暂时不可用，请稍后重试。' }, { status: 500 });
+      }
+
+      if (recentCodesByIp.length >= maxAttemptsPerIpWindow) {
+        const retryAfterSeconds = getWindowRetryAfterSeconds(
+          now,
+          recentCodesByIp[recentCodesByIp.length - 1].created_at,
+        );
+        return NextResponse.json(
+          {
+            error: '当前网络请求过于频繁，请稍后再试。',
+            retryAfterSeconds,
+          },
+          { status: 429 },
+        );
+      }
     }
 
     const latestCode = recentCodes[0];
@@ -168,7 +211,7 @@ export async function POST(req: NextRequest) {
     }
 
     const smsMessage = formatOtpMessage(otpCode, expiryMinutes);
-    const smsResult = await sendVerificationSms(phone, smsMessage, otpCode);
+    const smsResult = await sendVerificationSms(phone, smsMessage, otpCode, expiryMinutes);
 
     const expiresAt = new Date(now + expiryMinutes * 60 * 1000).toISOString();
     const insertPayload = {
@@ -178,7 +221,7 @@ export async function POST(req: NextRequest) {
       code_hash: hashVerificationCode(otpCode),
       supabase_otp_type: otpType,
       provider_message_id: smsResult.messageId ?? null,
-      send_ip: getRequestIp(req),
+      send_ip: requestIp,
       user_agent: req.headers.get('user-agent'),
       metadata: {
         pseudo_email: pseudoEmail,

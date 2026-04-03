@@ -49,6 +49,10 @@ function hasValue(env, key) {
   return Boolean(env[key] ?? process.env[key]);
 }
 
+function getConfiguredProvider(env, key = 'PHONE_AUTH_SMS_PROVIDER') {
+  return String(env[key] ?? process.env[key] ?? 'console').trim().toLowerCase();
+}
+
 function validateApp({ name, env, required = [], oneOf = [], recommended = [] }) {
   const missingRequired = required.filter((key) => !hasValue(env, key));
   const missingOneOf = oneOf
@@ -88,6 +92,30 @@ const socratesEnv = loadEnv('apps/socrates', [
   '.env.smoke.local',
 ]);
 const essayEnv = loadEnv('apps/essay', ['.env.example', '.env.local']);
+const phoneAuthProvider = getConfiguredProvider(socratesEnv);
+const phoneAuthRequiredByProvider =
+  phoneAuthProvider === 'tencent'
+    ? [
+        'TENCENT_SMS_SECRET_ID',
+        'TENCENT_SMS_SECRET_KEY',
+        'TENCENT_SMS_SDK_APP_ID',
+        'TENCENT_SMS_SIGN_NAME',
+        'TENCENT_SMS_TEMPLATE_ID',
+      ]
+    : phoneAuthProvider === 'aliyun'
+      ? [
+          'ALIYUN_SMS_ACCESS_KEY_ID',
+          'ALIYUN_SMS_ACCESS_KEY_SECRET',
+          'ALIYUN_SMS_SIGN_NAME',
+          'ALIYUN_SMS_TEMPLATE_CODE',
+        ]
+      : [];
+const phoneAuthRecommendedByProvider =
+  phoneAuthProvider === 'tencent'
+    ? ['TENCENT_SMS_TEMPLATE_PARAMS_JSON']
+    : phoneAuthProvider === 'aliyun'
+      ? ['ALIYUN_SMS_TEMPLATE_PARAMS_JSON']
+      : [];
 
 const results = [
   validateApp({
@@ -97,6 +125,7 @@ const results = [
       'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'SUPABASE_SERVICE_ROLE_KEY',
+      ...phoneAuthRequiredByProvider,
     ],
     oneOf: [
       {
@@ -114,6 +143,8 @@ const results = [
       'WECHAT_APP_ID',
       'WECHAT_APP_SECRET',
       'AI_MODEL_LOGIC',
+      'PHONE_AUTH_SMS_PROVIDER',
+      ...phoneAuthRecommendedByProvider,
     ],
   }),
   validateApp({
