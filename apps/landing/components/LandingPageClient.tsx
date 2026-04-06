@@ -96,11 +96,11 @@ export default function LandingPage() {
                 <span>电子书发布</span>
               </div>
               <h2 className="max-w-[11ch] font-serif text-3xl font-bold leading-[1.1] tracking-tight mb-5 md:text-4xl xl:text-[2.85rem]">
-                《从错误开始：
+                从错误开始：
                 <br />
                 一套真正能闭环的
                 <br />
-                学习系统》
+                学习系统
               </h2>
               <p className="max-w-[20rem] text-lg leading-[1.5] text-neutral-400 md:text-xl">
                 一位工程师爸爸用工厂管理逻辑重建的学习方法

@@ -47,8 +47,8 @@ export default function BookCoverMockup({
     ? 'mt-[0.14em] text-[clamp(1.78rem,4.55vw,2.7rem)] leading-[1.08]'
     : 'mt-[0.16em] text-[clamp(1.62rem,4vw,2.35rem)] leading-[1.1]';
   const subtitleClass = isHome
-    ? 'mt-[8.5%] max-w-[70%] font-sans text-[0.72rem] leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.78rem]'
-    : 'mt-[9%] max-w-[72%] font-sans text-[0.66rem] leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.71rem]';
+    ? 'mt-[8.5%] max-w-[70%] font-sans text-[0.74rem] font-medium leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.8rem]'
+    : 'mt-[9%] max-w-[72%] font-sans text-[0.68rem] font-medium leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.73rem]';
   const authorClass = isHome
     ? 'font-sans text-[0.98rem] font-semibold tracking-[0.03em] text-white'
     : 'font-sans text-[0.92rem] font-semibold tracking-[0.03em] text-white';
@@ -82,8 +82,8 @@ export default function BookCoverMockup({
           <div className="absolute inset-x-[4%] inset-y-[3.5%] rounded-[24px] border border-white/6" />
           <div className="absolute left-[7%] top-[4.5%] bottom-[4.5%] w-[1px] bg-black/20" />
           <div className="absolute left-[7.6%] top-[4.5%] bottom-[4.5%] w-[1px] bg-white/5" />
-          <div className="absolute inset-y-[3%] right-[2.2%] w-[1.5%] rounded-full bg-gradient-to-l from-white/16 via-white/6 to-transparent" />
-          <div className="absolute inset-y-0 right-0 w-[10%] bg-gradient-to-l from-white/8 via-white/2 to-transparent" />
+          <div className="absolute inset-y-[3%] right-[2.2%] w-[1.2%] rounded-full bg-gradient-to-l from-white/12 via-white/4 to-transparent" />
+          <div className="absolute inset-y-0 right-0 w-[9%] bg-gradient-to-l from-white/6 via-white/2 to-transparent" />
           <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-white/6 to-transparent" />
           <div className="absolute inset-x-[9%] bottom-0 h-[5.5%] bg-gradient-to-t from-black/10 to-transparent" />
 

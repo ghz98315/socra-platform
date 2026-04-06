@@ -150,10 +150,14 @@ export default function BookPage() {
               <span>电子书首发</span>
             </div>
 
-            <h2 className="mb-4 max-w-[12ch] font-serif text-2xl font-bold leading-[1.14] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-[2.75rem] lg:text-[3.2rem]">
-              从错误开始：一套真正能闭环的学习系统
+            <h2 className="mb-4 max-w-[11ch] font-serif text-2xl font-bold leading-[1.12] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-[2.75rem] lg:text-[3.2rem]">
+              从错误开始：
+              <br />
+              一套真正能闭环的
+              <br />
+              学习系统
             </h2>
-            <p className="mb-8 max-w-[26rem] border-l-2 border-[#e8600a]/60 pl-4 text-lg font-medium leading-[1.7] text-neutral-500 sm:text-[1.3rem]">
+            <p className="mb-8 max-w-[26rem] border-l-2 border-[#e8600a]/45 pl-4 text-[1.02rem] font-normal leading-[1.9] text-neutral-400 sm:text-[1.16rem]">
               不是提分技巧，不是管理工具，而是一种面对错误的方式。
             </p>
 
