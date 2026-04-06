@@ -41,3 +41,5 @@ coverage
 *.codex-fixed.tsx
 
 .vercel
+
+.vercel

@@ -1,20 +1,20 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './reader.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://socra.cn'),
-  title: '从错误中学习，重新理解孩子为什么学不会 | Socrates',
-  description:
-    '围绕错误、根因、验证和复习展开的闭环学习内容入口，帮助孩子把错误变成理解，把理解变成稳定掌握。',
-  keywords: ['闭环学习', '孩子为什么学不会', '粗心怎么办', '错题闭环', '根因分析', '家长陪学', 'Socrates'],
+  metadataBase: new URL('https://www.socra.cn'),
+  title: 'Socrates',
+  description: 'Socrates 错题闭环管理系统',
+  keywords: ['Socrates', '错题管理', '学习方法', '错题闭环', '8D', 'PDCA'],
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
   },
   openGraph: {
-    title: '从错误中学习，重新理解孩子为什么学不会 | Socrates',
-    description: '围绕错误、根因、验证和复习展开的闭环学习内容入口。',
-    url: 'https://socra.cn',
+    title: 'Socrates',
+    description: 'Socrates 错题闭环管理系统',
+    url: 'https://www.socra.cn',
     siteName: 'Socrates',
     locale: 'zh_CN',
     type: 'website',
@@ -29,8 +29,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '从错误中学习，重新理解孩子为什么学不会 | Socrates',
-    description: '围绕错误、根因、验证和复习展开的闭环学习内容入口。',
+    title: 'Socrates',
+    description: 'Socrates 错题闭环管理系统',
     images: ['/logo.png'],
   },
 };
@@ -42,10 +42,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <head>
-        <link rel="icon" href="/logo.png" />
-        <link rel="apple-touch-icon" href="/logo.png" />
-      </head>
       <body className="antialiased">{children}</body>
     </html>
   );

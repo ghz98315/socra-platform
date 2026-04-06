@@ -1,0 +1,8 @@
+﻿{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs --app landing",
+  "buildCommand": "cd ../.. && pnpm --filter=@socra/landing build",
+  "installCommand": "cd ../.. && pnpm install",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}

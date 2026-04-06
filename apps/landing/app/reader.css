@@ -1,0 +1,915 @@
+.socrates-reader {
+  --navy: #1a2744;
+  --orange: #e8600a;
+  --orange-light: #fff5ee;
+  --orange-mid: #fde8d4;
+  --stone: #f5f4f0;
+  --warm-gray: #d4cfc8;
+  --dark: #2d2d2d;
+  --mid-gray: #6b6b6b;
+  --light-gray: #f0eeea;
+  --white: #fefefe;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'STSong', serif;
+  --font-sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --max-width: 680px;
+  --reading-size: 17px;
+  --line-height: 1.9;
+
+  font-family: var(--font-serif);
+  color: var(--dark);
+  line-height: var(--line-height);
+  font-size: var(--reading-size);
+}
+
+.dark .socrates-reader {
+  --navy: #c8d8f8;
+  --orange: #ff8c42;
+  --orange-light: #2a1a0a;
+  --orange-mid: #3a2010;
+  --stone: #1e1e1e;
+  --warm-gray: #444;
+  --dark: #e0ddd8;
+  --mid-gray: #aaa;
+  --light-gray: #252525;
+  --white: #121212;
+  color: var(--dark);
+}
+
+/* Base resets for the reader to prevent Tailwind conflicts */
+.socrates-reader p {
+  margin-bottom: 1.4rem;
+  color: var(--dark);
+  text-align: justify;
+}
+
+.socrates-reader h2, .socrates-reader h3 {
+  font-family: var(--font-sans);
+  color: var(--navy);
+}
+
+.dark .socrates-reader h2, .dark .socrates-reader h3 {
+  color: #c8d8f8;
+}
+
+.socrates-reader h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 2.8rem 0 1.1rem;
+}
+
+.socrates-reader h3::before {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--orange);
+  margin-bottom: 0.6rem;
+}
+
+.socrates-reader strong {
+  color: var(--navy);
+  font-weight: bold;
+}
+
+.dark .socrates-reader strong {
+  color: #c8d8f8;
+}
+
+/* PART DIVIDER */
+.socrates-reader .part-divider {
+  background: var(--stone);
+  padding: 5rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3rem;
+  border-radius: 12px;
+}
+.dark .socrates-reader .part-divider { background: #1a1a1a; }
+.socrates-reader .part-divider-inner { max-width: var(--max-width); width: 100%; }
+.socrates-reader .part-line { width: 3px; height: 50px; background: var(--orange); margin-bottom: 2rem; }
+.socrates-reader .part-number-label { font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.5rem; }
+.socrates-reader .part-name-large { font-size: clamp(2.5rem,8vw,4rem); color: var(--navy); font-weight: normal; margin-bottom: 0.3rem; letter-spacing: -0.02em; line-height: 1.2; }
+.dark .socrates-reader .part-name-large { color: #c8d8f8; }
+.socrates-reader .part-subtitle { font-family: var(--font-sans); font-size: 0.85rem; color: var(--mid-gray); margin-bottom: 2rem; }
+.socrates-reader .part-summary-box { border-left: 3px solid var(--orange); padding: 1.2rem 1.5rem; background: var(--orange-light); border-radius: 0 6px 6px 0; }
+.dark .socrates-reader .part-summary-box { background: var(--orange-mid); }
+.socrates-reader .part-summary-text { font-family: var(--font-sans); font-size: 0.85rem; line-height: 1.75; color: var(--dark); margin-bottom: 0; }
+
+/* CHAPTER HEADER */
+.socrates-reader .chapter-header { margin-bottom: 2.5rem; }
+.socrates-reader .chapter-num { font-family: var(--font-sans); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.5rem; }
+.socrates-reader .chapter-title { font-size: clamp(1.3rem,4vw,1.8rem); color: var(--navy); font-weight: normal; line-height: 1.3; margin-bottom: 1.5rem; font-family: var(--font-serif); }
+.dark .socrates-reader .chapter-title { color: #c8d8f8; }
+.socrates-reader .chapter-summary { background: var(--stone); border-left: 3px solid var(--warm-gray); padding: 1rem 1.2rem; border-radius: 0 4px 4px 0; font-family: var(--font-sans); font-size: 0.8rem; color: var(--mid-gray); font-style: italic; line-height: 1.65; }
+.dark .socrates-reader .chapter-summary { background: #252525; }
+
+/* KEY QUOTE */
+.socrates-reader .key-quote { border-left: 4px solid var(--orange); background: var(--orange-light); padding: 1.3rem 1.6rem; margin: 2rem 0; border-radius: 0 6px 6px 0; }
+.dark .socrates-reader .key-quote { background: var(--orange-mid); }
+.socrates-reader .key-quote p { font-size: 1rem !important; color: var(--navy) !important; font-style: italic; font-weight: 500; margin-bottom: 0 !important; line-height: 1.75; }
+.dark .socrates-reader .key-quote p { color: #c8d8f8 !important; }
+
+/* INFO BOXES */
+.socrates-reader .info-box { border-radius: 6px; padding: 1.2rem 1.4rem; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.83rem; line-height: 1.7; }
+.socrates-reader .info-box-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem; }
+.socrates-reader .info-box p { font-size: 0.83rem !important; color: inherit !important; margin-bottom: 0.5rem !important; }
+.socrates-reader .info-box p:last-child { margin-bottom: 0 !important; }
+.socrates-reader .box-engineer { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; }
+.dark .socrates-reader .box-engineer { background: #1e2035; border-color: #3730a3; color: #a5b4fc; }
+.socrates-reader .box-engineer .info-box-label { color: #4f46e5; }
+.socrates-reader .box-parent { background: var(--orange-light); border: 1px solid var(--orange-mid); color: #92400e; }
+.dark .socrates-reader .box-parent { background: var(--orange-mid); color: #fed7aa; }
+.socrates-reader .box-parent .info-box-label { color: var(--orange); }
+.socrates-reader .box-warning { background: var(--stone); border: 1px solid var(--warm-gray); color: var(--dark); }
+.dark .socrates-reader .box-warning { background: #252525; border-color: #444; }
+.socrates-reader .box-warning .info-box-label { color: var(--mid-gray); }
+
+/* 5 WHY */
+.socrates-reader .five-why { margin: 2rem 0; padding: 1.5rem; background: var(--stone); border-radius: 8px; }
+.dark .socrates-reader .five-why { background: #252525; }
+.socrates-reader .five-why-title { font-family: var(--font-sans); font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--orange); font-weight: 700; margin-bottom: 1.2rem; }
+.socrates-reader .why-step { margin-bottom: 0.9rem; }
+.socrates-reader .why-step:last-child { margin-bottom: 0; }
+.socrates-reader .why-connector { display: flex; align-items: flex-start; gap: 0.7rem; }
+.socrates-reader .why-arrow { color: var(--orange); font-size: 0.78rem; margin-top: 0.18rem; flex-shrink: 0; font-family: var(--font-sans); font-weight: 700; }
+.socrates-reader .why-content { font-family: var(--font-sans); font-size: 0.83rem; line-height: 1.6; }
+.socrates-reader .why-level-0 { padding-left: 0; }
+.socrates-reader .why-level-1 { padding-left: 1rem; }
+.socrates-reader .why-level-2 { padding-left: 2rem; }
+.socrates-reader .why-level-3 { padding-left: 3rem; }
+.socrates-reader .why-level-4 { padding-left: 4rem; }
+.socrates-reader .why-level-5 { padding-left: 5rem; }
+.socrates-reader .why-question { color: var(--mid-gray); font-size: 0.75rem; font-style: italic; margin-bottom: 0.15rem; }
+.socrates-reader .why-answer { color: var(--dark); font-size: 0.83rem; }
+.dark .socrates-reader .why-answer { color: #e0ddd8; }
+
+/* CASE STUDY */
+.socrates-reader .case-study { background: var(--stone); border-radius: 8px; padding: 1.6rem; margin: 2rem 0; }
+.dark .socrates-reader .case-study { background: #252525; }
+.socrates-reader .case-label { display: inline-block; font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; background: var(--orange); color: white; padding: 0.2rem 0.6rem; border-radius: 2px; margin-bottom: 1rem; }
+.socrates-reader .case-study p { font-size: 0.88rem !important; color: var(--dark) !important; }
+.dark .socrates-reader .case-study p { color: #d0ccc6 !important; }
+
+/* DIALOGUE */
+.socrates-reader .dialogue { margin: 1.5rem 0; display: flex; flex-direction: column; gap: 0.7rem; }
+.socrates-reader .dialogue-line { display: flex; gap: 0.7rem; align-items: flex-start; }
+.socrates-reader .dialogue-speaker { font-family: var(--font-sans); font-size: 0.68rem; font-weight: 700; flex-shrink: 0; padding-top: 0.45rem; min-width: 36px; }
+.socrates-reader .speaker-dad { color: var(--orange); }
+.socrates-reader .speaker-child { color: #4f46e5; }
+.socrates-reader .dialogue-bubble { font-family: var(--font-sans); font-size: 0.84rem; line-height: 1.6; padding: 0.65rem 1rem; border-radius: 6px; max-width: 90%; color: var(--dark); }
+.socrates-reader .bubble-dad { background: var(--orange-light); border: 1px solid var(--orange-mid); }
+.socrates-reader .bubble-child { background: #eef2ff; border: 1px solid #c7d2fe; }
+.dark .socrates-reader .bubble-dad { background: var(--orange-mid); color: #fde8d4; }
+.dark .socrates-reader .bubble-child { background: #1e2035; color: #a5b4fc; }
+
+/* MISTAKE LIST */
+.socrates-reader .mistake-list { list-style: none; margin: 1.5rem 0; padding: 0; }
+.socrates-reader .mistake-item { display: flex; gap: 0.9rem; align-items: flex-start; padding: 1rem 0; border-bottom: 1px dashed var(--warm-gray); font-family: var(--font-sans); font-size: 0.84rem; line-height: 1.6; color: var(--dark); }
+.socrates-reader .mistake-item:last-child { border-bottom: none; }
+.socrates-reader .mistake-num { flex-shrink: 0; width: 24px; height: 24px; background: var(--orange); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; margin-top: 0.1rem; }
+
+/* STEPS LIST */
+.socrates-reader .steps-list { list-style: none; margin: 1.5rem 0; padding: 0; }
+.socrates-reader .step-item { display: flex; gap: 1rem; margin-bottom: 1.6rem; align-items: flex-start; }
+.socrates-reader .step-number { flex-shrink: 0; width: 32px; height: 32px; background: var(--navy); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 0.8rem; font-weight: 700; margin-top: 0.1rem; }
+.socrates-reader .step-content { flex: 1; }
+.socrates-reader .step-title { font-family: var(--font-sans); font-size: 0.9rem; font-weight: 700; color: var(--navy); margin-bottom: 0.5rem; }
+.dark .socrates-reader .step-title { color: #c8d8f8; }
+.socrates-reader .step-body { font-family: var(--font-sans); font-size: 0.83rem; color: var(--mid-gray); line-height: 1.65; }
+
+/* REVIEW TIMELINE */
+.socrates-reader .review-timeline { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0; position: relative; }
+.socrates-reader .review-timeline::before { content: ''; position: absolute; left: 16px; top: 0; bottom: 0; width: 2px; background: var(--warm-gray); }
+.socrates-reader .timeline-item { display: flex; gap: 1rem; padding: 0.9rem 0; position: relative; }
+.socrates-reader .timeline-dot { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--white); border: 2px solid var(--orange); display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 0.65rem; font-weight: 700; color: var(--orange); position: relative; z-index: 1; }
+.dark .socrates-reader .timeline-dot { background: #121212; }
+.socrates-reader .timeline-content { flex: 1; }
+.socrates-reader .timeline-when { font-family: var(--font-sans); font-size: 0.76rem; font-weight: 700; color: var(--orange); margin-bottom: 0.25rem; }
+.socrates-reader .timeline-desc { font-family: var(--font-sans); font-size: 0.81rem; color: var(--mid-gray); line-height: 1.55; }
+
+/* PDCA FLOW */
+.socrates-reader .pdca-flow { display: grid; grid-template-columns: repeat(2,1fr); gap: 1px; background: var(--warm-gray); border-radius: 8px; overflow: hidden; margin: 2rem 0; }
+.socrates-reader .pdca-cell { background: var(--white); padding: 1.3rem; }
+.dark .socrates-reader .pdca-cell { background: #1e1e1e; }
+.socrates-reader .pdca-letter { font-family: var(--font-sans); font-size: 1.8rem; font-weight: 900; color: var(--orange); opacity: 0.15; line-height: 1; margin-bottom: 0.3rem; }
+.socrates-reader .pdca-cell-title { font-family: var(--font-sans); font-size: 0.8rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; }
+.dark .socrates-reader .pdca-cell-title { color: #c8d8f8; }
+.socrates-reader .pdca-cell-desc { font-family: var(--font-sans); font-size: 0.76rem; color: var(--mid-gray); line-height: 1.55; }
+.socrates-reader .pdca-tool { display: inline-block; margin-top: 0.5rem; font-size: 0.68rem; background: var(--orange-light); color: var(--orange); padding: 0.15rem 0.5rem; border-radius: 3px; font-family: var(--font-sans); font-weight: 600; }
+.dark .socrates-reader .pdca-tool { background: var(--orange-mid); }
+
+/* CTABLE */
+.socrates-reader .ctable { width: 100%; border-collapse: collapse; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.82rem; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.socrates-reader .ctable th { background: var(--navy); color: white; padding: 0.8rem 1rem; text-align: left; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.04em; }
+.socrates-reader .ctable .th-orange { background: var(--orange); }
+.socrates-reader .ctable td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--warm-gray); vertical-align: top; line-height: 1.55; color: var(--dark); }
+.dark .socrates-reader .ctable td { color: #d0ccc6; border-bottom-color: #333; }
+.socrates-reader .ctable tr:last-child td { border-bottom: none; }
+.socrates-reader .ctable tr:nth-child(even) td { background: var(--stone); }
+.dark .socrates-reader .ctable tr:nth-child(even) td { background: #1a1a1a; }
+.socrates-reader .ctable td.pdca-col { font-weight: 700; color: var(--orange); font-size: 0.9rem; }
+
+/* DIALOGUE BLOCK */
+.socrates-reader .dialogue-block { background: var(--stone); border-radius: 8px; padding: 1.4rem 1.5rem; margin: 1.8rem 0; font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); line-height: 1.75; border-left: 3px solid var(--warm-gray); }
+.dark .socrates-reader .dialogue-block { background: #1a1a1a; color: #d0ccc6; border-left-color: #333; }
+.socrates-reader .dialogue-block em { display: block; margin-top: 0.8rem; color: var(--mid-gray); font-size: 0.75rem; font-style: normal; }
+
+/* STEP LIST */
+.socrates-reader .step-list { list-style: none; margin: 1.5rem 0; padding: 0; }
+.socrates-reader .step-num { flex-shrink: 0; width: 28px; height: 28px; background: var(--navy); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 0.78rem; font-weight: 700; margin-top: 0.1rem; }
+.dark .socrates-reader .step-num { background: #c8d8f8; color: #121212; }
+
+/* SCRIPT BOX */
+.socrates-reader .script-box { background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 1.4rem; margin: 1.8rem 0; }
+.dark .socrates-reader .script-box { background: #1e2035; border-color: #3730a3; }
+.socrates-reader .script-label { font-family: var(--font-sans); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #4f46e5; margin-bottom: 1rem; }
+.socrates-reader .script-scenario { font-family: var(--font-sans); font-size: 0.8rem; font-weight: 700; color: var(--navy); margin: 1rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #c7d2fe; }
+.dark .socrates-reader .script-scenario { color: #a5b4fc; border-color: #3730a3; }
+.socrates-reader .script-q { font-family: var(--font-sans); font-size: 0.81rem; color: #3730a3; padding: 0.3rem 0; padding-left: 0.9rem; border-left: 2px solid #818cf8; margin: 0.4rem 0; line-height: 1.55; }
+.dark .socrates-reader .script-q { color: #a5b4fc; }
+
+/* COMPARE TABLE */
+.socrates-reader .compare-table table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.82rem; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.socrates-reader .compare-table th { background: var(--navy); color: white; padding: 0.8rem 1rem; text-align: left; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.04em; }
+.dark .socrates-reader .compare-table th { background: #2a3a5a; }
+.socrates-reader .compare-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--warm-gray); vertical-align: top; line-height: 1.55; color: var(--dark); }
+.socrates-reader .compare-table tr:last-child td { border-bottom: none; }
+.socrates-reader .compare-table tr:nth-child(even) td { background: var(--stone); }
+.dark .socrates-reader .compare-table tr:nth-child(even) td { background: #1e1e1e; }
+
+
+/* CH8-CH10 CONTENT BLOCKS */
+.socrates-reader .step-card {
+  border: 1px solid var(--warm-gray);
+  border-radius: 10px;
+  padding: 1.6rem;
+  margin: 1.8rem 0;
+  position: relative;
+  overflow: hidden;
+}
+.socrates-reader .step-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--orange);
+}
+.dark .socrates-reader .step-card {
+  background: #1f1f1f;
+  border-color: #444;
+}
+.socrates-reader .step-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+.socrates-reader .step-badge {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background: var(--navy);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.dark .socrates-reader .step-badge {
+  background: #c8d8f8;
+  color: #121212;
+}
+.socrates-reader .step-card-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.3;
+}
+.dark .socrates-reader .step-card-title {
+  color: #c8d8f8;
+}
+.socrates-reader .step-card-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--orange);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin-top: 0.1rem;
+}
+.socrates-reader .step-card p {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  color: var(--dark);
+  margin-bottom: 0.9rem;
+  line-height: 1.7;
+}
+.socrates-reader .step-card p:last-child {
+  margin-bottom: 0;
+}
+.socrates-reader .step-points,
+.socrates-reader .check-list,
+.socrates-reader .value-list,
+.socrates-reader .bottleneck-list {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+}
+.socrates-reader .step-points li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--dark);
+  line-height: 1.6;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--light-gray);
+}
+.socrates-reader .step-points li:last-child {
+  border-bottom: none;
+}
+.socrates-reader .step-points li::before {
+  content: '\2192';
+  color: var(--orange);
+  flex-shrink: 0;
+  font-weight: 700;
+  margin-top: 0.05rem;
+}
+.socrates-reader .step-warning,
+.socrates-reader .step-good {
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin-top: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.socrates-reader .step-warning {
+  background: #fff8f0;
+  border: 1px solid #fde0c0;
+  color: #9a4500;
+}
+.dark .socrates-reader .step-warning {
+  background: #2c1d10;
+  border-color: #7c3f14;
+  color: #fdba74;
+}
+.socrates-reader .step-good {
+  background: #f0fdf0;
+  border: 1px solid #c0e8c0;
+  color: #1a5c1a;
+}
+.dark .socrates-reader .step-good {
+  background: #142414;
+  border-color: #2f6b2f;
+  color: #86efac;
+}
+.socrates-reader .tag-grid,
+.socrates-reader .boundary-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.socrates-reader .tag-grid {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+.socrates-reader .boundary-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+.socrates-reader .tag-item,
+.socrates-reader .boundary-card,
+.socrates-reader .kid-card,
+.socrates-reader .role-card {
+  border-radius: 8px;
+}
+.socrates-reader .tag-item {
+  background: var(--stone);
+  border: 1px solid var(--warm-gray);
+  padding: 0.7rem 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  color: var(--dark);
+  line-height: 1.45;
+}
+.dark .socrates-reader .tag-item {
+  background: #1f1f1f;
+  border-color: #444;
+}
+.socrates-reader .tag-item-icon {
+  font-size: 1rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+.socrates-reader .tag-item-name {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--navy);
+}
+.dark .socrates-reader .tag-item-name {
+  color: #c8d8f8;
+}
+.socrates-reader .tag-item-desc,
+.socrates-reader .boundary-card-desc,
+.socrates-reader .kid-grade,
+.socrates-reader .role-desc,
+.socrates-reader .phase-detail,
+.socrates-reader .bottleneck-note,
+.socrates-reader .td-why {
+  color: var(--mid-gray);
+}
+.socrates-reader .compare-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--warm-gray);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1.2rem 0;
+}
+.socrates-reader .compare-col {
+  background: var(--white);
+  padding: 1rem;
+}
+.dark .socrates-reader .compare-col {
+  background: #1f1f1f;
+}
+.socrates-reader .compare-col.bad {
+  background: #fff5f5;
+}
+.socrates-reader .compare-col.good {
+  background: #f5fff5;
+}
+.dark .socrates-reader .compare-col.bad {
+  background: #2a1717;
+}
+.dark .socrates-reader .compare-col.good {
+  background: #142414;
+}
+.socrates-reader .compare-label {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.socrates-reader .compare-col.bad .compare-label {
+  color: #cc0000;
+}
+.socrates-reader .compare-col.good .compare-label {
+  color: #009900;
+}
+.socrates-reader .compare-col p {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
+}
+.socrates-reader .case-block {
+  background: var(--stone);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  border-left: 3px solid var(--warm-gray);
+}
+.dark .socrates-reader .case-block {
+  background: #1f1f1f;
+  border-left-color: #444;
+}
+.socrates-reader .case-block p {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  color: var(--dark);
+  margin-bottom: 0.7rem;
+  line-height: 1.7;
+}
+.socrates-reader .case-block p:last-child {
+  margin-bottom: 0;
+}
+.socrates-reader .time-table,
+.socrates-reader .phase-table,
+.socrates-reader .divide-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.socrates-reader .time-table th,
+.socrates-reader .phase-table th,
+.socrates-reader .divide-table th {
+  background: var(--navy);
+  color: white;
+  padding: 0.8rem 1rem;
+  text-align: left;
+  font-size: 0.73rem;
+  letter-spacing: 0.04em;
+}
+.socrates-reader .time-table .th-orange,
+.socrates-reader .phase-table .th-orange,
+.socrates-reader .divide-table .th-tool {
+  background: var(--orange);
+}
+.socrates-reader .divide-table .th-human {
+  background: var(--navy);
+}
+.socrates-reader .time-table td,
+.socrates-reader .phase-table td,
+.socrates-reader .divide-table td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--warm-gray);
+  vertical-align: top;
+  line-height: 1.6;
+  color: var(--dark);
+}
+.dark .socrates-reader .time-table td,
+.dark .socrates-reader .phase-table td,
+.dark .socrates-reader .divide-table td {
+  border-bottom-color: #333;
+  color: #d0ccc6;
+}
+.socrates-reader .time-table tr:last-child td,
+.socrates-reader .phase-table tr:last-child td,
+.socrates-reader .divide-table tr:last-child td {
+  border-bottom: none;
+}
+.socrates-reader .time-table tr:nth-child(even) td,
+.socrates-reader .phase-table tr:nth-child(even) td,
+.socrates-reader .divide-table tr:nth-child(even) td {
+  background: var(--stone);
+}
+.dark .socrates-reader .time-table tr:nth-child(even) td,
+.dark .socrates-reader .phase-table tr:nth-child(even) td,
+.dark .socrates-reader .divide-table tr:nth-child(even) td {
+  background: #1a1a1a;
+}
+.socrates-reader .time-table .col-key,
+.socrates-reader .phase-table .phase-num {
+  font-weight: 700;
+  color: var(--orange);
+  white-space: nowrap;
+}
+.socrates-reader .kids-compare,
+.socrates-reader .role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.socrates-reader .kid-card,
+.socrates-reader .role-card {
+  background: var(--stone);
+  border: 1px solid var(--warm-gray);
+  padding: 1.3rem;
+}
+.dark .socrates-reader .kid-card,
+.dark .socrates-reader .role-card {
+  background: #1f1f1f;
+  border-color: #444;
+}
+.socrates-reader .kid-header,
+.socrates-reader .step-card-header {
+  display: flex;
+  align-items: center;
+}
+.socrates-reader .kid-header {
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+.socrates-reader .kid-avatar,
+.socrates-reader .role-badge {
+  width: 32px;
+  height: 32px;
+  background: var(--navy);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.dark .socrates-reader .kid-avatar,
+.dark .socrates-reader .role-badge {
+  background: #c8d8f8;
+  color: #121212;
+}
+.socrates-reader .kid-name,
+.socrates-reader .role-name,
+.socrates-reader .boundary-card-title,
+.socrates-reader .decision-box-title,
+.socrates-reader .value-body strong {
+  color: var(--navy);
+}
+.dark .socrates-reader .kid-name,
+.dark .socrates-reader .role-name,
+.dark .socrates-reader .boundary-card-title,
+.dark .socrates-reader .decision-box-title {
+  color: #c8d8f8;
+}
+.socrates-reader .kid-card ul {
+  list-style: none;
+  padding: 0;
+}
+.socrates-reader .kid-card li,
+.socrates-reader .check-list li,
+.socrates-reader .value-item,
+.socrates-reader .bottleneck-item,
+.socrates-reader .decision-row {
+  font-family: var(--font-sans);
+  color: var(--dark);
+}
+.socrates-reader .kid-card li {
+  font-size: 0.78rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed var(--warm-gray);
+  line-height: 1.55;
+}
+.socrates-reader .kid-card li:last-child {
+  border-bottom: none;
+}
+.socrates-reader .kid-card li::before,
+.socrates-reader .check-list li::before {
+  color: var(--orange);
+  font-weight: 700;
+}
+.socrates-reader .kid-card li::before {
+  content: '\00b7';
+  margin-right: 0.4rem;
+}
+.socrates-reader .role-card {
+  position: relative;
+  overflow: hidden;
+}
+.socrates-reader .role-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--orange);
+}
+.socrates-reader .role-badge {
+  margin-bottom: 0.7rem;
+}
+.socrates-reader .role-name {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+.socrates-reader .role-when {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  color: var(--orange);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.7rem;
+}
+.socrates-reader .role-desc,
+.socrates-reader .value-body,
+.socrates-reader .bottleneck-item,
+.socrates-reader .decision-row {
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+.socrates-reader .check-list li {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+.socrates-reader .check-list li::before {
+  content: '\00b7';
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  margin-top: -0.05rem;
+}
+.socrates-reader .value-item,
+.socrates-reader .bottleneck-item,
+.socrates-reader .decision-row {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+  padding: 1rem 0;
+}
+.socrates-reader .value-item {
+  border-bottom: 1px solid var(--light-gray);
+}
+.socrates-reader .value-item:last-child,
+.socrates-reader .bottleneck-item:last-child,
+.socrates-reader .decision-row:last-child {
+  border-bottom: none;
+}
+.socrates-reader .value-icon,
+.socrates-reader .bottleneck-num,
+.socrates-reader .decision-cond {
+  flex-shrink: 0;
+}
+.socrates-reader .value-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--stone);
+  border: 1px solid var(--warm-gray);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  margin-top: 0.05rem;
+}
+.dark .socrates-reader .value-icon {
+  background: #1f1f1f;
+  border-color: #444;
+}
+.socrates-reader .bottleneck-item {
+  border-bottom: 1px dashed var(--warm-gray);
+  font-size: 0.84rem;
+}
+.socrates-reader .bottleneck-num {
+  width: 26px;
+  height: 26px;
+  background: var(--navy);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-top: 0.1rem;
+}
+.dark .socrates-reader .bottleneck-num {
+  background: #c8d8f8;
+  color: #121212;
+}
+.socrates-reader .bottleneck-note,
+.socrates-reader .td-why {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  font-style: italic;
+}
+.socrates-reader .decision-box {
+  background: var(--stone);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+}
+.dark .socrates-reader .decision-box {
+  background: #1f1f1f;
+}
+.socrates-reader .decision-box-title {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--warm-gray);
+}
+.socrates-reader .decision-row {
+  border-bottom: 1px dashed var(--warm-gray);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.socrates-reader .decision-cond {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--navy);
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  margin-top: 0.05rem;
+  white-space: nowrap;
+}
+.socrates-reader .decision-cond.tool {
+  background: var(--orange);
+}
+.socrates-reader .boundary-card {
+  padding: 1.2rem;
+  border: 1px solid var(--warm-gray);
+}
+.socrates-reader .boundary-card.can {
+  background: var(--orange-light);
+  border-color: var(--orange-mid);
+}
+.socrates-reader .boundary-card.cannot {
+  background: var(--stone);
+}
+.dark .socrates-reader .boundary-card.cannot {
+  background: #1f1f1f;
+  border-color: #444;
+}
+.dark .socrates-reader .boundary-card.can {
+  background: #2c1d10;
+  border-color: #7c3f14;
+}
+.socrates-reader .boundary-card-label {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.socrates-reader .boundary-card.can .boundary-card-label {
+  color: var(--orange);
+}
+.socrates-reader .boundary-card.cannot .boundary-card-label {
+  color: var(--mid-gray);
+}
+.socrates-reader .boundary-card-title {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  line-height: 1.4;
+}
+.socrates-reader .boundary-card-desc {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+/* SVG DIAGRAM */
+.socrates-reader .svg-diagram { margin: 2.5rem 0; text-align: center; }
+.socrates-reader .svg-diagram-label { font-family: var(--font-sans); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--orange); margin-bottom: 1rem; font-weight: 700; }
+.socrates-reader .svg-diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.socrates-reader .svg-diagram-caption { font-family: var(--font-sans); font-size: 0.73rem; color: var(--mid-gray); margin-top: 0.8rem; font-style: italic; }
+
+/* EPILOGUE (Chapter 12) */
+.socrates-reader.epilogue-mode {
+  background: var(--navy);
+  color: rgba(255,255,255,0.82);
+  min-height: 100vh;
+  padding: 3rem 0;
+}
+.socrates-reader.epilogue-mode p {
+  color: rgba(255,255,255,0.82);
+}
+.socrates-reader.epilogue-mode .epilogue-label { font-family: var(--font-sans); font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.6rem; }
+.socrates-reader.epilogue-mode .epilogue-title { font-size: clamp(1.4rem, 4vw, 1.9rem); color: white; margin-bottom: 0.8rem; font-weight: normal; line-height: 1.3; font-family: var(--font-serif); }
+.socrates-reader.epilogue-mode .epilogue-subtitle { font-family: var(--font-sans); font-size: 0.82rem; color: rgba(255,255,255,0.4); margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.socrates-reader.epilogue-mode strong { color: white; }
+.socrates-reader.epilogue-mode .section-heading { font-family: var(--font-sans); font-size: 1rem; font-weight: 700; color: white; margin: 3rem 0 1.2rem; padding-left: 1rem; border-left: 3px solid var(--orange); line-height: 1.4; }
+.socrates-reader.epilogue-mode .key-quote { border-left: 4px solid var(--orange); background: rgba(232,96,10,0.12); padding: 1.3rem 1.6rem; margin: 2.5rem 0; border-radius: 0 6px 6px 0; }
+.socrates-reader.epilogue-mode .key-quote p { font-size: 1rem !important; color: white !important; font-style: italic; margin-bottom: 0 !important; line-height: 1.8; }
+.socrates-reader.epilogue-mode .change-list { list-style: none; margin: 1.5rem 0 2rem; display: flex; flex-direction: column; gap: 0; padding: 0; }
+.socrates-reader.epilogue-mode .change-item { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: var(--font-sans); font-size: 0.85rem; line-height: 1.65; color: rgba(255,255,255,0.78); }
+.socrates-reader.epilogue-mode .change-item:last-child { border-bottom: none; }
+.socrates-reader.epilogue-mode .change-icon { flex-shrink: 0; width: 28px; height: 28px; background: rgba(232,96,10,0.2); border: 1px solid rgba(232,96,10,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--orange); margin-top: 0.05rem; }
+.socrates-reader.epilogue-mode .nochange-list { list-style: none; margin: 1.5rem 0 2rem; display: flex; flex-direction: column; gap: 0; padding: 0; }
+.socrates-reader.epilogue-mode .nochange-item { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-family: var(--font-sans); font-size: 0.85rem; line-height: 1.65; color: rgba(255,255,255,0.65); }
+.socrates-reader.epilogue-mode .nochange-item:last-child { border-bottom: none; }
+.socrates-reader.epilogue-mode .nochange-dot { flex-shrink: 0; width: 6px; height: 6px; background: rgba(255,255,255,0.25); border-radius: 50%; margin-top: 0.6rem; }
+.socrates-reader.epilogue-mode .info-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1.5rem; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.83rem; color: rgba(255,255,255,0.7); line-height: 1.7; }
+.socrates-reader.epilogue-mode .info-card-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.8rem; }
+.socrates-reader.epilogue-mode .info-card p { color: rgba(255,255,255,0.72) !important; margin-bottom: 0.6rem !important; }
+.socrates-reader.epilogue-mode .memory-block { background: rgba(255,255,255,0.04); border-left: 3px solid rgba(255,255,255,0.15); padding: 1.2rem 1.5rem; margin: 2rem 0; border-radius: 0 6px 6px 0; font-family: var(--font-sans); font-size: 0.84rem; color: rgba(255,255,255,0.65); line-height: 1.75; font-style: italic; }
+.socrates-reader.epilogue-mode .memory-block em { color: rgba(255,255,255,0.5); font-size: 0.75rem; display: block; margin-top: 0.6rem; font-style: normal; }
+.socrates-reader.epilogue-mode .epilogue-closing { margin-top: 4rem; padding-top: 3rem; border-top: 1px solid rgba(255,255,255,0.12); }
+.socrates-reader.epilogue-mode .epilogue-closing p { color: rgba(255,255,255,0.6) !important; font-family: var(--font-sans); font-size: 0.85rem !important; line-height: 1.8; margin-bottom: 1.2rem; }
+.socrates-reader.epilogue-mode .epilogue-cta { text-align: center; margin-top: 4rem; padding: 3rem 2rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.02); }
+.socrates-reader.epilogue-mode .cta-main { font-size: clamp(1.2rem, 3vw, 1.5rem); color: white; margin-bottom: 0.8rem; font-family: var(--font-serif); font-style: italic; line-height: 1.5; }
+.socrates-reader.epilogue-mode .cta-sub { font-family: var(--font-sans); font-size: 0.82rem; color: rgba(255,255,255,0.45); line-height: 1.7; max-width: 420px; margin: 0 auto; }
+.socrates-reader.epilogue-mode .cta-divider { width: 40px; height: 2px; background: var(--orange); margin: 1.8rem auto; }
+.socrates-reader.epilogue-mode .author-sign { font-family: var(--font-sans); font-size: 0.75rem; color: rgba(255,255,255,0.3); letter-spacing: 0.12em; margin-top: 1rem; }
+
+/* APPENDIX */
+.socrates-reader .appendix-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 1rem; margin-top: 1.5rem; }
+.socrates-reader .appendix-card { border: 1px solid var(--warm-gray); border-radius: 8px; padding: 1.4rem; transition: all 0.2s; background: var(--white); }
+.dark .socrates-reader .appendix-card { background: #1e1e1e; border-color: #333; }
+.socrates-reader .appendix-card:hover { border-color: var(--orange); }
+.socrates-reader .appendix-icon { font-size: 1.5rem; margin-bottom: 0.8rem; }
+.socrates-reader .appendix-card-title { font-family: var(--font-sans); font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; }
+.dark .socrates-reader .appendix-card-title { color: #c8d8f8; }
+.socrates-reader .appendix-card-desc { font-family: var(--font-sans); font-size: 0.76rem; color: var(--mid-gray); line-height: 1.55; }
+
+@media (max-width: 640px) {
+  .socrates-reader .pdca-flow { grid-template-columns: 1fr; }
+  .socrates-reader .five-why { padding: 1rem; }
+  .socrates-reader .why-level-3 { padding-left: 2rem; }
+  .socrates-reader .why-level-4 { padding-left: 2.5rem; }
+  .socrates-reader .why-level-5 { padding-left: 3rem; }
+  .socrates-reader .compare-box,
+  .socrates-reader .kids-compare,
+  .socrates-reader .role-grid,
+  .socrates-reader .boundary-grid { grid-template-columns: 1fr; }
+  .socrates-reader .tag-grid { grid-template-columns: repeat(2, 1fr); }
+}

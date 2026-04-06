@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十章：从纸笔到系统 | 从错误开始</title>
+<style>
+:root {
+  --navy: #1a2744;
+  --orange: #e8600a;
+  --orange-light: #fff5ee;
+  --orange-mid: #fde8d4;
+  --stone: #f5f4f0;
+  --warm-gray: #d4cfc8;
+  --dark: #2d2d2d;
+  --mid-gray: #6b6b6b;
+  --light-gray: #f0eeea;
+  --white: #fefefe;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'STSong', serif;
+  --font-sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --max-width: 680px;
+  --reading-size: 17px;
+  --line-height: 1.9;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: var(--font-serif); background: var(--white); color: var(--dark); line-height: var(--line-height); }
+
+.chapter { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 4rem; border-bottom: 1px solid var(--light-gray); }
+.chapter-header { margin-bottom: 2.5rem; }
+.chapter-num { font-family: var(--font-sans); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.5rem; }
+.chapter-title { font-size: clamp(1.3rem,4vw,1.8rem); color: var(--navy); font-weight: normal; line-height: 1.3; margin-bottom: 1.5rem; }
+.chapter-summary { background: var(--stone); border-left: 3px solid var(--warm-gray); padding: 1rem 1.2rem; border-radius: 0 4px 4px 0; font-family: var(--font-sans); font-size: 0.8rem; color: var(--mid-gray); font-style: italic; line-height: 1.65; }
+
+.chapter p { margin-bottom: 1.4rem; font-size: var(--reading-size); color: var(--dark); }
+.chapter strong { color: var(--navy); }
+.chapter h3 { font-size: 1.05rem; color: var(--navy); font-weight: 700; margin: 2.8rem 0 1.1rem; font-family: var(--font-sans); }
+.chapter h3::before { content: ''; display: block; width: 24px; height: 2px; background: var(--orange); margin-bottom: 0.6rem; }
+
+/* 金句 */
+.key-quote { border-left: 4px solid var(--orange); background: var(--orange-light); padding: 1.3rem 1.6rem; margin: 2rem 0; border-radius: 0 6px 6px 0; }
+.key-quote p { font-size: 1rem !important; color: var(--navy) !important; font-style: italic; font-weight: 500; margin-bottom: 0 !important; line-height: 1.8; }
+
+/* 信息框 */
+.info-box { border-radius: 6px; padding: 1.2rem 1.4rem; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.83rem; line-height: 1.7; }
+.info-box-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem; }
+.info-box p { font-size: 0.83rem !important; color: inherit !important; margin-bottom: 0.5rem !important; }
+.info-box p:last-child { margin-bottom: 0 !important; }
+.box-engineer { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; }
+.box-engineer .info-box-label { color: #4f46e5; }
+.box-engineer strong { color: #3730a3; }
+.box-parent { background: var(--orange-light); border: 1px solid var(--orange-mid); color: #92400e; }
+.box-parent .info-box-label { color: var(--orange); }
+.box-parent strong { color: #92400e; }
+.box-warning { background: var(--stone); border: 1px solid var(--warm-gray); color: var(--dark); }
+.box-warning .info-box-label { color: var(--mid-gray); }
+.box-warning strong { color: var(--navy); }
+
+/* 手工优点列表 */
+.value-list { list-style: none; margin: 1.5rem 0; }
+.value-item { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem 0; border-bottom: 1px solid var(--light-gray); }
+.value-item:last-child { border-bottom: none; }
+.value-icon { flex-shrink: 0; width: 32px; height: 32px; background: var(--stone); border: 1px solid var(--warm-gray); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; margin-top: 0.05rem; }
+.value-body { flex: 1; font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); line-height: 1.65; }
+.value-body strong { color: var(--navy); }
+
+/* 瓶颈列表 */
+.bottleneck-list { list-style: none; margin: 1.5rem 0; }
+.bottleneck-item { display: flex; gap: 0.9rem; align-items: flex-start; padding: 1.1rem 0; border-bottom: 1px dashed var(--warm-gray); font-family: var(--font-sans); font-size: 0.84rem; line-height: 1.65; color: var(--dark); }
+.bottleneck-item:last-child { border-bottom: none; }
+.bottleneck-num { flex-shrink: 0; width: 26px; height: 26px; background: var(--navy); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; margin-top: 0.1rem; }
+.bottleneck-item strong { color: var(--navy); }
+.bottleneck-note { display: block; margin-top: 0.4rem; font-size: 0.77rem; color: var(--mid-gray); font-style: italic; }
+
+/* 分界线表格 */
+.divide-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.83rem; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.divide-table th { padding: 0.8rem 1rem; text-align: left; font-size: 0.73rem; letter-spacing: 0.05em; font-weight: 600; }
+.divide-table .th-human { background: var(--navy); color: white; }
+.divide-table .th-tool { background: var(--orange); color: white; }
+.divide-table td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--warm-gray); vertical-align: top; line-height: 1.6; color: var(--dark); }
+.divide-table tr:last-child td { border-bottom: none; }
+.divide-table tr:nth-child(even) td { background: var(--stone); }
+.divide-table .td-why { font-size: 0.74rem; color: var(--mid-gray); display: block; margin-top: 0.3rem; font-style: italic; }
+
+/* 选择框架 */
+.decision-box { background: var(--stone); border-radius: 10px; padding: 1.5rem; margin: 2rem 0; }
+.decision-box-title { font-family: var(--font-sans); font-size: 0.85rem; font-weight: 700; color: var(--navy); margin-bottom: 1.2rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--warm-gray); }
+.decision-row { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.8rem 0; border-bottom: 1px dashed var(--warm-gray); font-family: var(--font-sans); font-size: 0.82rem; color: var(--dark); line-height: 1.6; }
+.decision-row:last-child { border-bottom: none; }
+.decision-cond { flex-shrink: 0; font-size: 0.75rem; font-weight: 700; background: var(--navy); color: white; padding: 0.15rem 0.5rem; border-radius: 3px; margin-top: 0.05rem; white-space: nowrap; }
+.decision-cond.tool { background: var(--orange); }
+.decision-row strong { color: var(--navy); }
+
+/* 工具边界卡片 */
+.boundary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin: 1.5rem 0; }
+.boundary-card { border-radius: 8px; padding: 1.2rem; }
+.boundary-card.can { background: var(--orange-light); border: 1px solid var(--orange-mid); }
+.boundary-card.cannot { background: var(--stone); border: 1px solid var(--warm-gray); }
+.boundary-card-label { font-family: var(--font-sans); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.boundary-card.can .boundary-card-label { color: var(--orange); }
+.boundary-card.cannot .boundary-card-label { color: var(--mid-gray); }
+.boundary-card-title { font-family: var(--font-sans); font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; line-height: 1.4; }
+.boundary-card-desc { font-family: var(--font-sans); font-size: 0.75rem; color: var(--mid-gray); line-height: 1.55; }
+
+/* 案例块 */
+.case-block { background: var(--stone); border-radius: 8px; padding: 1.5rem; margin: 2rem 0; }
+.case-label { display: inline-block; font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; background: var(--orange); color: white; padding: 0.2rem 0.6rem; border-radius: 2px; margin-bottom: 0.9rem; }
+.case-block p { font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); margin-bottom: 0.7rem; line-height: 1.7; }
+.case-block p:last-child { margin-bottom: 0; }
+.case-block strong { color: var(--navy); }
+
+/* 章节导航 */
+.chapter-nav { max-width: var(--max-width); margin: 0 auto; padding: 2rem 1.5rem 3rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid var(--light-gray); }
+.ch-nav-btn { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.7rem 1.1rem; border: 1px solid var(--warm-gray); border-radius: 6px; font-family: var(--font-sans); font-size: 0.78rem; color: var(--dark); transition: all 0.2s; max-width: 46%; line-height: 1.4; }
+.ch-nav-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
+.ch-nav-btn.prev { flex-direction: row; text-align: left; }
+.ch-nav-btn.next { flex-direction: row-reverse; text-align: right; margin-left: auto; }
+.ch-nav-arrow { flex-shrink: 0; font-size: 1rem; color: var(--orange); }
+.ch-nav-label { font-size: 0.65rem; color: var(--mid-gray); display: block; margin-bottom: 0.1rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.ch-nav-title { display: block; font-weight: 600; }
+
+@media (max-width: 640px) {
+  :root { --reading-size: 16px; }
+  .chapter { padding: 2.5rem 1.2rem 3.5rem; }
+  .boundary-grid { grid-template-columns: 1fr; }
+  .ch-nav-btn { font-size: 0.72rem; padding: 0.6rem 0.8rem; }
+}
+@media (min-width: 1024px) { :root { --reading-size: 18px; } }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     第十章 · 完整正文
+     替换范围：全书中
+       起始 → <!-- ============ CHAPTER 10 ============ -->（第1558行）
+       终止 → </div>（第1633行，chapter-nav闭合，紧接CHAPTER 11注释之前）
+     ============================================================ -->
+
+<!-- ============ CHAPTER 10 ============ -->
+<article class="chapter" id="ch10">
+  <div class="chapter-header">
+    <div class="chapter-num">第十章 · 器</div>
+    <h2 class="chapter-title">从纸笔到系统——什么该手工做，什么值得交给工具</h2>
+    <div class="chapter-summary">
+      手工慢，但慢是优点——它逼你真正想清楚才能写下去。但三个月后，复习节点超过三十个，标签要手动统计，两个孩子的数据分散在两个文件夹里。这时候，工具该出现了。
+    </div>
+  </div>
+
+  <p>我需要先说清楚一件事：<strong>这一章不是在给你推销一个App。</strong></p>
+
+  <p>如果你读完前九章，决定只用纸和笔来执行这套系统，我觉得完全没有问题。这套方法的核心——5 Why找根因，费曼验理解，艾宾浩斯固记忆，PDCA串闭环——不需要任何电子工具就能运转。系统除错单打印出来，一个文件夹，复习日期手写，标签用彩色笔标。这些东西加起来不超过三十块钱，但足够把这套方法跑通。</p>
+
+  <p>我自己，就是从这里开始的。</p>
+
+  <p>所以这一章真正想说的，不是"你必须用App"，而是：<strong>手工工具有它的价值，也有它的天花板。当你遇到那个天花板的时候，需要知道那个天花板在哪里，以及什么样的工具值得在那个时候出现。</strong></p>
+
+  <h3>手工执行，先把它的价值说清楚</h3>
+
+  <p>很多人习惯把"手工"当成"低配"，把"电子化"当成"进步"。但在这件事上，这个逻辑是反的——至少在开始的阶段是反的。</p>
+
+  <p>手工执行这套系统，有几个电子工具很难完全替代的好处：</p>
+
+  <ul class="value-list">
+    <li class="value-item">
+      <span class="value-icon">✍️</span>
+      <div class="value-body">
+        <strong>它强迫你慢下来，真正想清楚。</strong>手写5 Why的时候，你必须把每一层的逻辑组织成文字才能往下写。这个"慢"本身，就是一次思维梳理。如果用电子表单，填格子很快，但那种速度有时候会掩盖"其实还没想清楚"的事实。
+      </div>
+    </li>
+    <li class="value-item">
+      <span class="value-icon">📝</span>
+      <div class="value-body">
+        <strong>手写的内容，在记忆里留存得更久。</strong>有研究表明，手写调动了更多的认知参与——不只是在记录，而是在处理。孩子自己手写防呆动作，比在屏幕上选一个选项，记忆更深，执行时更容易想起来。
+      </div>
+    </li>
+    <li class="value-item">
+      <span class="value-icon">📌</span>
+      <div class="value-body">
+        <strong>物理存在感更强。</strong>一张贴在冰箱上的除错单，每天早上都能看见，每天都会被提醒。电子系统发出的推送，很容易被划走。一张纸，不会被划走。
+      </div>
+    </li>
+    <li class="value-item">
+      <span class="value-icon">🎯</span>
+      <div class="value-body">
+        <strong>它让你真正理解这套系统的逻辑。</strong>亲手操作过每一个环节，你才会真正理解每一步为什么这样设计。这种理解，比直接用电子工具要深得多。三个月后再去用电子工具，你会知道每个功能是在帮你做什么，而不是照着界面操作却不知道为什么。
+      </div>
+    </li>
+  </ul>
+
+  <p>所以我的建议是：<strong>先用手工工具，至少用三个月。</strong>不是因为没有更好的选择，而是因为手工执行的过程本身，就是在建立对这套系统最深的理解。</p>
+
+  <h3>手工执行的三个真实瓶颈</h3>
+
+  <p>三个月后，我遇到了三个同时出现的问题。它们没有一个是致命的，但合在一起，开始让手工管理本身变成一件消耗精力的事。</p>
+
+  <ul class="bottleneck-list">
+    <li class="bottleneck-item">
+      <span class="bottleneck-num">1</span>
+      <div>
+        <strong>复习节点管理开始失控。</strong>
+        一道题有四个复习节点，两个孩子同时在跑，每周新增的真Bug三到五道。算一下，大约一个月之后，同时在管理的复习节点数量会超过三十个。手动管理三十个分散在不同日期的任务，用文件夹和便利贴是可以做到的，但这件事本身开始消耗大量注意力。偶尔会漏掉一个，而艾宾浩斯的窗口期一旦错过，下一次复习的效果就要打折扣。
+        <span class="bottleneck-note">→ 这不是管理能力不够，而是手工工具的信息密度到了上限。</span>
+      </div>
+    </li>
+    <li class="bottleneck-item">
+      <span class="bottleneck-num">2</span>
+      <div>
+        <strong>标签积累需要手动统计，而且越来越懒得统计。</strong>
+        第四章讲过，积累一个月的标签会形成孩子的薄弱点图谱。但手工统计这件事需要我定期把所有除错单拿出来，一张一张翻，数每个标签出现了多少次。这件事不难，但它需要时间，需要我记得去做，而且结果只能是一个粗略的数字——这个月和上个月相比，某个标签的频率有没有下降，我没办法直接看出来。所以最后，大多数时候我没有做，这部分信息被浪费了。
+        <span class="bottleneck-note">→ 执行这一步的成本，超过了它带来的价值感，所以自然就跳过了。</span>
+      </div>
+    </li>
+    <li class="bottleneck-item">
+      <span class="bottleneck-num">3</span>
+      <div>
+        <strong>两个孩子的数据是分开的，没有办法整合着看。</strong>
+        大宝的除错单在一个文件夹，小宝的在另一个。如果我想知道两个孩子在同一个学科上，各自的高频错误类型是什么——这个信息对我安排学习计划很有用——我必须手动翻两个文件夹，自己整合。这件事太麻烦，所以大多数时候没有做，信息就这样被浪费了。
+        <span class="bottleneck-note">→ 数据价值的本质，是能被读取和使用。锁在文件夹里读不到的数据，不是资产，是积压。</span>
+      </div>
+    </li>
+  </ul>
+
+  <p>这三个瓶颈，指向同一个根本性的问题：<strong>手工工具负责存储和记录，但它不负责提醒、分析和整合。而我每天的精力，被存储和记录这些事情消耗掉了，没有足够的精力放在真正需要思考的地方。</strong></p>
+
+  <h3>关键判断标准：什么该手工，什么值得自动化</h3>
+
+  <p>工厂里在决定哪些工序应该自动化的时候，有一个基本原则：<strong>需要人判断的，留给人；不需要人判断的，交给机器。</strong></p>
+
+  <p>焊接的精度判断，需要工程师的经验和感知，留给人。焊接完成之后的数据记录，不需要任何判断能力，交给机器。零部件的质量分析，需要专业知识，留给人。质量数据的汇总和趋势图，是纯粹的数据处理，交给机器。</p>
+
+  <p>把这个原则用在这套学习系统上，分界线非常清楚：</p>
+
+  <table class="divide-table">
+    <thead>
+      <tr>
+        <th class="th-human">必须留给人<br><span style="font-weight:normal;font-size:0.68rem;opacity:0.75;">需要思考、感知、判断</span></th>
+        <th class="th-tool">可以交给工具<br><span style="font-weight:normal;font-size:0.68rem;opacity:0.75;">规则明确、无需判断</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <strong>5 Why追问</strong>
+          <span class="td-why">需要真实的对话，感受孩子在哪里卡住，判断根因有没有真正到底</span>
+        </td>
+        <td>
+          <strong>复习节点计算和提醒</strong>
+          <span class="td-why">次日+3天+7天+15天，固定算法，每次都一样，不需要任何判断</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <strong>费曼验证</strong>
+          <span class="td-why">需要真实的人在场，听懂了才能判断孩子讲没讲清楚</span>
+        </td>
+        <td>
+          <strong>标签统计和趋势分析</strong>
+          <span class="td-why">纯粹的数据处理，统计频率、生成趋势，机器比人做得更快更准</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <strong>防呆动作设计</strong>
+          <span class="td-why">需要创造性思考，针对这个具体根因想出一个具体的物理动作</span>
+        </td>
+        <td>
+          <strong>学习状态整体追踪</strong>
+          <span class="td-why">哪些题通关了，哪些还在进行中，哪些节点快到期了，这是管理信息，不是判断</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <strong>和孩子坐在一起的那段时间</strong>
+          <span class="td-why">这件事本身，不能被工具替代，也不应该被替代</span>
+        </td>
+        <td>
+          <strong>多孩子数据整合</strong>
+          <span class="td-why">两个孩子同一学科的标签对比，跨孩子的复习进度汇总</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="key-quote">
+    <p><strong>思考的事情留给人，管理的事情交给工具。</strong>一旦你把"思考"和"管理"混在一起，让人去做所有的事，人会被管理的细节拖累，没有精力放在真正需要思考的地方。这就是我遇到瓶颈的根本原因。</p>
+  </div>
+
+  <h3>手工还是电子，怎么选</h3>
+
+  <p>我来给你一个简单的判断框架。不需要想太多，对照一下自己的情况就知道：</p>
+
+  <div class="decision-box">
+    <div class="decision-box-title">📋 选择判断框架</div>
+    <div class="decision-row">
+      <span class="decision-cond">手工</span>
+      <div>孩子只有一个，每周错题数量在五道以内，家长有足够的时间和精力手动管理复习节点——<strong>先用手工工具，至少跑三个月。</strong>你会对这套系统有非常深的理解，因为你亲手把每一个环节都操作过，知道它为什么这样设计。</div>
+    </div>
+    <div class="decision-row">
+      <span class="decision-cond tool">工具</span>
+      <div>孩子有两个；或者每周真Bug超过十道；或者你发现手工管理复习节点开始占用太多注意力；或者三个月后你想看到标签趋势但懒得手动统计——<strong>这时候，电子工具值得出现了。</strong></div>
+    </div>
+    <div class="decision-row">
+      <span class="decision-cond tool">工具</span>
+      <div>你已经用手工工具跑通了完整闭环，理解了每一步的逻辑，现在想把管理的负担从肩膀上拿下来，把更多精力放在5 Why追问和费曼验证上——<strong>这是使用电子工具最好的时机。</strong></div>
+    </div>
+  </div>
+
+  <p>有一点需要特别说清楚：<strong>电子工具出现的前提，是你已经理解了这套系统的逻辑。</strong></p>
+
+  <p>如果你直接跳过手工阶段，上来就用电子工具，会发生一件很典型的事：你会把它当成另一个错题管理App来用，觉得功能还行，但没有感受到它真正的价值。因为工具是为了让已经理解的人"做得更轻松"，而不是替代"理解"本身。</p>
+
+  <h3>为什么我决定自己开发这个工具</h3>
+
+  <p>遇到三个月那个瓶颈之后，我认真在市面上找了一段时间，看有没有现成的工具可以用。找到的东西，可以分成两类：</p>
+
+  <p><strong>第一类：题库和搜题工具。</strong>拍照识题，给出解析，然后这道题就结束了。功能很强，但它解决的问题是"这道题怎么做"，不是"这道题怎么真正被掌握"。用完一次，这道题在这个工具里就消失了，没有后续的根因追踪、复习提醒、掌握验证。</p>
+
+  <p><strong>第二类：错题管理App。</strong>可以拍照存档，有的支持分类标签，有的有复习提醒。比普通错题本进了一步，但本质上还是一个更好用的"仓库"——它解决了存档的问题，但没有解决根因分析、费曼验证、闭环追踪这些更核心的问题。换句话说，它把"第三章讲的错题本"做得更方便了，但第三章说的那个根本性缺陷——只进不出，没有闭环——仍然存在。</p>
+
+  <div class="case-block">
+    <div class="case-label">开发决策过程</div>
+    <p>当市场上没有合适的工具，你有两个选择：将就用不合适的，或者自己造一个。</p>
+    <p>我选择了后者。不是因为我觉得自己比别人聪明，而是因为我太清楚这套系统需要什么——因为我自己在用它，我自己遇到了那些瓶颈，我知道一个真正解决这些问题的工具，需要长什么样子。</p>
+    <p>这就是Socrates这个系统的来源。<strong>它不是我坐在办公室里想象出来的，而是从真实的问题里，一点一点生长出来的。</strong>它的每一个功能，都对应着我在手工执行阶段遇到过的一个具体摩擦。</p>
+  </div>
+
+  <h3>这套电子系统在做什么，以及它的边界在哪里</h3>
+
+  <p>来把Socrates这个系统做的事情说清楚——以及更重要的，它不做什么。</p>
+
+  <p>它把这套方法里，所有<strong>不需要人判断的管理工作</strong>，自动化了：</p>
+
+  <div class="info-box box-engineer">
+    <div class="info-box-label">🔧 工具自动完成的事</div>
+    <p><strong>复习节点计算和提醒</strong>：每道题完成分析之后，系统自动算出四个复习日期，自动在对应日期发送提醒，自动追踪每个节点有没有完成，自动记录通关状态。家长和孩子完全不需要手动管理这件事。</p>
+    <p><strong>标签统计和趋势分析</strong>：每道题的标签自动归类，系统自动统计频率，生成薄弱点图谱，告诉你这个月哪个类型出现最多，和上个月相比有没有变化。家长不需要手动翻文件夹数标签。</p>
+    <p><strong>学习状态整体追踪</strong>：哪些题已经通关，哪些还在进行中，哪些节点快到期了，哪些题已经好几天没有进展——这些状态信息实时可见，不需要家长自己去整理。</p>
+    <p><strong>多孩子数据整合</strong>：大宝和小宝的学习状态可以同时查看，同一学科的标签可以对比，整体复习进度一目了然。</p>
+  </div>
+
+  <p>但同时，这套系统有三条明确的边界：</p>
+
+  <div class="boundary-grid">
+    <div class="boundary-card cannot">
+      <div class="boundary-card-label">🚫 工具做不到</div>
+      <div class="boundary-card-title">替代 5 Why 追问</div>
+      <div class="boundary-card-desc">追问需要真实的对话，需要你感受孩子在哪里卡住，在那里停下来，换一种问法。机器没有这个能力。</div>
+    </div>
+    <div class="boundary-card cannot">
+      <div class="boundary-card-label">🚫 工具做不到</div>
+      <div class="boundary-card-title">替代费曼验收</div>
+      <div class="boundary-card-desc">听孩子讲，判断讲没讲清楚，这需要真实的人在场。机器能判断"步骤有没有说完"，但判断不了"逻辑是不是通的"。</div>
+    </div>
+    <div class="boundary-card cannot">
+      <div class="boundary-card-label">🚫 工具做不到</div>
+      <div class="boundary-card-title">替代那段时间本身</div>
+      <div class="boundary-card-desc">父母和孩子坐在一起认真追问的那个下午，系统记录不了。那个下午，才是整件事里最有价值的部分。</div>
+    </div>
+  </div>
+
+  <div class="info-box box-warning">
+    <div class="info-box-label">📌 工具的三条边界（必读）</div>
+    <p><strong>第一：工具不能替代思考。</strong> 5 Why追问、费曼验证的最终判断、防呆动作的设计——这些必须由人来完成，工具可以辅助提醒，但不能替代执行。一旦试图让工具替代这些事情，它就退化成了另一个更花哨的答案生成器。</p>
+    <p><strong>第二：工具不能替代关系。</strong> 父母和孩子坐在一起认真追问的那个下午，系统记录不了。那个下午——他讲不清楚的那个沉默，他自己说出根因的那一刻，那些在场的细节——才是整件事里最有价值的部分。工具是背景，那个下午是前景。</p>
+    <p><strong>第三：有工具不等于有方法。</strong> 没有前面九章的理解，这套工具就只是另一个功能还算不错的错题管理软件，和市面上其他同类产品没有根本区别。<strong>工具是最后一层，不是第一层。</strong>工具出现的前提，是方法已经在你心里扎根了。</p>
+  </div>
+
+  <h3>一个有效的使用路径</h3>
+
+  <p>结合我自己的经验，给你一个建议的路径：</p>
+
+  <div class="info-box box-parent">
+    <div class="info-box-label">📋 建议的使用路径</div>
+    <p><strong>第1-3个月：完全手工执行。</strong> 打印除错单，买文件夹，手写日期，手贴标签。跑通完整闭环，让每个环节都在你手里真实地操作过一遍。这三个月，是整套系统在你身上扎根的关键时期。</p>
+    <p><strong>第3个月之后：评估是否需要工具。</strong> 如果手工管理开始消耗你太多注意力，标签图谱你一直想看但一直没看，复习节点开始漏掉——这时候，电子工具值得出现了。</p>
+    <p><strong>引入工具之后：保持分工清晰。</strong> 工具负责管理，你负责思考。节点到了，工具来提醒；孩子来讲，你来判断。标签图谱，工具来生成；哪个薄弱点需要专项处理，你来决定。<strong>不要把判断权交给工具，只把管理权交给工具。</strong></p>
+  </div>
+
+  <p>下一章，我们要谈另一件事——比工具更实际的事：</p>
+
+  <p>道理你都懂了，工具也准备好了，但执行的前三周，会是这段旅程里最难熬的一段。不是因为系统有问题，而是因为任何一件新的事情，在真正变成习惯之前，都必须经历一段让人想放弃的时期。</p>
+
+  <p>那段时期，怎么撑过去。</p>
+
+</article>
+
+<div class="chapter-nav">
+  <a href="#part4" class="ch-nav-btn prev">
+    <span class="ch-nav-arrow">←</span>
+    <span><span class="ch-nav-label">上一部分</span><span class="ch-nav-title">第四部分：器</span></span>
+  </a>
+  <a href="#ch11" class="ch-nav-btn next">
+    <span><span class="ch-nav-label">下一章</span><span class="ch-nav-title">最难熬的那三周</span></span>
+    <span class="ch-nav-arrow">→</span>
+  </a>
+</div>
+
+</body>
+</html>

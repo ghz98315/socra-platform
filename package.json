@@ -26,7 +26,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "node scripts/run-turbo-build.mjs && changeset publish"
+    "release": "node scripts/run-turbo-build.mjs && changeset publish",
+    "book:import": "node scripts/import-book-chapters.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

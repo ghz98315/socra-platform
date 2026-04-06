@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第九章：家长的正确站位 | 从错误开始</title>
+<style>
+:root {
+  --navy: #1a2744;
+  --orange: #e8600a;
+  --orange-light: #fff5ee;
+  --orange-mid: #fde8d4;
+  --stone: #f5f4f0;
+  --warm-gray: #d4cfc8;
+  --dark: #2d2d2d;
+  --mid-gray: #6b6b6b;
+  --light-gray: #f0eeea;
+  --white: #fefefe;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'STSong', serif;
+  --font-sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --max-width: 680px;
+  --reading-size: 17px;
+  --line-height: 1.9;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: var(--font-serif); background: var(--white); color: var(--dark); line-height: var(--line-height); }
+
+.chapter { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 4rem; border-bottom: 1px solid var(--light-gray); }
+.chapter-header { margin-bottom: 2.5rem; }
+.chapter-num { font-family: var(--font-sans); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.5rem; }
+.chapter-title { font-size: clamp(1.3rem,4vw,1.8rem); color: var(--navy); font-weight: normal; line-height: 1.3; margin-bottom: 1.5rem; }
+.chapter-summary { background: var(--stone); border-left: 3px solid var(--warm-gray); padding: 1rem 1.2rem; border-radius: 0 4px 4px 0; font-family: var(--font-sans); font-size: 0.8rem; color: var(--mid-gray); font-style: italic; line-height: 1.65; }
+
+.chapter p { margin-bottom: 1.4rem; font-size: var(--reading-size); color: var(--dark); }
+.chapter strong { color: var(--navy); }
+.chapter h3 { font-size: 1.05rem; color: var(--navy); font-weight: 700; margin: 2.8rem 0 1.1rem; font-family: var(--font-sans); }
+.chapter h3::before { content: ''; display: block; width: 24px; height: 2px; background: var(--orange); margin-bottom: 0.6rem; }
+
+/* 金句 */
+.key-quote { border-left: 4px solid var(--orange); background: var(--orange-light); padding: 1.3rem 1.6rem; margin: 2rem 0; border-radius: 0 6px 6px 0; }
+.key-quote p { font-size: 1rem !important; color: var(--navy) !important; font-style: italic; font-weight: 500; margin-bottom: 0 !important; line-height: 1.8; }
+
+/* 信息框 */
+.info-box { border-radius: 6px; padding: 1.2rem 1.4rem; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.83rem; line-height: 1.7; }
+.info-box-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem; }
+.info-box p { font-size: 0.83rem !important; color: inherit !important; margin-bottom: 0.5rem !important; }
+.info-box p:last-child { margin-bottom: 0 !important; }
+.box-engineer { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; }
+.box-engineer .info-box-label { color: #4f46e5; }
+.box-engineer strong { color: #3730a3; }
+.box-parent { background: var(--orange-light); border: 1px solid var(--orange-mid); color: #92400e; }
+.box-parent .info-box-label { color: var(--orange); }
+.box-parent strong { color: #92400e; }
+.box-warning { background: var(--stone); border: 1px solid var(--warm-gray); color: var(--dark); }
+.box-warning .info-box-label { color: var(--mid-gray); }
+
+/* 角色卡片 */
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin: 1.8rem 0;
+}
+.role-card {
+  border: 1px solid var(--warm-gray);
+  border-radius: 10px;
+  padding: 1.3rem;
+  position: relative;
+  overflow: hidden;
+}
+.role-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--orange);
+}
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  background: var(--navy);
+  color: white;
+  border-radius: 50%;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+}
+.role-name {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 0.3rem;
+}
+.role-when {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  color: var(--orange);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.7rem;
+}
+.role-desc {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--mid-gray);
+  line-height: 1.65;
+}
+.role-desc strong { color: var(--navy); }
+
+/* 阶段演进表 */
+.phase-table { width: 100%; border-collapse: collapse; margin: 1.8rem 0; font-family: var(--font-sans); font-size: 0.83rem; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.phase-table th { background: var(--navy); color: white; padding: 0.8rem 1rem; text-align: left; font-size: 0.73rem; letter-spacing: 0.04em; }
+.phase-table .th-orange { background: var(--orange); }
+.phase-table td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--warm-gray); vertical-align: top; line-height: 1.55; color: var(--dark); }
+.phase-table tr:last-child td { border-bottom: none; }
+.phase-table tr:nth-child(even) td { background: var(--stone); }
+.phase-table .phase-num { font-weight: 700; color: var(--orange); white-space: nowrap; }
+.phase-table .phase-detail { font-family: var(--font-sans); font-size: 0.75rem; color: var(--mid-gray); margin-top: 0.3rem; line-height: 1.5; }
+
+/* 错误清单 */
+.mistake-list { list-style: none; margin: 1.5rem 0; }
+.mistake-item { display: flex; gap: 0.9rem; align-items: flex-start; padding: 1.1rem 0; border-bottom: 1px dashed var(--warm-gray); font-family: var(--font-sans); font-size: 0.84rem; line-height: 1.65; color: var(--dark); }
+.mistake-item:last-child { border-bottom: none; }
+.mistake-num { flex-shrink: 0; width: 26px; height: 26px; background: var(--orange); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; margin-top: 0.1rem; }
+.mistake-item strong { color: var(--navy); }
+
+/* 对话还原 */
+.dialogue-block { background: var(--stone); border-radius: 8px; padding: 1.4rem 1.5rem; margin: 1.8rem 0; font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); line-height: 1.8; border-left: 3px solid var(--warm-gray); }
+.dialogue-block strong { color: var(--navy); }
+.dialogue-block em { display: block; margin-top: 0.7rem; color: var(--mid-gray); font-size: 0.75rem; font-style: normal; }
+
+/* 判断清单 */
+.check-list { list-style: none; margin: 1.2rem 0; }
+.check-list li { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.5rem 0; font-family: var(--font-sans); font-size: 0.83rem; color: var(--dark); line-height: 1.6; }
+.check-list li::before { content: '·'; color: var(--orange); flex-shrink: 0; font-weight: 900; font-size: 1.1rem; margin-top: -0.05rem; }
+.check-list li strong { color: var(--navy); }
+
+/* SVG */
+.svg-diagram { margin: 2.5rem 0; text-align: center; }
+.svg-diagram-label { font-family: var(--font-sans); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--orange); margin-bottom: 1rem; font-weight: 700; }
+.svg-diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.svg-diagram-caption { font-family: var(--font-sans); font-size: 0.73rem; color: var(--mid-gray); margin-top: 0.8rem; font-style: italic; }
+
+/* 案例块 */
+.case-block { background: var(--stone); border-radius: 8px; padding: 1.5rem; margin: 2rem 0; }
+.case-label { display: inline-block; font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; background: var(--orange); color: white; padding: 0.2rem 0.6rem; border-radius: 2px; margin-bottom: 0.9rem; }
+.case-block p { font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); margin-bottom: 0.7rem; line-height: 1.7; }
+.case-block p:last-child { margin-bottom: 0; }
+.case-block strong { color: var(--navy); }
+
+/* 章节导航 */
+.chapter-nav { max-width: var(--max-width); margin: 0 auto; padding: 2rem 1.5rem 3rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid var(--light-gray); }
+.ch-nav-btn { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.7rem 1.1rem; border: 1px solid var(--warm-gray); border-radius: 6px; font-family: var(--font-sans); font-size: 0.78rem; color: var(--dark); transition: all 0.2s; max-width: 46%; line-height: 1.4; }
+.ch-nav-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
+.ch-nav-btn.prev { flex-direction: row; text-align: left; }
+.ch-nav-btn.next { flex-direction: row-reverse; text-align: right; margin-left: auto; }
+.ch-nav-arrow { flex-shrink: 0; font-size: 1rem; color: var(--orange); }
+.ch-nav-label { font-size: 0.65rem; color: var(--mid-gray); display: block; margin-bottom: 0.1rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.ch-nav-title { display: block; font-weight: 600; }
+
+@media (max-width: 640px) {
+  :root { --reading-size: 16px; }
+  .chapter { padding: 2.5rem 1.2rem 3.5rem; }
+  .role-grid { grid-template-columns: 1fr; }
+  .ch-nav-btn { font-size: 0.72rem; padding: 0.6rem 0.8rem; }
+}
+@media (min-width: 1024px) { :root { --reading-size: 18px; } }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     第九章 · 完整正文
+     替换范围：全书中
+       起始 → <!-- ============ CHAPTER 9 ============ -->（第1404行）
+       终止 → </div>（第1543行，chapter-nav闭合，紧接PART 4 DIVIDER注释之前）
+     ============================================================ -->
+
+<!-- ============ CHAPTER 9 ============ -->
+<article class="chapter" id="ch9">
+  <div class="chapter-header">
+    <div class="chapter-num">第九章 · 术</div>
+    <h2 class="chapter-title">家长的正确站位——不是发动机，而是变速箱</h2>
+    <div class="chapter-summary">
+      家长一旦变成发动机，孩子就变成了被拉着走的拖车。真正有效的参与，是在孩子还有能力自己往前走的时候，忍住不出现；在真正需要支撑的时候，出现，做完，退出去。
+    </div>
+  </div>
+
+  <p>先说一件让我有点难堪的事。</p>
+
+  <p>这套系统推行到第二个月的时候，我发现了一个问题。不是孩子出了问题，而是我出了问题。</p>
+
+  <p>那天晚上，大宝拿着一道题来找我做5 Why追问。小宝那边同时有一道题需要处理。文件夹里还有三道题的复习节点到期了，今天必须完成。我一边应付大宝，一边分神想着小宝的那道题，一边计算还剩多少时间……</p>
+
+  <p>我突然停下来，意识到一件事：<strong>这套系统，在不知不觉中，变成了一件完全依赖我来驱动的事。我是这台机器的发动机——我不转，整套系统就停了。</strong></p>
+
+  <p>这不对。</p>
+
+  <p>在工厂里，一套好的系统，不会依赖某一个人的持续存在才能运转。如果一个流程在某个关键人离开之后就崩溃，这个流程本身就有设计缺陷。真正健壮的系统，有自己的运转机制，有清晰的角色分工，每个角色只在该出现的时候出现，做该做的事，然后退出去，让系统继续转。</p>
+
+  <p>我在工厂里花了十年建这种系统，但在孩子的学习上，我不知不觉把自己变成了那个不能缺席的人。这件事需要改变。</p>
+
+  <h3>发动机和变速箱：两种完全不同的角色</h3>
+
+  <div class="info-box box-engineer">
+    <div class="info-box-label">🔧 工程师类比</div>
+    <p><strong>发动机</strong>是动力来源。所有的力，都从它这里产生。它不转，车就不动。一旦发动机熄火，整台车停在那里，什么都做不了。</p>
+    <p><strong>变速箱</strong>不产生动力，但它决定动力怎么被传递和使用。高速行驶的时候，它让发动机的转速变得更有效率。爬坡的时候，它增大扭矩，让车能够在困难的路段继续前进。路段变平了之后，它退回去，让发动机自己开。</p>
+    <p><strong>家长在这套系统里，应该是变速箱，不是发动机。孩子才是发动机——学习的动力，最终必须从他自己身上来。</strong>一旦家长变成了发动机，孩子就变成了被拉着走的拖车。拖车没有动力，因为用不上——反正有人在前面拉。</p>
+  </div>
+
+  <p>这个比喻不只是好听。它指向了一个非常具体的问题：<strong>家长容易不知不觉变成发动机，不是因为家长爱管，而是因为变成发动机的过程太自然了。</strong></p>
+
+  <p>第一道错题，孩子不知道怎么做5 Why，家长帮着引导。第二道，孩子做到一半问家长，家长帮着接着问。第三道，孩子不想讲，家长帮着讲。慢慢地，孩子发现了一件事：只要等着，爸爸妈妈会来推进的。然后孩子开始等。然后家长开始催。然后家长发现自己在用自己的焦虑，驱动一个本来应该属于孩子的系统。</p>
+
+  <p>这个过程没有人想要，但它非常容易发生。</p>
+
+  <h3>家长真正应该站在哪里——四种角色</h3>
+
+  <p>我用了一段时间，才想清楚家长在这套系统里的正确位置。不是一个固定的位置，而是四种角色的组合，每种角色在不同的时机出现，出现之后做完该做的事，退出去。</p>
+
+  <div class="role-grid">
+    <div class="role-card">
+      <div class="role-badge">观</div>
+      <div class="role-name">观察者</div>
+      <div class="role-when">大多数时候，保持这个角色</div>
+      <div class="role-desc">不介入，不推进，只是观察。孩子有没有在主动处理错题？复习节点到了，孩子自己有没有拿出来？讲题时越来越清楚，还是越来越依赖你？<br><br>这些观察，会告诉你这套系统在孩子身上有没有真正开始内化。<strong>观察者不需要说话，但需要保持清醒。</strong></div>
+    </div>
+    <div class="role-card">
+      <div class="role-badge">问</div>
+      <div class="role-name">提问者</div>
+      <div class="role-when">孩子卡住，但还有能力自己想时</div>
+      <div class="role-desc">不给答案，不替他推进，只是提问。<br><br>"你觉得卡在哪里了？"<br>"这一步为什么要这样做？"<br>"如果这个条件变了，你还会这样做吗？"<br><br><strong>提问者帮孩子找到他自己的思路入口，不是帮他打开那扇门。门打开了，孩子自己走进去。</strong></div>
+    </div>
+    <div class="role-card">
+      <div class="role-badge">撑</div>
+      <div class="role-name">支撑者</div>
+      <div class="role-when">孩子真的卡住、提问也无效时</div>
+      <div class="role-desc">给一个更小的提示，帮他找到重新开始的地方。<br><br>"你之前讲过这个概念，是怎么理解的？"<br>"这道题的条件里，有没有哪个你觉得还没用上？"<br><br>给的是方向，不是路。<strong>方向给了，让孩子自己走。</strong></div>
+    </div>
+    <div class="role-card">
+      <div class="role-badge">收</div>
+      <div class="role-name">验收者</div>
+      <div class="role-when">复习节点到期时</div>
+      <div class="role-desc">认真听，判断通关没有，给出明确结论：通关，或者继续。<br><br>标准只有一个：如果你是一个完全不懂这道题的人，听了孩子的讲解，能不能大概明白这道题在做什么？能，通关。不能，继续。<strong>不要因为孩子已经讲了很久就降低标准。</strong></div>
+    </div>
+  </div>
+
+  <p>这四种角色不是固定的，而是根据孩子当下的状态随时切换的。<strong>但有一条原则是固定的：在孩子还有能力自己往前走的时候，不要出现。</strong></p>
+
+  <h3>什么时候该出现，什么时候该等待</h3>
+
+  <p>这句话说起来简单，做起来需要一种很反直觉的克制。因为家长的本能是在孩子遇到困难的时候立刻出现。</p>
+
+  <p>但"卡住"和"需要帮助"，不是同一件事。</p>
+
+  <ul class="check-list">
+    <li>孩子卡住，<strong>可能只是在思考</strong>——给他时间想，不要打断。</li>
+    <li>孩子沉默，<strong>可能只是在重新组织思路</strong>——等他说完，不要替他说。</li>
+    <li>孩子说"我不知道"，<strong>可能只是在触碰自己真实的边界</strong>——这个边界正是最需要处理的地方，不要急着帮他越过去。</li>
+  </ul>
+
+  <p>在这些时刻提前出现，会打断一个本来可以自己完成的过程。一旦家长总是提前出场，孩子会慢慢学到一件事：<strong>卡住就等家长来，不需要自己想出来。</strong>这个学习效果，恰恰和我们想要的相反。</p>
+
+  <p>我自己的判断标准是：</p>
+
+  <div class="info-box box-parent">
+    <div class="info-box-label">⏱️ 三十秒法则</div>
+    <p>孩子卡住了，我先等。数到三十。</p>
+    <p><strong>三十秒之内，孩子重新开口，继续</strong>——他自己找到方向了，我不介入。</p>
+    <p><strong>三十秒之后，孩子还是没有动静，而且看起来不是在思考而是在放弃</strong>——这时候，我切换到提问者角色，问一个问题，帮他重新找到入口。</p>
+    <p>三十秒不是一个精确的数字，但它给了孩子一个独立思考的空间，也给了我一个判断是否需要介入的缓冲。对于年龄小的孩子，这个等待时间可以适当缩短；对于年龄大、自驱能力更强的孩子，可以更长。</p>
+  </div>
+
+  <h3>把系统的驱动权，逐步交还给孩子</h3>
+
+  <p>这是这套系统能否长期运转的关键。最终的目标，不是家长管理一套孩子使用的系统，而是孩子自己驱动一套属于自己的系统，家长只是在关键节点参与。</p>
+
+  <p>这个转变不是一夜之间发生的，而是需要一个刻意设计的过渡过程：</p>
+
+  <table class="phase-table">
+    <thead>
+      <tr>
+        <th>阶段</th>
+        <th>孩子的状态</th>
+        <th class="th-orange">家长的角色与重点</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="phase-num">第一阶段<br><span style="font-weight:normal;color:var(--mid-gray);font-size:0.75rem;">约1-2个月</span></td>
+        <td>
+          在学这套系统怎么转
+          <div class="phase-detail">孩子还不知道流程，每个环节都需要引导</div>
+        </td>
+        <td>
+          <strong>家长主导，孩子参与</strong>
+          <div class="phase-detail">家长推进每个环节：你来问，孩子来答；你来提醒，孩子来做；你来判断，孩子来讲。</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="phase-num">第二阶段<br><span style="font-weight:normal;color:var(--mid-gray);font-size:0.75rem;">约2-3个月</span></td>
+        <td>
+          在建立自主驱动的能力
+          <div class="phase-detail">孩子开始知道流程，但还不够稳定</div>
+        </td>
+        <td>
+          <strong>孩子主导，家长在场</strong>
+          <div class="phase-detail">孩子尝试自己推进，家长只在卡住或走偏的时候介入。5 Why孩子自己问前两层，家长从第三层跟进；复习节点孩子自己管，家长负责验收。</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="phase-num">第三阶段<br><span style="font-weight:normal;color:var(--mid-gray);font-size:0.75rem;">3个月以后</span></td>
+        <td>
+          系统真正属于孩子了
+          <div class="phase-detail">孩子能自主推进完整流程</div>
+        </td>
+        <td>
+          <strong>孩子自驱，家长验收</strong>
+          <div class="phase-detail">家长主要参与两件事：费曼验证的最终判断，以及遇到特别难的根因时的深度追问引导。其他所有环节，孩子自己来。</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>大宝现在基本处于第三阶段。每周我只需要抽二十到三十分钟，听他讲几道到期的题，判断通关没有。其他时间，他自己管自己的除错单，自己按时拿出来讲，遇到不确定的地方才来找我讨论。</p>
+
+  <p>小宝还在第一阶段向第二阶段过渡。他已经能自己做闭卷重做，5 Why的前两层也能自己走完，但第三层之后还需要我帮他引导。</p>
+
+  <p><strong>两个孩子，不同阶段，完全正常。不要用同一把尺子量两个不同年龄、不同状态的孩子。</strong>每个阶段有它自己的时间，不能跳。第一阶段没有走稳，直接进入第二阶段，孩子会不知所措。第二阶段没有走稳，直接进入第三阶段，孩子会因为缺乏支撑而放弃。慢一点，稳一点，比跑得快但摔跤要好。</p>
+
+  <!-- SVG 图示 -->
+  <div class="svg-diagram">
+    <div class="svg-diagram-label">家长参与度三阶段演变</div>
+    <svg viewBox="0 0 480 280" xmlns="http://www.w3.org/2000/svg" style="max-width:480px;">
+      <defs><marker id="arrowD" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#d4cfc8"/></marker></defs>
+      <text x="14" y="50" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#6b6b6b" text-anchor="middle" transform="rotate(-90,14,130)">家长参与密度</text>
+      <line x1="40" y1="220" x2="450" y2="220" stroke="#d4cfc8" stroke-width="1.5" marker-end="url(#arrowD)"/>
+      <line x1="40" y1="30" x2="40" y2="228" stroke="#d4cfc8" stroke-width="1.5"/>
+      <text x="120" y="238" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="#6b6b6b">第一阶段</text>
+      <text x="120" y="250" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#aaa">1-2月</text>
+      <text x="270" y="238" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="#6b6b6b">第二阶段</text>
+      <text x="270" y="250" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#aaa">2-3月</text>
+      <text x="410" y="238" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="#6b6b6b">第三阶段</text>
+      <text x="410" y="250" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#aaa">3月+</text>
+      <text x="455" y="224" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#6b6b6b">时间</text>
+      <path d="M50,50 C100,55 150,80 200,120 C250,160 310,185 370,200 L370,220 L50,220 Z" fill="#1a2744" opacity="0.12"/>
+      <path d="M50,50 C100,55 150,80 200,120 C250,160 310,185 370,200" fill="none" stroke="#1a2744" stroke-width="2.5"/>
+      <path d="M50,195 C100,190 150,175 200,155 C250,135 310,100 370,60" fill="none" stroke="#e8600a" stroke-width="2.5"/>
+      <circle cx="220" cy="138" r="5" fill="#e8600a"/>
+      <text x="80" y="42" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="#1a2744" font-weight="700">家长</text>
+      <text x="375" y="58" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="#e8600a" font-weight="700">孩子</text>
+      <line x1="200" y1="30" x2="200" y2="220" stroke="#d4cfc8" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="340" y1="30" x2="340" y2="220" stroke="#d4cfc8" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="46" y="32" width="148" height="20" rx="3" fill="#1a2744"/>
+      <text x="120" y="46" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="white">家长主导，孩子参与</text>
+      <rect x="206" y="32" width="128" height="20" rx="3" fill="#1a2744" opacity="0.7"/>
+      <text x="270" y="46" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="white">孩子主导，家长在场</text>
+      <rect x="346" y="32" width="118" height="20" rx="3" fill="#e8600a"/>
+      <text x="405" y="46" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="white">孩子自驱，家长验收</text>
+      <text x="222" y="128" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#e8600a">交接点</text>
+      <text x="240" y="270" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="9" fill="#aaa">家长越来越轻，因为孩子越来越能</text>
+    </svg>
+    <div class="svg-diagram-caption">两条线交叉之后，系统真正属于孩子了。家长的投入时间越来越少，不是因为偷懒，而是因为孩子越来越能自己转。这是这套系统最理想的状态。</div>
+  </div>
+
+  <h3>家长最容易犯的五个错误</h3>
+
+  <p>在把这套系统用在两个孩子身上的过程里，我自己犯过，也在其他家长身上观察到过，总结出五个最常见、也最难察觉的错误。</p>
+
+  <ul class="mistake-list">
+    <li class="mistake-item">
+      <span class="mistake-num">1</span>
+      <div>
+        <strong>在孩子还没开口思考的时候就给提示。</strong><br>
+        孩子刚看完题目，还没开始想，家长已经开口："你想想是不是因为……"这样做，把孩子本来可以自己走的第一步替他走了。慢慢地，孩子学会的不是怎么开始思考，而是怎么等家长给提示。时间一长，孩子对家长的依赖越来越深，却毫无察觉——因为每次都"做出来了"。
+      </div>
+    </li>
+    <li class="mistake-item">
+      <span class="mistake-num">2</span>
+      <div>
+        <strong>5 Why追问追到一半，忍不住给答案。</strong><br>
+        孩子卡在第三层，问了半天没有进展，家长急了，直接说"其实是因为你……"这样做，把整个追问的价值消解掉了。<strong>别人告诉你的根因，和你自己追出来的根因，在大脑里的重量完全不同。</strong>你追出来的，你记得，你信。别人告诉你的，你知道，但不一定真的服。忍住。哪怕多等一会儿，多换几种提问方式，让孩子自己把那层挖开。
+      </div>
+    </li>
+    <li class="mistake-item">
+      <span class="mistake-num">3</span>
+      <div>
+        <strong>复习验收标准随孩子情绪浮动。</strong><br>
+        孩子今天状态差，讲了一半，家长觉得孩子已经累了，差不多了，也给通关了。这个心软的代价，是整个验收环节从此失去公信力——孩子会知道，只要表现得"差不多"，就能过关。标准必须是固定的，跟孩子的状态无关。<strong>状态差的时候讲不清楚，说明这道题还没有真正稳定，更需要继续，而不是降低标准。</strong>
+      </div>
+    </li>
+    <li class="mistake-item">
+      <span class="mistake-num">4</span>
+      <div>
+        <strong>把这套系统用来给孩子施压或者批评。</strong><br>
+        "你看，这道题你三周前就分析过了，怎么还是讲不清楚？""这个根因上次找过了，你有没有认真执行防呆动作？"这套系统的目的，是帮孩子建立能力，不是给家长提供新的批评素材。一旦孩子开始把这套系统和被批评联系在一起，他就会开始抗拒它——不是抗拒错题，而是抗拒整个过程。这个代价很大，恢复起来很慢。
+      </div>
+    </li>
+    <li class="mistake-item">
+      <span class="mistake-num">5</span>
+      <div>
+        <strong>要求太快进入下一阶段。</strong><br>
+        孩子还在第一阶段，家长已经开始撒手，觉得系统建好了孩子应该自己转了。结果孩子不知道怎么自己推进，系统没有运转，家长开始催促，孩子开始抗拒，整套系统陷入摩擦。<strong>每个阶段有它自己的时间，不能跳。</strong>急着推进，反而会让孩子因为缺乏支撑而彻底放弃。
+      </div>
+    </li>
+  </ul>
+
+  <h3>一个让我意外的发现</h3>
+
+  <p>用这套系统陪两个孩子走到第三个月的时候，有一件事出乎我的意料。</p>
+
+  <div class="case-block">
+    <div class="case-label">真实案例</div>
+    <p>那天小宝在做5 Why追问，卡在第三层，不知道怎么继续往下问。</p>
+    <p>我正准备开口引导，大宝走过来，坐在旁边，说："你上面两层讲的是这道题用错了方法，那为什么会用错方法呢？"</p>
+    <p>小宝想了一会儿，说："因为我以为这两种方法是一样的。"</p>
+    <p>大宝说："那你知道它们哪里不一样吗？"</p>
+    <p>小宝又想了一会儿，答出来了。</p>
+    <p>大宝点点头，站起来，回去继续做自己的作业。</p>
+    <p>整个过程，我一句话没说。</p>
+    <p style="color:var(--mid-gray);font-size:0.8rem;margin-top:0.5rem;">大宝没有叫出这个方法的名字，他只是用了这套方法里最核心的动作——顺着对方的话继续往下问。他也没有意识到自己在"教"小宝，他只是觉得这样做比直接给答案有用。</p>
+  </div>
+
+  <p>这件事让我想了很久。</p>
+
+  <p>一套方法真正被内化的样子，不是孩子能够背出它的步骤，而是他开始自然地用它思考问题——甚至用它帮助别人思考问题，而自己都没有意识到这件事。</p>
+
+  <p>家长的正确站位，最终是为了让这件事发生。不是为了让孩子学会一套流程，而是为了让孩子拥有一种思维方式。</p>
+
+  <p><strong>当你在正确的时候出现，在正确的时候退出去，孩子就有了练习自己想的空间。那个空间，才是真正的进步发生的地方。</strong></p>
+
+  <h3>家长的长期状态：不是越来越累，而是越来越轻</h3>
+
+  <p>最后需要说一件对很多家长来说可能反直觉的事。</p>
+
+  <p>如果这套系统执行得对，家长的投入时间，应该随着时间推移越来越少，而不是越来越多。</p>
+
+  <ul class="check-list">
+    <li>刚开始：投入最高，每道错题都需要深度参与，每个环节都需要引导，每次验收都需要认真判断。</li>
+    <li>三个月后：孩子开始自主推进越来越多的环节，家长的参与点减少了。</li>
+    <li>六个月后：孩子能够独立处理大部分流程，家长主要负责验收和偶尔的深度追问。</li>
+    <li>一年后：这套系统基本上在孩子自己身上运转，家长像一个定期检查系统运行状态的工程师——不需要每天在场，但每周会看一眼，确认没有什么地方出了问题。</li>
+  </ul>
+
+  <p>这不是放手不管，而是系统成熟之后自然的状态。工厂里一条成熟的生产线，不需要每天有工程师守在旁边。但工程师每周会来做例行检查，确认关键指标正常，有没有需要提前处理的风险。家长和这套系统的关系，最终应该是这样的。</p>
+
+  <div class="key-quote">
+    <p>如果这套系统执行得对，家长的投入时间应该随着时间推移越来越少，而不是越来越多。<strong>越来越轻，因为孩子越来越能。这才是这套系统真正成功的样子。</strong></p>
+  </div>
+
+  <p>下一部分，我们进入"器"——工具那一层。手工工具能走多远，什么时候电子系统真正值得出现，以及这套系统的设计边界在哪里。</p>
+
+</article>
+
+<div class="chapter-nav">
+  <a href="#ch8" class="ch-nav-btn prev">
+    <span class="ch-nav-arrow">←</span>
+    <span><span class="ch-nav-label">上一章</span><span class="ch-nav-title">在家里怎么真正跑起来</span></span>
+  </a>
+  <a href="#part4" class="ch-nav-btn next">
+    <span><span class="ch-nav-label">下一部分</span><span class="ch-nav-title">第四部分：器</span></span>
+    <span class="ch-nav-arrow">→</span>
+  </a>
+</div>
+
+</body>
+</html>

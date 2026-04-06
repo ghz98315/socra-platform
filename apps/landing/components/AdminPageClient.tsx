@@ -1,0 +1,609 @@
+﻿'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
+import { Trash2, Plus, FileText, Settings, Lock, BookOpen, Edit2, FileCode2, Loader2 } from 'lucide-react';
+import { useArticles } from '../lib/useArticles';
+import { getBookChapterFileSource } from '../lib/bookChapterRegistry';
+import { type BookChapter, useBookChapters } from '../lib/useBookChapters';
+
+// SHA-256 hash of 'shuidong007'
+const ADMIN_PASSWORD_HASH = 'dd5fac60900c2d2d457b1ca5f3fe34cf7748004713db86474ce51004f9787ccf';
+
+type EditableBookChapter = Pick<BookChapter, 'id' | 'title' | 'isFree' | 'content' | 'order'>;
+
+const EMPTY_BOOK_FORM: EditableBookChapter = {
+  id: '',
+  title: '',
+  isFree: false,
+  content: '',
+  order: 0,
+};
+
+async function hashPassword(password: string) {
+  const msgBuffer = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+export default function AdminPageClient() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [activeTab, setActiveTab] = useState<'articles' | 'book'>('articles');
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [isSourceChapterLoading, setIsSourceChapterLoading] = useState(false);
+  const [sourceChapterError, setSourceChapterError] = useState('');
+
+  const { articles, addArticle, deleteArticle, isLoaded } = useArticles();
+  const { chapters, updateChapter, addChapter, deleteChapter, isLoaded: isBookLoaded } = useBookChapters();
+
+  const [formData, setFormData] = useState<{
+    title: string;
+    excerpt: string;
+    category: string;
+    slug: string;
+    content: string;
+    format: 'markdown' | 'html';
+  }>({
+    title: '',
+    excerpt: '',
+    category: '方法论',
+    slug: '',
+    content: '',
+    format: 'markdown',
+  });
+
+  const [bookFormData, setBookFormData] = useState<EditableBookChapter>(EMPTY_BOOK_FORM);
+
+  useEffect(() => {
+    const authStatus = localStorage.getItem('socrates_admin_auth');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const editingChapterSource = useMemo(
+    () => (editingChapterId ? getBookChapterFileSource(editingChapterId) : null),
+    [editingChapterId]
+  );
+  const isEditingFileBackedChapter = Boolean(editingChapterSource);
+
+  const resetBookEditor = () => {
+    setEditingChapterId(null);
+    setSourceChapterError('');
+    setIsSourceChapterLoading(false);
+    setBookFormData({ ...EMPTY_BOOK_FORM, order: chapters.length });
+  };
+
+  const flashMessage = (nextMessage: string) => {
+    setMessage(nextMessage);
+    window.setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    if (loginForm.username !== 'admin') {
+      setLoginError('账号或密码错误');
+      return;
+    }
+
+    const hashedInput = await hashPassword(loginForm.password);
+    if (hashedInput === ADMIN_PASSWORD_HASH) {
+      setIsAuthenticated(true);
+      localStorage.setItem('socrates_admin_auth', 'true');
+      return;
+    }
+
+    setLoginError('账号或密码错误');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('socrates_admin_auth');
+    setLoginForm({ username: '', password: '' });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title || !formData.slug || !formData.content) {
+      flashMessage('请填写必填项（标题、Slug、正文）');
+      return;
+    }
+
+    addArticle(formData);
+    setFormData({ title: '', excerpt: '', category: '方法论', slug: '', content: '', format: 'markdown' });
+    flashMessage('文章发布成功！');
+  };
+
+  const handleBookSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isEditingFileBackedChapter) {
+      flashMessage(`该章节正文由 ${editingChapterSource?.repoPath} 管理，请直接修改源文件。`);
+      return;
+    }
+
+    if (!bookFormData.id || !bookFormData.title) {
+      flashMessage('请填写必填项（章节ID、标题）');
+      return;
+    }
+
+    if (editingChapterId) {
+      updateChapter(bookFormData as BookChapter);
+      flashMessage('章节更新成功！');
+    } else {
+      addChapter(bookFormData as BookChapter);
+      flashMessage('新章节添加成功！');
+    }
+
+    resetBookEditor();
+  };
+
+  const handleEditChapter = async (chapter: BookChapter) => {
+    setEditingChapterId(chapter.id);
+    setSourceChapterError('');
+    setBookFormData({
+      id: chapter.id,
+      title: chapter.title,
+      isFree: chapter.isFree,
+      content: chapter.content,
+      order: chapter.order,
+    });
+
+    const source = getBookChapterFileSource(chapter.id);
+    if (source) {
+      setIsSourceChapterLoading(true);
+      try {
+        const response = await fetch(`/api/book-source/${encodeURIComponent(chapter.id)}`);
+        if (!response.ok) {
+          throw new Error('load_failed');
+        }
+        const data = await response.json();
+        setBookFormData({
+          id: chapter.id,
+          title: chapter.title,
+          isFree: chapter.isFree,
+          content: data.content,
+          order: chapter.order,
+        });
+      } catch {
+        setSourceChapterError(`未能读取 ${source.repoPath} 的正文，请检查源文件或路由。`);
+      } finally {
+        setIsSourceChapterLoading(false);
+      }
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteChapter = (chapter: BookChapter) => {
+    const source = getBookChapterFileSource(chapter.id);
+    if (source) {
+      flashMessage(`该章节由 ${source.repoPath} 管理，后台不提供删除。`);
+      return;
+    }
+
+    deleteChapter(chapter.id);
+    if (editingChapterId === chapter.id) {
+      resetBookEditor();
+    }
+    flashMessage('章节已删除');
+  };
+
+  if (!isLoaded || !isBookLoaded) return null;
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <div className="min-h-[80vh] flex items-center justify-center px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-md bg-white border border-neutral-200 rounded-2xl p-8 shadow-sm"
+          >
+            <div className="flex justify-center mb-8">
+              <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center">
+                <Lock className="w-6 h-6 text-neutral-900" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-serif font-bold text-center text-neutral-900 mb-8">管理后台登录</h1>
+
+            {loginError && (
+              <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">
+                {loginError}
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">账号</label>
+                <input
+                  type="text"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">密码</label>
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-neutral-900 text-white px-6 py-4 rounded-xl font-medium hover:bg-neutral-800 transition-colors"
+              >
+                登录
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="py-12 md:py-24 px-4 sm:px-6 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Settings className="w-8 h-8 text-neutral-900" />
+            <h1 className="font-serif text-3xl font-bold text-neutral-900">Socrates 管理后台</h1>
+          </div>
+          <button onClick={handleLogout} className="text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+            退出登录
+          </button>
+        </div>
+
+        <div className="flex gap-6 mb-8 border-b border-neutral-200">
+          <button
+            onClick={() => setActiveTab('articles')}
+            className={`pb-4 px-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'articles' ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
+          >
+            文章管理
+          </button>
+          <button
+            onClick={() => setActiveTab('book')}
+            className={`pb-4 px-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'book' ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-500 hover:text-neutral-700'}`}
+          >
+            书籍内容管理
+          </button>
+        </div>
+
+        {message && <div className="mb-8 p-4 bg-neutral-900 text-white rounded-xl text-center font-medium">{message}</div>}
+
+        {activeTab === 'articles' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="lg:col-span-2">
+              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+                <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center gap-2">
+                  <Plus className="w-5 h-5" /> 发布新文章
+                </h2>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">文章标题 *</label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
+                      placeholder="例如：为什么大多数错题本都是死书"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">分类 *</label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all bg-white"
+                      >
+                        <option value="方法论">方法论</option>
+                        <option value="产品动态">产品动态</option>
+                        <option value="用户故事">用户故事</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">正文格式 *</label>
+                      <select
+                        value={formData.format}
+                        onChange={(e) => setFormData({ ...formData, format: e.target.value as 'markdown' | 'html' })}
+                        className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all bg-white"
+                      >
+                        <option value="markdown">Markdown</option>
+                        <option value="html">HTML</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">URL Slug (英文路径) *</label>
+                      <input
+                        type="text"
+                        value={formData.slug}
+                        onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                        className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
+                        placeholder="例如：why-mistake-books-fail"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">摘要 (用于列表展示)</label>
+                    <textarea
+                      value={formData.excerpt}
+                      onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all h-24 resize-none"
+                      placeholder="简短的一段话总结文章核心观点..."
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="block text-sm font-medium text-neutral-700">正文内容 *</label>
+                      <span className="text-xs text-neutral-500">
+                        {formData.format === 'markdown' ? '使用 ## 表示二级标题，- 表示列表' : '支持直接粘贴 HTML 代码'}
+                      </span>
+                    </div>
+                    <textarea
+                      value={formData.content}
+                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all h-64 font-mono text-sm"
+                      placeholder={formData.format === 'markdown' ? '在此输入 Markdown 格式的正文...' : '在此粘贴排版好的 HTML 代码...'}
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-neutral-900 text-white px-6 py-4 rounded-xl font-medium hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" /> 确认发布
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className="lg:col-span-1">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 sm:p-8">
+                <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center gap-2">
+                  <FileText className="w-5 h-5" /> 已发布文章
+                </h2>
+                <div className="space-y-4">
+                  {articles.map((article) => (
+                    <motion.div
+                      key={article.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white p-4 rounded-xl border border-neutral-200 flex justify-between items-start gap-4 group"
+                    >
+                      <div>
+                        <h3 className="font-medium text-neutral-900 text-sm mb-1 line-clamp-2">{article.title}</h3>
+                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                          <span>{article.date}</span>
+                          <span>•</span>
+                          <span>{article.category}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          deleteArticle(article.id);
+                          flashMessage('文章已删除');
+                        }}
+                        className="text-neutral-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50 shrink-0"
+                        title="删除文章"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </motion.div>
+                  ))}
+                  {articles.length === 0 && <p className="text-sm text-neutral-500 text-center py-8">暂无文章</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'book' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="lg:col-span-2">
+              <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
+                    {editingChapterId ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                    {editingChapterId ? '编辑章节' : '添加新章节'}
+                  </h2>
+                  {editingChapterId && (
+                    <button onClick={resetBookEditor} className="text-sm text-neutral-500 hover:text-neutral-900">
+                      取消编辑
+                    </button>
+                  )}
+                </div>
+
+                {isEditingFileBackedChapter && (
+                  <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                    <div className="flex items-start gap-3">
+                      <FileCode2 className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-900 mb-1">当前章节使用文件源管理</p>
+                        <p className="text-sm text-amber-800 leading-relaxed">
+                          正文来源：<code>{editingChapterSource?.repoPath}</code>。后台会读取真实正文供你查看，但不会直接改写这份内容，避免与阅读器使用的 source 分叉。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {sourceChapterError && (
+                  <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {sourceChapterError}
+                  </div>
+                )}
+
+                <form onSubmit={handleBookSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">章节 ID (英文/数字) *</label>
+                      <input
+                        type="text"
+                        value={bookFormData.id}
+                        onChange={(e) => setBookFormData({ ...bookFormData, id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                        className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all disabled:bg-neutral-50 disabled:text-neutral-500"
+                        placeholder="例如：ch1"
+                        disabled={!!editingChapterId || isEditingFileBackedChapter}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">排序序号</label>
+                      <input
+                        type="number"
+                        value={bookFormData.order}
+                        onChange={(e) => setBookFormData({ ...bookFormData, order: parseInt(e.target.value, 10) || 0 })}
+                        className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all disabled:bg-neutral-50 disabled:text-neutral-500"
+                        disabled={isEditingFileBackedChapter}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-2">章节标题 *</label>
+                    <input
+                      type="text"
+                      value={bookFormData.title}
+                      onChange={(e) => setBookFormData({ ...bookFormData, title: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all disabled:bg-neutral-50 disabled:text-neutral-500"
+                      placeholder="例如：第一章：重新认识错题"
+                      disabled={isEditingFileBackedChapter}
+                      required
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 p-4 bg-neutral-50 rounded-xl border border-neutral-200">
+                    <input
+                      type="checkbox"
+                      id="isFree"
+                      checked={bookFormData.isFree}
+                      onChange={(e) => setBookFormData({ ...bookFormData, isFree: e.target.checked })}
+                      className="w-5 h-5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                      disabled={isEditingFileBackedChapter}
+                    />
+                    <label htmlFor="isFree" className="text-sm font-medium text-neutral-900 cursor-pointer">
+                      设为免费试读章节
+                    </label>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-end mb-2 gap-4">
+                      <label className="block text-sm font-medium text-neutral-700">
+                        章节正文 {isEditingFileBackedChapter ? '(文件源只读)' : '(支持直接粘贴 HTML 代码)'}
+                      </label>
+                      <span className="text-xs text-neutral-500">
+                        {isEditingFileBackedChapter
+                          ? editingChapterSource?.repoPath
+                          : '例如：&lt;p&gt;段落内容&lt;/p&gt;'}
+                      </span>
+                    </div>
+                    <textarea
+                      value={bookFormData.content}
+                      onChange={(e) => setBookFormData({ ...bookFormData, content: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all h-80 font-mono text-sm disabled:bg-neutral-50 disabled:text-neutral-500"
+                      placeholder={isEditingFileBackedChapter ? '正在从源文件加载正文...' : '在此直接粘贴排版好的 HTML 代码...'}
+                      readOnly={isEditingFileBackedChapter}
+                      disabled={isSourceChapterLoading}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isEditingFileBackedChapter || isSourceChapterLoading}
+                    className="w-full bg-neutral-900 text-white px-6 py-4 rounded-xl font-medium hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 disabled:bg-neutral-300 disabled:hover:bg-neutral-300 disabled:cursor-not-allowed"
+                  >
+                    {isSourceChapterLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" /> 读取文件源中...
+                      </>
+                    ) : isEditingFileBackedChapter ? (
+                      <>
+                        <FileCode2 className="w-5 h-5" /> 文件源章节不可在后台改写
+                      </>
+                    ) : editingChapterId ? (
+                      <>
+                        <Edit2 className="w-5 h-5" /> 保存修改
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-5 h-5" /> 添加章节
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className="lg:col-span-1">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 sm:p-8">
+                <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" /> 书籍目录
+                </h2>
+                <div className="space-y-3">
+                  {chapters.map((chapter) => {
+                    const source = getBookChapterFileSource(chapter.id);
+                    const isFileBacked = Boolean(source);
+
+                    return (
+                      <motion.div
+                        key={chapter.id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`bg-white p-4 rounded-xl border transition-colors flex justify-between items-start gap-3 group cursor-pointer ${editingChapterId === chapter.id ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-neutral-200 hover:border-neutral-400'}`}
+                        onClick={() => void handleEditChapter(chapter)}
+                      >
+                        <div className="flex-grow min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-xs font-mono text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded">#{chapter.order}</span>
+                            {chapter.isFree && <span className="text-[10px] font-medium px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-nowrap">试读</span>}
+                            {isFileBacked && <span className="text-[10px] font-medium px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-nowrap">文件源</span>}
+                          </div>
+                          <h3 className="font-medium text-neutral-900 text-sm line-clamp-2">{chapter.title}</h3>
+                          {isFileBacked && <p className="text-xs text-neutral-500 mt-2 truncate">{source?.repoPath}</p>}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChapter(chapter);
+                          }}
+                          className={`transition-colors p-1.5 rounded-lg shrink-0 ${isFileBacked ? 'text-neutral-300 cursor-not-allowed' : 'text-neutral-400 hover:text-red-500 hover:bg-red-50'}`}
+                          title={isFileBacked ? '文件源章节请直接管理源文件' : '删除章节'}
+                          disabled={isFileBacked}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                  {chapters.length === 0 && <p className="text-sm text-neutral-500 text-center py-8">暂无章节</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

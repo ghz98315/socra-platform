@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第八章：在家里怎么真正跑起来 | 从错误开始</title>
+<style>
+:root {
+  --navy: #1a2744;
+  --orange: #e8600a;
+  --orange-light: #fff5ee;
+  --orange-mid: #fde8d4;
+  --stone: #f5f4f0;
+  --warm-gray: #d4cfc8;
+  --dark: #2d2d2d;
+  --mid-gray: #6b6b6b;
+  --light-gray: #f0eeea;
+  --white: #fefefe;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'STSong', serif;
+  --font-sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --max-width: 680px;
+  --reading-size: 17px;
+  --line-height: 1.9;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: var(--font-serif); background: var(--white); color: var(--dark); line-height: var(--line-height); }
+
+.chapter { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 4rem; border-bottom: 1px solid var(--light-gray); }
+.chapter-header { margin-bottom: 2.5rem; }
+.chapter-num { font-family: var(--font-sans); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.5rem; }
+.chapter-title { font-size: clamp(1.3rem,4vw,1.8rem); color: var(--navy); font-weight: normal; line-height: 1.3; margin-bottom: 1.5rem; }
+.chapter-summary { background: var(--stone); border-left: 3px solid var(--warm-gray); padding: 1rem 1.2rem; border-radius: 0 4px 4px 0; font-family: var(--font-sans); font-size: 0.8rem; color: var(--mid-gray); font-style: italic; line-height: 1.65; }
+
+.chapter p { margin-bottom: 1.4rem; font-size: var(--reading-size); color: var(--dark); }
+.chapter strong { color: var(--navy); }
+.chapter h3 { font-size: 1.05rem; color: var(--navy); font-weight: 700; margin: 2.8rem 0 1.1rem; font-family: var(--font-sans); }
+.chapter h3::before { content: ''; display: block; width: 24px; height: 2px; background: var(--orange); margin-bottom: 0.6rem; }
+
+/* 步骤卡片 */
+.step-card {
+  border: 1px solid var(--warm-gray);
+  border-radius: 10px;
+  padding: 1.6rem;
+  margin: 1.8rem 0;
+  position: relative;
+  overflow: hidden;
+}
+.step-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--orange);
+}
+.step-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+.step-badge {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  background: var(--navy);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.step-card-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.3;
+}
+.step-card-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--orange);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin-top: 0.1rem;
+}
+.step-card p { font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); margin-bottom: 0.9rem; line-height: 1.7; }
+.step-card p:last-child { margin-bottom: 0; }
+.step-card strong { color: var(--navy); }
+
+/* 步骤内嵌子要点 */
+.step-points { list-style: none; margin: 0.8rem 0 1rem; }
+.step-points li {
+  display: flex; gap: 0.6rem; align-items: flex-start;
+  font-family: var(--font-sans); font-size: 0.82rem;
+  color: var(--dark); line-height: 1.6;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--light-gray);
+}
+.step-points li:last-child { border-bottom: none; }
+.step-points li::before { content: '→'; color: var(--orange); flex-shrink: 0; font-weight: 700; margin-top: 0.05rem; }
+.step-points li strong { color: var(--navy); }
+
+/* 警示条 */
+.step-warning {
+  background: #fff8f0;
+  border: 1px solid #fde0c0;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin-top: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: #9a4500;
+  line-height: 1.6;
+}
+.step-warning strong { color: #9a4500; }
+
+/* 正确示范条 */
+.step-good {
+  background: #f0fdf0;
+  border: 1px solid #c0e8c0;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin-top: 0.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: #1a5c1a;
+  line-height: 1.6;
+}
+
+/* 标签类型展示 */
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+.tag-item {
+  background: var(--stone);
+  border: 1px solid var(--warm-gray);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  color: var(--dark);
+  line-height: 1.45;
+}
+.tag-item-icon { font-size: 1rem; display: block; margin-bottom: 0.3rem; }
+.tag-item-name { font-weight: 700; display: block; margin-bottom: 0.2rem; color: var(--navy); }
+.tag-item-desc { color: var(--mid-gray); font-size: 0.72rem; }
+
+/* 对比框 */
+.compare-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--warm-gray);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1.2rem 0;
+}
+.compare-col { background: var(--white); padding: 1rem; }
+.compare-col.bad { background: #fff5f5; }
+.compare-col.good { background: #f5fff5; }
+.compare-label {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.compare-col.bad .compare-label { color: #cc0000; }
+.compare-col.good .compare-label { color: #009900; }
+.compare-col p { font-family: var(--font-sans); font-size: 0.8rem; color: var(--dark); line-height: 1.6; margin-bottom: 0.4rem; }
+.compare-col p:last-child { margin-bottom: 0; }
+
+/* 金句 */
+.key-quote { border-left: 4px solid var(--orange); background: var(--orange-light); padding: 1.3rem 1.6rem; margin: 2rem 0; border-radius: 0 6px 6px 0; }
+.key-quote p { font-size: 1rem !important; color: var(--navy) !important; font-style: italic; font-weight: 500; margin-bottom: 0 !important; line-height: 1.8; }
+
+/* 信息框 */
+.info-box { border-radius: 6px; padding: 1.2rem 1.4rem; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.83rem; line-height: 1.7; }
+.info-box-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem; }
+.info-box p { font-size: 0.83rem !important; color: inherit !important; margin-bottom: 0.5rem !important; }
+.info-box p:last-child { margin-bottom: 0 !important; }
+.box-engineer { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; }
+.box-engineer .info-box-label { color: #4f46e5; }
+.box-engineer strong { color: #3730a3; }
+.box-parent { background: var(--orange-light); border: 1px solid var(--orange-mid); color: #92400e; }
+.box-parent .info-box-label { color: var(--orange); }
+.box-parent strong { color: #92400e; }
+.box-navy { background: #f0f3fa; border: 1px solid #c5cfe8; color: #1a2744; }
+.box-navy .info-box-label { color: #1a2744; }
+
+/* 案例块 */
+.case-block { background: var(--stone); border-radius: 8px; padding: 1.5rem; margin: 2rem 0; border-left: 3px solid var(--warm-gray); }
+.case-label { display: inline-block; font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; background: var(--orange); color: white; padding: 0.2rem 0.6rem; border-radius: 2px; margin-bottom: 0.9rem; }
+.case-block p { font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); margin-bottom: 0.7rem; line-height: 1.7; }
+.case-block p:last-child { margin-bottom: 0; }
+.case-block strong { color: var(--navy); }
+
+/* 时间轴 */
+.time-table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-family: var(--font-sans); font-size: 0.82rem; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.time-table th { background: var(--navy); color: white; padding: 0.7rem 1rem; text-align: left; font-size: 0.73rem; letter-spacing: 0.04em; }
+.time-table .th-orange { background: var(--orange); }
+.time-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--warm-gray); vertical-align: top; line-height: 1.55; color: var(--dark); }
+.time-table tr:last-child td { border-bottom: none; }
+.time-table tr:nth-child(even) td { background: var(--stone); }
+.time-table .col-key { font-weight: 700; color: var(--orange); white-space: nowrap; }
+
+/* SVG */
+.svg-diagram { margin: 2.5rem 0; text-align: center; }
+.svg-diagram-label { font-family: var(--font-sans); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--orange); margin-bottom: 1rem; font-weight: 700; }
+.svg-diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.svg-diagram-caption { font-family: var(--font-sans); font-size: 0.73rem; color: var(--mid-gray); margin-top: 0.8rem; font-style: italic; }
+
+/* 两孩子对比 */
+.kids-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.kid-card { background: var(--stone); border-radius: 8px; padding: 1.3rem; }
+.kid-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.9rem; }
+.kid-avatar { width: 32px; height: 32px; background: var(--navy); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 0.7rem; font-weight: 700; color: white; flex-shrink: 0; }
+.kid-name { font-family: var(--font-sans); font-size: 0.85rem; font-weight: 700; color: var(--navy); }
+.kid-grade { font-family: var(--font-sans); font-size: 0.7rem; color: var(--mid-gray); }
+.kid-card ul { list-style: none; }
+.kid-card li { font-family: var(--font-sans); font-size: 0.78rem; color: var(--dark); padding: 0.35rem 0; border-bottom: 1px dashed var(--warm-gray); line-height: 1.55; }
+.kid-card li:last-child { border-bottom: none; }
+.kid-card li::before { content: '·'; color: var(--orange); margin-right: 0.4rem; font-weight: 700; }
+
+/* 章节导航 */
+.chapter-nav { max-width: var(--max-width); margin: 0 auto; padding: 2rem 1.5rem 3rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid var(--light-gray); }
+.ch-nav-btn { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.7rem 1.1rem; border: 1px solid var(--warm-gray); border-radius: 6px; font-family: var(--font-sans); font-size: 0.78rem; color: var(--dark); transition: all 0.2s; max-width: 46%; line-height: 1.4; }
+.ch-nav-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
+.ch-nav-btn.prev { flex-direction: row; text-align: left; }
+.ch-nav-btn.next { flex-direction: row-reverse; text-align: right; margin-left: auto; }
+.ch-nav-arrow { flex-shrink: 0; font-size: 1rem; color: var(--orange); }
+.ch-nav-label { font-size: 0.65rem; color: var(--mid-gray); display: block; margin-bottom: 0.1rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.ch-nav-title { display: block; font-weight: 600; }
+
+@media (max-width: 640px) {
+  :root { --reading-size: 16px; }
+  .chapter { padding: 2.5rem 1.2rem 3.5rem; }
+  .compare-box { grid-template-columns: 1fr; }
+  .kids-compare { grid-template-columns: 1fr; }
+  .tag-grid { grid-template-columns: repeat(2, 1fr); }
+  .ch-nav-btn { font-size: 0.72rem; padding: 0.6rem 0.8rem; }
+}
+@media (min-width: 1024px) { :root { --reading-size: 18px; } }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     第八章 · 完整正文
+     替换范围：全书中
+       起始 → <!-- ============ CHAPTER 8 ============ -->（第1240行）
+       终止 → </div>（第1402行，chapter-nav闭合，紧接CHAPTER 9注释之前）
+     ============================================================ -->
+
+<!-- ============ CHAPTER 8 ============ -->
+<article class="chapter" id="ch8">
+  <div class="chapter-header">
+    <div class="chapter-num">第八章 · 术</div>
+    <h2 class="chapter-title">从一道错题到稳定掌握——这套系统在家里怎么真正跑起来</h2>
+    <div class="chapter-summary">
+      六个动作，一条完整的路：闭卷重做筛出真Bug，5 Why追问找到根因，根因打标建立图谱，防呆设计打上补丁，设定节点写进日历，费曼通关才算结束。顺序不能乱，每一步都有它的位置，每一步都有完成的标准。
+    </div>
+  </div>
+
+  <p>前七章，我们讲了很多。粗心是借口，做对一次不等于学会，错题本只进不出，5 Why找根因，费曼验理解，艾宾浩斯固记忆，PDCA把它们串成闭环。</p>
+
+  <p>读到这里，你可能有两种感受同时存在：一种是"这套逻辑说得通，我认可"，另一种是"但我不知道明天早上坐下来要怎么做"。</p>
+
+  <p>这很正常。理解一套方法，和执行一套方法，是两件完全不同的事。这一章就是回答那个更实际的问题：<strong>明天早上，我坐在孩子旁边，从哪里开始，做什么，怎么判断做对了没有。</strong></p>
+
+  <p>不讲理论，只讲动作。</p>
+
+  <div class="info-box box-parent">
+    <div class="info-box-label">📌 开始之前：先建立一个基本共识</div>
+    <p>这套系统，<strong>不是用来处理所有题的。</strong>孩子每天做的题里，错误可以分成两类——</p>
+    <p><strong>真性错题：</strong>反映真实的认知漏洞。概念没搞清楚，方法没建立，解题习惯出了问题。这类错题，需要走完完整的五步流程。</p>
+    <p><strong>假性错题：</strong>大脑临时宕机。看漏了一个条件，抄错了一个数，计算时笔算失误。这类错误改正之后基本不会重现，不需要大动干戈。</p>
+    <p>系统除错单的第一步，就是在做这个筛选。<strong>不筛选，把所有错题都当真Bug处理，孩子会累崩，家长也会崩，系统很快就会停掉。</strong>先筛选，再处理，精力才能用在刀刃上。</p>
+  </div>
+
+  <h3>六个动作，一条完整的路</h3>
+
+  <p>先放一张流程图，让你在读每个步骤之前，先看清楚整条路的形状。</p>
+
+  <!-- SVG Flow -->
+  <div class="svg-diagram">
+    <div class="svg-diagram-label">系统除错单 · 五步闭环流程</div>
+    <svg viewBox="0 0 380 520" xmlns="http://www.w3.org/2000/svg" style="max-width:380px;">
+      <defs>
+        <marker id="arrowB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#d4cfc8"/></marker>
+        <marker id="arrowC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#e8600a"/></marker>
+      </defs>
+      <rect x="20" y="10" width="340" height="72" rx="8" fill="#1a2744"/>
+      <text x="56" y="38" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="rgba(255,255,255,0.5)" font-weight="700">STEP 1</text>
+      <text x="56" y="56" font-family="-apple-system,PingFang SC,sans-serif" font-size="14" fill="white" font-weight="700">闭卷重做</text>
+      <text x="56" y="72" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="rgba(255,255,255,0.6)">筛出真 Bug，节省精力给值得处理的题</text>
+      <circle cx="34" cy="46" r="10" fill="#e8600a"/><text x="34" y="50" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="white" font-weight="700">1</text>
+      <line x1="190" y1="82" x2="190" y2="100" stroke="#d4cfc8" stroke-width="1.5" marker-end="url(#arrowB)"/>
+      <rect x="20" y="100" width="140" height="32" rx="4" fill="#f5f4f0"/>
+      <text x="90" y="121" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="#6b6b6b">✓ 做对 → 假性，放过</text>
+      <rect x="220" y="100" width="140" height="32" rx="4" fill="#fff5ee" stroke="#e8600a" stroke-width="1"/>
+      <text x="290" y="121" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="#e8600a" font-weight="700">✗ 还是错 → 真Bug！</text>
+      <line x1="290" y1="132" x2="290" y2="152" stroke="#e8600a" stroke-width="1.5"/>
+      <line x1="290" y1="152" x2="190" y2="152" stroke="#e8600a" stroke-width="1.5" marker-end="url(#arrowC)"/>
+      <rect x="20" y="160" width="340" height="72" rx="8" fill="#1a2744"/>
+      <text x="56" y="188" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="rgba(255,255,255,0.5)" font-weight="700">STEP 2</text>
+      <text x="56" y="206" font-family="-apple-system,PingFang SC,sans-serif" font-size="14" fill="white" font-weight="700">5 Why 根因追问</text>
+      <text x="56" y="222" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="rgba(255,255,255,0.6)">一层一层往下问，直到找到具体的认知漏洞</text>
+      <circle cx="34" cy="196" r="10" fill="#e8600a"/><text x="34" y="200" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="white" font-weight="700">2</text>
+      <line x1="190" y1="232" x2="190" y2="252" stroke="#d4cfc8" stroke-width="1.5" marker-end="url(#arrowB)"/>
+      <rect x="20" y="260" width="340" height="72" rx="8" fill="#1a2744"/>
+      <text x="56" y="288" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="rgba(255,255,255,0.5)" font-weight="700">STEP 3</text>
+      <text x="56" y="306" font-family="-apple-system,PingFang SC,sans-serif" font-size="14" fill="white" font-weight="700">根因打标 + 防呆设计</text>
+      <text x="56" y="322" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="rgba(255,255,255,0.6)">贴标签建图谱 · 写物理动作（禁止"下次注意"）</text>
+      <circle cx="34" cy="296" r="10" fill="#e8600a"/><text x="34" y="300" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="white" font-weight="700">3</text>
+      <line x1="190" y1="332" x2="190" y2="352" stroke="#d4cfc8" stroke-width="1.5" marker-end="url(#arrowB)"/>
+      <rect x="20" y="360" width="340" height="72" rx="8" fill="#1a2744"/>
+      <text x="56" y="388" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="rgba(255,255,255,0.5)" font-weight="700">STEP 4</text>
+      <text x="56" y="406" font-family="-apple-system,PingFang SC,sans-serif" font-size="14" fill="white" font-weight="700">设定复习节点</text>
+      <text x="56" y="422" font-family="-apple-system,PingFang SC,sans-serif" font-size="10" fill="rgba(255,255,255,0.6)">次日 → 3天后 → 7天后 → 15天后，写进日历</text>
+      <circle cx="34" cy="396" r="10" fill="#e8600a"/><text x="34" y="400" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="white" font-weight="700">4</text>
+      <line x1="190" y1="432" x2="190" y2="452" stroke="#d4cfc8" stroke-width="1.5" marker-end="url(#arrowB)"/>
+      <rect x="20" y="460" width="340" height="52" rx="8" fill="#e8600a"/>
+      <text x="56" y="480" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="rgba(255,255,255,0.7)" font-weight="700">STEP 5</text>
+      <text x="56" y="498" font-family="-apple-system,PingFang SC,sans-serif" font-size="14" fill="white" font-weight="700">费曼通关 · 讲清楚才算结束 🏆</text>
+      <circle cx="34" cy="486" r="10" fill="white"/><text x="34" y="490" text-anchor="middle" font-family="-apple-system,PingFang SC,sans-serif" font-size="11" fill="#e8600a" font-weight="700">5</text>
+    </svg>
+    <div class="svg-diagram-caption">五步不能跳，每一步都有它的位置。第一步筛掉假Bug，后四步处理真Bug，第五步决定有没有真正结束。</div>
+  </div>
+
+  <p>下面，我把每一个步骤都讲清楚——不只是"做什么"，还有"完成的标准是什么"，以及"最容易在哪里走偏"。</p>
+
+  <!-- ===== STEP 1 ===== -->
+  <div class="step-card">
+    <div class="step-card-header">
+      <div class="step-badge">1</div>
+      <div>
+        <div class="step-card-title">闭卷重做——先筛出真Bug</div>
+        <div class="step-card-subtitle">目标：区分真性错题与假性错题</div>
+      </div>
+    </div>
+
+    <p>拿到批改后的卷子或作业，第一件事不是去看答案，而是拿一张白纸把答案那栏完全盖住，重新做一遍。</p>
+
+    <ul class="step-points">
+      <li><strong>做对了</strong>：假性错题。大脑临时宕机，不需要进入后续流程。打个勾，标记一下，放过它。</li>
+      <li><strong>还是错了</strong>：真Bug确认。这道题有真实的认知漏洞，值得认真处理。拿出系统除错单，开始填写。</li>
+    </ul>
+
+    <p>这一步看起来简单，但它是整套系统效率的基础。<strong>通过它，你能把每周真正需要花时间处理的错题，从几十道压缩到几道。</strong>把精力集中到最有价值的地方，而不是平均分散。</p>
+
+    <div class="step-warning">
+      ⚠️ <strong>最容易走偏：</strong>孩子"半遮半看"——眼睛余光瞄一眼答案，然后顺利做出来，以为自己会了。这不是在骗你，是在骗自己。
+      解决方法很简单：<strong>白纸要完全盖住，或者把答案那页直接折起来，或者换一张纸单独写题目重做。</strong>盖不严，就换个方式，没有商量的余地。
+    </div>
+  </div>
+
+  <!-- ===== STEP 2 ===== -->
+  <div class="step-card">
+    <div class="step-card-header">
+      <div class="step-badge">2</div>
+      <div>
+        <div class="step-card-title">5 Why追问——找到真正的根因</div>
+        <div class="step-card-subtitle">目标：找到一个可以被处理的具体认知漏洞</div>
+      </div>
+    </div>
+
+    <p>真Bug确认了，接下来是整套系统最核心的一步。家长化身冷静的质检员，引导孩子做5 Why追问。</p>
+
+    <p>具体怎么问，第四章已经有完整的脚本。这里只强调完成的标准：</p>
+
+    <div class="compare-box">
+      <div class="compare-col bad">
+        <div class="compare-label">❌ 根因没找到</div>
+        <p>"粗心了"</p>
+        <p>"没认真看题"</p>
+        <p>"计算失误"</p>
+        <p>"公式用错了"</p>
+        <p style="color:#cc0000;font-size:0.75rem;">这些都是症状描述，不是根因。</p>
+      </div>
+      <div class="compare-col good">
+        <div class="compare-label">✅ 根因找到了</div>
+        <p>"正弦余弦适用条件没有真正理解，只是靠感觉在套"</p>
+        <p>"看到分数题就开始算，没有先判断是否需要通分"</p>
+        <p style="color:#009900;font-size:0.75rem;">具体到某个认知漏洞。</p>
+      </div>
+    </div>
+
+    <p><strong>判断标准只有一个：找到的根因，能不能设计出一个具体的改进动作？</strong>如果能，根因找对了。如果只能写"下次注意"，说明还没到底，继续往下问。</p>
+
+    <div class="step-warning">
+      ⚠️ <strong>最容易走偏：</strong>把追问变成审问。孩子感到压力，开始给"让你满意的答案"而不是真实的答案。一旦发现这个苗头，立刻放缓语气，从孩子懂的地方重新开始："你觉得这道题哪部分是你真的懂的？从这里说。"
+    </div>
+  </div>
+
+  <!-- ===== STEP 3 ===== -->
+  <div class="step-card">
+    <div class="step-card-header">
+      <div class="step-badge">3</div>
+      <div>
+        <div class="step-card-title">根因打标 + 防呆设计——贴标签，打补丁</div>
+        <div class="step-card-subtitle">目标：归类漏洞 + 设计下次不再犯的具体动作</div>
+      </div>
+    </div>
+
+    <p>这一步分成两个动作，建议一起做完再进入第四步。</p>
+
+    <p><strong>第一个动作：根因打标。</strong>从五个类型里选一个最接近的：</p>
+
+    <div class="tag-grid">
+      <div class="tag-item">
+        <span class="tag-item-icon">🧠</span>
+        <span class="tag-item-name">知识盲区</span>
+        <span class="tag-item-desc">概念没理解，方法没掌握</span>
+      </div>
+      <div class="tag-item">
+        <span class="tag-item-icon">👁</span>
+        <span class="tag-item-name">审题错误</span>
+        <span class="tag-item-desc">漏看条件，误解题意</span>
+      </div>
+      <div class="tag-item">
+        <span class="tag-item-icon">🛤</span>
+        <span class="tag-item-name">思路偏差</span>
+        <span class="tag-item-desc">解题方向整个走错</span>
+      </div>
+      <div class="tag-item">
+        <span class="tag-item-icon">🏃</span>
+        <span class="tag-item-name">执行失误</span>
+        <span class="tag-item-desc">纯计算或抄写错误</span>
+      </div>
+      <div class="tag-item">
+        <span class="tag-item-icon">💔</span>
+        <span class="tag-item-name">考试心态</span>
+        <span class="tag-item-desc">紧张、时间分配失误</span>
+      </div>
+    </div>
+
+    <p>贴完标签，不要停。立刻进入第二个动作。</p>
+
+    <p><strong>第二个动作：防呆设计。</strong>针对这个具体根因，设计一个下次可以执行的物理动作。</p>
+
+    <div class="compare-box">
+      <div class="compare-col bad">
+        <div class="compare-label">❌ 废话承诺</div>
+        <p>"以后草稿要整洁"</p>
+        <p>"下次要看清楚题目条件"</p>
+        <p>"以后正弦余弦别搞混"</p>
+        <p style="color:#cc0000;font-size:0.75rem;">无法执行，无法验证，相当于没写。</p>
+      </div>
+      <div class="compare-col good">
+        <div class="compare-label">✅ 物理动作</div>
+        <p>"草稿纸对折分四块，每块只算一道题"</p>
+        <p>"拿到题先用铅笔圈出所有已知条件，圈完再动笔"</p>
+        <p>"做三角题前在草稿顶端先写判断条件"</p>
+        <p style="color:#009900;font-size:0.75rem;">可执行，可观察，可验证有没有做。</p>
+      </div>
+    </div>
+
+    <div class="step-warning">
+      ⚠️ <strong>最容易走偏：</strong>写了动作，但动作太抽象。判断标准：能不能想象出一个具体的画面——孩子拿着铅笔做了什么、草稿纸怎么折、在哪里写了什么。如果想象不出来，就还不够具体，继续改。
+    </div>
+
+    <p style="margin-top:1rem;font-family:var(--font-sans);font-size:0.82rem;color:var(--mid-gray);">
+      关于标签的长期价值：每道题单独的标签意义有限。但积累一个月，把所有标签拿出来看，你会发现孩子的高频标签开始浮现。<strong>那个图谱，就是孩子真实的薄弱点地图，比任何一次模拟考的成绩分析都更准确，因为它来自每一道真实错题的根因，而不是来自分数的表面波动。</strong>
+    </p>
+  </div>
+
+  <!-- ===== STEP 4 ===== -->
+  <div class="step-card">
+    <div class="step-card-header">
+      <div class="step-badge">4</div>
+      <div>
+        <div class="step-card-title">设定复习节点——写进日历</div>
+        <div class="step-card-subtitle">目标：让艾宾浩斯的时机管理自动发生</div>
+      </div>
+    </div>
+
+    <p>处理完根因和防呆设计，在除错单上写下四个复习日期，工作就完成了这一步。</p>
+
+    <table class="time-table">
+      <thead>
+        <tr>
+          <th>复习节点</th>
+          <th class="th-orange">通关标准</th>
+          <th>大概需要多久</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-key">次日</td>
+          <td>能流畅讲出解题逻辑</td>
+          <td>3-5 分钟</td>
+        </tr>
+        <tr>
+          <td class="col-key">3 天后</td>
+          <td>不需要提示，独立讲清楚</td>
+          <td>2-4 分钟</td>
+        </tr>
+        <tr>
+          <td class="col-key">7 天后</td>
+          <td>讲出来且逻辑无漏洞</td>
+          <td>2-3 分钟</td>
+        </tr>
+        <tr>
+          <td class="col-key">15 天后 🏆</td>
+          <td>流畅、准确、无需思考</td>
+          <td>1-2 分钟，彻底通关</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>日期写好之后，把这张除错单放在每天一定会看到的地方。</p>
+
+    <ul class="step-points">
+      <li>冰箱门上（全家人都会路过）</li>
+      <li>书桌上最显眼的角落</li>
+      <li>夹在当天要用的课本里</li>
+      <li>如果用电子系统，设置日历提醒</li>
+    </ul>
+
+    <div class="step-warning">
+      ⚠️ <strong>最容易走偏：</strong>日期填完，除错单放进一个"整理得很好"的文件夹，然后忘了。<strong>放在看不见的地方，等于没有写。</strong>这一步的关键不是填日期，是让那张纸能在对的时间出现在视野里。
+    </div>
+  </div>
+
+  <!-- ===== STEP 5/6 ===== -->
+  <div class="step-card">
+    <div class="step-card-header">
+      <div class="step-badge" style="background:var(--orange);">5</div>
+      <div>
+        <div class="step-card-title">费曼通关——讲清楚，才算真正结束</div>
+        <div class="step-card-subtitle">目标：在每个节点验证理解有没有真正留下来</div>
+      </div>
+    </div>
+
+    <p>每到一个复习节点，只需要做一件事：</p>
+
+    <p><strong>让孩子看着这道题，把解题逻辑顺畅地讲给你听。不需要重做，不需要背答案，只需要讲清楚。</strong></p>
+
+    <ul class="step-points">
+      <li><strong>讲得流畅</strong>：在那个节点的格子里打勾，写"已讲通"，等下一个节点。</li>
+      <li><strong>讲到一半卡住</strong>：停在卡住的地方，把那一块重新想清楚，补上，不是重做整道题。这次复习不算通关，下次节点重点检查那个地方。</li>
+      <li><strong>四个节点全部打勾</strong>：在最后一格写"彻底通关🏆"。这道题从此移出复习文件夹，永久结束。</li>
+    </ul>
+
+    <p>通关的标准只有一个：如果你是一个完全不懂这道题的人，听了孩子的讲解，能不能大概明白这道题在做什么？</p>
+
+    <div class="step-good">
+      ✅ <strong>为什么是"讲"而不是"重做"：</strong>重做测试的是"步骤记忆"，讲清楚测试的是"逻辑理解"。步骤可以靠重复记住，但记住步骤不等于理解。一旦题目有任何变化，记住的步骤就会失效。而能讲清楚的，才是真正属于自己的。
+    </div>
+
+    <div class="step-warning">
+      ⚠️ <strong>最容易走偏：</strong>因为孩子已经讲了很久、看起来很累，家长心软，差不多了就给通关。<strong>降低标准的那一刻，整个验收环节就失去了意义。</strong>状态差的时候讲不清楚，说明这道题还没有真正稳定，更需要继续，而不是降低标准。
+    </div>
+  </div>
+
+  <h3>两个孩子，两种节奏，同一套框架</h3>
+
+  <p>这里需要说一件很现实的事：同样这六个动作，在大宝和小宝身上，执行起来的感觉完全不同。这很正常，不要用同一把尺子量两个不同年龄的孩子。</p>
+
+  <div class="kids-compare">
+    <div class="kid-card">
+      <div class="kid-header">
+        <div class="kid-avatar">大宝</div>
+        <div>
+          <div class="kid-name">大宝</div>
+          <div class="kid-grade">15岁 · 初三备考</div>
+        </div>
+      </div>
+      <ul>
+        <li>5 Why能自己推进到第三层，之后需要我跟进一两个问题</li>
+        <li>费曼讲不清楚时，我不提示，等他自己重新想</li>
+        <li>防呆动作大多数时候他自己提出，我判断够不够具体</li>
+        <li>复习文件夹自己管，我只负责到点听他讲</li>
+        <li>已进入自驱阶段，家长参与度低</li>
+      </ul>
+    </div>
+    <div class="kid-card">
+      <div class="kid-header">
+        <div class="kid-avatar">小宝</div>
+        <div>
+          <div class="kid-name">小宝</div>
+          <div class="kid-grade">11岁 · 五年级</div>
+        </div>
+      </div>
+      <ul>
+        <li>5 Why自己能到第二层，第三层需要我换个问法引导</li>
+        <li>费曼卡住时，我给更多提示帮他找到重新开口的入口</li>
+        <li>防呆动作通常需要我和他一起设计，再解释为什么</li>
+        <li>复习节点由我提醒，他来讲，我来判断通没通关</li>
+        <li>正在从家长主导过渡到孩子主导阶段</li>
+      </ul>
+    </div>
+  </div>
+
+  <p><strong>同一套框架，两种参与密度。</strong>年龄小的孩子，家长在每个环节的参与度更高，提供更多引导和提示。年龄大的孩子，家长逐步退到提问的位置，让孩子自己驱动这个循环。不需要等孩子到了某个年龄才开始，只需要根据孩子的实际状态，调整自己在每个环节的参与方式。</p>
+
+  <h3>执行时间参考：没有想象中那么久</h3>
+
+  <p>很多家长看到这六个动作，第一反应是：这得花多少时间？我来给你一个真实的参考。</p>
+
+  <div class="info-box box-engineer">
+    <div class="info-box-label">⏱️ 真实时间参考</div>
+    <p><strong>一道真Bug，第一次完整处理：</strong>约30-50分钟</p>
+    <p style="color:#4f46e5;font-size:0.78rem;margin-top:-0.3rem;margin-bottom:0.8rem;">闭卷重做5分钟 + 5 Why追问10-20分钟 + 打标打补丁7-10分钟 + 费曼初次验证10-15分钟</p>
+    <p><strong>后续每次复习节点（顺利）：</strong>2-5分钟，孩子讲清楚，打勾，结束。</p>
+    <p><strong>后续复习节点（卡壳）：</strong>额外5-10分钟，补上模糊的那一块，精准处理，不是重做整道题。</p>
+    <p><strong>到第四次节点（15天后）：</strong>绝大多数孩子能在1-2分钟内讲完，非常流畅。</p>
+    <p style="margin-top:0.8rem;"><strong>这个系统会越来越轻，而不是越积越重。</strong>彻底通关的题越来越多，复习压力会随时间递减，不是递增。</p>
+  </div>
+
+  <h3>一道真Bug的完整生命周期</h3>
+
+  <p>让我用大宝的一道具体例子，把这六步完整地走一遍，让你看清楚一道错题从"出现"到"彻底结束"，中间到底发生了什么。</p>
+
+  <div class="case-block">
+    <div class="case-label">真实案例 · 大宝 · 函数题</div>
+    <p><strong>第0天（发现）：</strong>模拟考卷发下来，大宝一道函数综合题做错了。</p>
+    <p><strong>第0天（闭卷重做）：</strong>盖住答案，重新做。还是错——真Bug确认，拿出除错单。</p>
+    <p><strong>第0天（5 Why追问）：</strong>追了四层，发现根因：他看到f(x)就直接开始算，没有先判断函数类型，导致用了错误的方法。不是不会这个函数，是"拿到题先判断类型"这个前置动作从来没有建立过。</p>
+    <p><strong>第0天（打标+防呆）：</strong>标签：思路偏差。防呆动作：做函数题前，在草稿纸左上角先写出函数类型和对应的解法框架，再开始做。</p>
+    <p><strong>第0天（设定节点）：</strong>除错单贴在书桌右上角，写上四个日期。</p>
+    <p><strong>第1天（复习1）：</strong>讲了2分钟，清楚流畅。打勾。</p>
+    <p><strong>第3天（复习2）：</strong>讲了1分半，比第一次还流畅。打勾。</p>
+    <p><strong>第7天（复习3）：</strong>讲到一半，某个步骤解释不清楚了。停在那里，把那块重新想清楚，再讲了一遍。打勾，但备注"第七天卡了一下"。</p>
+    <p><strong>第15天（复习4）：</strong>看了题目，1分钟讲完，没有任何卡顿。</p>
+    <p><strong>写下"彻底通关🏆"</strong>，除错单移出文件夹。这道题，永久结束了。</p>
+    <p style="margin-top:0.8rem;color:var(--mid-gray);font-size:0.8rem;">两个月后，大宝在另一套模拟卷上遇到同类型的函数题。他在草稿纸左上角写了函数类型，做出来了，做对了。</p>
+  </div>
+
+  <div class="key-quote">
+    <p>大宝有一次在考场上，看到一道函数题，下意识地在草稿纸左上角写了那几个字，然后才开始做。他做完之后告诉我这件事，顺嘴说：就习惯了，也没想那么多。<strong>这才是这套系统真正起作用的样子——不是在家长监督下执行一套流程，而是这套思维方式，已经变成他自己的一部分。</strong></p>
+  </div>
+
+  <h3>下一步：家长该站在哪里</h3>
+
+  <p>六个动作讲完了。但有一个问题我注意到还没有完整回答：这六个动作，在实际执行的时候，家长的角色是什么？</p>
+
+  <p>是每一步都深度参与，还是退到一边看着，还是只在某些环节出现？</p>
+
+  <p>这个问题，比六个动作本身更难。因为参与得太多，孩子会变成被拉着走的拖车；参与得太少，系统会在孩子还没能力自己转的时候就停掉。</p>
+
+  <p>下一章，我们专门来解决这个问题——<strong>家长的正确站位，不是发动机，而是变速箱。</strong></p>
+
+</article>
+
+<div class="chapter-nav">
+  <a href="#part3" class="ch-nav-btn prev">
+    <span class="ch-nav-arrow">←</span>
+    <span><span class="ch-nav-label">上一部分</span><span class="ch-nav-title">第三部分：术</span></span>
+  </a>
+  <a href="#ch9" class="ch-nav-btn next">
+    <span><span class="ch-nav-label">下一章</span><span class="ch-nav-title">家长的正确站位</span></span>
+    <span class="ch-nav-arrow">→</span>
+  </a>
+</div>
+
+</body>
+</html>
