@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock } from 'lucide-react';
 import Link from 'next/link';
+import BookCoverMockup from './BookCoverMockup';
 import { useBookChapters, type BookChapter } from '../lib/useBookChapters';
 
 type TocPart = {
@@ -37,8 +38,8 @@ function buildTocParts(chapters: BookChapter[]): TocPart[] {
     if (!currentPart || (chapter.partId && currentPart.partId !== chapter.partId)) {
       currentPart = {
         partId: chapter.partId ?? chapter.id,
-        badge: chapter.partLabel ?? '',
-        name: chapter.partTitle ?? chapter.title,
+        badge: chapter.partTitle ?? chapter.title,
+        name: [chapter.partLabel, chapter.partSubtitle].filter(Boolean).join('：') || chapter.title,
         description: chapter.partSummary,
         chapters: [],
       };
@@ -65,7 +66,7 @@ function ChapterLink({ chapter, compact = false }: { chapter: BookChapter; compa
     <Link href={href} className="block group no-underline">
       <div className={`flex items-start gap-3 ${compact ? 'py-6 md:py-7' : 'py-4 md:py-5'}`}>
         {chapterNumber && (
-          <span className="toc-chapter-num shrink-0 mt-0.5 text-xs font-bold text-[#e8600a] md:text-sm">
+          <span className="toc-chapter-num mt-0.5 shrink-0 text-xs font-bold text-[#e8600a] md:text-sm">
             {chapterNumber}
           </span>
         )}
@@ -135,31 +136,7 @@ export default function BookPage() {
             transition={{ duration: 0.6 }}
             className="mx-auto w-full max-w-sm shrink-0 md:w-1/2 lg:w-2/5"
           >
-            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-r-2xl rounded-l-sm border border-neutral-200 bg-[#fafafa] shadow-2xl">
-              <div className="absolute bottom-0 left-0 top-0 w-4 border-r border-neutral-400/30 bg-neutral-300 shadow-inner sm:w-6" />
-              <div className="flex h-full flex-col justify-between py-10 pl-10 pr-6 sm:py-16 sm:pl-12 sm:pr-8">
-                <div>
-                  <p className="mb-4 font-mono text-xs uppercase tracking-widest text-neutral-500 sm:mb-6 sm:text-sm">
-                    Socrates Press
-                  </p>
-                  <h1 className="font-serif text-2xl font-bold leading-[1.25] tracking-tight text-neutral-900 sm:text-3xl md:text-4xl lg:text-5xl">
-                    从错误开始：
-                    <br />
-                    一套真正能闭环的
-                    <br />
-                    学习系统
-                  </h1>
-                </div>
-
-                <div>
-                  <div className="mb-4 h-1 w-8 bg-neutral-900 sm:mb-6 sm:w-12" />
-                  <p className="text-base font-bold text-neutral-900 sm:text-lg">关博 / 工程爸</p>
-                  <p className="mt-1 text-xs text-neutral-500 sm:text-sm">
-                    一位工程师爸爸用工厂管理逻辑重建的学习方法
-                  </p>
-                </div>
-              </div>
-            </div>
+            <BookCoverMockup className="w-full" />
           </motion.div>
 
           <motion.div

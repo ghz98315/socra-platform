@@ -3,6 +3,7 @@
 import { motion } from 'motion/react';
 import { ArrowRight, BookOpen, ChevronRight, Mail, PenTool, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
+import BookCoverMockup from './BookCoverMockup';
 import { useArticles } from '../lib/useArticles';
 
 export default function LandingPage() {
@@ -117,24 +118,10 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="lg:w-1/2 bg-neutral-800 w-full h-full min-h-[400px] lg:min-h-[600px] flex items-center justify-center p-12 sm:p-16 lg:p-12 relative">
-              {/* Abstract Book Cover Mockup */}
-              <div className="w-48 h-72 sm:w-64 sm:h-96 bg-[#fafafa] rounded-r-xl rounded-l-sm shadow-2xl relative overflow-hidden transform md:rotate-3 transition-transform hover:rotate-0 duration-500">
-                <div className="absolute left-0 top-0 bottom-0 w-3 sm:w-4 bg-neutral-300 border-r border-neutral-400/30"></div>
-                <div className="pl-6 sm:pl-10 pr-4 sm:pr-6 py-8 sm:py-12 h-full flex flex-col justify-between">
-                  <div>
-                    <p className="text-[10px] sm:text-xs font-mono text-neutral-500 tracking-widest uppercase mb-2 sm:mb-4">Socrates Press</p>
-                    <h3 className="font-serif text-lg sm:text-xl lg:text-2xl font-bold text-neutral-900 leading-[1.4] tracking-tight">
-                      从错误开始：<br/>
-                      一套真正能<br/>
-                      闭环的学习系统
-                    </h3>
-                  </div>
-                  <div>
-                    <div className="w-6 sm:w-8 h-1 bg-neutral-900 mb-3 sm:mb-4"></div>
-                    <p className="text-xs sm:text-sm font-medium text-neutral-900">关博 / 工程爸</p>
-                  </div>
-                </div>
-              </div>
+              <BookCoverMockup
+                className="w-48 sm:w-64"
+                rotateClassName="md:rotate-[4deg] hover:rotate-0"
+              />
             </div>
           </div>
         </div>
