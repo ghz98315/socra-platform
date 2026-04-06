@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 type BookCoverMockupProps = {
   className?: string;
@@ -23,66 +23,63 @@ export default function BookCoverMockup({
   return (
     <div className={`relative aspect-[2/3] ${className}`}>
       <div className={`absolute inset-0 transition-transform duration-500 ${rotateClassName}`.trim()}>
-        <div className="absolute inset-x-[10%] bottom-[-2%] top-[5%] rounded-[40px] bg-[#0d1426]/22 blur-2xl" />
+        <div className="absolute inset-x-[13%] bottom-[-1.5%] top-[6%] rounded-[40px] bg-[#0d1426]/20 blur-2xl" />
 
-        <div className="absolute bottom-[1.4%] left-[1.5%] top-[1.4%] w-[10%] rounded-l-[26px] bg-gradient-to-b from-[#6f7d96] via-[#495671] to-[#2f3850] shadow-[inset_-2px_0_0_rgba(255,255,255,0.15),inset_1px_0_0_rgba(17,24,39,0.35)]">
+        <div className="absolute bottom-[1.4%] left-[2.8%] top-[1.4%] w-[7.4%] rounded-l-[22px] bg-gradient-to-b from-[#6f7d96] via-[#4a5873] to-[#313a53] shadow-[inset_-1px_0_0_rgba(255,255,255,0.1),inset_1px_0_0_rgba(17,24,39,0.22)]">
           <div
-            className="absolute inset-y-[8%] left-[28%] text-[9px] tracking-[0.3em] text-white/35"
+            className="absolute inset-y-[8%] left-[37%] text-[7px] tracking-[0.24em] text-white/24"
             style={{ writingMode: 'vertical-rl' }}
           >
             SOCRATES PRESS
           </div>
         </div>
 
-        <div className="absolute inset-y-0 left-[9%] right-0 overflow-hidden rounded-[0_30px_30px_10px] border border-[#d7dce6]/35 bg-[#1a2744] shadow-[0_22px_48px_rgba(17,24,39,0.28),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div className="absolute inset-y-0 left-[7.5%] right-0 overflow-hidden rounded-[0_26px_26px_10px] border border-[#d7dce6]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(17,24,39,0.26),inset_0_1px_0_rgba(255,255,255,0.07)]">
           <div
-            className="absolute inset-0 opacity-[0.14]"
+            className="absolute inset-0 opacity-[0.05]"
             style={{
               backgroundImage:
-                'repeating-linear-gradient(0deg, transparent, transparent 42px, rgba(255,255,255,0.18) 42px, rgba(255,255,255,0.18) 43px), repeating-linear-gradient(90deg, transparent, transparent 42px, rgba(255,255,255,0.18) 42px, rgba(255,255,255,0.18) 43px)',
+                'repeating-linear-gradient(0deg, transparent, transparent 54px, rgba(255,255,255,0.12) 54px, rgba(255,255,255,0.12) 55px), repeating-linear-gradient(90deg, transparent, transparent 54px, rgba(255,255,255,0.12) 54px, rgba(255,255,255,0.12) 55px)',
             }}
           />
-          <div className="absolute inset-y-0 right-0 w-[14%] bg-gradient-to-l from-white/10 via-white/3 to-transparent" />
-          <div className="absolute inset-x-0 top-0 h-[18%] bg-gradient-to-b from-white/7 to-transparent" />
+          <div className="absolute inset-y-0 right-0 w-[10%] bg-gradient-to-l from-white/7 via-white/2 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-white/5 to-transparent" />
 
-          <div className="relative flex h-full flex-col items-center justify-between px-[10%] py-[9%] text-center text-white">
+          <div className="relative flex h-full flex-col justify-between px-[12%] py-[10.5%] text-white">
             <div className="w-full">
-              <div className="mx-auto mb-[10%] inline-flex rounded-full border border-[#e8600a]/70 px-4 py-1.5 text-[10px] font-medium tracking-[0.22em] text-[#ffd1b4]">
+              <div className="mb-[18%] inline-flex rounded-full border border-[#e8600a]/65 px-4 py-1.5 text-[9px] font-medium tracking-[0.16em] text-[#ffd1b4]">
                 {COVER_TAG}
               </div>
 
-              <h3 className="font-serif text-[clamp(1.7rem,5vw,3rem)] font-semibold leading-[1.16] tracking-[-0.03em] text-white">
-                <span>{TITLE_LINE_1_PREFIX}</span>
-                <span className="text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
-                <span>{TITLE_LINE_1_SUFFIX}</span>
+              <h3 className="max-w-[82%] font-serif text-[clamp(1.42rem,3.85vw,2.18rem)] font-semibold leading-[1.28] tracking-[-0.04em] text-white">
+                <span className="inline-block">{TITLE_LINE_1_PREFIX}</span>
+                <span className="inline-block text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
+                <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
+                <span className="inline-block align-top text-[0.82em] text-white/82">{':'}</span>
                 <br />
                 <span>{TITLE_LINE_2}</span>
                 <br />
                 <span>{TITLE_LINE_3}</span>
               </h3>
 
-              <div className="mx-auto mt-[9%] h-[2px] w-12 bg-[#e8600a]" />
+              <div className="mt-[12%] h-[2px] w-12 bg-[#e8600a]" />
 
-              <p className="mx-auto mt-[7%] max-w-[82%] text-[0.78rem] leading-[1.7] text-[#d3dae9]">
+              <p className="mt-[8.5%] max-w-[68%] font-sans text-[0.68rem] leading-[1.8] text-[#d3dae9]">
                 {SUBTITLE}
               </p>
-
-              <div className="mt-[9%] flex items-center justify-center gap-2">
-                {FLOW_STEPS.map((step) => (
-                  <span
-                    key={step}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/18 bg-white/6 text-[0.72rem] font-semibold tracking-[0.04em] text-white/88"
-                  >
-                    {step}
-                  </span>
-                ))}
-              </div>
             </div>
 
             <div className="w-full">
-              <div className="mx-auto mb-5 h-[2px] w-10 bg-[#e8600a]" />
-              <p className="font-sans text-[0.95rem] font-semibold tracking-[0.08em] text-white">{AUTHOR}</p>
-              <p className="mt-2 font-sans text-[0.72rem] tracking-[0.08em] text-white/52">{AUTHOR_NOTE}</p>
+              <div className="mb-6 flex items-center justify-between gap-3">
+                <div className="h-[2px] w-10 bg-[#e8600a]" />
+                <div className="flex items-center gap-2 text-[0.52rem] tracking-[0.32em] text-white/38">
+                  {FLOW_STEPS.map((step) => (
+                    <span key={step}>{step}</span>
+                  ))}
+                </div>
+              </div>
+              <p className="font-sans text-[0.9rem] font-semibold tracking-[0.03em] text-white">{AUTHOR}</p>
+              <p className="mt-2 font-sans text-[0.66rem] tracking-[0.03em] text-white/50">{AUTHOR_NOTE}</p>
             </div>
           </div>
         </div>
