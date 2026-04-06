@@ -896,12 +896,16 @@
 .socrates-reader.epilogue-mode .epilogue-closing { margin-top: 4rem; padding-top: 3rem; border-top: 1px solid rgba(255,255,255,0.12); }
 .socrates-reader.epilogue-mode .epilogue-closing p { color: rgba(255,255,255,0.6) !important; font-family: var(--font-sans); font-size: 0.85rem !important; line-height: 1.8; margin-bottom: 1.2rem; }
 .socrates-reader.epilogue-mode .epilogue-cta { text-align: center; margin-top: 4rem; padding: 3rem 2rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; background: rgba(255,255,255,0.02); }
+.socrates-reader.epilogue-mode .epilogue-cta p { text-align: center !important; }
 .socrates-reader.epilogue-mode .cta-main { font-size: clamp(1.2rem, 3vw, 1.5rem); color: white; margin-bottom: 0.8rem; font-family: var(--font-serif); font-style: italic; line-height: 1.5; }
 .socrates-reader.epilogue-mode .cta-sub { font-family: var(--font-sans); font-size: 0.82rem; color: rgba(255,255,255,0.45); line-height: 1.7; max-width: 420px; margin: 0 auto; }
 .socrates-reader.epilogue-mode .cta-divider { width: 40px; height: 2px; background: var(--orange); margin: 1.8rem auto; }
 .socrates-reader.epilogue-mode .author-sign { font-family: var(--font-sans); font-size: 0.75rem; color: rgba(255,255,255,0.3); letter-spacing: 0.12em; margin-top: 1rem; }
 
 /* APPENDIX */
+.socrates-reader .appendix-section { background: var(--stone); padding: 4rem 1.5rem; }
+.dark .socrates-reader .appendix-section { background: #1a1a1a; }
+.socrates-reader .appendix-inner { max-width: var(--max-width); margin: 0 auto; }
 .socrates-reader .appendix-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 1rem; margin-top: 1.5rem; }
 .socrates-reader .appendix-card { border: 1px solid var(--warm-gray); border-radius: 8px; padding: 1.4rem; transition: all 0.2s; background: var(--white); }
 .dark .socrates-reader .appendix-card { background: #1e1e1e; border-color: #333; }

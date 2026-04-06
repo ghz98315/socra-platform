@@ -18,4 +18,8 @@ export const GENERATED_FILE_BACKED_BOOK_CHAPTERS = {
     repoPath: "book/ch12.html",
     relativeFilePathFromSource: "../../../book/ch12.html",
   },
+  appendix: {
+    repoPath: "book/appendix.html",
+    relativeFilePathFromSource: "../../../book/appendix.html",
+  },
 } as const;

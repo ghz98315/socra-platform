@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,16 +15,29 @@ function extractChapterArticle(html) {
   return articleMatch?.[1]?.trim() ?? null;
 }
 
+function getChapterFileSortOrder(fileName) {
+  const chapterMatch = fileName.match(/^ch(\d+)\.html$/i);
+  if (chapterMatch) {
+    return Number.parseInt(chapterMatch[1], 10);
+  }
+
+  if (fileName.toLowerCase() === 'appendix.html') {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  return Number.MAX_SAFE_INTEGER - 1;
+}
+
 function compareChapterFiles(a, b) {
-  const aNum = Number.parseInt(a.match(/\d+/)?.[0] ?? '0', 10);
-  const bNum = Number.parseInt(b.match(/\d+/)?.[0] ?? '0', 10);
-  return aNum - bNum || a.localeCompare(b, 'en');
+  const aOrder = getChapterFileSortOrder(a);
+  const bOrder = getChapterFileSortOrder(b);
+  return aOrder - bOrder || a.localeCompare(b, 'en');
 }
 
 async function main() {
   const entries = await readdir(bookDir, { withFileTypes: true });
   const htmlFiles = entries
-    .filter((entry) => entry.isFile() && /^ch\d+\.html$/i.test(entry.name))
+    .filter((entry) => entry.isFile() && (/^ch\d+\.html$/i.test(entry.name) || /^appendix\.html$/i.test(entry.name)))
     .map((entry) => entry.name)
     .sort(compareChapterFiles);
 

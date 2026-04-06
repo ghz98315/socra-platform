@@ -194,7 +194,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
     : !isPlaceholderChapterContent(chapter.content)
       ? chapter.content
       : chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT;
-  const hasEmbeddedHeader = /class=["'][^"']*(chapter-header|epilogue-section)[^"']*["']/.test(chapterContent);
+  const hasEmbeddedHeader = /class=["'][^"']*(chapter-header|epilogue-section|appendix-section)[^"']*["']/.test(chapterContent);
 
   const chapterHeaderHtml = `
     <div class="mb-16 text-left" style="break-after: avoid;">

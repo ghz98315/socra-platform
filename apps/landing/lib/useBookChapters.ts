@@ -1162,11 +1162,11 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
 ,
   { 
     id: 'appendix', 
-    title: '附录：Socrates 系统实操指南', 
+    title: '附录：配套工具包', 
     chapterNumber: 13,
     isFree: true, 
     order: 14,
-    summary: '如何将书中的理念，在 Socrates 错题系统中完美落地。',
+    summary: '把系统除错单、复习计划表、周复盘模板和根因标签表收成一组真正可落地的执行工具。',
     content: `<p>本章内容正在撰写中...</p>`
   }
 ];
@@ -1249,4 +1249,5 @@ export function useBookChapters() {
 
   return { chapters, updateChapter, addChapter, deleteChapter, isLoaded };
 }
+
 

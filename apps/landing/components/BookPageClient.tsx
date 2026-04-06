@@ -1,92 +1,233 @@
-﻿'use client';
+'use client';
 
 import { motion } from 'motion/react';
-import { ArrowLeft, CheckCircle2, BookOpen, ArrowRight, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { useBookChapters } from '../lib/useBookChapters';
+import { useBookChapters, type BookChapter } from '../lib/useBookChapters';
+
+type TocPart = {
+  partId: string;
+  badge: string;
+  name: string;
+  description?: string;
+  chapters: BookChapter[];
+};
+
+function buildTocParts(chapters: BookChapter[]): TocPart[] {
+  const parts: TocPart[] = [];
+  let currentPart: TocPart | null = null;
+
+  for (const chapter of chapters) {
+    if (chapter.id === 'prologue' || chapter.id === 'epilogue' || chapter.id === 'appendix') {
+      continue;
+    }
+
+    if (chapter.isPartCover) {
+      currentPart = {
+        partId: chapter.partId ?? chapter.id,
+        badge: chapter.partTitle ?? chapter.title,
+        name: [chapter.partLabel, chapter.partSubtitle].filter(Boolean).join('：') || chapter.title,
+        description: chapter.partSummary,
+        chapters: [],
+      };
+      parts.push(currentPart);
+      continue;
+    }
+
+    if (!currentPart || (chapter.partId && currentPart.partId !== chapter.partId)) {
+      currentPart = {
+        partId: chapter.partId ?? chapter.id,
+        badge: chapter.partLabel ?? '',
+        name: chapter.partTitle ?? chapter.title,
+        description: chapter.partSummary,
+        chapters: [],
+      };
+      parts.push(currentPart);
+    }
+
+    currentPart.chapters.push(chapter);
+  }
+
+  return parts;
+}
+
+function ChapterLink({ chapter, compact = false }: { chapter: BookChapter; compact?: boolean }) {
+  const href = chapter.isFree ? `/read/${chapter.id}` : '/book-purchase';
+  const chapterNumber =
+    !compact &&
+    typeof chapter.chapterNumber === 'number' &&
+    chapter.chapterNumber > 0 &&
+    chapter.chapterNumber < 12
+      ? chapter.chapterNumber.toString().padStart(2, '0')
+      : null;
+
+  return (
+    <Link href={href} className="block group no-underline">
+      <div className={`flex items-start gap-3 ${compact ? 'py-6 md:py-7' : 'py-4 md:py-5'}`}>
+        {chapterNumber && (
+          <span className="toc-chapter-num shrink-0 mt-0.5 text-xs font-bold text-[#e8600a] md:text-sm">
+            {chapterNumber}
+          </span>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <span
+              className={`font-serif text-neutral-800 transition-colors group-hover:text-[#e8600a] ${
+                compact ? 'text-[1rem] md:text-[1.06rem]' : 'text-[0.98rem] md:text-[1.03rem]'
+              }`}
+            >
+              {chapter.title}
+            </span>
+
+            {chapter.isFree ? (
+              <span className="mt-0.5 shrink-0 rounded-sm bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
+                试读
+              </span>
+            ) : (
+              <Lock className="mt-1 h-3.5 w-3.5 shrink-0 text-neutral-300" />
+            )}
+          </div>
+
+          {chapter.summary && (
+            <p
+              className={`font-sans italic leading-relaxed text-neutral-500 ${
+                compact ? 'mt-2 text-sm' : 'mt-2 text-[0.82rem] md:pl-7'
+              }`}
+            >
+              {chapter.summary}
+            </p>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function BookPage() {
   const { chapters, isLoaded } = useBookChapters();
 
+  if (!isLoaded) {
+    return null;
+  }
+
+  const orderedChapters = [...chapters].sort((a, b) => a.order - b.order);
+  const prefaceChapter = orderedChapters.find((chapter) => chapter.id === 'prologue');
+  const epilogueChapter = orderedChapters.find((chapter) => chapter.id === 'epilogue');
+  const appendixChapter = orderedChapters.find((chapter) => chapter.id === 'appendix');
+  const tocParts = buildTocParts(orderedChapters);
+
   return (
     <>
-<div className="py-12 md:py-24 px-4 sm:px-6 max-w-5xl mx-auto">
-      <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 mb-8 md:mb-12 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> 返回首页
-      </Link>
-
-      <div className="flex flex-col md:flex-row gap-12 lg:gap-24 items-start">
-        {/* Left: Book Cover */}
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }}
-          className="w-full max-w-sm mx-auto md:w-1/2 lg:w-2/5 shrink-0"
+      <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 md:py-24">
+        <Link
+          href="/"
+          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900 md:mb-12"
         >
-          <div className="w-full aspect-[2/3] bg-[#fafafa] rounded-r-2xl rounded-l-sm shadow-2xl relative overflow-hidden border border-neutral-200">
-            <div className="absolute left-0 top-0 bottom-0 w-4 sm:w-6 bg-neutral-300 border-r border-neutral-400/30 shadow-inner"></div>
-            <div className="pl-10 sm:pl-12 pr-6 sm:pr-8 py-10 sm:py-16 h-full flex flex-col justify-between">
-              <div>
-                <p className="text-xs sm:text-sm font-mono text-neutral-500 tracking-widest uppercase mb-4 sm:mb-6">Socrates Press</p>
-                <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-neutral-900 leading-[1.25] tracking-tight">从错误开始：<br/>一套真正能闭环的<br/>学习系统</h1>
-              </div>
-              <div>
-                <div className="w-8 sm:w-12 h-1 bg-neutral-900 mb-4 sm:mb-6"></div>
-                <p className="text-base sm:text-lg font-bold text-neutral-900">关博 / 工程爸</p>
-                <p className="text-xs sm:text-sm text-neutral-500 mt-1">一位工程师爸爸用工厂管理逻辑重建的学习方法</p>
+          <ArrowLeft className="h-4 w-4" />
+          返回首页
+        </Link>
+
+        <div className="flex flex-col items-start gap-12 md:flex-row lg:gap-24">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mx-auto w-full max-w-sm shrink-0 md:w-1/2 lg:w-2/5"
+          >
+            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-r-2xl rounded-l-sm border border-neutral-200 bg-[#fafafa] shadow-2xl">
+              <div className="absolute bottom-0 left-0 top-0 w-4 border-r border-neutral-400/30 bg-neutral-300 shadow-inner sm:w-6" />
+              <div className="flex h-full flex-col justify-between py-10 pl-10 pr-6 sm:py-16 sm:pl-12 sm:pr-8">
+                <div>
+                  <p className="mb-4 font-mono text-xs uppercase tracking-widest text-neutral-500 sm:mb-6 sm:text-sm">
+                    Socrates Press
+                  </p>
+                  <h1 className="font-serif text-2xl font-bold leading-[1.25] tracking-tight text-neutral-900 sm:text-3xl md:text-4xl lg:text-5xl">
+                    从错误开始：
+                    <br />
+                    一套真正能闭环的
+                    <br />
+                    学习系统
+                  </h1>
+                </div>
+
+                <div>
+                  <div className="mb-4 h-1 w-8 bg-neutral-900 sm:mb-6 sm:w-12" />
+                  <p className="text-base font-bold text-neutral-900 sm:text-lg">关博 / 工程爸</p>
+                  <p className="mt-1 text-xs text-neutral-500 sm:text-sm">
+                    一位工程师爸爸用工厂管理逻辑重建的学习方法
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        {/* Right: Book Details */}
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="w-full md:w-1/2 lg:w-3/5"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 text-neutral-600 text-xs font-medium mb-6">
-            <BookOpen className="w-4 h-4" />
-            <span>电子书首发</span>
-          </div>
-          <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-neutral-900 mb-4 sm:mb-5 leading-[1.3] tracking-tight">
-            从错误开始：一套真正能闭环的学习系统
-          </h2>
-          <p className="text-lg sm:text-xl text-neutral-500 mb-8 font-medium leading-relaxed">
-            一位工程师爸爸用工厂管理逻辑重建的学习方法
-          </p>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="w-full md:w-1/2 lg:w-3/5"
+          >
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
+              <BookOpen className="h-4 w-4" />
+              <span>电子书首发</span>
+            </div>
 
-          <div className="space-y-6 mb-10 text-base sm:text-lg text-neutral-600 leading-[1.8] text-justify">
-            <p>大宝做几何题，正弦用成余弦。你问他为什么错，他说"粗心了"。</p>
-            <p>你在工厂做了十年，从来没有人能用"操作员粗心"结案一个质量问题。你知道这两个字背后藏着什么——一个没有被找到的根因，和一个准备再次发生的错误。</p>
-            <p>这本书，从那个下午开始写。</p>
-            <p>我将比亚迪10年质量管理的硬核逻辑，降维应用到孩子的日常错题管理中，为你揭示如何通过“5步闭环”彻底告别无效刷题。</p>
-          </div>
-
-          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 sm:p-6 mb-10">
-            <p className="text-sm sm:text-base text-neutral-600 leading-loose">
-              <strong className="text-neutral-900">💡 购书须知：</strong>首发特惠套装 ¥39.9，包含《从错误开始》电子书（永久买断）与 <strong>Socrates</strong> 错题系统 1 个月使用权益。1个月期满后，Socrates 系统可按季度续订（¥69/季度）。两者搭配使用效果最佳，相当于“心法+兵器”。
+            <h2 className="mb-4 font-serif text-2xl font-bold leading-[1.3] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-4xl lg:text-5xl">
+              从错误开始：一套真正能闭环的学习系统
+            </h2>
+            <p className="mb-8 text-lg font-medium leading-relaxed text-neutral-500 sm:text-xl">
+              不是提分技巧，不是管理工具，而是一种面对错误的方式。
             </p>
-          </div>
 
-          <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8 mb-10 shadow-sm">
-            <h3 className="font-bold text-lg sm:text-xl text-neutral-900 mb-5">你将在这本书中获得：</h3>
-            <ul className="space-y-4 text-base sm:text-lg leading-relaxed">
-              {['为什么传统的“错题本”注定会失败？', '如何用 8D 根因分析法解构一道错题？', '建立个人专属的“知识防呆系统”', 'Socrates 工具的深度配合使用指南'].map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-neutral-600">
-                  <CheckCircle2 className="w-5 h-5 text-neutral-900 shrink-0 mt-0.5" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+            <div className="mb-10 space-y-6 text-base leading-[1.8] text-neutral-600 text-justify sm:text-lg">
+              <p>大宝做几何题，正弦用成余弦。你问他为什么错，他说“粗心了”。</p>
+              <p>
+                但在工厂里，没有任何一份合格的质量报告会把“粗心”写成根因。因为这两个字一旦落下，追问就结束了，错误也只会换个时间再出现一次。
+              </p>
+              <p>这本书，就是从那个下午开始写的。</p>
+              <p>
+                它把工程管理里的 5 Why、费曼学习法、艾宾浩斯复习节奏和 PDCA 闭环，迁移到孩子每天都会遇到的错题场景里，重新回答一件事：一道题做错之后，到底怎样才算真的结束。
+              </p>
+            </div>
 
-            <div className="flex flex-col sm:flex-row gap-4" id="preview">
-              <Link href="/book-purchase" className="bg-neutral-900 text-white px-8 py-4 rounded-full font-medium text-center hover:bg-neutral-800 transition-colors shadow-lg shadow-neutral-900/20">
-                购买「书+工具」套装 (¥39.9)
+            <div className="mb-10 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 sm:p-6">
+              <p className="text-sm leading-loose text-neutral-600 sm:text-base">
+                <strong className="text-neutral-900">购书须知：</strong>
+                首发特惠套装 ¥39.9，包含《从错误开始》电子书永久阅读权益，以及
+                <strong> Socrates </strong>
+                错题系统 1 个月使用权益。电子书负责把逻辑讲清楚，系统负责把流程跑起来。
+              </p>
+            </div>
+
+            <div className="mb-10 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
+              <h3 className="mb-5 text-lg font-bold text-neutral-900 sm:text-xl">你将在这本书中获得</h3>
+              <ul className="space-y-4 text-base leading-relaxed sm:text-lg">
+                {[
+                  '为什么“粗心”“订正”“错题本”常常解决不了重复出错。',
+                  '如何用 5 Why 和费曼学习法，把一道题从做错追到真正学会。',
+                  '怎样把复习节点、迁移验证和家庭执行串成一条完整闭环。',
+                  '尾声与附录里的真实落地经验，以及可直接拿来用的配套工具模板。',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-neutral-600">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neutral-900" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div id="preview" className="flex flex-col gap-4 sm:flex-row">
+              <Link
+                href="/book-purchase"
+                className="rounded-full bg-neutral-900 px-8 py-4 text-center font-medium text-white shadow-lg shadow-neutral-900/20 transition-colors hover:bg-neutral-800"
+              >
+                购买「书 + 工具」套装（¥39.9）
               </Link>
-              <Link href="/read/prologue" className="bg-white border border-neutral-200 text-neutral-900 px-8 py-4 rounded-full font-medium text-center hover:bg-neutral-50 transition-colors">
+              <Link
+                href="/read/prologue"
+                className="rounded-full border border-neutral-200 bg-white px-8 py-4 text-center font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
+              >
                 开始免费试读
               </Link>
             </div>
@@ -94,133 +235,79 @@ export default function BookPage() {
         </div>
       </div>
 
-      {/* Table of Contents & Preview Section */}
-      <div id="toc-section" className="pt-16 md:pt-24 pb-24 bg-[#fafafa] border-t border-neutral-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="mb-12">
-            <h3 className="text-sm font-bold text-[#e8600a] mb-6 tracking-widest">目录</h3>
-            <h2 className="font-serif text-3xl md:text-4xl font-bold text-neutral-900 mb-6">这本书讲什么</h2>
-            <p className="text-neutral-600 text-base md:text-lg leading-relaxed text-justify">
-              这不是一本"学习技巧大全"，也不是一份App使用说明。它是一个做了十年工厂管理的工程爸，在看着孩子说出"粗心了"然后翻页的那个下午，突然意识到一件事之后写下来的——我们处理孩子错误的方式，和工厂里最不合格的质量报告，没有任何本质区别。书分四个部分：道（认知）、法（方法）、术（执行）、器（工具），一层一层往下走。
+      <div id="toc-section" className="border-t border-[#d4cfc8] bg-[#f5f4f0] py-16 md:py-24">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <div className="mb-12 md:mb-14">
+            <h3 className="mb-3 font-sans text-[0.72rem] font-bold tracking-[0.2em] text-[#e8600a]">目 录</h3>
+            <h2 className="mb-4 font-serif text-3xl font-normal text-[#1a2744] md:text-4xl">这本书讲什么</h2>
+            <p className="max-w-3xl font-sans text-[0.95rem] leading-[1.75] text-neutral-500 md:text-base">
+              这不是一本“学习技巧大全”，也不是一份 App 使用说明。它是一个做了十年工厂管理的工程师爸爸，在看着孩子说出“粗心了”然后翻页的那个下午，突然意识到一件事之后写下来的。全书分为道、法、术、器四个部分，最后以尾声收束，再把附录工具包作为最后一章落到执行层。
             </p>
           </div>
-          
-          <div className="h-px w-full bg-neutral-200 mb-12"></div>
 
-          <div className="space-y-16">
-              {/* Group chapters by part */}
-              {(() => {
-                const parts: {
-                  partId: string;
-                  partLabel?: string;
-                  partTitle?: string;
-                  partSubtitle?: string;
-                  partSummary?: string;
-                  chapters: typeof chapters;
-                }[] = [];
+          <div className="space-y-0">
+            {prefaceChapter && (
+              <div className="border-t border-[#d4cfc8]">
+                <ChapterLink chapter={prefaceChapter} compact />
+              </div>
+            )}
 
-                let currentPartId = '';
-                chapters.forEach(chapter => {
-                  const pId = chapter.partId || chapter.id; // Use chapter id as part id if no part
-                  if (pId !== currentPartId) {
-                    parts.push({
-                      partId: pId,
-                      partLabel: chapter.partLabel,
-                      partTitle: chapter.partTitle,
-                      partSubtitle: chapter.partSubtitle,
-                      partSummary: chapter.partSummary,
-                      chapters: []
-                    });
-                    currentPartId = pId;
-                  }
-                  
-                  if (!chapter.isPartCover) {
-                    parts[parts.length - 1].chapters.push(chapter);
-                  } else {
-                    const currentPart = parts[parts.length - 1];
-                    currentPart.partLabel = chapter.partLabel || currentPart.partLabel;
-                    currentPart.partTitle = chapter.partTitle || currentPart.partTitle;
-                    currentPart.partSubtitle = chapter.partSubtitle || currentPart.partSubtitle;
-                    currentPart.partSummary = chapter.partSummary || currentPart.partSummary;
-                  }
-                });
-
-                return parts.map((part, index) => (
-                  <div key={part.partId} className="relative">
-                    {part.partLabel && part.partTitle && (
-                      <div className="mb-8 py-6 border-y border-dashed border-neutral-300">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-[#1a2744] text-white flex items-center justify-center font-serif text-xl shrink-0">
-                            {part.partTitle}
-                          </div>
-                          <div>
-                            <h3 className="text-lg md:text-xl font-bold text-[#1a2744] mb-2 mt-1">
-                              {part.partLabel}：{part.partSubtitle}
-                            </h3>
-                            {part.partSummary && (
-                              <p className="text-neutral-500 text-sm leading-relaxed">
-                                {part.partSummary}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className={part.partLabel ? "pl-16" : ""}>
-                      {part.chapters.map(chapter => {
-                        const num = chapter.chapterNumber !== undefined ? chapter.chapterNumber.toString().padStart(2, '0') : '';
-                        const titleText = chapter.title;
-
-                        return (
-                          <div key={chapter.id} className="mb-8 group">
-                            <Link href={`/read/${chapter.id}`} className="block">
-                              <div className="flex items-start gap-3">
-                                {num && <span className="text-[#e8600a] font-bold text-lg mt-0.5 shrink-0">{num}</span>}
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <h4 className={`text-lg font-medium text-neutral-800 group-hover:text-[#e8600a] transition-colors ${!num ? 'font-serif text-xl' : ''}`}>
-                                      {titleText}
-                                    </h4>
-                                    {chapter.isFree ? (
-                                      <span className="text-[10px] font-medium px-2 py-0.5 bg-green-100 text-green-700 rounded-sm shrink-0">可试读</span>
-                                    ) : (
-                                      <Lock className="w-3.5 h-3.5 text-neutral-300 shrink-0" />
-                                    )}
-                                  </div>
-                                  {chapter.summary && (
-                                    <p className="text-sm md:text-base text-neutral-500 leading-relaxed italic">
-                                      {chapter.summary}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </Link>
-                          </div>
-                        );
-                      })}
+            {tocParts.map((part) => (
+              <div key={part.partId} className="border-t border-[#d4cfc8]">
+                <div className="flex items-start gap-4 px-0 pb-3 pt-6">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#1a2744] font-sans text-sm font-bold text-white">
+                    {part.badge}
+                  </div>
+                  <div className="flex-1">
+                    <div className="mb-2 font-sans text-[1rem] font-bold leading-[1.45] text-[#1a2744] md:text-[1.05rem]">
+                      {part.name}
                     </div>
-                    
-                    {/* Divider between parts, except the last one */}
-                    {index < parts.length - 1 && (
-                      <div className="h-px w-full bg-neutral-200 mt-16"></div>
+                    {part.description && (
+                      <p className="font-sans text-[0.8rem] leading-[1.65] text-neutral-500 md:text-[0.84rem]">
+                        {part.description}
+                      </p>
                     )}
                   </div>
-                ));
-              })()}
-            </div>
+                </div>
 
-            <div className="mt-24 p-8 bg-neutral-50 rounded-2xl text-center border border-neutral-100">
-              <h4 className="text-lg font-bold text-neutral-900 mb-3">准备好升级孩子的学习系统了吗？</h4>
-              <p className="text-neutral-600 mb-8">购买完整版电子书，解锁全部 12 个章节与实操模板，并获得 Socrates 错题系统 1 个月使用权益。</p>
-              <Link href="/book-purchase" className="inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-8 py-4 rounded-full font-medium hover:bg-neutral-800 transition-colors no-underline shadow-lg shadow-neutral-900/20">
-                前往扫码购买套装 (¥39.9) <ArrowRight className="w-4 h-4" />
-              </Link>
+                <div className="pb-5 pl-0 md:pl-14">
+                  {part.chapters.map((chapter) => (
+                    <div key={chapter.id} className="border-t border-dashed border-[#d4cfc8] first:border-t">
+                      <ChapterLink chapter={chapter} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {epilogueChapter && (
+              <div className="border-t border-[#d4cfc8]">
+                <ChapterLink chapter={epilogueChapter} compact />
+              </div>
+            )}
+
+            {appendixChapter && (
+              <div className="border-t border-[#d4cfc8]">
+                <ChapterLink chapter={appendixChapter} compact />
+              </div>
+            )}
+          </div>
+
+          <div className="mt-20 rounded-2xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
+            <h4 className="mb-3 text-lg font-bold text-neutral-900">准备好把这套系统真正跑起来了吗？</h4>
+            <p className="mb-8 text-neutral-600">
+              购买完整版电子书，解锁全书章节、尾声与附录模板，并获得 Socrates 错题系统 1 个月使用权益。
+            </p>
+            <Link
+              href="/book-purchase"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-8 py-4 font-medium text-white no-underline shadow-lg shadow-neutral-900/20 transition-colors hover:bg-neutral-800"
+            >
+              前往购买套装（¥39.9）
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>
     </>
   );
 }
-
-
