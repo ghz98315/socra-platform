@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, List, Lock, Moon, ScrollText, Settings, Sun } from 'lucide-react';
+import { isFileBackedBookChapter } from '../lib/bookChapterRegistry';
 import { useBookChapters } from '../lib/useBookChapters';
 
 type BookReaderClientProps = {
@@ -175,9 +176,11 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
     return label;
   };
 
-  const chapterContent = !isPlaceholderChapterContent(chapter.content)
-    ? chapter.content
-    : chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT;
+  const chapterContent = isFileBackedBookChapter(chapter.id)
+    ? chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT
+    : !isPlaceholderChapterContent(chapter.content)
+      ? chapter.content
+      : chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT;
   const hasEmbeddedHeader = /class=["']chapter-header["']/.test(chapterContent);
 
   const chapterHeaderHtml = `
@@ -451,3 +454,4 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
     </div>
   );
 }
+

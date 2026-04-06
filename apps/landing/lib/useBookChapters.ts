@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
+import { isFileBackedBookChapter } from './bookChapterRegistry';
 
 export interface BookChapter {
   id: string;
@@ -1170,23 +1171,59 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
   }
 ];
 
+const STORAGE_KEY = 'socrates_book_chapters_v14';
+
+function normalizeStoredChapters(storedChapters: BookChapter[]): BookChapter[] {
+  const storedById = new Map(
+    storedChapters
+      .filter((chapter): chapter is BookChapter => Boolean(chapter?.id))
+      .map((chapter) => [chapter.id, chapter]),
+  );
+
+  const normalizedDefaultChapters = DEFAULT_CHAPTERS.map((defaultChapter) => {
+    const storedChapter = storedById.get(defaultChapter.id);
+    if (!storedChapter) {
+      return defaultChapter;
+    }
+
+    storedById.delete(defaultChapter.id);
+
+    if (isFileBackedBookChapter(defaultChapter.id)) {
+      return defaultChapter;
+    }
+
+    return {
+      ...defaultChapter,
+      ...storedChapter,
+    };
+  });
+
+  const appendedCustomChapters = Array.from(storedById.values());
+
+  return [...normalizedDefaultChapters, ...appendedCustomChapters].sort((a, b) => a.order - b.order);
+}
+
 export function useBookChapters() {
   const [chapters, setChapters] = useState<BookChapter[]>(DEFAULT_CHAPTERS);
   const [isLoaded, setIsLoaded] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('socrates_book_chapters_v14');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        let parsed = JSON.parse(saved);
-        // Sort by order
-        setChapters(parsed.sort((a: BookChapter, b: BookChapter) => a.order - b.order));
+        const parsed = JSON.parse(saved);
+        const normalizedChapters = Array.isArray(parsed)
+          ? normalizeStoredChapters(parsed as BookChapter[])
+          : DEFAULT_CHAPTERS;
+
+        setChapters(normalizedChapters);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedChapters));
       } catch (e) {
         setChapters(DEFAULT_CHAPTERS);
       }
     } else {
       setChapters(DEFAULT_CHAPTERS);
-      localStorage.setItem('socrates_book_chapters_v14', JSON.stringify(DEFAULT_CHAPTERS));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CHAPTERS));
     }
     setIsLoaded(true);
   }, []);
@@ -1195,23 +1232,21 @@ export function useBookChapters() {
     const newChapters = chapters.map(c => c.id === updatedChapter.id ? updatedChapter : c);
     newChapters.sort((a, b) => a.order - b.order);
     setChapters(newChapters);
-    localStorage.setItem('socrates_book_chapters_v14', JSON.stringify(newChapters));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newChapters));
   };
 
   const addChapter = (chapter: BookChapter) => {
     const newChapters = [...chapters, chapter].sort((a, b) => a.order - b.order);
     setChapters(newChapters);
-    localStorage.setItem('socrates_book_chapters_v14', JSON.stringify(newChapters));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newChapters));
   };
 
   const deleteChapter = (id: string) => {
     const newChapters = chapters.filter(c => c.id !== id);
     setChapters(newChapters);
-    localStorage.setItem('socrates_book_chapters_v14', JSON.stringify(newChapters));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newChapters));
   };
 
   return { chapters, updateChapter, addChapter, deleteChapter, isLoaded };
 }
-
-
 
