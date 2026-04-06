@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 type BookCoverMockupProps = {
   className?: string;
@@ -24,105 +24,103 @@ export default function BookCoverMockup({
 }: BookCoverMockupProps) {
   const isHome = variant === 'home';
 
+  const shadowClass = isHome
+    ? 'absolute inset-x-[9%] bottom-[-2%] top-[4%] rounded-[48px] bg-[#0d1426]/24 blur-[34px]'
+    : 'absolute inset-x-[12%] bottom-[-1.6%] top-[5.5%] rounded-[42px] bg-[#0d1426]/20 blur-[28px]';
+  const spineClass = isHome
+    ? 'absolute bottom-[1.2%] left-[2%] top-[1.2%] w-[8.8%] rounded-l-[24px] bg-gradient-to-b from-[#7a88a4] via-[#55627f] to-[#37415b] shadow-[inset_-1px_0_0_rgba(255,255,255,0.16),inset_1px_0_0_rgba(15,23,42,0.28)]'
+    : 'absolute bottom-[1.35%] left-[2.5%] top-[1.35%] w-[7.9%] rounded-l-[22px] bg-gradient-to-b from-[#75839d] via-[#505d79] to-[#343e57] shadow-[inset_-1px_0_0_rgba(255,255,255,0.14),inset_1px_0_0_rgba(15,23,42,0.24)]';
+  const spineTextClass = isHome
+    ? 'absolute inset-y-[8%] left-[35%] text-[7px] tracking-[0.24em] text-white/22'
+    : 'absolute inset-y-[8%] left-[37%] text-[6px] tracking-[0.22em] text-white/20';
+  const coverShellClass = isHome
+    ? 'absolute inset-y-0 left-[7.8%] right-0 overflow-hidden rounded-[0_30px_30px_10px] border border-[#dce2ee]/28 bg-[#1a2744] shadow-[0_24px_56px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)]'
+    : 'absolute inset-y-0 left-[7.1%] right-0 overflow-hidden rounded-[0_28px_28px_10px] border border-[#dce2ee]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(15,23,42,0.27),inset_0_1px_0_rgba(255,255,255,0.07)]';
+  const contentPaddingClass = isHome ? 'px-[11%] py-[10%]' : 'px-[11.5%] py-[10.5%]';
+  const titleLine1Class = isHome
+    ? 'text-[clamp(1.85rem,4.8vw,2.9rem)] leading-[1.08]'
+    : 'text-[clamp(1.72rem,4.2vw,2.55rem)] leading-[1.08]';
+  const titleLine2Class = isHome
+    ? 'mt-[0.18em] text-[clamp(1.6rem,4.1vw,2.45rem)] leading-[1.12]'
+    : 'mt-[0.2em] text-[clamp(1.48rem,3.75vw,2.2rem)] leading-[1.14]';
+  const titleLine3Class = isHome
+    ? 'mt-[0.14em] text-[clamp(1.78rem,4.55vw,2.7rem)] leading-[1.08]'
+    : 'mt-[0.16em] text-[clamp(1.62rem,4vw,2.35rem)] leading-[1.1]';
+  const subtitleClass = isHome
+    ? 'mt-[8.5%] max-w-[70%] font-sans text-[0.72rem] leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.78rem]'
+    : 'mt-[9%] max-w-[72%] font-sans text-[0.66rem] leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.71rem]';
+  const authorClass = isHome
+    ? 'font-sans text-[0.98rem] font-semibold tracking-[0.03em] text-white'
+    : 'font-sans text-[0.92rem] font-semibold tracking-[0.03em] text-white';
+  const authorNoteClass = isHome
+    ? 'mt-2 font-sans text-[0.68rem] tracking-[0.02em] text-white/48'
+    : 'mt-2 font-sans text-[0.64rem] tracking-[0.02em] text-white/48';
+
   return (
     <div className={`relative aspect-[2/3] ${className}`}>
       <div className={`absolute inset-0 transition-transform duration-500 ${rotateClassName}`.trim()}>
-        <div
-          className={isHome
-            ? 'absolute inset-x-[10%] bottom-[-1.8%] top-[4.5%] rounded-[44px] bg-[#0d1426]/22 blur-[30px]'
-            : 'absolute inset-x-[13%] bottom-[-1.5%] top-[6%] rounded-[40px] bg-[#0d1426]/20 blur-2xl'}
-        />
+        <div className={shadowClass} />
 
-        <div
-          className={isHome
-            ? 'absolute bottom-[1.4%] left-[2.2%] top-[1.4%] w-[8.4%] rounded-l-[24px] bg-gradient-to-b from-[#72809a] via-[#4d5a75] to-[#313b54] shadow-[inset_-1px_0_0_rgba(255,255,255,0.1),inset_1px_0_0_rgba(17,24,39,0.22)]'
-            : 'absolute bottom-[1.4%] left-[2.8%] top-[1.4%] w-[7.4%] rounded-l-[22px] bg-gradient-to-b from-[#6f7d96] via-[#4a5873] to-[#313a53] shadow-[inset_-1px_0_0_rgba(255,255,255,0.1),inset_1px_0_0_rgba(17,24,39,0.22)]'}
-        >
+        <div className={spineClass}>
           <div
-            className={isHome
-              ? 'absolute inset-y-[8%] left-[35%] text-[7px] tracking-[0.24em] text-white/24'
-              : 'absolute inset-y-[8%] left-[37%] text-[7px] tracking-[0.24em] text-white/24'}
+            className={spineTextClass}
             style={{ writingMode: 'vertical-rl' }}
           >
             SOCRATES PRESS
           </div>
         </div>
 
-        <div
-          className={isHome
-            ? 'absolute inset-y-0 left-[8.2%] right-0 overflow-hidden rounded-[0_28px_28px_10px] border border-[#d7dce6]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(17,24,39,0.28),inset_0_1px_0_rgba(255,255,255,0.07)]'
-            : 'absolute inset-y-0 left-[7.5%] right-0 overflow-hidden rounded-[0_26px_26px_10px] border border-[#d7dce6]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(17,24,39,0.26),inset_0_1px_0_rgba(255,255,255,0.07)]'}
-        >
+        <div className={coverShellClass}>
           <div
             className="absolute inset-0"
             style={{
-              opacity: isHome ? 0.06 : 0.05,
+              opacity: isHome ? 0.055 : 0.045,
               backgroundImage:
-                'repeating-linear-gradient(0deg, transparent, transparent 56px, rgba(255,255,255,0.12) 56px, rgba(255,255,255,0.12) 57px), repeating-linear-gradient(90deg, transparent, transparent 56px, rgba(255,255,255,0.12) 56px, rgba(255,255,255,0.12) 57px)',
+                'repeating-linear-gradient(0deg, transparent, transparent 58px, rgba(255,255,255,0.11) 58px, rgba(255,255,255,0.11) 59px), repeating-linear-gradient(90deg, transparent, transparent 58px, rgba(255,255,255,0.11) 58px, rgba(255,255,255,0.11) 59px)',
             }}
           />
-          <div className="absolute inset-y-0 right-0 w-[10%] bg-gradient-to-l from-white/7 via-white/2 to-transparent" />
-          <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-white/5 to-transparent" />
+          <div className="absolute inset-x-[4%] inset-y-[3.5%] rounded-[24px] border border-white/6" />
+          <div className="absolute left-[7%] top-[4.5%] bottom-[4.5%] w-[1px] bg-black/20" />
+          <div className="absolute left-[7.6%] top-[4.5%] bottom-[4.5%] w-[1px] bg-white/5" />
+          <div className="absolute inset-y-[3%] right-[2.2%] w-[1.5%] rounded-full bg-gradient-to-l from-white/16 via-white/6 to-transparent" />
+          <div className="absolute inset-y-0 right-0 w-[10%] bg-gradient-to-l from-white/8 via-white/2 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-white/6 to-transparent" />
+          <div className="absolute inset-x-[9%] bottom-0 h-[5.5%] bg-gradient-to-t from-black/10 to-transparent" />
 
-          <div
-            className={isHome
-              ? 'relative flex h-full flex-col justify-between px-[11.5%] py-[10.5%] text-white'
-              : 'relative flex h-full flex-col justify-between px-[12%] py-[10.5%] text-white'}
-          >
+          <div className={`relative flex h-full flex-col justify-between text-white ${contentPaddingClass}`}>
             <div className="w-full">
-              <div
-                className={isHome
-                  ? 'mb-[16%] inline-flex rounded-full border border-[#e8600a]/65 px-4 py-1.5 text-[9px] font-medium tracking-[0.16em] text-[#ffd1b4]'
-                  : 'mb-[18%] inline-flex rounded-full border border-[#e8600a]/65 px-4 py-1.5 text-[9px] font-medium tracking-[0.16em] text-[#ffd1b4]'}
-              >
+              <div className="mb-[16%] inline-flex rounded-full border border-[#e8600a]/65 bg-[#1a2744]/40 px-4 py-1.5 text-[9px] font-medium tracking-[0.16em] text-[#ffd1b4] backdrop-blur-sm">
                 {COVER_TAG}
               </div>
 
-              <h3
-                className={isHome
-                  ? 'max-w-[88%] font-serif text-[clamp(1.62rem,4.2vw,2.5rem)] font-semibold leading-[1.2] tracking-[-0.04em] text-white'
-                  : 'max-w-[90%] font-serif text-[clamp(1.42rem,3.7vw,2.12rem)] font-semibold leading-[1.24] tracking-[-0.04em] text-white'}
-              >
-                <span className="inline-block">{TITLE_LINE_1_PREFIX}</span>
-                <span className="inline-block text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
-                <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
-                <span className="inline-block align-top text-[0.82em] text-white/82">{':'}</span>
-                <br />
-                <span>{TITLE_LINE_2}</span>
-                <br />
-                <span>{TITLE_LINE_3}</span>
-              </h3>
+              <div className="max-w-[90%] font-serif font-semibold tracking-[-0.045em] text-white">
+                <div className={titleLine1Class}>
+                  <span className="inline-block">{TITLE_LINE_1_PREFIX}</span>
+                  <span className="inline-block text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
+                  <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
+                  <span className="inline-block align-top text-[0.82em] text-white/82">{'\uFF1A'}</span>
+                </div>
+                <div className={titleLine2Class}>{TITLE_LINE_2}</div>
+                <div className={titleLine3Class}>{TITLE_LINE_3}</div>
+              </div>
 
-              <div className={isHome ? 'mt-[11%] h-[2px] w-14 bg-[#e8600a]' : 'mt-[12%] h-[2px] w-12 bg-[#e8600a]'} />
+              <div className="mt-[11%] h-[2px] w-12 bg-[#e8600a]" />
 
-              <p
-                className={isHome
-                  ? 'mt-[7.5%] max-w-[72%] font-sans text-[0.7rem] leading-[1.82] text-[#d3dae9] sm:text-[0.74rem]'
-                  : 'mt-[8.5%] max-w-[74%] font-sans text-[0.66rem] leading-[1.8] text-[#d3dae9] sm:max-w-[70%] sm:text-[0.7rem]'}
-              >
-                {SUBTITLE}
-              </p>
+              <p className={subtitleClass}>{SUBTITLE}</p>
             </div>
 
             <div className="w-full">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div className="h-[2px] w-10 bg-[#e8600a]" />
-                <div
-                  className={isHome
-                    ? 'flex items-center gap-2 text-[0.54rem] tracking-[0.32em] text-white/38'
-                    : 'flex items-center gap-2 text-[0.5rem] tracking-[0.3em] text-white/38'}
-                >
+                <div className="flex items-center gap-2 text-[0.48rem] tracking-[0.32em] text-white/36">
                   {FLOW_STEPS.map((step) => (
                     <span key={step}>{step}</span>
                   ))}
                 </div>
               </div>
-              <p className={isHome ? 'font-sans text-[0.94rem] font-semibold tracking-[0.03em] text-white' : 'font-sans text-[0.88rem] font-semibold tracking-[0.03em] text-white'}>
-                {AUTHOR}
-              </p>
-              <p className={isHome ? 'mt-2 font-sans text-[0.68rem] tracking-[0.03em] text-white/50' : 'mt-2 font-sans text-[0.64rem] tracking-[0.03em] text-white/50'}>
-                {AUTHOR_NOTE}
-              </p>
+
+              <p className={authorClass}>{AUTHOR}</p>
+              <p className={authorNoteClass}>{AUTHOR_NOTE}</p>
             </div>
           </div>
         </div>

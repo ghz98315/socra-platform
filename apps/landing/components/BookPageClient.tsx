@@ -129,12 +129,12 @@ export default function BookPage() {
           返回首页
         </Link>
 
-        <div className="flex flex-col items-start gap-12 md:flex-row lg:gap-20">
+        <div className="flex flex-col items-start gap-12 md:flex-row lg:gap-18">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
-            className="mx-auto w-full max-w-[18rem] shrink-0 sm:max-w-[20rem] md:w-[44%] md:max-w-none lg:w-[40%]"
+            className="mx-auto w-full max-w-[18.5rem] shrink-0 sm:max-w-[21rem] md:w-[42%] md:max-w-none lg:w-[38%]"
           >
             <BookCoverMockup variant="detail" className="w-full" />
           </motion.div>
@@ -150,19 +150,19 @@ export default function BookPage() {
               <span>电子书首发</span>
             </div>
 
-            <h2 className="mb-4 font-serif text-2xl font-bold leading-[1.3] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-4xl lg:text-5xl">
+            <h2 className="mb-4 max-w-[12ch] font-serif text-2xl font-bold leading-[1.14] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-[2.75rem] lg:text-[3.2rem]">
               从错误开始：一套真正能闭环的学习系统
             </h2>
-            <p className="mb-8 text-lg font-medium leading-relaxed text-neutral-500 sm:text-xl">
+            <p className="mb-8 max-w-[26rem] border-l-2 border-[#e8600a]/60 pl-4 text-lg font-medium leading-[1.7] text-neutral-500 sm:text-[1.3rem]">
               不是提分技巧，不是管理工具，而是一种面对错误的方式。
             </p>
 
-            <div className="mb-10 space-y-6 text-base leading-[1.8] text-neutral-600 text-justify sm:text-lg">
-              <p>大宝做几何题，正弦用成余弦。你问他为什么错，他说“粗心了”。</p>
+            <div className="mb-10 space-y-6 text-[1.02rem] leading-[1.85] text-neutral-600 text-justify sm:text-[1.08rem]">
+              <p className="text-neutral-800 font-medium">大宝做几何题，正弦用成余弦。你问他为什么错，他说“粗心了”。</p>
               <p>
                 但在工厂里，没有任何一份合格的质量报告会把“粗心”写成根因。因为这两个字一旦落下，追问就结束了，错误也只会换个时间再出现一次。
               </p>
-              <p>这本书，就是从那个下午开始写的。</p>
+              <p className="text-neutral-800">这本书，就是从那个下午开始写的。</p>
               <p>
                 它把工程管理里的 5 Why、费曼学习法、艾宾浩斯复习节奏和 PDCA 闭环，迁移到孩子每天都会遇到的错题场景里，重新回答一件事：一道题做错之后，到底怎样才算真的结束。
               </p>

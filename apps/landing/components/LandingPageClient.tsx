@@ -90,18 +90,25 @@ export default function LandingPage() {
       <section id="book" className="py-16 md:py-24 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="bg-neutral-900 rounded-3xl overflow-hidden flex flex-col lg:flex-row items-center">
-            <div className="lg:w-1/2 p-8 md:p-12 lg:p-20 text-white">
+            <div className="lg:w-[46%] p-8 md:p-12 lg:p-16 text-white">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-medium mb-8 border border-white/20">
                 <BookOpen className="w-4 h-4" />
                 <span>电子书发布</span>
               </div>
-              <h2 className="font-serif text-3xl md:text-4xl font-bold mb-6 leading-tight">
-                《从错误开始：一套真正能闭环的学习系统》<br />
-                <span className="text-neutral-400 text-xl md:text-2xl font-normal mt-3 block leading-snug">一位工程师爸爸用工厂管理逻辑重建的学习方法</span>
+              <h2 className="max-w-[11ch] font-serif text-3xl font-bold leading-[1.1] tracking-tight mb-5 md:text-4xl xl:text-[2.85rem]">
+                《从错误开始：
+                <br />
+                一套真正能闭环的
+                <br />
+                学习系统》
               </h2>
-              <div className="text-neutral-300 leading-[1.8] mb-10 space-y-4 text-sm md:text-base text-justify">
-                <p>大宝做几何题，正弦用成余弦。你问他为什么错，他说"粗心了"。</p>
-                <p>你在工厂做了十年，从来没有人能用"操作员粗心"结案一个质量问题。你知道这两个字背后藏着什么——一个没有被找到的根因，和一个准备再次发生的错误。</p>
+              <p className="max-w-[20rem] text-lg leading-[1.5] text-neutral-400 md:text-xl">
+                一位工程师爸爸用工厂管理逻辑重建的学习方法
+              </p>
+              <div className="mt-7 mb-8 h-px w-16 bg-[#e8600a]" />
+              <div className="text-neutral-300 leading-[1.8] mb-10 space-y-4 text-sm md:text-base text-justify max-w-[28rem]">
+                <p className="text-white/92 text-base md:text-[1.05rem]">大宝做几何题，正弦用成余弦。你问他为什么错，他说"粗心了"。</p>
+                <p>你在工厂做了十年，从来没有人能用"操作员粗心"结案一个质量问题。你知道这两个字背后藏着什么：一个没有被找到的根因，和一个准备再次发生的错误。</p>
                 <p>这本书，从那个下午开始写。</p>
                 <div className="bg-white/5 p-4 rounded-xl border border-white/10 mt-6">
                   <p className="text-white font-medium mb-1">💡 心法与工具的完美结合</p>
@@ -117,11 +124,13 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
-            <div className="lg:w-[52%] bg-neutral-800 w-full h-full min-h-[440px] lg:min-h-[640px] flex items-center justify-center p-8 sm:p-12 lg:p-10 relative">
+            <div className="lg:w-[54%] w-full h-full min-h-[470px] lg:min-h-[660px] flex items-center justify-center p-6 sm:p-10 lg:p-10 relative overflow-hidden bg-[radial-gradient(circle_at_50%_38%,rgba(68,68,68,0.24),transparent_48%),linear-gradient(180deg,#242424_0%,#1e1e1e_100%)]">
+              <div className="absolute inset-[7%] rounded-[2rem] border border-white/5" />
+              <div className="absolute inset-x-[10%] bottom-[10%] h-10 rounded-full bg-black/20 blur-2xl" />
               <BookCoverMockup
                 variant="home"
-                className="w-64 sm:w-80 lg:w-[24rem]"
-                rotateClassName="rotate-[-2deg] md:rotate-[3deg] hover:rotate-0"
+                className="w-[17.5rem] sm:w-[21rem] lg:w-[28rem]"
+                rotateClassName="rotate-[-1deg] md:rotate-[2.5deg] hover:rotate-0"
               />
             </div>
           </div>
