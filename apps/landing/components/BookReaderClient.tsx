@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -188,12 +188,13 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
     return '';
   };
 
+  const isEpilogueChapter = chapter.id === 'epilogue';
   const chapterContent = isFileBackedBookChapter(chapter.id)
     ? chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT
     : !isPlaceholderChapterContent(chapter.content)
       ? chapter.content
       : chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT;
-  const hasEmbeddedHeader = /class=["']chapter-header["']/.test(chapterContent);
+  const hasEmbeddedHeader = /class=["'][^"']*(chapter-header|epilogue-section)[^"']*["']/.test(chapterContent);
 
   const chapterHeaderHtml = `
     <div class="mb-16 text-left" style="break-after: avoid;">
@@ -377,7 +378,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
                     </div>
                   )}
 
-                  <div className={`socrates-reader book-reader-content size-${fontSize}`} dangerouslySetInnerHTML={{ __html: chapterContent }} />
+                  <div className={`socrates-reader book-reader-content size-${fontSize} ${isEpilogueChapter ? 'epilogue-mode' : ''}`} dangerouslySetInnerHTML={{ __html: chapterContent }} />
                 </>
               )}
 
@@ -442,7 +443,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
               ) : (
                 <div
                   ref={contentRef}
-                  className={`socrates-reader book-reader-content size-${fontSize} book-paged-container`}
+                  className={`socrates-reader book-reader-content size-${fontSize} book-paged-container ${isEpilogueChapter ? 'epilogue-mode' : ''}`}
                   style={{ transform: `translateX(calc(-${currentPage * 100}% - ${currentPage * (isDesktop ? 4 : 2)}rem))` }}
                   dangerouslySetInnerHTML={{ __html: pagedChapterHtml }}
                 />

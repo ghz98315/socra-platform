@@ -863,6 +863,16 @@
 .socrates-reader.epilogue-mode p {
   color: rgba(255,255,255,0.82);
 }
+.socrates-reader.epilogue-mode .epilogue-section {
+  padding: 2rem 1.5rem 1rem;
+}
+.socrates-reader.epilogue-mode .epilogue-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+.socrates-reader.epilogue-mode .epilogue-content p {
+  color: rgba(255,255,255,0.82);
+}
 .socrates-reader.epilogue-mode .epilogue-label { font-family: var(--font-sans); font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--orange); margin-bottom: 0.6rem; }
 .socrates-reader.epilogue-mode .epilogue-title { font-size: clamp(1.4rem, 4vw, 1.9rem); color: white; margin-bottom: 0.8rem; font-weight: normal; line-height: 1.3; font-family: var(--font-serif); }
 .socrates-reader.epilogue-mode .epilogue-subtitle { font-family: var(--font-sans); font-size: 0.82rem; color: rgba(255,255,255,0.4); margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -913,3 +923,4 @@
   .socrates-reader .boundary-grid { grid-template-columns: 1fr; }
   .socrates-reader .tag-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
