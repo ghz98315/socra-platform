@@ -23,7 +23,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
   const { chapters, isLoaded } = useBookChapters();
 
   const [progress, setProgress] = useState(0);
-  const [layoutMode, setLayoutMode] = useState<'paged' | 'scroll'>('paged');
+  const [layoutMode, setLayoutMode] = useState<'paged' | 'scroll'>('scroll');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [showSettings, setShowSettings] = useState(false);
@@ -176,6 +176,18 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
     return label;
   };
 
+  const renderTocLabel = (item: (typeof chapters)[number]) => {
+    if (item.isPartCover) {
+      return item.partLabel ?? item.title;
+    }
+    if (item.chapterNumber === 0) return '序言';
+    if (item.chapterNumber === 13) return '附录';
+    if (typeof item.chapterNumber === 'number') {
+      return `第 ${item.chapterNumber} 章`;
+    }
+    return '';
+  };
+
   const chapterContent = isFileBackedBookChapter(chapter.id)
     ? chapterContentOverride || chapter.content || DEFAULT_CHAPTER_CONTENT
     : !isPlaceholderChapterContent(chapter.content)
@@ -251,14 +263,18 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
                             }}
                             className={`text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between transition-colors ${isActive ? (theme === 'dark' ? 'bg-[#e8600a]/20 text-[#e8600a]' : 'bg-[#fff5ee] text-[#e8600a]') : (theme === 'dark' ? 'text-neutral-300 hover:bg-neutral-800' : 'text-neutral-700 hover:bg-neutral-100')}`}
                           >
-                            <span className="line-clamp-1">{item.title}</span>
+                            <span className="line-clamp-1">
+                              {renderTocLabel(item) ? `${renderTocLabel(item)} · ${item.title}` : item.title}
+                            </span>
                           </button>
                         );
                       }
 
                       return (
                         <div key={item.id} className={`text-left px-3 py-2.5 rounded-lg text-sm flex items-center justify-between ${theme === 'dark' ? 'text-neutral-500' : 'text-neutral-400'}`}>
-                          <span className="line-clamp-1">{item.title}</span>
+                          <span className="line-clamp-1">
+                            {renderTocLabel(item) ? `${renderTocLabel(item)} · ${item.title}` : item.title}
+                          </span>
                           <Lock className="w-3.5 h-3.5 shrink-0 ml-2" />
                         </div>
                       );
