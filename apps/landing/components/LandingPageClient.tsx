@@ -117,10 +117,11 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
-            <div className="lg:w-1/2 bg-neutral-800 w-full h-full min-h-[400px] lg:min-h-[600px] flex items-center justify-center p-12 sm:p-16 lg:p-12 relative">
+            <div className="lg:w-[52%] bg-neutral-800 w-full h-full min-h-[440px] lg:min-h-[640px] flex items-center justify-center p-8 sm:p-12 lg:p-10 relative">
               <BookCoverMockup
-                className="w-48 sm:w-64"
-                rotateClassName="md:rotate-[4deg] hover:rotate-0"
+                variant="home"
+                className="w-64 sm:w-80 lg:w-[24rem]"
+                rotateClassName="rotate-[-2deg] md:rotate-[3deg] hover:rotate-0"
               />
             </div>
           </div>

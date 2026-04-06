@@ -129,21 +129,21 @@ export default function BookPage() {
           返回首页
         </Link>
 
-        <div className="flex flex-col items-start gap-12 md:flex-row lg:gap-24">
+        <div className="flex flex-col items-start gap-12 md:flex-row lg:gap-20">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
-            className="mx-auto w-full max-w-sm shrink-0 md:w-1/2 lg:w-2/5"
+            className="mx-auto w-full max-w-[18rem] shrink-0 sm:max-w-[20rem] md:w-[44%] md:max-w-none lg:w-[40%]"
           >
-            <BookCoverMockup className="w-full" />
+            <BookCoverMockup variant="detail" className="w-full" />
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="w-full md:w-1/2 lg:w-3/5"
+            className="w-full md:w-[56%] lg:w-[60%]"
           >
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
               <BookOpen className="h-4 w-4" />
