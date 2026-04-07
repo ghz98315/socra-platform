@@ -6,6 +6,43 @@ type BookCoverMockupProps = {
   variant?: 'home' | 'detail';
 };
 
+function PdcaLoopGlyph({ isHome }: { isHome: boolean }) {
+  return (
+    <div
+      className={
+        isHome
+          ? 'mb-[6.5%] w-full max-w-[34%] text-white/45'
+          : 'mb-[6.5%] w-full max-w-[35%] text-white/45'
+      }
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 160 56" className="h-auto w-full" fill="none">
+        <defs>
+          <linearGradient id="pdca-loop-stroke" x1="20" y1="10" x2="140" y2="46" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#f28b45" stopOpacity="0.92" />
+            <stop offset="1" stopColor="#d7dceb" stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M36 28c0-8 6-14 14-14h30m44 0h-14c8 0 14 6 14 14m0 0c0 8-6 14-14 14H80m-44 0h14c-8 0-14-6-14-14Z"
+          stroke="url(#pdca-loop-stroke)"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="m74 10 6 4-6 4" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="m130 24-4 6-4-6" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="m86 46-6-4 6-4" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="m30 32 4-6 4 6" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="34" cy="28" r="2.6" fill="#d7dceb" fillOpacity="0.38" />
+        <circle cx="80" cy="14" r="2.6" fill="#d7dceb" fillOpacity="0.28" />
+        <circle cx="126" cy="28" r="2.6" fill="#d7dceb" fillOpacity="0.3" />
+        <circle cx="80" cy="42" r="2.6" fill="#d7dceb" fillOpacity="0.24" />
+      </svg>
+    </div>
+  );
+}
+
 const COVER_TAG = '\u5de5\u7a0b\u5e08\u7238\u7238\u4eb2\u6d4b\u7248';
 const TITLE_LINE_1_PREFIX = '\u4ece';
 const TITLE_LINE_1_HIGHLIGHT = '\u9519\u8bef';
@@ -49,20 +86,23 @@ export default function BookCoverMockup({
     ? 'mt-[1.2em] text-[clamp(0.94rem,2.25vw,1.3rem)] leading-[1.38] tracking-[0.13em] text-white/94'
     : 'mt-[1.24em] text-[clamp(0.9rem,2.08vw,1.18rem)] leading-[1.38] tracking-[0.12em] text-white/94';
   const titleLine3Class = isHome
-    ? 'mt-[0.32em] text-[clamp(0.86rem,1.94vw,1.08rem)] leading-[1.32] tracking-[0.15em] text-[#d5dbeb]'
-    : 'mt-[0.32em] text-[clamp(0.82rem,1.8vw,1rem)] leading-[1.32] tracking-[0.14em] text-[#d5dbeb]';
+    ? 'mt-[0.22em] text-[clamp(0.94rem,2.25vw,1.3rem)] leading-[1.38] tracking-[0.13em] text-[#d5dbeb]'
+    : 'mt-[0.24em] text-[clamp(0.9rem,2.08vw,1.18rem)] leading-[1.38] tracking-[0.12em] text-[#d5dbeb]';
   const subtitleClass = isHome
     ? 'mt-[7.2%] max-w-[88%] font-sans text-[0.64rem] font-medium leading-[1.78] tracking-[0.03em] text-[#d4daea] sm:text-[0.72rem]'
     : 'mt-[7.2%] max-w-[88%] font-sans text-[0.6rem] font-medium leading-[1.78] tracking-[0.03em] text-[#d4daea] sm:text-[0.68rem]';
+  const conceptsBlockClass = isHome
+    ? 'w-full max-w-[72%]'
+    : 'w-full max-w-[74%]';
   const pdcaWrapClass = isHome
-    ? 'mb-[8%] flex w-full max-w-[64%] overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]'
-    : 'mb-[8%] flex w-full max-w-[66%] overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]';
+    ? 'mb-[7.5%] flex w-full overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]'
+    : 'mb-[7.5%] flex w-full overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]';
   const pdcaCellClass = isHome
     ? 'flex-1 py-[4.2%] text-center text-[0.78rem] font-bold tracking-[0.08em] text-white'
     : 'flex-1 py-[4%] text-center text-[0.74rem] font-bold tracking-[0.08em] text-white';
   const conceptsClass = isHome
-    ? 'mb-[8.5%] max-w-[94%] font-sans text-[0.56rem] font-light leading-[1.7] tracking-[0.04em] text-white/46 sm:text-[0.62rem]'
-    : 'mb-[8.5%] max-w-[94%] font-sans text-[0.54rem] font-light leading-[1.7] tracking-[0.04em] text-white/46 sm:text-[0.6rem]';
+    ? 'mb-[8.5%] w-full font-sans text-[0.56rem] font-light leading-[1.7] tracking-[0.04em] text-white/46 sm:text-[0.62rem]'
+    : 'mb-[8.5%] w-full font-sans text-[0.54rem] font-light leading-[1.7] tracking-[0.04em] text-white/46 sm:text-[0.6rem]';
   const authorClass = isHome
     ? 'font-sans text-[0.9rem] font-medium tracking-[0.1em] text-white/92'
     : 'font-sans text-[0.84rem] font-medium tracking-[0.09em] text-white/92';
@@ -125,26 +165,29 @@ export default function BookCoverMockup({
             </div>
 
             <div className="w-full flex flex-col items-center">
-              <div className={pdcaWrapClass}>
-                {FLOW_STEPS.map((step, index) => (
-                  <div
-                    key={step}
-                    className={`${pdcaCellClass} ${
-                      [
-                        'bg-[#d06b16]',
-                        'bg-[#945122]',
-                        'bg-[#664233]',
-                        'bg-[#4f3d40]',
-                      ][index]
-                    } ${index > 0 ? 'border-l border-white/10' : ''}`}
-                  >
-                    {step}
-                  </div>
-                ))}
+              <PdcaLoopGlyph isHome={isHome} />
+              <div className={conceptsBlockClass}>
+                <div className={pdcaWrapClass}>
+                  {FLOW_STEPS.map((step, index) => (
+                    <div
+                      key={step}
+                      className={`${pdcaCellClass} ${
+                        [
+                          'bg-[#d06b16]',
+                          'bg-[#945122]',
+                          'bg-[#664233]',
+                          'bg-[#4f3d40]',
+                        ][index]
+                      } ${index > 0 ? 'border-l border-white/10' : ''}`}
+                    >
+                      {step}
+                    </div>
+                  ))}
+                </div>
+                <p className={conceptsClass}>
+                  {CONCEPTS}
+                </p>
               </div>
-              <p className={conceptsClass}>
-                {CONCEPTS}
-              </p>
               <div className="mb-[7%] h-px w-[12%] bg-white/18" />
 
               <p className={authorClass}>{AUTHOR}</p>
