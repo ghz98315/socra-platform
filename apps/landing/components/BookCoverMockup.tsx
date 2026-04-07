@@ -14,8 +14,9 @@ const TITLE_LINE_2 = '\u4e00\u5957\u771f\u6b63\u80fd\u95ed\u73af\u7684';
 const TITLE_LINE_3 = '\u5b66\u4e60\u7cfb\u7edf';
 const SUBTITLE_PREFIX = '\u7528\u5de5\u5382\u7ba1\u7406\u903b\u8f91\u91cd\u5efa\u5b69\u5b50\u7684';
 const SUBTITLE_SUFFIX = '\u5b66\u4e60\u65b9\u5f0f';
-const AUTHOR = '\u5173\u535a \u00b7 \u5de5\u7a0b\u7238';
+const AUTHOR = '\u5de5\u7a0b\u7238 \u00b7 \u5173\u535a';
 const AUTHOR_NOTE = '\u516c\u4f17\u53f7\u300c\u5de5\u7a0b\u7238\u7684AI\u8fdb\u5316\u5de5\u5382\u300d';
+const CONCEPTS = '5 Why \u00b7 \u8d39\u66fc\u5b66\u4e60\u6cd5 \u00b7 \u827e\u5bbe\u6d69\u65af\u9057\u5fd8\u66f2\u7ebf \u00b7 PDCA\u95ed\u73af';
 const FLOW_STEPS = ['P', 'D', 'C', 'A'];
 
 export default function BookCoverMockup({
@@ -39,23 +40,23 @@ export default function BookCoverMockup({
     : 'absolute inset-y-0 left-[7.1%] right-0 overflow-hidden rounded-[0_28px_28px_10px] border border-[#dce2ee]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(15,23,42,0.27),inset_0_1px_0_rgba(255,255,255,0.07)]';
   const contentPaddingClass = isHome ? 'px-[11%] py-[10%]' : 'px-[11.5%] py-[10.5%]';
   const titleLine1Class = isHome
-    ? 'text-[clamp(2.12rem,5.55vw,3.16rem)] leading-[1.04] tracking-[-0.05em]'
-    : 'text-[clamp(1.96rem,4.9vw,2.84rem)] leading-[1.04] tracking-[-0.05em]';
+    ? 'text-[clamp(2.28rem,5.9vw,3.42rem)] leading-[1.02] tracking-[0.08em] pl-[0.08em]'
+    : 'text-[clamp(2.04rem,5.1vw,2.98rem)] leading-[1.02] tracking-[0.08em] pl-[0.08em]';
   const titleLine2Class = isHome
-    ? 'mt-[0.88em] text-[clamp(0.9rem,2.26vw,1.24rem)] leading-[1.35] tracking-[0.16em] text-white/92'
-    : 'mt-[0.96em] text-[clamp(0.82rem,2.02vw,1.1rem)] leading-[1.36] tracking-[0.15em] text-white/92';
+    ? 'mt-[1.4em] text-[clamp(0.92rem,2.34vw,1.28rem)] leading-[1.32] tracking-[0.22em] text-white/92'
+    : 'mt-[1.48em] text-[clamp(0.84rem,2.1vw,1.12rem)] leading-[1.34] tracking-[0.2em] text-white/92';
   const titleLine3Class = isHome
-    ? 'mt-[0.18em] text-[clamp(0.96rem,2.42vw,1.32rem)] leading-[1.28] tracking-[0.22em] text-[#d6dced]'
-    : 'mt-[0.2em] text-[clamp(0.88rem,2.18vw,1.16rem)] leading-[1.3] tracking-[0.2em] text-[#d6dced]';
+    ? 'mt-[0.34em] text-[clamp(0.78rem,2vw,1.08rem)] leading-[1.35] tracking-[0.18em] text-[#cfd6e8]'
+    : 'mt-[0.4em] text-[clamp(0.72rem,1.82vw,0.98rem)] leading-[1.38] tracking-[0.16em] text-[#cfd6e8]';
   const subtitleClass = isHome
-    ? 'mt-[8.5%] max-w-[78%] font-sans text-[0.68rem] font-medium leading-[1.9] tracking-[0.04em] text-[#d4daea] sm:text-[0.73rem]'
-    : 'mt-[9%] max-w-[80%] font-sans text-[0.62rem] font-medium leading-[1.9] tracking-[0.04em] text-[#d4daea] sm:text-[0.68rem]';
+    ? 'mt-[7.5%] max-w-[84%] font-sans text-[0.66rem] font-medium leading-[1.92] tracking-[0.08em] text-[#d4daea] sm:text-[0.72rem]'
+    : 'mt-[8%] max-w-[86%] font-sans text-[0.6rem] font-medium leading-[1.92] tracking-[0.06em] text-[#d4daea] sm:text-[0.66rem]';
   const authorClass = isHome
-    ? 'font-sans text-[0.98rem] font-semibold tracking-[0.03em] text-white'
-    : 'font-sans text-[0.92rem] font-semibold tracking-[0.03em] text-white';
+    ? 'font-sans text-[0.9rem] font-medium tracking-[0.1em] text-white/92'
+    : 'font-sans text-[0.84rem] font-medium tracking-[0.09em] text-white/92';
   const authorNoteClass = isHome
-    ? 'mt-2 font-sans text-[0.68rem] tracking-[0.02em] text-white/48'
-    : 'mt-2 font-sans text-[0.64rem] tracking-[0.02em] text-white/48';
+    ? 'mt-2 font-sans text-[0.62rem] tracking-[0.12em] text-white/40'
+    : 'mt-2 font-sans text-[0.58rem] tracking-[0.1em] text-white/40';
 
   return (
     <div className={`relative aspect-[2/3] ${className}`}>
@@ -88,25 +89,22 @@ export default function BookCoverMockup({
           <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-white/6 to-transparent" />
           <div className="absolute inset-x-[9%] bottom-0 h-[5.5%] bg-gradient-to-t from-black/10 to-transparent" />
 
-          <div className={`relative flex h-full flex-col justify-between text-white ${contentPaddingClass}`}>
-            <div className="w-full">
-              <div className="mb-[16%] inline-flex rounded-full border border-[#e8600a]/65 bg-[#1a2744]/40 px-4 py-1.5 text-[9px] font-medium tracking-[0.16em] text-[#ffd1b4] backdrop-blur-sm">
+          <div className={`relative flex h-full flex-col items-center justify-between text-center text-white ${contentPaddingClass}`}>
+            <div className="w-full flex flex-col items-center">
+              <div className="mb-[16%] inline-flex rounded-md border border-[#e8600a]/65 bg-[#1a2744]/40 px-4 py-1.5 text-[9px] font-medium tracking-[0.16em] text-[#ffd1b4] backdrop-blur-sm">
                 {COVER_TAG}
               </div>
 
-              <div className="max-w-[94%] font-serif font-semibold text-white">
+              <div className="max-w-[96%] font-serif font-medium text-white">
                 <div className={titleLine1Class}>
                   <span className="inline-block">{TITLE_LINE_1_PREFIX}</span>
                   <span className="inline-block text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
                   <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
                 </div>
-                <div className={titleLine2Class}>
-                  {TITLE_LINE_2}
-                </div>
+                <div className="mx-auto mt-[9%] h-px w-[10%] bg-[#e8600a]/55" />
+                <div className={titleLine2Class}>{TITLE_LINE_2}</div>
                 <div className={titleLine3Class}>{TITLE_LINE_3}</div>
               </div>
-
-              <div className="mt-[10%] h-[2px] w-12 bg-[#e8600a]" />
 
               <p className={subtitleClass}>
                 <span>{SUBTITLE_PREFIX}</span>
@@ -114,15 +112,29 @@ export default function BookCoverMockup({
               </p>
             </div>
 
-            <div className="w-full">
-              <div className="mb-6 flex items-center justify-between gap-3">
-                <div className="h-[2px] w-10 bg-[#e8600a]" />
-                <div className="flex items-center gap-2 text-[0.48rem] tracking-[0.32em] text-white/36">
-                  {FLOW_STEPS.map((step) => (
-                    <span key={step}>{step}</span>
-                  ))}
-                </div>
+            <div className="w-full flex flex-col items-center">
+              <div className="mb-[8%] flex w-full max-w-[58%] overflow-hidden rounded-sm opacity-85">
+                {FLOW_STEPS.map((step, index) => (
+                  <div
+                    key={step}
+                    className={
+                      [
+                        'flex-1 py-[3.2%] text-center text-[0.68rem] font-bold tracking-[0.18em] text-white',
+                        'bg-[#d35400]',
+                        'bg-[#8a4315]',
+                        'bg-[#523020]',
+                        'bg-[#362b2d]',
+                      ][index + 1]
+                    }
+                  >
+                    {step}
+                  </div>
+                ))}
               </div>
+              <p className="mb-[9%] max-w-[92%] font-sans text-[0.56rem] font-light tracking-[0.1em] text-white/44 sm:text-[0.62rem]">
+                {CONCEPTS}
+              </p>
+              <div className="mb-[7%] h-px w-[12%] bg-white/18" />
 
               <p className={authorClass}>{AUTHOR}</p>
               <p className={authorNoteClass}>{AUTHOR_NOTE}</p>
