@@ -131,7 +131,7 @@ export default function LandingPage() {
               <div className="absolute inset-x-[10%] bottom-[10%] h-10 rounded-full bg-black/20 blur-2xl" />
               <BookCoverMockup
                 variant="home"
-                className="w-[17.5rem] sm:w-[21rem] lg:w-[28rem]"
+                className="w-[18.5rem] sm:w-[22.5rem] lg:w-[29.5rem]"
                 rotateClassName="rotate-[-1deg] md:rotate-[2.5deg] hover:rotate-0"
               />
             </div>
