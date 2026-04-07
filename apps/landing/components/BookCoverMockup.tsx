@@ -14,7 +14,8 @@ const TITLE_LINE_2_PREFIX = '\u4e00\u5957\u771f\u6b63\u80fd';
 const TITLE_LINE_2_HIGHLIGHT = '\u95ed\u73af';
 const TITLE_LINE_2_SUFFIX = '\u7684';
 const TITLE_LINE_3 = '\u5b66\u4e60\u7cfb\u7edf';
-const SUBTITLE = '\u7528\u5de5\u5382\u7ba1\u7406\u903b\u8f91\u91cd\u5efa\u5b69\u5b50\u7684\u5b66\u4e60\u65b9\u5f0f';
+const SUBTITLE_PREFIX = '\u7528\u5de5\u5382\u7ba1\u7406\u903b\u8f91\u91cd\u5efa\u5b69\u5b50\u7684';
+const SUBTITLE_SUFFIX = '\u5b66\u4e60\u65b9\u5f0f';
 const AUTHOR = '\u5173\u535a \u00b7 \u5de5\u7a0b\u7238';
 const AUTHOR_NOTE = '\u516c\u4f17\u53f7\u300c\u5de5\u7a0b\u7238\u7684AI\u8fdb\u5316\u5de5\u5382\u300d';
 const FLOW_STEPS = ['P', 'D', 'C', 'A'];
@@ -112,7 +113,10 @@ export default function BookCoverMockup({
 
               <div className="mt-[11%] h-[2px] w-12 bg-[#e8600a]" />
 
-              <p className={subtitleClass}>{SUBTITLE}</p>
+              <p className={subtitleClass}>
+                <span>{SUBTITLE_PREFIX}</span>
+                <span className="whitespace-nowrap">{SUBTITLE_SUFFIX}</span>
+              </p>
             </div>
 
             <div className="w-full">

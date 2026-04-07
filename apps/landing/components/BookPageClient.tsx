@@ -160,7 +160,8 @@ export default function BookPage() {
               学习系统
             </h2>
             <p className="mb-8 max-w-[26rem] border-l-2 border-[#e8600a]/45 pl-4 text-[1.02rem] font-normal leading-[1.9] text-neutral-400 sm:text-[1.16rem]">
-              不是提分技巧，不是管理工具，而是一种面对错误的方式。
+              不是提分技巧，不是管理工具，而是一种面对错误的
+              <span className="whitespace-nowrap">方式。</span>
             </p>
 
             <div className="mb-10 space-y-6 text-[1.02rem] leading-[1.85] text-neutral-600 text-justify sm:text-[1.08rem]">
