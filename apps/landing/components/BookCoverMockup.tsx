@@ -10,7 +10,9 @@ const COVER_TAG = '\u5de5\u7a0b\u5e08\u7238\u7238\u4eb2\u6d4b\u7248';
 const TITLE_LINE_1_PREFIX = '\u4ece';
 const TITLE_LINE_1_HIGHLIGHT = '\u9519\u8bef';
 const TITLE_LINE_1_SUFFIX = '\u5f00\u59cb';
-const TITLE_LINE_2 = '\u4e00\u5957\u771f\u6b63\u80fd\u95ed\u73af\u7684';
+const TITLE_LINE_2_PREFIX = '\u4e00\u5957\u771f\u6b63\u80fd';
+const TITLE_LINE_2_HIGHLIGHT = '\u95ed\u73af';
+const TITLE_LINE_2_SUFFIX = '\u7684';
 const TITLE_LINE_3 = '\u5b66\u4e60\u7cfb\u7edf';
 const SUBTITLE = '\u7528\u5de5\u5382\u7ba1\u7406\u903b\u8f91\u91cd\u5efa\u5b69\u5b50\u7684\u5b66\u4e60\u65b9\u5f0f';
 const AUTHOR = '\u5173\u535a \u00b7 \u5de5\u7a0b\u7238';
@@ -100,7 +102,11 @@ export default function BookCoverMockup({
                   <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
                   <span className="inline-block align-top text-[0.82em] text-white/82">{'\uFF1A'}</span>
                 </div>
-                <div className={titleLine2Class}>{TITLE_LINE_2}</div>
+                <div className={titleLine2Class}>
+                  <span>{TITLE_LINE_2_PREFIX}</span>
+                  <span className="whitespace-nowrap">{TITLE_LINE_2_HIGHLIGHT}</span>
+                  <span>{TITLE_LINE_2_SUFFIX}</span>
+                </div>
                 <div className={titleLine3Class}>{TITLE_LINE_3}</div>
               </div>
 

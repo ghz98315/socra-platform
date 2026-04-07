@@ -153,7 +153,9 @@ export default function BookPage() {
             <h2 className="mb-4 max-w-[11ch] font-serif text-2xl font-bold leading-[1.12] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-[2.75rem] lg:text-[3.2rem]">
               从错误开始：
               <br />
-              一套真正能闭环的
+              <span>一套真正能</span>
+              <span className="whitespace-nowrap">闭环</span>
+              <span>的</span>
               <br />
               学习系统
             </h2>

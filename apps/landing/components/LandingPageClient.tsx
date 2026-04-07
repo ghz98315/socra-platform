@@ -98,7 +98,9 @@ export default function LandingPage() {
               <h2 className="max-w-[11ch] font-serif text-3xl font-bold leading-[1.1] tracking-tight mb-5 md:text-4xl xl:text-[2.85rem]">
                 从错误开始：
                 <br />
-                一套真正能闭环的
+                <span>一套真正能</span>
+                <span className="whitespace-nowrap">闭环</span>
+                <span>的</span>
                 <br />
                 学习系统
               </h2>
