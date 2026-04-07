@@ -10,10 +10,7 @@ const COVER_TAG = '\u5de5\u7a0b\u5e08\u7238\u7238\u4eb2\u6d4b\u7248';
 const TITLE_LINE_1_PREFIX = '\u4ece';
 const TITLE_LINE_1_HIGHLIGHT = '\u9519\u8bef';
 const TITLE_LINE_1_SUFFIX = '\u5f00\u59cb';
-const TITLE_MARK = '\uFF1A';
-const TITLE_LINE_2_PREFIX = '\u4e00\u5957\u771f\u6b63\u80fd';
-const TITLE_LINE_2_HIGHLIGHT = '\u95ed\u73af';
-const TITLE_LINE_2_SUFFIX = '\u7684';
+const TITLE_LINE_2 = '\u4e00\u5957\u771f\u6b63\u80fd\u95ed\u73af\u7684';
 const TITLE_LINE_3 = '\u5b66\u4e60\u7cfb\u7edf';
 const SUBTITLE_PREFIX = '\u7528\u5de5\u5382\u7ba1\u7406\u903b\u8f91\u91cd\u5efa\u5b69\u5b50\u7684';
 const SUBTITLE_SUFFIX = '\u5b66\u4e60\u65b9\u5f0f';
@@ -42,17 +39,17 @@ export default function BookCoverMockup({
     : 'absolute inset-y-0 left-[7.1%] right-0 overflow-hidden rounded-[0_28px_28px_10px] border border-[#dce2ee]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(15,23,42,0.27),inset_0_1px_0_rgba(255,255,255,0.07)]';
   const contentPaddingClass = isHome ? 'px-[11%] py-[10%]' : 'px-[11.5%] py-[10.5%]';
   const titleLine1Class = isHome
-    ? 'text-[clamp(2.18rem,5.7vw,3.36rem)] leading-[1.02]'
-    : 'text-[clamp(2rem,4.95vw,3rem)] leading-[1.03]';
+    ? 'text-[clamp(2.12rem,5.55vw,3.16rem)] leading-[1.04] tracking-[-0.05em]'
+    : 'text-[clamp(1.96rem,4.9vw,2.84rem)] leading-[1.04] tracking-[-0.05em]';
   const titleLine2Class = isHome
-    ? 'mt-[0.52em] text-[clamp(1.16rem,2.95vw,1.76rem)] leading-[1.22] tracking-[-0.02em] text-white/92'
-    : 'mt-[0.58em] text-[clamp(1.05rem,2.65vw,1.58rem)] leading-[1.24] tracking-[-0.02em] text-white/92';
+    ? 'mt-[0.88em] text-[clamp(0.9rem,2.26vw,1.24rem)] leading-[1.35] tracking-[0.16em] text-white/92'
+    : 'mt-[0.96em] text-[clamp(0.82rem,2.02vw,1.1rem)] leading-[1.36] tracking-[0.15em] text-white/92';
   const titleLine3Class = isHome
-    ? 'mt-[0.12em] text-[clamp(1.28rem,3.2vw,1.9rem)] leading-[1.18] tracking-[-0.02em] text-white/92'
-    : 'mt-[0.14em] text-[clamp(1.16rem,2.92vw,1.7rem)] leading-[1.2] tracking-[-0.02em] text-white/92';
+    ? 'mt-[0.18em] text-[clamp(0.96rem,2.42vw,1.32rem)] leading-[1.28] tracking-[0.22em] text-[#d6dced]'
+    : 'mt-[0.2em] text-[clamp(0.88rem,2.18vw,1.16rem)] leading-[1.3] tracking-[0.2em] text-[#d6dced]';
   const subtitleClass = isHome
-    ? 'mt-[11%] max-w-[72%] font-sans text-[0.72rem] font-medium leading-[1.88] tracking-[0.03em] text-[#d4daea] sm:text-[0.78rem]'
-    : 'mt-[11.5%] max-w-[74%] font-sans text-[0.66rem] font-medium leading-[1.88] tracking-[0.03em] text-[#d4daea] sm:text-[0.71rem]';
+    ? 'mt-[8.5%] max-w-[78%] font-sans text-[0.68rem] font-medium leading-[1.9] tracking-[0.04em] text-[#d4daea] sm:text-[0.73rem]'
+    : 'mt-[9%] max-w-[80%] font-sans text-[0.62rem] font-medium leading-[1.9] tracking-[0.04em] text-[#d4daea] sm:text-[0.68rem]';
   const authorClass = isHome
     ? 'font-sans text-[0.98rem] font-semibold tracking-[0.03em] text-white'
     : 'font-sans text-[0.92rem] font-semibold tracking-[0.03em] text-white';
@@ -97,17 +94,14 @@ export default function BookCoverMockup({
                 {COVER_TAG}
               </div>
 
-              <div className="max-w-[92%] font-serif font-semibold tracking-[-0.045em] text-white">
+              <div className="max-w-[94%] font-serif font-semibold text-white">
                 <div className={titleLine1Class}>
                   <span className="inline-block">{TITLE_LINE_1_PREFIX}</span>
                   <span className="inline-block text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
                   <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
-                  <span className="inline-block align-top pl-[0.02em] text-[0.64em] text-white/72">{TITLE_MARK}</span>
                 </div>
                 <div className={titleLine2Class}>
-                  <span>{TITLE_LINE_2_PREFIX}</span>
-                  <span className="whitespace-nowrap">{TITLE_LINE_2_HIGHLIGHT}</span>
-                  <span>{TITLE_LINE_2_SUFFIX}</span>
+                  {TITLE_LINE_2}
                 </div>
                 <div className={titleLine3Class}>{TITLE_LINE_3}</div>
               </div>
