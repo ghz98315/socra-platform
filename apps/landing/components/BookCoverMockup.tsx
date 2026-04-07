@@ -10,6 +10,7 @@ const COVER_TAG = '\u5de5\u7a0b\u5e08\u7238\u7238\u4eb2\u6d4b\u7248';
 const TITLE_LINE_1_PREFIX = '\u4ece';
 const TITLE_LINE_1_HIGHLIGHT = '\u9519\u8bef';
 const TITLE_LINE_1_SUFFIX = '\u5f00\u59cb';
+const TITLE_MARK = '\uFF1A';
 const TITLE_LINE_2_PREFIX = '\u4e00\u5957\u771f\u6b63\u80fd';
 const TITLE_LINE_2_HIGHLIGHT = '\u95ed\u73af';
 const TITLE_LINE_2_SUFFIX = '\u7684';
@@ -41,17 +42,17 @@ export default function BookCoverMockup({
     : 'absolute inset-y-0 left-[7.1%] right-0 overflow-hidden rounded-[0_28px_28px_10px] border border-[#dce2ee]/24 bg-[#1a2744] shadow-[0_22px_48px_rgba(15,23,42,0.27),inset_0_1px_0_rgba(255,255,255,0.07)]';
   const contentPaddingClass = isHome ? 'px-[11%] py-[10%]' : 'px-[11.5%] py-[10.5%]';
   const titleLine1Class = isHome
-    ? 'text-[clamp(1.85rem,4.8vw,2.9rem)] leading-[1.08]'
-    : 'text-[clamp(1.72rem,4.2vw,2.55rem)] leading-[1.08]';
+    ? 'text-[clamp(2.18rem,5.7vw,3.36rem)] leading-[1.02]'
+    : 'text-[clamp(2rem,4.95vw,3rem)] leading-[1.03]';
   const titleLine2Class = isHome
-    ? 'mt-[0.18em] text-[clamp(1.6rem,4.1vw,2.45rem)] leading-[1.12]'
-    : 'mt-[0.2em] text-[clamp(1.48rem,3.75vw,2.2rem)] leading-[1.14]';
+    ? 'mt-[0.52em] text-[clamp(1.16rem,2.95vw,1.76rem)] leading-[1.22] tracking-[-0.02em] text-white/92'
+    : 'mt-[0.58em] text-[clamp(1.05rem,2.65vw,1.58rem)] leading-[1.24] tracking-[-0.02em] text-white/92';
   const titleLine3Class = isHome
-    ? 'mt-[0.14em] text-[clamp(1.78rem,4.55vw,2.7rem)] leading-[1.08]'
-    : 'mt-[0.16em] text-[clamp(1.62rem,4vw,2.35rem)] leading-[1.1]';
+    ? 'mt-[0.12em] text-[clamp(1.28rem,3.2vw,1.9rem)] leading-[1.18] tracking-[-0.02em] text-white/92'
+    : 'mt-[0.14em] text-[clamp(1.16rem,2.92vw,1.7rem)] leading-[1.2] tracking-[-0.02em] text-white/92';
   const subtitleClass = isHome
-    ? 'mt-[8.5%] max-w-[70%] font-sans text-[0.74rem] font-medium leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.8rem]'
-    : 'mt-[9%] max-w-[72%] font-sans text-[0.68rem] font-medium leading-[1.82] tracking-[0.02em] text-[#d4daea] sm:text-[0.73rem]';
+    ? 'mt-[11%] max-w-[72%] font-sans text-[0.72rem] font-medium leading-[1.88] tracking-[0.03em] text-[#d4daea] sm:text-[0.78rem]'
+    : 'mt-[11.5%] max-w-[74%] font-sans text-[0.66rem] font-medium leading-[1.88] tracking-[0.03em] text-[#d4daea] sm:text-[0.71rem]';
   const authorClass = isHome
     ? 'font-sans text-[0.98rem] font-semibold tracking-[0.03em] text-white'
     : 'font-sans text-[0.92rem] font-semibold tracking-[0.03em] text-white';
@@ -96,12 +97,12 @@ export default function BookCoverMockup({
                 {COVER_TAG}
               </div>
 
-              <div className="max-w-[90%] font-serif font-semibold tracking-[-0.045em] text-white">
+              <div className="max-w-[92%] font-serif font-semibold tracking-[-0.045em] text-white">
                 <div className={titleLine1Class}>
                   <span className="inline-block">{TITLE_LINE_1_PREFIX}</span>
                   <span className="inline-block text-[#f28b45]">{TITLE_LINE_1_HIGHLIGHT}</span>
                   <span className="inline-block">{TITLE_LINE_1_SUFFIX}</span>
-                  <span className="inline-block align-top text-[0.82em] text-white/82">{'\uFF1A'}</span>
+                  <span className="inline-block align-top pl-[0.02em] text-[0.64em] text-white/72">{TITLE_MARK}</span>
                 </div>
                 <div className={titleLine2Class}>
                   <span>{TITLE_LINE_2_PREFIX}</span>
@@ -111,7 +112,7 @@ export default function BookCoverMockup({
                 <div className={titleLine3Class}>{TITLE_LINE_3}</div>
               </div>
 
-              <div className="mt-[11%] h-[2px] w-12 bg-[#e8600a]" />
+              <div className="mt-[10%] h-[2px] w-12 bg-[#e8600a]" />
 
               <p className={subtitleClass}>
                 <span>{SUBTITLE_PREFIX}</span>
