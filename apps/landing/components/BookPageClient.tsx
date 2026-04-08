@@ -150,18 +150,18 @@ export default function BookPage() {
               <span>电子书首发</span>
             </div>
 
-            <h2 className="mb-4 max-w-[11ch] font-serif text-2xl font-bold leading-[1.12] tracking-tight text-neutral-900 sm:mb-5 sm:text-3xl md:text-[2.75rem] lg:text-[3.2rem]">
-              从错误开始：
-              <br />
-              <span>一套真正能</span>
-              <span className="whitespace-nowrap">闭环</span>
-              <span>的</span>
-              <br />
-              学习系统
-            </h2>
-            <p className="mb-8 max-w-[26rem] border-l-2 border-[#e8600a]/45 pl-4 text-[1.02rem] font-normal leading-[1.9] text-neutral-400 sm:text-[1.16rem]">
-              不是提分技巧，不是管理工具，而是一种面对错误的
-              <span className="whitespace-nowrap">方式。</span>
+            <div className="mb-8 max-w-[27rem]">
+              <h2 className="font-serif text-[2.45rem] font-bold leading-[1.08] tracking-tight text-neutral-900 sm:text-[3rem] md:text-[3.35rem] lg:text-[3.7rem]">
+                从<span className="text-[#e8600a]">错误</span>开始
+              </h2>
+              <div className="mt-5 h-[2px] w-14 bg-[#e8600a]" />
+              <div className="mt-5 space-y-1 font-serif leading-[1.12] tracking-tight text-neutral-700">
+                <p className="text-[1.72rem] sm:text-[1.95rem] md:text-[2.1rem]">一套真正能闭环的</p>
+                <p className="text-[2.1rem] font-bold text-neutral-800 sm:text-[2.35rem] md:text-[2.6rem]">学习系统</p>
+              </div>
+            </div>
+            <p className="mb-8 max-w-[26rem] border-l-2 border-[#e8600a]/30 pl-4 text-[1.02rem] font-normal leading-[1.9] text-neutral-500 sm:text-[1.16rem]">
+              不是提分技巧，不是管理工具，而是一种面对错误的系统思维方式。
             </p>
 
             <div className="mb-10 space-y-6 text-[1.02rem] leading-[1.85] text-neutral-600 text-justify sm:text-[1.08rem]">

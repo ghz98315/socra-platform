@@ -95,15 +95,16 @@ export default function LandingPage() {
                 <BookOpen className="w-4 h-4" />
                 <span>电子书发布</span>
               </div>
-              <h2 className="max-w-[11ch] font-serif text-3xl font-bold leading-[1.1] tracking-tight mb-5 md:text-4xl xl:text-[2.85rem]">
-                从错误开始：
-                <br />
-                <span>一套真正能</span>
-                <span className="whitespace-nowrap">闭环</span>
-                <span>的</span>
-                <br />
-                学习系统
-              </h2>
+              <div className="mb-5 max-w-[22rem]">
+                <h2 className="font-serif text-3xl font-bold leading-[1.08] tracking-tight md:text-4xl xl:text-[3.05rem]">
+                  从<span className="text-[#e8600a]">错误</span>开始
+                </h2>
+                <div className="mt-4 h-[2px] w-12 bg-[#e8600a]" />
+                <div className="mt-4 space-y-1 font-serif leading-[1.12] tracking-tight text-white/86">
+                  <p className="text-[1.45rem] md:text-[1.65rem]">一套真正能闭环的</p>
+                  <p className="text-[1.8rem] font-bold text-white md:text-[2.05rem]">学习系统</p>
+                </div>
+              </div>
               <p className="max-w-[20rem] text-lg leading-[1.5] text-neutral-400 md:text-xl">
                 一位工程师爸爸用工厂管理逻辑重建的学习方法
               </p>
