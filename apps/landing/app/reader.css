@@ -214,6 +214,89 @@
 .socrates-reader .dialogue-block { background: var(--stone); border-radius: 8px; padding: 1.4rem 1.5rem; margin: 1.8rem 0; font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); line-height: 1.75; border-left: 3px solid var(--warm-gray); }
 .dark .socrates-reader .dialogue-block { background: #1a1a1a; color: #d0ccc6; border-left-color: #333; }
 .socrates-reader .dialogue-block em { display: block; margin-top: 0.8rem; color: var(--mid-gray); font-size: 0.75rem; font-style: normal; }
+.socrates-reader .dialogue-note { display: block; margin-top: 0.8rem; color: var(--mid-gray); font-size: 0.76rem; font-style: italic; padding-top: 0.7rem; border-top: 1px dashed var(--warm-gray); }
+
+/* CH11 CONTENT BLOCKS */
+.socrates-reader .scene-block { background: var(--stone); border-left: 4px solid var(--orange); border-radius: 0 8px 8px 0; padding: 1.5rem 1.6rem; margin: 2rem 0; font-family: var(--font-sans); font-size: 0.9rem; color: var(--dark); line-height: 2; }
+.dark .socrates-reader .scene-block { background: #1f1f1f; }
+.socrates-reader .scene-block p { font-size: 0.9rem !important; margin-bottom: 0.4rem !important; }
+.socrates-reader .scene-block p:last-child { margin-bottom: 0 !important; }
+.socrates-reader .scene-key { display: block; margin-top: 0.6rem; font-family: var(--font-sans); font-size: 1rem; font-weight: 700; color: var(--navy); }
+
+.socrates-reader .week-timeline { display: flex; flex-direction: column; margin: 2rem 0; border: 1px solid var(--warm-gray); border-radius: 10px; overflow: hidden; }
+.socrates-reader .week-row { display: flex; border-bottom: 1px solid var(--warm-gray); }
+.socrates-reader .week-row:last-child { border-bottom: none; }
+.socrates-reader .week-tag { flex-shrink: 0; width: 76px; padding: 1.3rem 0.8rem; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--warm-gray); background: var(--stone); }
+.dark .socrates-reader .week-tag { background: #1f1f1f; }
+.socrates-reader .week-tag-label { font-family: var(--font-sans); font-size: 0.62rem; color: var(--mid-gray); letter-spacing: 0.08em; text-transform: uppercase; text-align: center; }
+.socrates-reader .week-tag-val { font-family: var(--font-sans); font-size: 1.2rem; font-weight: 700; color: var(--navy); line-height: 1; margin-top: 0.25rem; }
+.socrates-reader .week-body { flex: 1; padding: 1.2rem 1.4rem; }
+.socrates-reader .week-title { font-family: var(--font-sans); font-size: 0.9rem; font-weight: 700; color: var(--navy); margin-bottom: 0.6rem; }
+.socrates-reader .week-text { font-family: var(--font-sans); font-size: 0.81rem; color: var(--dark); line-height: 1.75; }
+.dark .socrates-reader .week-text { color: #d0ccc6; }
+.socrates-reader .week-note { display: block; margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; color: var(--orange); font-family: var(--font-sans); }
+.socrates-reader .week-row-hard .week-tag { background: var(--orange-light); }
+.dark .socrates-reader .week-row-hard .week-tag { background: #2a1a0a; }
+.socrates-reader .week-row-hard .week-tag-val { color: var(--orange); }
+.socrates-reader .week-row-hard .week-body { background: #fffcfa; }
+.dark .socrates-reader .week-row-hard .week-body { background: #1d1815; }
+
+.socrates-reader .approach-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--warm-gray); border-radius: 8px; overflow: hidden; margin: 1.5rem 0; }
+.socrates-reader .approach-col { background: var(--white); padding: 1.2rem; }
+.dark .socrates-reader .approach-col { background: #1f1f1f; }
+.socrates-reader .approach-col.wrong { background: #fff5f5; }
+.dark .socrates-reader .approach-col.wrong { background: #2b1717; }
+.socrates-reader .approach-col.better { background: #f5fff5; }
+.dark .socrates-reader .approach-col.better { background: #152417; }
+.socrates-reader .approach-label { font-family: var(--font-sans); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.socrates-reader .approach-col.wrong .approach-label { color: #cc2200; }
+.socrates-reader .approach-col.better .approach-label { color: #007700; }
+.socrates-reader .approach-method { font-family: var(--font-sans); font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.4rem; }
+.socrates-reader .approach-quote { font-family: var(--font-sans); font-size: 0.78rem; color: var(--mid-gray); font-style: italic; margin-bottom: 0.6rem; line-height: 1.5; }
+.socrates-reader .approach-problem { font-family: var(--font-sans); font-size: 0.78rem; color: var(--dark); line-height: 1.6; }
+.dark .socrates-reader .approach-problem { color: #d0ccc6; }
+
+.socrates-reader .rule-cards { display: flex; flex-direction: column; gap: 1rem; margin: 1.8rem 0; }
+.socrates-reader .rule-card { border: 1px solid var(--warm-gray); border-radius: 10px; padding: 1.5rem 1.5rem 1.5rem 1.8rem; position: relative; overflow: hidden; }
+.dark .socrates-reader .rule-card { background: #1f1f1f; }
+.socrates-reader .rule-card-stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--orange); }
+.socrates-reader .rule-card-header { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.9rem; }
+.socrates-reader .rule-badge { flex-shrink: 0; width: 34px; height: 34px; background: var(--orange); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 0.85rem; font-weight: 700; }
+.socrates-reader .rule-card-title { font-family: var(--font-sans); font-size: 0.95rem; font-weight: 700; color: var(--navy); }
+.socrates-reader .rule-card-body { font-family: var(--font-sans); font-size: 0.83rem; color: var(--dark); line-height: 1.78; }
+.dark .socrates-reader .rule-card-body { color: #d0ccc6; }
+.socrates-reader .rule-card-body p { margin-bottom: 0.7rem; font-size: 0.83rem !important; }
+.socrates-reader .rule-card-body p:last-child { margin-bottom: 0 !important; }
+.socrates-reader .rule-tip { display: block; margin-top: 0.9rem; font-size: 0.76rem; color: var(--mid-gray); background: var(--stone); padding: 0.6rem 0.9rem; border-radius: 4px; line-height: 1.6; font-style: italic; font-family: var(--font-sans); }
+.dark .socrates-reader .rule-tip { background: #262626; }
+.socrates-reader .rule-conclude { display: block; margin-top: 0.8rem; font-size: 0.82rem; font-weight: 700; color: var(--navy); font-family: var(--font-sans); }
+
+.socrates-reader .signal-list { list-style: none; margin: 1.5rem 0; padding: 0; }
+.socrates-reader .signal-item { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem 0; border-bottom: 1px solid var(--light-gray); font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); line-height: 1.65; }
+.socrates-reader .signal-item:last-child { border-bottom: none; }
+.socrates-reader .signal-dot { flex-shrink: 0; width: 10px; height: 10px; background: var(--orange); border-radius: 50%; margin-top: 0.44rem; }
+.dark .socrates-reader .signal-item { color: #d0ccc6; border-bottom-color: #333; }
+.socrates-reader .signal-sub { display: block; font-size: 0.76rem; color: var(--mid-gray); margin-top: 0.3rem; font-style: italic; }
+
+.socrates-reader .case-handwriting { background: white; border: 1px dashed var(--warm-gray); border-radius: 6px; padding: 0.9rem 1.1rem; margin: 0.8rem 0; font-family: var(--font-sans); font-size: 0.85rem; color: var(--navy); font-style: italic; line-height: 1.65; }
+.dark .socrates-reader .case-handwriting { background: #161616; }
+
+.socrates-reader .no-break-block { text-align: center; padding: 2.5rem 1.5rem; border-top: 1px solid var(--light-gray); margin-top: 2rem; }
+.dark .socrates-reader .no-break-block { border-top-color: #333; }
+.socrates-reader .no-break-main { font-family: var(--font-serif); font-size: 1.4rem; color: var(--navy); font-style: italic; margin-bottom: 0.5rem; }
+.socrates-reader .no-break-sub { font-family: var(--font-sans); font-size: 0.8rem; color: var(--mid-gray); }
+
+.socrates-reader .summary-block { background: var(--navy); border-radius: 10px; padding: 1.6rem; margin: 2.5rem 0; }
+.dark .socrates-reader .summary-block { background: #18233a; }
+.socrates-reader .summary-label { font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 0.8rem; }
+.socrates-reader .summary-list { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0; }
+.socrates-reader .summary-tag { font-family: var(--font-sans); font-size: 0.75rem; color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.1); padding: 0.25rem 0.65rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); margin: 0; }
+.socrates-reader .summary-close { font-family: var(--font-sans); font-size: 0.82rem; color: rgba(255,255,255,0.55); line-height: 1.7; margin-top: 1rem; }
+
+@media (max-width: 640px) {
+  .socrates-reader .week-tag { width: 60px; }
+  .socrates-reader .approach-compare { grid-template-columns: 1fr; }
+}
 
 /* STEP LIST */
 .socrates-reader .step-list { list-style: none; margin: 1.5rem 0; padding: 0; }

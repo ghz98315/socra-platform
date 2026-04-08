@@ -14,6 +14,10 @@ export const GENERATED_FILE_BACKED_BOOK_CHAPTERS = {
     repoPath: "book/ch10.html",
     relativeFilePathFromSource: "../../../book/ch10.html",
   },
+  ch11: {
+    repoPath: "book/ch11.html",
+    relativeFilePathFromSource: "../../../book/ch11.html",
+  },
   ch12: {
     repoPath: "book/ch12.html",
     relativeFilePathFromSource: "../../../book/ch12.html",

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第十一章（下）：最难熬的那三周 | 从错误开始</title>
+<style>
+:root {
+  --navy: #1a2744;
+  --orange: #e8600a;
+  --orange-light: #fff5ee;
+  --orange-mid: #fde8d4;
+  --stone: #f5f4f0;
+  --warm-gray: #d4cfc8;
+  --dark: #2d2d2d;
+  --mid-gray: #6b6b6b;
+  --light-gray: #f0eeea;
+  --white: #fefefe;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'STSong', serif;
+  --font-sans: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --max-width: 680px;
+  --reading-size: 17px;
+  --line-height: 1.95;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: var(--font-serif); background: var(--white); color: var(--dark); line-height: var(--line-height); }
+
+.chapter { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 4rem; }
+.chapter p { margin-bottom: 1.4rem; font-size: var(--reading-size); color: var(--dark); }
+.chapter strong { color: var(--navy); }
+.chapter h3 { font-size: 1.05rem; color: var(--navy); font-weight: 700; margin: 2.8rem 0 1.1rem; font-family: var(--font-sans); }
+.chapter h3::before { content: ''; display: block; width: 24px; height: 2px; background: var(--orange); margin-bottom: 0.6rem; }
+
+/* 三条规则卡片 */
+.rule-cards { display: flex; flex-direction: column; gap: 1rem; margin: 1.8rem 0; }
+.rule-card { border: 1px solid var(--warm-gray); border-radius: 10px; padding: 1.5rem 1.5rem 1.5rem 1.8rem; position: relative; overflow: hidden; }
+.rule-card-stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--orange); border-radius: 0; }
+.rule-card-header { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.9rem; }
+.rule-badge { flex-shrink: 0; width: 34px; height: 34px; background: var(--orange); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-sans); font-size: 0.85rem; font-weight: 700; }
+.rule-card-title { font-family: var(--font-sans); font-size: 0.95rem; font-weight: 700; color: var(--navy); }
+.rule-card-body { font-family: var(--font-sans); font-size: 0.83rem; color: var(--dark); line-height: 1.78; }
+.rule-card-body strong { color: var(--navy); }
+.rule-card-body p { margin-bottom: 0.7rem; font-size: 0.83rem; }
+.rule-card-body p:last-child { margin-bottom: 0; }
+.rule-tip { display: block; margin-top: 0.9rem; font-size: 0.76rem; color: var(--mid-gray); background: var(--stone); padding: 0.6rem 0.9rem; border-radius: 4px; line-height: 1.6; font-style: italic; font-family: var(--font-sans); }
+.rule-conclude { display: block; margin-top: 0.8rem; font-size: 0.82rem; font-weight: 700; color: var(--navy); font-family: var(--font-sans); }
+
+/* 信号列表 */
+.signal-list { list-style: none; margin: 1.5rem 0; }
+.signal-item { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem 0; border-bottom: 1px solid var(--light-gray); font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); line-height: 1.65; }
+.signal-item:last-child { border-bottom: none; }
+.signal-dot { flex-shrink: 0; width: 10px; height: 10px; background: var(--orange); border-radius: 50%; margin-top: 0.44rem; }
+.signal-item strong { color: var(--navy); }
+.signal-sub { display: block; font-size: 0.76rem; color: var(--mid-gray); margin-top: 0.3rem; font-style: italic; }
+
+/* 大宝案例块 */
+.case-block { background: var(--stone); border-radius: 8px; padding: 1.6rem; margin: 2rem 0; }
+.case-label { display: inline-block; font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; background: var(--orange); color: white; padding: 0.2rem 0.6rem; border-radius: 2px; margin-bottom: 1rem; }
+.case-block p { font-family: var(--font-sans); font-size: 0.84rem; color: var(--dark); margin-bottom: 0.8rem; line-height: 1.78; }
+.case-block p:last-child { margin-bottom: 0; }
+.case-block strong { color: var(--navy); }
+.case-block em { color: var(--mid-gray); font-style: italic; }
+.case-handwriting { background: white; border: 1px dashed var(--warm-gray); border-radius: 6px; padding: 0.9rem 1.1rem; margin: 0.8rem 0; font-family: var(--font-sans); font-size: 0.85rem; color: var(--navy); font-style: italic; line-height: 1.65; }
+
+/* 金句 */
+.key-quote { border-left: 4px solid var(--orange); background: var(--orange-light); padding: 1.3rem 1.6rem; margin: 2rem 0; border-radius: 0 6px 6px 0; }
+.key-quote p { font-size: 1rem !important; color: var(--navy) !important; font-style: italic; font-weight: 500; margin-bottom: 0 !important; line-height: 1.85; }
+
+/* 收尾总结块 */
+.summary-block { background: var(--navy); border-radius: 10px; padding: 1.6rem; margin: 2.5rem 0; }
+.summary-label { font-family: var(--font-sans); font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 0.8rem; }
+.summary-list { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.summary-tag { font-family: var(--font-sans); font-size: 0.75rem; color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.1); padding: 0.25rem 0.65rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); }
+.summary-close { font-family: var(--font-sans); font-size: 0.82rem; color: rgba(255,255,255,0.55); line-height: 1.7; margin-top: 1rem; }
+
+/* 断线结语 */
+.no-break-block { text-align: center; padding: 2.5rem 1.5rem; border-top: 1px solid var(--light-gray); margin-top: 2rem; }
+.no-break-main { font-family: var(--font-serif); font-size: 1.4rem; color: var(--navy); font-style: italic; margin-bottom: 0.5rem; }
+.no-break-sub { font-family: var(--font-sans); font-size: 0.8rem; color: var(--mid-gray); }
+
+/* 章节导航 */
+.chapter-nav { max-width: var(--max-width); margin: 0 auto; padding: 2rem 1.5rem 3rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-top: 1px solid var(--light-gray); }
+.ch-nav-btn { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.7rem 1.1rem; border: 1px solid var(--warm-gray); border-radius: 6px; font-family: var(--font-sans); font-size: 0.78rem; color: var(--dark); transition: all 0.2s; max-width: 46%; line-height: 1.4; }
+.ch-nav-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
+.ch-nav-btn.prev { flex-direction: row; text-align: left; }
+.ch-nav-btn.next { flex-direction: row-reverse; text-align: right; margin-left: auto; }
+.ch-nav-arrow { flex-shrink: 0; font-size: 1rem; color: var(--orange); }
+.ch-nav-label { font-size: 0.65rem; color: var(--mid-gray); display: block; margin-bottom: 0.1rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.ch-nav-title { display: block; font-weight: 600; }
+
+@media (max-width: 640px) {
+  :root { --reading-size: 16px; }
+  .chapter { padding: 2.5rem 1.2rem 3.5rem; }
+  .ch-nav-btn { font-size: 0.72rem; padding: 0.6rem 0.8rem; }
+}
+@media (min-width: 1024px) { :root { --reading-size: 18px; } }
+</style>
+</head>
+<body>
+
+<article class="chapter" id="ch11-b">
+
+  <h3>给自己的三条规则</h3>
+
+  <p>孩子的抵触可以用上面的方式应对，但家长自己的疲惫怎么办？我在坚持最难的那段时间里，给自己定了三条规则。</p>
+
+  <div class="rule-cards">
+
+    <div class="rule-card">
+      <div class="rule-card-stripe"></div>
+      <div class="rule-card-header">
+        <div class="rule-badge">1</div>
+        <div class="rule-card-title">只管今天，不想整体</div>
+      </div>
+      <div class="rule-card-body">
+        <p>每当我开始想"这套系统我还要坚持多久，孩子什么时候才能真正内化"——我就会感到很重，很疲惫。因为"整体"太大了，看不见边界。</p>
+        <p>所以我给自己的规则是：<strong>只管今天该做的事。</strong></p>
+        <p>今天有一道题的复习节点到期了——做这件事，其他的不想。今天大宝有一道新的错题需要处理——做这件事，其他的不想。</p>
+        <p>把"整体"切成一个一个的"今天"，每个今天都很小，很具体，可以完成。</p>
+        <span class="rule-tip">实操建议：每天早上只看"今天需要做什么"，不翻整个文件夹。复习日历按日期排，只看今天那一页，其他的不看。</span>
+      </div>
+    </div>
+
+    <div class="rule-card">
+      <div class="rule-card-stripe"></div>
+      <div class="rule-card-header">
+        <div class="rule-badge">2</div>
+        <div class="rule-card-title">记录每一个"真的结束了"的时刻</div>
+      </div>
+      <div class="rule-card-body">
+        <p>每当一道题在系统里彻底通关，我会在一个小本子上记下来：这道题，完成了。</p>
+        <p>这个动作看起来没什么用，但它提供了一种在漫长坚持过程中非常稀缺的东西：<strong>可以被看见的进度。</strong></p>
+        <p>三个月之后，翻开那个小本子，密密麻麻的记录——这不只是一份数据，而是三个月里每一天没有放弃的证据。那份证据，给了我继续往下走的力量。</p>
+        <span class="rule-tip">实操建议：可以是小本子，可以是手机备忘录，也可以是贴在墙上的便利贴——每通关一道题就贴一张。看着那面墙，你会知道自己走了多远。</span>
+      </div>
+    </div>
+
+    <div class="rule-card">
+      <div class="rule-card-stripe"></div>
+      <div class="rule-card-header">
+        <div class="rule-badge">3</div>
+        <div class="rule-card-title">允许自己有"轻执行"的日子</div>
+      </div>
+      <div class="rule-card-body">
+        <p>不是每一天都必须高强度执行这套系统。</p>
+        <p><strong>孩子今天考试考完，精神很差，状态很低——可以轻执行。</strong>只做一个最简单的动作，比如让他把今天的错题大概说一遍，不追问，不深挖，明天再正式处理。</p>
+        <p><strong>家长今天工作很累，没有精力做高质量的5 Why——可以轻执行。</strong>只检查一下今天有没有复习节点到期，处理完就结束。</p>
+        <p>"轻执行"不是放弃，它是让这套系统能够长期运转的弹性。一套没有弹性的系统，在遇到真实生活的摩擦时，很容易直接断掉。有弹性的系统，可以在困难的时候变轻，在条件好的时候变重，但始终不断。</p>
+        <span class="rule-conclude">不断，比什么都重要。</span>
+      </div>
+    </div>
+
+  </div>
+
+  <h3>什么时候能看到真正的变化</h3>
+
+  <p>这个问题，我能给出的不是一个精确的数字，而是一个真实的描述。</p>
+
+  <p><strong>大约在第四周到第六周之间，你会开始看到第一个信号。</strong>不是成绩的变化，那个来得比较晚。而是孩子在面对一道错题的时候，态度开始有微妙的不同。</p>
+
+  <ul class="signal-list">
+    <li class="signal-item">
+      <span class="signal-dot"></span>
+      <div>
+        <strong>他做完一道题，主动翻出之前那道根因打标的记录，说"这道题和那次好像"。</strong>
+        <span class="signal-sub">他开始自己建立连接了。这个习惯不是被教出来的，是被问出来的，用出来的。</span>
+      </div>
+    </li>
+    <li class="signal-item">
+      <span class="signal-dot"></span>
+      <div>
+        <strong>他在做5 Why的时候，不需要你问第三个问题，自己就往下挖了。</strong>
+        <span class="signal-sub">他开始内化这个追问的习惯了。你的角色正在从"发动机"变成"变速箱"。</span>
+      </div>
+    </li>
+    <li class="signal-item">
+      <span class="signal-dot"></span>
+      <div>
+        <strong>复习节点到了，他不用你提醒，自己拿出来讲。</strong>
+        <span class="signal-sub">他开始自己驱动这套系统了。这是你一直在等的那个转变。</span>
+      </div>
+    </li>
+  </ul>
+
+  <p>这些变化，每一个看起来都很小，甚至你可能在它发生的当天没有特别在意。但它们是这套系统真正开始在孩子身上生根的信号。<strong>看到第一个信号，往往是坚持下去最强的理由。</strong></p>
+
+  <h3>大宝的那个信号</h3>
+
+  <p>我自己的"第一个信号"，出现在我们开始执行这套系统的第五周。</p>
+
+  <div class="case-block">
+    <div class="case-label">真实案例 · 第五周</div>
+    <p>那天大宝在做一套模拟卷，做完之后自己拿着卷子，把做错的题翻出来，逐一看了一遍。</p>
+    <p>然后他做了一件我没有要求他做的事——他拿出一张白纸，把其中一道错题的根因追问写了下来，自己问自己，问了三层，然后在下面写了一句话：</p>
+    <div class="case-handwriting">"这次错的原因和上次那道题是一样的，说明这个漏洞还没补好，需要重新处理。"</div>
+    <p>他把那张纸放在我书桌上，没有说话。</p>
+    <p>我当时看到那张纸，站在那里愣了很长时间。不是因为他写得多好，而是因为这件事本身说明：<strong>他不再把出错看成一个需要被惩罚或者被忽视的事情，而是开始把它看成一个需要被追问和处理的信号。</strong></p>
+    <p><em>这个转变，才是这套系统真正想做到的事。比任何一道题做对，都更重要。</em></p>
+  </div>
+
+  <h3>给第三周的你</h3>
+
+  <p>如果你现在正在经历那个最难熬的时刻——孩子在抵触，你在疲惫，心里有一个声音在说"算了"——</p>
+
+  <p>我想直接对你说一句话：</p>
+
+  <div class="key-quote">
+    <p>那个"算了"的感受，正是因为你在做一件真正有价值的事。<strong>容易的事，不会让你感到这么累。不会改变任何东西的事，不会产生这么多摩擦。</strong>你感受到的那些阻力，大多数来自一件事正在改变另一件事——一种新的思维方式，正在替换一种旧的习惯。这个替换，不会悄无声息地发生。</p>
+  </div>
+
+  <p>它会有摩擦，会有抵触，会有那个让你想说"算了"的下午。但在那个下午之后，如果你还是把除错单拿了出来，把孩子叫过来，哪怕只是轻执行，做了一个最简单的动作——</p>
+
+  <div class="no-break-block">
+    <div class="no-break-main">你就没有断。</div>
+    <div class="no-break-sub">不断，是这件事最重要的一条规则。</div>
+  </div>
+
+  <div class="summary-block">
+    <div class="summary-label">全书核心内容 · 到这里已经全部讲完</div>
+    <ul class="summary-list">
+      <li class="summary-tag">粗心是借口</li>
+      <li class="summary-tag">做对一次不等于学会</li>
+      <li class="summary-tag">5 Why 找根因</li>
+      <li class="summary-tag">费曼验理解</li>
+      <li class="summary-tag">艾宾浩斯固记忆</li>
+      <li class="summary-tag">PDCA 串闭环</li>
+      <li class="summary-tag">六个动作跑完一条路</li>
+      <li class="summary-tag">家长站在变速箱的位置</li>
+      <li class="summary-tag">工具解放管理负担</li>
+      <li class="summary-tag">第三周不断线</li>
+    </ul>
+    <div class="summary-close">最后一章，我不讲新东西。我想回到这本书开始的地方——那个大宝说"粗心了"的下午，说说这两年之后，我真正看到的那些变化，以及我希望你和孩子，最终从这套系统里带走的，是什么。</div>
+  </div>
+
+</article>
+
+<div class="chapter-nav">
+  <a href="#ch10" class="ch-nav-btn prev">
+    <span class="ch-nav-arrow">&#8592;</span>
+    <span><span class="ch-nav-label">上一章</span><span class="ch-nav-title">从纸笔到系统</span></span>
+  </a>
+  <a href="#ch12" class="ch-nav-btn next">
+    <span><span class="ch-nav-label">尾声</span><span class="ch-nav-title">两年之后</span></span>
+    <span class="ch-nav-arrow">&#8594;</span>
+  </a>
+</div>
+
+</body>
+</html>
