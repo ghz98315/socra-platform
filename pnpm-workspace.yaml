@@ -1,3 +1,5 @@
 packages:
-  - "apps/*"
+  - "apps/essay"
+  - "apps/landing"
+  - "apps/socrates"
   - "packages/*"
