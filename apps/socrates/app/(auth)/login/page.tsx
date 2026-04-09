@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Brain, Home, Loader2, ShieldCheck, Sparkles, Target } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Brain, Home, Loader2, ShieldCheck, Sparkles, Target } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { buildAuthPageHref, readEntryParams, resolveEntryDestination } from '@/lib/navigation/entry-intent';
 import { cn } from '@/lib/utils';
 
 type LoginMode = 'code' | 'password';
@@ -19,9 +20,13 @@ const features = [
   { icon: Sparkles, title: '个性分析', desc: '精准定位薄弱知识点' },
 ];
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, requestPhoneCode, verifyPhoneCode } = useAuth();
+  const entryParams = readEntryParams(searchParams);
+  const registerHref = buildAuthPageHref('/register', entryParams);
+  const successDestination = resolveEntryDestination(entryParams);
 
   const [mode, setMode] = useState<LoginMode>('code');
   const [phone, setPhone] = useState('');
@@ -46,7 +51,7 @@ export default function LoginPage() {
 
     try {
       await signIn(phone, password);
-      router.push('/select-profile');
+      router.replace(successDestination);
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请检查手机号和密码。');
     } finally {
@@ -88,7 +93,7 @@ export default function LoginPage() {
         code,
         purpose: 'login',
       });
-      router.push('/select-profile');
+      router.replace(successDestination);
     } catch (err) {
       setError(err instanceof Error ? err.message : '验证码登录失败，请稍后重试。');
     } finally {
@@ -350,7 +355,7 @@ export default function LoginPage() {
             <p className="text-warm-600">
               还没有账户？
               <Link
-                href="/register"
+                href={registerHref}
                 className="ml-1 font-semibold text-warm-600 underline underline-offset-4 hover:text-warm-700"
               >
                 立即注册
@@ -374,5 +379,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

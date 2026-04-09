@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { buildSocratesEntryUrl } from '../lib/socratesLinks';
 
 type SiteLayoutProps = {
   children: ReactNode;
@@ -12,6 +13,11 @@ type SiteLayoutProps = {
 export default function SiteLayout({ children }: SiteLayoutProps) {
   const pathname = usePathname();
   const isHome = pathname === '/';
+  const loginHref = buildSocratesEntryUrl({
+    source: 'landing-nav',
+    intent: 'start-tool',
+    redirect: '/select-profile',
+  });
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-neutral-200">
@@ -30,8 +36,8 @@ export default function SiteLayout({ children }: SiteLayoutProps) {
             <a href={isHome ? '#about' : '/#about'} className="hover:text-neutral-900 transition-colors">关于我</a>
           </nav>
           <div className="flex items-center gap-4">
-            <a href="https://socrates.socra.cn" target="_blank" rel="noreferrer" className="hidden md:block text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors">登录</a>
-            <a href="https://socrates.socra.cn" target="_blank" rel="noreferrer" className="text-sm font-medium bg-neutral-900 text-white px-4 py-2 rounded-full hover:bg-neutral-800 transition-colors flex items-center gap-1">
+            <a href={loginHref} target="_blank" rel="noreferrer" className="hidden md:block text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors">登录</a>
+            <a href={loginHref} target="_blank" rel="noreferrer" className="text-sm font-medium bg-neutral-900 text-white px-4 py-2 rounded-full hover:bg-neutral-800 transition-colors flex items-center gap-1">
               开始使用<ArrowRight className="w-4 h-4" />
             </a>
           </div>

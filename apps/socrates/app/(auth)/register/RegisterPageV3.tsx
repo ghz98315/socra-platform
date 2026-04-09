@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Loader2, ShieldCheck } from 'lucide-react';
 
 import { AvatarPicker } from '@/components/AvatarPicker';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { defaultAvatarByRole } from '@/lib/avatar-options';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { buildAuthPageHref, readEntryParams, resolveEntryDestination } from '@/lib/navigation/entry-intent';
 import { cn } from '@/lib/utils';
 
 type RegisterMode = 'code' | 'password';
@@ -22,9 +23,13 @@ const benefits = [
   '家长可随时查看学习进度',
 ];
 
-export default function RegisterPageV3() {
+function RegisterPageV3Content() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, requestPhoneCode, verifyPhoneCode } = useAuth();
+  const entryParams = readEntryParams(searchParams);
+  const loginHref = buildAuthPageHref('/login', entryParams);
+  const successDestination = resolveEntryDestination(entryParams);
 
   const [mode, setMode] = useState<RegisterMode>('code');
   const [phone, setPhone] = useState('');
@@ -90,7 +95,7 @@ export default function RegisterPageV3() {
       }
 
       await signIn(phone, password);
-      router.push('/select-profile');
+      router.replace(successDestination);
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请稍后重试。');
     } finally {
@@ -136,7 +141,7 @@ export default function RegisterPageV3() {
         code,
         purpose: 'register',
       });
-      router.push('/select-profile');
+      router.replace(successDestination);
     } catch (err) {
       setError(err instanceof Error ? err.message : '验证码注册失败，请稍后重试。');
     } finally {
@@ -471,7 +476,7 @@ export default function RegisterPageV3() {
               <p className="text-warm-600">
                 已有账号？
                 <Link
-                  href="/login"
+                  href={loginHref}
                   className="ml-1 font-semibold text-warm-600 underline underline-offset-4 hover:text-warm-700"
                 >
                   立即登录
@@ -486,5 +491,13 @@ export default function RegisterPageV3() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPageV3() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageV3Content />
+    </Suspense>
   );
 }

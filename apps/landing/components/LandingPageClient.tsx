@@ -4,10 +4,16 @@ import { motion } from 'motion/react';
 import { ArrowRight, BookOpen, ChevronRight, Mail, PenTool, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import BookCoverMockup from './BookCoverMockup';
+import { buildSocratesEntryUrl } from '../lib/socratesLinks';
 import { useArticles } from '../lib/useArticles';
 
 export default function LandingPage() {
   const { articles, isLoaded } = useArticles();
+  const startToolHref = buildSocratesEntryUrl({
+    source: 'landing-home',
+    intent: 'start-tool',
+    redirect: '/select-profile',
+  });
   
   // Get the latest 2 published articles
   const latestArticles = articles.filter(a => a.slug !== '#').slice(0, 2);
@@ -170,7 +176,7 @@ export default function LandingPage() {
           <PenTool className="w-12 h-12 text-neutral-300 mx-auto mb-6" />
           <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 mb-5 leading-[1.4] px-4 sm:px-0 text-balance">准备好建立你的错题闭环了吗？</h2>
           <p className="text-neutral-600 mb-10 text-base sm:text-lg leading-relaxed text-balance">加入 Socrates，体验系统化、智能化的错题管理工具。</p>
-          <a href="https://socrates.socra.cn" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-8 py-4 rounded-full font-medium text-lg hover:bg-neutral-800 transition-colors shadow-lg shadow-neutral-900/20">
+          <a href={startToolHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-8 py-4 rounded-full font-medium text-lg hover:bg-neutral-800 transition-colors shadow-lg shadow-neutral-900/20">
             开始使用 Socrates <ArrowRight className="w-5 h-5" />
           </a>
         </div>

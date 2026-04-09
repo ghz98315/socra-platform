@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
+import { buildSocratesEntryUrl } from '../lib/socratesLinks';
 import { useArticles } from '../lib/useArticles';
 
 type ArticlePageClientProps = {
@@ -12,6 +13,11 @@ type ArticlePageClientProps = {
 
 export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
   const { articles, isLoaded } = useArticles();
+  const startToolHref = buildSocratesEntryUrl({
+    source: 'landing-article',
+    intent: 'start-tool',
+    redirect: '/error-book',
+  });
 
   if (!isLoaded) return null;
 
@@ -75,7 +81,7 @@ export default function ArticlePageClient({ slug }: ArticlePageClientProps) {
             <p className="mb-6 text-neutral-600 text-base">
               心法需要兵器来落地。Socrates 错题系统，帮你把这些方法论变成每天自动运转的闭环。
             </p>
-            <a href="https://socrates.socra.cn" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3 rounded-full font-medium hover:bg-neutral-800 transition-colors text-base no-underline">
+            <a href={startToolHref} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3 rounded-full font-medium hover:bg-neutral-800 transition-colors text-base no-underline">
               开始使用 Socrates <ArrowRight className="w-4 h-4" />
             </a>
           </div>

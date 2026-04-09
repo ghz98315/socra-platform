@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock } from 'lucide-react';
 import Link from 'next/link';
 import BookCoverMockup from './BookCoverMockup';
+import { buildSocratesEntryUrl } from '../lib/socratesLinks';
 import { useBookChapters, type BookChapter } from '../lib/useBookChapters';
 
 type TocPart = {
@@ -107,6 +108,11 @@ function ChapterLink({ chapter, compact = false }: { chapter: BookChapter; compa
 
 export default function BookPage() {
   const { chapters, isLoaded } = useBookChapters();
+  const startToolHref = buildSocratesEntryUrl({
+    source: 'landing-book',
+    intent: 'start-tool',
+    redirect: '/select-profile',
+  });
 
   if (!isLoaded) {
     return null;
@@ -208,6 +214,14 @@ export default function BookPage() {
               >
                 购买「书 + 工具」套装（¥39.9）
               </Link>
+              <a
+                href={startToolHref}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-neutral-200 bg-white px-8 py-4 text-center font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
+              >
+                进入 Socrates 开始执行
+              </a>
               <Link
                 href="/read/prologue"
                 className="rounded-full border border-neutral-200 bg-white px-8 py-4 text-center font-medium text-neutral-900 transition-colors hover:bg-neutral-50"
@@ -282,13 +296,23 @@ export default function BookPage() {
             <p className="mb-8 text-neutral-600">
               购买完整版电子书，解锁全书章节、尾声与附录模板，并获得 Socrates 错题系统 1 个月使用权益。
             </p>
-            <Link
-              href="/book-purchase"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-8 py-4 font-medium text-white no-underline shadow-lg shadow-neutral-900/20 transition-colors hover:bg-neutral-800"
-            >
-              前往购买套装（¥39.9）
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link
+                href="/book-purchase"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-neutral-900 px-8 py-4 font-medium text-white no-underline shadow-lg shadow-neutral-900/20 transition-colors hover:bg-neutral-800"
+              >
+                前往购买套装（¥39.9）
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <a
+                href={startToolHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-8 py-4 font-medium text-neutral-900 no-underline transition-colors hover:bg-neutral-50"
+              >
+                直接进入 Socrates
+              </a>
+            </div>
           </div>
         </div>
       </div>
