@@ -23,13 +23,13 @@ const PRO_FEATURES = {
 function getFallbackPlanName(planCode: string | null | undefined) {
   switch (planCode) {
     case 'pro_monthly':
-      return 'Monthly Pro';
+      return '月度会员';
     case 'pro_quarterly':
-      return 'Quarterly Pro';
+      return '季度会员';
     case 'pro_yearly':
-      return 'Yearly Pro';
+      return '年度会员';
     default:
-      return 'Free';
+      return '免费版';
   }
 }
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     const userId = req.nextUrl.searchParams.get('user_id') || req.headers.get('x-user-id');
 
     if (!userId) {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+      return NextResponse.json({ error: '缺少用户标识' }, { status: 400 });
     }
 
     const { data: subscriptions, error } = await supabase

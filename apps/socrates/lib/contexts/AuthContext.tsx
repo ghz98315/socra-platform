@@ -53,6 +53,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const SESSION_TIMEOUT_MS = 2500;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -135,12 +136,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check active session and set up auth listener
     const getSession = async () => {
       console.log('[AuthContext] Getting initial session');
-      const { data: { session }, error } = await supabase.auth.getSession();
+      let timedOut = false;
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<{ data: { session: null }; error: null }>((resolve) => {
+          timeoutHandle = setTimeout(() => {
+            timedOut = true;
+            resolve({ data: { session: null }, error: null });
+          }, SESSION_TIMEOUT_MS);
+        }),
+      ]);
+
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+
+      const { data: { session }, error } = sessionResult;
 
       if (error) {
         console.error('[AuthContext] Error getting session:', error);
         setLoading(false);
         return;
+      }
+
+      if (timedOut) {
+        console.warn('[AuthContext] getSession timeout, falling back to logged-out state');
       }
 
       console.log('[AuthContext] Initial session:', !!session?.user);

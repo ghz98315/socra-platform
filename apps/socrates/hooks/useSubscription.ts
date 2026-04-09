@@ -69,7 +69,7 @@ export function useSubscription() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch subscription');
+        throw new Error('获取订阅信息失败');
       }
 
       const data = await response.json();
@@ -136,7 +136,7 @@ export function usePlans() {
       const response = await fetch('/api/subscription/plans');
 
       if (!response.ok) {
-        throw new Error('Failed to fetch plans');
+        throw new Error('获取套餐列表失败');
       }
 
       const data = await response.json();

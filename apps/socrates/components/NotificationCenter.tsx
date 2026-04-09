@@ -112,10 +112,10 @@ function formatTime(dateStr: string): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟前`;
+  if (hours < 24) return `${hours} 小时前`;
+  if (days < 7) return `${days} 天前`;
   return date.toLocaleDateString('zh-CN');
 }
 
@@ -136,14 +136,14 @@ export function NotificationCenter() {
     try {
       const response = await fetch(`/api/notifications?user_id=${profile.id}&limit=10`);
       if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
+        throw new Error('获取通知失败');
       }
 
       const result = await response.json();
       setNotifications(result.data || []);
       setUnreadCount(result.unread_count || 0);
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error('获取通知失败:', error);
     } finally {
       setLoading(false);
     }

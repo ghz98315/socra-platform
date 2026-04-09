@@ -27,7 +27,7 @@ export function BottomStatusBar({ className }: BottomStatusBarProps) {
   }
 
   const level = points.level || 1;
-  const levelName = points.level_name || 'Beginner';
+  const levelName = points.level_name || '新手';
   const balance = points.balance || 0;
   const streakDays = points.streak_days || 0;
 
@@ -44,7 +44,7 @@ export function BottomStatusBar({ className }: BottomStatusBarProps) {
             <Flame className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-foreground">{balance.toLocaleString()} pts</div>
+            <div className="font-semibold text-foreground">{balance.toLocaleString()} 积分</div>
             <div className="truncate text-muted-foreground">{levelName}</div>
           </div>
         </div>
@@ -59,7 +59,7 @@ export function BottomStatusBar({ className }: BottomStatusBarProps) {
           </div>
           <div className="flex items-center gap-1">
             <Target className="h-4 w-4 text-orange-500" />
-            <span>{streakDays} days</span>
+            <span>{streakDays} 天</span>
           </div>
         </div>
 
@@ -67,13 +67,13 @@ export function BottomStatusBar({ className }: BottomStatusBarProps) {
           <div className="hidden items-center gap-1 sm:flex">
             <Book className="h-4 w-4" />
             <a href="/knowledge" className="hover:text-foreground">
-              Knowledge
+              知识库
             </a>
           </div>
           <div className="hidden items-center gap-1 sm:flex">
             <Coffee className="h-4 w-4" />
             <a href="/settings" className="hover:text-foreground">
-              Settings
+              设置
             </a>
           </div>
           <div className="flex items-center gap-1">

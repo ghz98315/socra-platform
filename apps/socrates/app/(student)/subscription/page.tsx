@@ -12,15 +12,11 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useSubscription, usePlans } from '@/hooks/useSubscription';
+import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionFeatures } from '@/components/subscription/SubscriptionFeatures';
 import {
   CheckCircle,
-  Star,
-  Zap,
   Crown,
-  Sparkles,
-  ChevronLeft,
   Shield,
   Clock,
   Gift,
@@ -64,10 +60,9 @@ const PLAN_CONFIG = {
 };
 
 export default function SubscriptionPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { subscription, isPro, loading, error } = useSubscription();
-  const { plans } = usePlans();
 
   const [selectedPlan, setSelectedPlan] = useState<keyof typeof PLAN_CONFIG>('quarterly');
   const [couponCode, setCouponCode] = useState('');
@@ -104,6 +99,12 @@ export default function SubscriptionPage() {
     return price.toFixed(2);
   };
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login?redirect=/subscription');
+    }
+  }, [authLoading, router, user]);
+
   // 处理订阅
   const handleSubscribe = async () => {
     if (!user) {
@@ -114,6 +115,28 @@ export default function SubscriptionPage() {
     // 跳转到支付页面
     router.push(`/payment?plan=${selectedPlan}`);
   };
+
+  if (authLoading || (!user && loading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-warm-500 border-t-transparent mx-auto"></div>
+          <p className="mt-3 text-gray-500">正在检查登录状态...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-warm-500 border-t-transparent mx-auto"></div>
+          <p className="mt-3 text-gray-500">正在跳转到登录页...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

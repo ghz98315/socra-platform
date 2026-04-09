@@ -267,7 +267,7 @@ export function GlobalNav() {
                 onClick={() => setMobileOpen(false)}
               >
                 <Settings className="h-4 w-4" />
-                设置 Settings
+                设置
               </Button>
             </Link>
             <Button
@@ -276,7 +276,7 @@ export function GlobalNav() {
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
-              退出登录 Sign out
+              退出登录
             </Button>
           </div>
         </div>

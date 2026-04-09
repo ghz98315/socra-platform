@@ -204,7 +204,7 @@ function RegisterPageV3Content() {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-center bg-white px-6 py-10 sm:px-10 lg:px-14">
+        <div className="flex flex-1 items-center justify-center bg-white px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
           <div
             className={cn(
               'w-full max-w-2xl transition-all duration-700',
@@ -332,7 +332,7 @@ function RegisterPageV3Content() {
                     <label htmlFor="code" className="text-sm font-medium text-warm-800">
                       验证码
                     </label>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <Input
                         id="code"
                         type="text"
@@ -343,14 +343,14 @@ function RegisterPageV3Content() {
                         maxLength={8}
                         required
                         disabled={loading}
-                        className="h-12 rounded-2xl border-warm-200 bg-warm-50 text-base focus:border-warm-400 focus:ring-warm-400"
+                        className="h-12 rounded-2xl border-warm-200 bg-warm-50 text-base focus:border-warm-400 focus:ring-warm-400 sm:flex-1"
                       />
                       <Button
                         type="button"
                         variant="outline"
                         onClick={handleSendCode}
                         disabled={loading || sendingCode || phone.length !== 11}
-                        className="h-12 min-w-[110px] rounded-2xl border-warm-200 bg-white text-warm-700 hover:bg-warm-50"
+                        className="h-12 w-full rounded-2xl border-warm-200 bg-white px-4 text-warm-700 hover:bg-warm-50 sm:min-w-[110px] sm:w-auto"
                       >
                         {sendingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : '获取验证码'}
                       </Button>

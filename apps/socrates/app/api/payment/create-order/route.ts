@@ -14,21 +14,21 @@ const TEST_PLANS: Record<
   pro_monthly: {
     id: 'plan_monthly_001',
     plan_code: 'pro_monthly',
-    plan_name: 'Monthly Pro',
+    plan_name: '月度会员',
     price: 29.9,
     duration_days: 30,
   },
   pro_quarterly: {
     id: 'plan_quarterly_001',
     plan_code: 'pro_quarterly',
-    plan_name: 'Quarterly Pro',
+    plan_name: '季度会员',
     price: 79.9,
     duration_days: 90,
   },
   pro_yearly: {
     id: 'plan_yearly_001',
     plan_code: 'pro_yearly',
-    plan_name: 'Yearly Pro',
+    plan_name: '年度会员',
     price: 239.9,
     duration_days: 365,
   },
@@ -89,13 +89,13 @@ export async function POST(req: NextRequest) {
 
     if (!user_id || !plan_code || !payment_method) {
       return NextResponse.json(
-        { error: 'user_id, plan_code and payment_method are required' },
+        { error: '缺少必要参数，请重新选择套餐与支付方式。' },
         { status: 400 }
       );
     }
 
     if (!['wechat', 'alipay'].includes(payment_method)) {
-      return NextResponse.json({ error: 'Invalid payment_method' }, { status: 400 });
+      return NextResponse.json({ error: '支付方式无效' }, { status: 400 });
     }
 
     let useTestData = false;
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!plan) {
-      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+      return NextResponse.json({ error: '未找到对应套餐' }, { status: 404 });
     }
 
     const existingSubResult = await supabase
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     if (!existingSubResult.error && existingSubResult.data) {
       return NextResponse.json(
-        { error: 'User already has an active subscription' },
+        { error: '当前账号已有有效会员，无需重复订阅。' },
         { status: 400 }
       );
     }
