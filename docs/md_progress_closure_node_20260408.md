@@ -28,6 +28,8 @@
   - `docs/md_landing_socrates_closure_plan_20260408.md`
 - 闭环执行方案：
   - `docs/md_landing_socrates_closure_execution_plan_20260408.md`
+- 人工验收清单：
+  - `docs/md_closure_manual_acceptance_checklist_20260409.md`
 
 ## 闭环阶段进度表
 
