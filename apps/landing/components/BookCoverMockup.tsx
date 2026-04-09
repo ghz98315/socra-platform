@@ -1,5 +1,7 @@
 'use client';
 
+import { useId } from 'react';
+
 type BookCoverMockupProps = {
   className?: string;
   rotateClassName?: string;
@@ -7,37 +9,48 @@ type BookCoverMockupProps = {
 };
 
 function PdcaLoopGlyph({ isHome }: { isHome: boolean }) {
+  const glowId = useId();
+
   return (
     <div
       className={
         isHome
-          ? 'mb-[6.5%] w-full max-w-[34%] text-white/45'
-          : 'mb-[6.5%] w-full max-w-[35%] text-white/45'
+          ? 'w-[45%] min-w-[4.4rem] max-w-[6.8rem] shrink-0 opacity-100 drop-shadow-[0_0_22px_rgba(242,139,69,0.28)]'
+          : 'w-[46%] min-w-[4.05rem] max-w-[6.2rem] shrink-0 opacity-100 drop-shadow-[0_0_20px_rgba(242,139,69,0.24)]'
       }
       aria-hidden="true"
     >
-      <svg viewBox="0 0 160 56" className="h-auto w-full" fill="none">
+      <svg viewBox="0 0 100 100" className="h-auto w-full" fill="none">
         <defs>
-          <linearGradient id="pdca-loop-stroke" x1="20" y1="10" x2="140" y2="46" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#f28b45" stopOpacity="0.92" />
-            <stop offset="1" stopColor="#d7dceb" stopOpacity="0.3" />
-          </linearGradient>
+          <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#f28b45" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#f28b45" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        <path
-          d="M36 28c0-8 6-14 14-14h30m44 0h-14c8 0 14 6 14 14m0 0c0 8-6 14-14 14H80m-44 0h14c-8 0-14-6-14-14Z"
-          stroke="url(#pdca-loop-stroke)"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <circle cx="50" cy="50" r="17" fill={`url(#${glowId})`} />
+        <circle
+          cx="50"
+          cy="50"
+          r="29"
+          fill="none"
+          stroke="rgba(255,255,255,0.5)"
+          strokeWidth="1.35"
+          strokeDasharray="2.8 3.8"
         />
-        <path d="m74 10 6 4-6 4" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m130 24-4 6-4-6" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m86 46-6-4 6-4" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m30 32 4-6 4 6" stroke="#f28b45" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="34" cy="28" r="2.6" fill="#d7dceb" fillOpacity="0.38" />
-        <circle cx="80" cy="14" r="2.6" fill="#d7dceb" fillOpacity="0.28" />
-        <circle cx="126" cy="28" r="2.6" fill="#d7dceb" fillOpacity="0.3" />
-        <circle cx="80" cy="42" r="2.6" fill="#d7dceb" fillOpacity="0.24" />
+        <path d="M 77 47 L 79.4 51.6 L 82 47" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.28" />
+        <path d="M 53 77 L 48.4 79.4 L 53 82" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.28" />
+        <path d="M 23 53 L 20.6 48.4 L 18 53" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.28" />
+        <path d="M 47 23 L 51.6 20.6 L 47 18" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.28" />
+        <line x1="50" y1="50" x2="70" y2="30" stroke="#f7a86a" strokeWidth="1.75" strokeOpacity="0.92" />
+        <line x1="50" y1="50" x2="70" y2="70" stroke="#f7a86a" strokeWidth="1.75" strokeOpacity="0.92" />
+        <line x1="50" y1="50" x2="30" y2="70" stroke="#f7a86a" strokeWidth="1.75" strokeOpacity="0.92" />
+        <line x1="50" y1="50" x2="30" y2="30" stroke="#f7a86a" strokeWidth="1.75" strokeOpacity="0.92" />
+        <circle cx="50" cy="50" r="4.9" fill="rgba(10,16,30,0.92)" stroke="#ffc08e" strokeWidth="2" />
+        <circle cx="50" cy="50" r="1.95" fill="#ffc08e" />
+        <circle cx="70" cy="30" r="4.05" fill="rgba(26,39,68,0.95)" stroke="#e5842f" strokeWidth="1.95" />
+        <circle cx="70" cy="70" r="4.05" fill="rgba(26,39,68,0.95)" stroke="#b06f42" strokeWidth="1.95" />
+        <circle cx="30" cy="70" r="4.05" fill="rgba(26,39,68,0.95)" stroke="#806059" strokeWidth="1.95" />
+        <circle cx="30" cy="30" r="4.05" fill="rgba(26,39,68,0.95)" stroke="#726266" strokeWidth="1.95" />
       </svg>
     </div>
   );
@@ -89,20 +102,27 @@ export default function BookCoverMockup({
     ? 'mt-[0.22em] text-[clamp(0.94rem,2.25vw,1.3rem)] leading-[1.38] tracking-[0.13em] text-[#d5dbeb]'
     : 'mt-[0.24em] text-[clamp(0.9rem,2.08vw,1.18rem)] leading-[1.38] tracking-[0.12em] text-[#d5dbeb]';
   const subtitleClass = isHome
-    ? 'mt-[7.2%] max-w-[88%] font-sans text-[0.64rem] font-medium leading-[1.78] tracking-[0.03em] text-[#d4daea] sm:text-[0.72rem]'
-    : 'mt-[7.2%] max-w-[88%] font-sans text-[0.6rem] font-medium leading-[1.78] tracking-[0.03em] text-[#d4daea] sm:text-[0.68rem]';
-  const conceptsBlockClass = isHome
-    ? 'w-full max-w-[72%]'
-    : 'w-full max-w-[74%]';
+    ? 'mt-[6.8%] max-w-[88%] font-sans text-[0.64rem] font-medium leading-[1.78] tracking-[0.03em] text-[#d4daea] sm:text-[0.72rem]'
+    : 'mt-[6.8%] max-w-[88%] font-sans text-[0.6rem] font-medium leading-[1.78] tracking-[0.03em] text-[#d4daea] sm:text-[0.68rem]';
+  const glyphGapClass = isHome
+    ? 'flex min-h-0 flex-1 items-center justify-center py-[2.8%]'
+    : 'flex min-h-0 flex-1 items-center justify-center py-[2.4%]';
+  const glyphWrapClass = isHome
+    ? 'flex w-full justify-center pb-[1.6%]'
+    : 'flex w-full justify-center pb-[1.4%]';
+  const pdcaBlockClass = isHome
+    ? 'w-full max-w-[76%]'
+    : 'w-full max-w-[78%]';
+  const conceptsTextWrapClass = 'w-full max-w-[98%]';
   const pdcaWrapClass = isHome
-    ? 'mb-[7.5%] flex w-full overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]'
-    : 'mb-[7.5%] flex w-full overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]';
+    ? 'mb-[7.1%] flex w-full overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]'
+    : 'mb-[7.1%] flex w-full overflow-hidden rounded-[4px] border border-white/6 bg-black/10 shadow-[0_8px_18px_rgba(0,0,0,0.18)]';
   const pdcaCellClass = isHome
-    ? 'flex-1 py-[4.2%] text-center text-[0.78rem] font-bold tracking-[0.08em] text-white'
-    : 'flex-1 py-[4%] text-center text-[0.74rem] font-bold tracking-[0.08em] text-white';
+    ? 'flex-1 py-[4.6%] text-center text-[0.82rem] font-bold tracking-[0.08em] text-white'
+    : 'flex-1 py-[4.4%] text-center text-[0.78rem] font-bold tracking-[0.08em] text-white';
   const conceptsClass = isHome
-    ? 'mb-[8.5%] w-full font-sans text-[0.56rem] font-light leading-[1.7] tracking-[0.04em] text-white/46 sm:text-[0.62rem]'
-    : 'mb-[8.5%] w-full font-sans text-[0.54rem] font-light leading-[1.7] tracking-[0.04em] text-white/46 sm:text-[0.6rem]';
+    ? 'mb-[8.8%] w-full whitespace-nowrap font-sans text-[0.58rem] font-light leading-[1.2] tracking-[0.03em] text-white/60 sm:text-[0.66rem]'
+    : 'mb-[8.8%] w-full whitespace-nowrap font-sans text-[0.56rem] font-light leading-[1.2] tracking-[0.03em] text-white/58 sm:text-[0.62rem]';
   const authorClass = isHome
     ? 'font-sans text-[0.9rem] font-medium tracking-[0.1em] text-white/92'
     : 'font-sans text-[0.84rem] font-medium tracking-[0.09em] text-white/92';
@@ -141,7 +161,7 @@ export default function BookCoverMockup({
           <div className="absolute inset-x-0 top-0 h-[16%] bg-gradient-to-b from-white/6 to-transparent" />
           <div className="absolute inset-x-[9%] bottom-0 h-[5.5%] bg-gradient-to-t from-black/10 to-transparent" />
 
-          <div className={`relative flex h-full flex-col items-center justify-between text-center text-white ${contentPaddingClass}`}>
+          <div className={`relative flex h-full flex-col items-center text-center text-white ${contentPaddingClass}`}>
             <div className="w-full flex flex-col items-center">
               <div className="mb-[15%] inline-flex rounded-md border border-[#e8600a]/65 bg-[#1a2744]/28 px-4 py-1.5 text-[9px] font-medium tracking-[0.1em] text-[#ffd1b4] backdrop-blur-sm">
                 {COVER_TAG}
@@ -164,9 +184,14 @@ export default function BookCoverMockup({
               </p>
             </div>
 
+            <div className={glyphGapClass}>
+              <div className={glyphWrapClass}>
+                <PdcaLoopGlyph isHome={isHome} />
+              </div>
+            </div>
+
             <div className="w-full flex flex-col items-center">
-              <PdcaLoopGlyph isHome={isHome} />
-              <div className={conceptsBlockClass}>
+              <div className={pdcaBlockClass}>
                 <div className={pdcaWrapClass}>
                   {FLOW_STEPS.map((step, index) => (
                     <div
@@ -184,6 +209,8 @@ export default function BookCoverMockup({
                     </div>
                   ))}
                 </div>
+              </div>
+              <div className={conceptsTextWrapClass}>
                 <p className={conceptsClass}>
                   {CONCEPTS}
                 </p>
