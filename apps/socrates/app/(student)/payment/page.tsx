@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { buildAuthPageHref, buildEntryHref, buildEntryQuery, readEntryParams } from '@/lib/navigation/entry-intent';
 
 const PLANS = {
   monthly: {
@@ -65,6 +66,7 @@ function PaymentContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const entryParams = readEntryParams(searchParams);
   const initialPlan = searchParams.get('plan');
   const defaultPlan: PlanKey =
     initialPlan === 'monthly' || initialPlan === 'quarterly' || initialPlan === 'yearly'
@@ -82,6 +84,17 @@ function PaymentContent() {
   const [error, setError] = useState<string | null>(null);
 
   const plan = PLANS[selectedPlan];
+  const flowEntryParams = {
+    source: entryParams.source ?? 'payment',
+    intent: entryParams.intent ?? 'subscribe',
+    redirect: entryParams.redirect,
+  };
+  const buildPaymentHref = (planKey: PlanKey) => {
+    const params = new URLSearchParams(buildEntryQuery(flowEntryParams));
+    params.set('plan', planKey);
+    return `/payment?${params.toString()}`;
+  };
+  const subscriptionHref = buildEntryHref('/subscription', flowEntryParams);
 
   const finalPrice = (() => {
     if (couponStatus !== 'valid' || couponDiscount <= 0) {
@@ -124,7 +137,13 @@ function PaymentContent() {
 
   const handlePayment = async () => {
     if (!user) {
-      router.push('/login?redirect=/payment');
+      router.push(
+        buildAuthPageHref('/login', {
+          source: flowEntryParams.source,
+          intent: flowEntryParams.intent,
+          redirect: buildPaymentHref(selectedPlan),
+        }),
+      );
       return;
     }
 
@@ -137,6 +156,9 @@ function PaymentContent() {
         plan_code: plan.id,
         coupon_code: couponStatus === 'valid' ? couponCode.trim().toUpperCase() : null,
         payment_method: paymentMethod,
+        source: flowEntryParams.source,
+        intent: flowEntryParams.intent,
+        redirect: flowEntryParams.redirect,
       };
 
       const orderResponse = await fetch('/api/payment/create-order', {
@@ -154,22 +176,33 @@ function PaymentContent() {
         orderData.redirectUrl ||
         orderData.payment?.redirectUrl ||
         `/payment/success?order_id=${orderData.orderId}`;
+      const resolvedRedirectUrl = (() => {
+        const url = new URL(redirectUrl, window.location.origin);
+        const flowQuery = new URLSearchParams(buildEntryQuery(flowEntryParams));
+        flowQuery.forEach((value, key) => {
+          if (!url.searchParams.has(key)) {
+            url.searchParams.set(key, value);
+          }
+        });
+
+        return `${url.pathname}${url.search}${url.hash}`;
+      })();
 
       if (
         paymentMethod === 'wechat' &&
         (orderData.wechatPayParams || orderData.payment?.wechatPayParams)
       ) {
-        router.push(redirectUrl);
+        router.push(resolvedRedirectUrl);
         return;
       }
 
       if (paymentMethod === 'alipay') {
-        const alipayUrl = orderData.alipayUrl || orderData.payment?.alipayUrl || redirectUrl;
+        const alipayUrl = orderData.alipayUrl || orderData.payment?.alipayUrl || resolvedRedirectUrl;
         window.location.href = alipayUrl;
         return;
       }
 
-      router.push(redirectUrl);
+      router.push(resolvedRedirectUrl);
     } catch (err: any) {
       console.error('Payment error:', err);
       setError(err.message || '发起支付失败');
@@ -182,7 +215,7 @@ function PaymentContent() {
     <div className="min-h-screen bg-gradient-to-b from-warm-50 to-white pb-24">
       <div className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-lg items-center gap-4 px-4 py-4">
-          <button onClick={() => router.back()} className="rounded-full p-2 hover:bg-gray-100">
+          <button onClick={() => router.push(subscriptionHref)} className="rounded-full p-2 hover:bg-gray-100">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <h1 className="text-lg font-semibold">确认订阅与支付</h1>
@@ -190,13 +223,26 @@ function PaymentContent() {
       </div>
 
       <div className="mx-auto max-w-lg px-4 py-6">
+        {flowEntryParams.redirect ? (
+          <Card className="mb-6 border-warm-200 bg-warm-50/90">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-warm-900">支付完成后自动回到原学习动作</p>
+              <p className="mt-1 text-sm text-warm-700">不用重新找入口，支付成功后会直接续上。</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="mb-6">
           <h2 className="mb-3 text-sm font-medium text-gray-700">选择套餐</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {Object.entries(PLANS).map(([key, currentPlan]) => (
               <button
                 key={key}
-                onClick={() => setSelectedPlan(key as PlanKey)}
+                onClick={() => {
+                  const nextPlan = key as PlanKey;
+                  setSelectedPlan(nextPlan);
+                  router.replace(buildPaymentHref(nextPlan));
+                }}
                 className={cn(
                   'relative rounded-xl border-2 p-4 text-left transition-all',
                   selectedPlan === key

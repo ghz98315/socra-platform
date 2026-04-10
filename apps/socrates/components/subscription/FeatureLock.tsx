@@ -8,6 +8,7 @@
 import { Lock, Crown, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { buildEntryHref } from '@/lib/navigation/entry-intent';
 
 interface FeatureLockProps {
   featureName: string;
@@ -16,6 +17,19 @@ interface FeatureLockProps {
   showOverlay?: boolean;
   children?: React.ReactNode;
   className?: string;
+}
+
+function getSubscriptionHref() {
+  if (typeof window === 'undefined') {
+    return '/subscription';
+  }
+
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  return buildEntryHref('/subscription', {
+    source: 'feature-lock',
+    intent: 'subscribe',
+    redirect,
+  });
 }
 
 // 功能锁定遮罩
@@ -31,7 +45,7 @@ export function FeatureLock({
     if (onUnlock) {
       onUnlock();
     } else {
-      window.location.href = '/subscription';
+      window.location.href = getSubscriptionHref();
     }
   };
 
@@ -137,7 +151,7 @@ export function FeatureLockModal({
             <Button
               className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
               onClick={() => {
-                window.location.href = '/subscription';
+                window.location.href = getSubscriptionHref();
               }}
             >
               <Crown className="w-4 h-4 mr-2" />

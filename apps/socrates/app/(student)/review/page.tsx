@@ -9,7 +9,6 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  FileText,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -227,7 +226,7 @@ function ReviewHubCard({
 
         <div className="mt-5 flex gap-2 border-t border-warm-100 pt-4">
           <Button className="flex-1 gap-2 rounded-full bg-warm-500 hover:bg-warm-600" onClick={() => onOpenReview(review.id)}>
-            {completed ? '查看复盘' : '进入复习'}
+            {completed ? '看复盘' : '继续复习'}
             <ArrowRight className="h-4 w-4" />
           </Button>
           <Button
@@ -235,7 +234,7 @@ function ReviewHubCard({
             className="flex-1 rounded-full border-warm-200 hover:bg-warm-50"
             onClick={() => onOpenSource(review.sessionId)}
           >
-            查看原题
+            看原题
           </Button>
         </div>
       </CardContent>
@@ -382,9 +381,25 @@ export default function ReviewPage() {
     () => pendingReviews.filter((review) => !review.transferEvidenceReady).length,
     [pendingReviews]
   );
+  const nextReview = dueNowReviews[0] ?? upcomingReviews[0] ?? null;
+  const hasDueNowReview = Boolean(dueNowReviews[0]);
+  const nextActionLabel = nextReview ? '继续复习' : '继续学习';
+  const nextActionDescription = nextReview
+    ? hasDueNowReview
+      ? '先做当前到期的题。'
+      : '今天没有到期题，先看下一轮。'
+    : '当前没有复习任务，先去学习新题。';
 
   const openReview = (reviewId: string) => router.push(`/review/session/${reviewId}`);
   const openSource = (sessionId: string) => router.push(`/error-book/${sessionId}`);
+  const handleNextAction = () => {
+    if (nextReview) {
+      openReview(nextReview.id);
+      return;
+    }
+
+    router.push('/study/math/problem');
+  };
 
   return (
     <div
@@ -396,7 +411,7 @@ export default function ReviewPage() {
       <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
         <PageHeader
           title="复习中心"
-          description="先完成今天该复习的题，再查看后续计划和最近完成，整条复习链路集中在这里。"
+          description="先复习，再看下一步。"
           icon={BookOpen}
           iconColor="text-warm-500"
           actions={
@@ -413,7 +428,7 @@ export default function ReviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push('/study')}
+                onClick={() => router.push('/study#quick-start')}
                 className="rounded-full border-warm-200 hover:bg-warm-50"
               >
                 返回工作台
@@ -434,38 +449,25 @@ export default function ReviewPage() {
       <main className="mx-auto max-w-7xl space-y-6 px-4 pb-20 sm:px-6">
         <Card className="border-warm-200/70 bg-white/95 shadow-sm">
           <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
+            <div>
               <div className="flex items-center gap-2 text-sm font-medium text-warm-700">
                 <Sparkles className="h-4 w-4" />
-                学生复习闭环
+                下一步
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-warm-700">
-                <Badge variant="secondary" className="bg-warm-100 text-warm-700">1. 今天先复习</Badge>
-                <ArrowRight className="h-4 w-4 text-warm-400" />
-                <Badge variant="secondary" className="bg-warm-100 text-warm-700">2. 进入复习模式</Badge>
-                <ArrowRight className="h-4 w-4 text-warm-400" />
-                <Badge variant="secondary" className="bg-warm-100 text-warm-700">3. 回看原题与错因</Badge>
-                <ArrowRight className="h-4 w-4 text-warm-400" />
-                <Badge variant="secondary" className="bg-warm-100 text-warm-700">4. 进入下一轮计划</Badge>
-              </div>
-              <p className="text-sm text-warm-600">
-                从通知、错题本、工作台进入后，最终都应回到这个页面继续推进下一步。
-              </p>
+              <h2 className="mt-2 text-xl font-semibold text-warm-900">{nextActionLabel}</h2>
+              <p className="mt-1 text-sm text-warm-600">{nextActionDescription}</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                className="rounded-full bg-warm-500 hover:bg-warm-600"
-                onClick={() => (dueNowReviews[0] ? openReview(dueNowReviews[0].id) : router.push('/study'))}
-              >
-                {dueNowReviews[0] ? '开始今日复习' : '去工作台录入新题'}
+              <Button className="rounded-full bg-warm-500 hover:bg-warm-600" onClick={handleNextAction}>
+                {nextActionLabel}
               </Button>
               <Button
                 variant="outline"
                 className="rounded-full border-warm-200 hover:bg-warm-50"
                 onClick={() => router.push('/error-book')}
               >
-                查看错题本
+                错题本
               </Button>
             </div>
           </CardContent>
@@ -480,9 +482,9 @@ export default function ReviewPage() {
           <div className="space-y-6">
             <ReviewSection
               title="现在该复习"
-              description="优先处理今天到期和已经逾期的题，先把复习节奏拉回正轨。"
+              description="先处理今天到期和逾期的题。"
               emptyTitle="今天的复习节奏很好"
-              emptyDescription="当前没有到期任务，可以先去工作台学习新题，系统会自动安排下一轮复习。"
+              emptyDescription="当前没有到期任务，可以先去学习新题。"
               reviews={dueNowReviews}
               onOpenReview={openReview}
               onOpenSource={openSource}
@@ -490,9 +492,9 @@ export default function ReviewPage() {
 
             <ReviewSection
               title="后续计划"
-              description="这里是接下来几天的复习安排，方便学生提前知道后面要做什么。"
+              description="这里看接下来几天的安排。"
               emptyTitle="暂时没有后续计划"
-              emptyDescription="完成新的错题学习后，系统会在这里自动补充未来复习节点。"
+              emptyDescription="完成新的学习后，系统会自动补充。"
               reviews={upcomingReviews}
               onOpenReview={openReview}
               onOpenSource={openSource}
@@ -500,40 +502,14 @@ export default function ReviewPage() {
 
             <ReviewSection
               title="最近完成"
-              description="最近做完的题保留在这里，方便回看综合难度、原题和复盘入口。"
+              description="这里保留最近完成的题。"
               emptyTitle="还没有最近完成记录"
-              emptyDescription="完成任意一轮复习后，这里会展示最近完成的题目。"
+              emptyDescription="完成一轮复习后，这里就会出现。"
               reviews={completedReviews}
               completed
               onOpenReview={openReview}
               onOpenSource={openSource}
             />
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card className="border-warm-200/70 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-warm-900">
-                    <Target className="h-5 w-5 text-warm-500" />
-                    难度评估在哪里看
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm leading-6 text-warm-700">
-                  列表页优先显示综合难度，其次显示学生自评，最后回退到 AI 预估。进入复习详情页后仍可继续调整难度，更新后会同步回到这里。
-                </CardContent>
-              </Card>
-
-              <Card className="border-warm-200/70 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-warm-900">
-                    <FileText className="h-5 w-5 text-warm-500" />
-                    任意节点都能回到主线
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm leading-6 text-warm-700">
-                  通知进入看复盘，错题本进入看原题，工作台进入做新题，最后都回到复习中心继续下一步，避免学生做完一个动作后找不到后续入口。
-                </CardContent>
-              </Card>
-            </div>
           </div>
         )}
       </main>

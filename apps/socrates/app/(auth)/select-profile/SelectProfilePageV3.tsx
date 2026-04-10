@@ -30,9 +30,9 @@ const profileOptions: ProfileOption[] = [
     role: 'student',
     theme: 'junior',
     gradeLevel: [3, 6],
-    description: '适合作文批改、基础题引导、错题复习与学习习惯养成。',
+    description: '适合先开始录题、复习和日常巩固。',
     icon: <GraduationCap className="h-12 w-12" />,
-    notes: ['AI 提问更温和', '更强调步骤提示', '适合基础巩固'],
+    notes: ['提问更温和', '更适合基础巩固'],
   },
   {
     id: 'senior',
@@ -41,9 +41,9 @@ const profileOptions: ProfileOption[] = [
     role: 'student',
     theme: 'senior',
     gradeLevel: [7, 9],
-    description: '适合多步推理、几何题讲解、结构化复盘与提分训练。',
+    description: '适合多步分析、复盘和提分训练。',
     icon: <UserCircle className="h-12 w-12" />,
-    notes: ['AI 推理更深入', '适合综合题拆解', '更强调举一反三'],
+    notes: ['更适合综合题', '更强调举一反三'],
   },
   {
     id: 'parent',
@@ -51,9 +51,9 @@ const profileOptions: ProfileOption[] = [
     subtitle: '任务与家庭协同',
     role: 'parent',
     theme: 'senior',
-    description: '查看孩子计划、任务推进、学习报告与家庭协同提醒。',
+    description: '查看任务、进度和学习报告。',
     icon: <ChartBar className="h-12 w-12" />,
-    notes: ['查看任务进展', '管理家庭协同', '追踪复习与报告'],
+    notes: ['查看任务进展', '追踪复习情况'],
   },
 ];
 
@@ -88,10 +88,10 @@ export default function SelectProfilePageV3() {
 
   const avatarHint = useMemo(() => {
     if (!profile) {
-      return '已在注册时保存头像，可在设置页继续修改。';
+      return '先选一个入口，后面都可以再改。';
     }
 
-    return `切换到学生端会使用学生头像，切换到家长端会使用家长头像。当前展示的是${profile.role === 'parent' ? '家长' : '学生'}头像。`;
+    return `后面可以继续切换身份，当前是${profile.role === 'parent' ? '家长' : '学生'}入口。`;
   }, [profile]);
 
   const handleSelectProfile = async (option: ProfileOption) => {
@@ -113,7 +113,7 @@ export default function SelectProfilePageV3() {
           profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
       });
 
-      const targetUrl = option.role === 'parent' ? '/tasks' : '/study';
+      const targetUrl = option.role === 'parent' ? '/tasks' : '/study#quick-start';
       router.push(targetUrl);
       router.refresh();
     } catch (error) {
@@ -136,11 +136,9 @@ export default function SelectProfilePageV3() {
     <div className="min-h-screen bg-gradient-to-b from-warm-50 via-white to-warm-50 px-6 py-10">
       <div className="mx-auto max-w-5xl space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-warm-900">选择进入方式</h1>
-          <p className="mt-2 text-warm-600">
-            {avatarHint}
-          </p>
-          <p className="mt-1 text-sm text-warm-400">头像与昵称后续都可以在设置页修改。</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-warm-900">选择身份</h1>
+          <p className="mt-2 text-warm-600">{avatarHint}</p>
+          <p className="mt-1 text-sm text-warm-400">头像和昵称都可以之后修改。</p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -185,7 +183,7 @@ export default function SelectProfilePageV3() {
 
                 <h3 className="text-xl font-semibold text-warm-900">{option.title}</h3>
                 <p className="mt-1 text-sm text-warm-500">{option.subtitle}</p>
-                <p className="mt-4 min-h-[4.5rem] text-sm leading-6 text-warm-600">{option.description}</p>
+                <p className="mt-4 min-h-[3rem] text-sm leading-6 text-warm-600">{option.description}</p>
 
                 <div className="mt-4 space-y-2">
                   {option.notes.map((note) => (

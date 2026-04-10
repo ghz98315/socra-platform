@@ -32,6 +32,7 @@ import {
 import { PageHeader } from '@/components/PageHeader';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
 import { buildStudyModuleHref, type SubjectType } from '@/lib/study/catalog';
+import { buildEntryHref } from '@/lib/navigation/entry-intent';
 
 // 学科配置
 const subjectConfig: Record<string, {
@@ -109,6 +110,12 @@ export default function DashboardPage() {
   });
   const [subjects, setSubjects] = useState<SubjectProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const buildSubscriptionHref = (redirect: string) =>
+    buildEntryHref('/subscription', {
+      source: 'dashboard',
+      intent: 'subscribe',
+      redirect,
+    });
 
   // 获取问候语
   const getGreeting = () => {
@@ -157,10 +164,12 @@ export default function DashboardPage() {
 
   // 开始学科学习
   const handleStartSubject = (subject: string, isPro?: boolean) => {
+    const subjectProblemHref = buildStudyModuleHref(subject as SubjectType, 'problem');
+
     if (isPro) {
-      router.push('/subscription');
+      router.push(buildSubscriptionHref(subjectProblemHref));
     } else {
-      router.push(buildStudyModuleHref(subject as SubjectType, 'problem'));
+      router.push(subjectProblemHref);
     }
   };
 
@@ -189,7 +198,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/subscription')}
+              onClick={() => router.push(buildSubscriptionHref('/dashboard'))}
               className="text-yellow-600 border-yellow-300 hover:bg-yellow-50"
             >
               <Crown className="w-4 h-4 mr-1" />

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { buildEntryQuery, normalizeEntryParams, type EntryIntent } from '@/lib/navigation/entry-intent';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,8 +85,13 @@ function calculateDiscount(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { user_id, plan_code, payment_method, coupon_code } = body;
+    const { user_id, plan_code, payment_method, coupon_code, source, intent, redirect } = body;
     const normalizedCouponCode = coupon_code ? String(coupon_code).toUpperCase() : null;
+    const flowEntryParams = normalizeEntryParams({
+      source: typeof source === 'string' ? source : null,
+      intent: typeof intent === 'string' ? (intent as EntryIntent) : null,
+      redirect: typeof redirect === 'string' ? redirect : null,
+    });
 
     if (!user_id || !plan_code || !payment_method) {
       return NextResponse.json(
@@ -186,7 +192,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const successUrl = `/payment/success?order_id=${order.id}&plan=${plan.plan_code}&amount=${paidAmount}`;
+    const successQuery = new URLSearchParams(buildEntryQuery(flowEntryParams));
+    successQuery.set('order_id', order.id);
+    successQuery.set('plan', plan.plan_code);
+    successQuery.set('amount', String(paidAmount));
+    const successUrl = `/payment/success?${successQuery.toString()}`;
     const payment = {
       method: payment_method,
       testMode: useTestData,

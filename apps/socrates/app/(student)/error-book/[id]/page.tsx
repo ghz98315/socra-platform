@@ -267,7 +267,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
           setReviewId(data.review_id);
         }
         void loadErrorDetail();
-        setReviewActionMessage('已加入复习闭环，接下来要靠独立复习和变式证据来证明真会。');
+        setReviewActionMessage('已加入复习，接下来继续通过复习和变式练习来确认是否真会。');
       } else {
         setReviewActionMessage(data.error || '操作失败，请重试');
       }
@@ -323,6 +323,41 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const StatusIcon = statusLabels[errorSession.status]?.icon || Clock;
   const supportsVariantPractice = VARIANT_PRACTICE_SUBJECTS.has(errorSession.subject);
   const closureMeta = getClosureStateMeta(reviewSummary?.mastery_state || errorSession.closure_state);
+  const canContinueLearning = errorSession.status !== 'mastered';
+  const canOpenReview = Boolean(reviewId);
+  const canJoinReview = errorSession.status === 'guided_learning' && !reviewId;
+  const reviewActionLabel = reviewSummary?.is_completed ? '回看复习记录' : '继续复习';
+  const primaryActionLabel = canContinueLearning ? '继续学习' : canOpenReview ? reviewActionLabel : '返回错题本';
+  const primaryActionDescription = canContinueLearning
+    ? '先把这道题继续推进，再决定是否进入复习。'
+    : canOpenReview
+      ? '这道题已经进入复习链路，下一步直接回到复习。'
+      : '这道题当前没有新的学习动作，先回到错题本。';
+
+  const handlePrimaryAction = () => {
+    if (canContinueLearning) {
+      handleContinueLearning();
+      return;
+    }
+
+    if (canOpenReview) {
+      handleOpenReview();
+      return;
+    }
+
+    router.push('/error-book');
+  };
+
+  const handleSecondaryAction = () => {
+    if (canOpenReview) {
+      handleOpenReview();
+      return;
+    }
+
+    if (canJoinReview) {
+      void handleStartReviewLoop();
+    }
+  };
 
   return (
     <div className={cn(
@@ -381,7 +416,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   AI分析对话
                 </Button>
               )}
-              {errorSession.status === 'guided_learning' && !reviewId && (
+              {canJoinReview && (
                 <Button
                   size="sm"
                   onClick={handleStartReviewLoop}
@@ -396,12 +431,12 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   ) : (
                     <>
                       <Target className="w-4 h-4" />
-                      加入复习闭环
+                      加入复习
                     </>
                   )}
                 </Button>
               )}
-              {reviewId && (
+              {canOpenReview && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -409,10 +444,10 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   className="gap-2"
                 >
                   <BookOpen className="w-4 h-4" />
-                  进入复习
+                  继续复习
                 </Button>
               )}
-              {errorSession.status !== 'mastered' && (
+              {canContinueLearning && (
                 <Button
                   size="sm"
                   onClick={handleContinueLearning}
@@ -493,6 +528,33 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         </Card>
 
         {/* 对话历史 */}
+        <Card className="border-warm-200/60 bg-white/90">
+          <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.24em] text-warm-500">Next Step</p>
+              <h2 className="mt-2 text-xl font-semibold text-warm-900">{primaryActionLabel}</h2>
+              <p className="mt-1 text-sm text-warm-700">{primaryActionDescription}</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button onClick={handlePrimaryAction} className="gap-2 rounded-full bg-warm-500 text-white hover:bg-warm-600">
+                {canContinueLearning ? <Play className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                {primaryActionLabel}
+              </Button>
+              {(canContinueLearning && (canOpenReview || canJoinReview)) ? (
+                <Button
+                  variant="outline"
+                  onClick={handleSecondaryAction}
+                  disabled={startingReviewLoop}
+                  className="gap-2 rounded-full border-warm-200"
+                >
+                  {canOpenReview ? <BookOpen className="w-4 h-4" /> : <Target className="w-4 h-4" />}
+                  {canOpenReview ? reviewActionLabel : startingReviewLoop ? '加入中...' : '加入复习'}
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -572,7 +634,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   {reviewId ? (
                     <Button variant="ghost" onClick={handleOpenReview} className="gap-2">
                       <BookOpen className="w-4 h-4" />
-                      去复习判定
+                      去复习
                     </Button>
                   ) : null}
                 </div>
@@ -582,7 +644,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               {reviewId ? (
                 <Button variant="outline" onClick={handleOpenReview} className="gap-2">
                   <BookOpen className="w-4 h-4" />
-                  {reviewSummary?.is_completed ? '回看复习记录' : '进入复习闭环'}
+                  {reviewSummary?.is_completed ? '回看复习记录' : '继续复习'}
                 </Button>
               ) : null}
             </div>
@@ -709,7 +771,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         )}
 
         {/* 底部操作栏 */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-t border-border/50 p-4">
+        <div className="hidden">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
@@ -729,7 +791,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               {reviewId && (
                 <Button variant="outline" onClick={handleOpenReview} className="gap-2">
                   <BookOpen className="w-4 h-4" />
-                  进入复习
+                  继续复习
                 </Button>
               )}
               <Button onClick={handleContinueLearning} className="gap-2">

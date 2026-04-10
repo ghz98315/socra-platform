@@ -4,6 +4,52 @@
 
 ---
 
+## 最新运维节点: 2026-04-10
+
+### 当前判断
+
+- `socrates` 内部闭环 Phase 1 已完成首轮收口，`select-profile -> /study#quick-start` 已打通，学习首页首屏已改为更短、更直接的动作入口
+- 当前已正式进入 Phase 2：错题闭环收口，重点不再是“功能是否存在”，而是“错题列表、错题详情、复习入口谁是下一步”
+- 本轮已明确新增一个后续架构议题：账号体系准备从“双角色登录心智”收口为“单账号登录 + 家长二级密码 + 多学生隔离视图”，但这属于下一阶段模型调整，不并入当前 Phase 2 直接改库
+
+### 当前主文档入口
+
+- 内部闭环计划: `docs/md_socrates_internal_closure_plan_20260409.md`
+- 账号模型下一阶段备忘: `docs/md_socrates_account_model_next_stage_20260410.md`
+- 闭环节点进度: `docs/md_progress_closure_node_20260408.md`
+
+### 当前下一步建议
+
+- 继续推进 Phase 2，收口 `error-book -> error detail -> review` 的主动作语义
+- 保持入口文案极简，不回到“大段说明 + 多信息块”的目录式首页
+- 账号模型调整先按专项方案设计，等本轮闭环收口后再进入实现拆分
+
+---
+
+## 最新运维节点: 2026-04-09
+
+### 当前判断
+
+- 已完成一轮 `landing -> socrates` 就绪性复核，当前主入口、登录承接、订阅/支付回跳链路在代码层已经基本打通
+- 当前可以进入下一阶段 `socrates` 功能闭环工作，但不能把现状定义为“首批用户完整业务闭环完成”
+- 最大缺口不在入口参数与登录跳转，而在购书后的自动履约、自动开通权益，以及阅读内容到工具的回流闭环
+
+### 当前主文档入口
+
+- 闭环节点进度: `docs/md_progress_closure_node_20260408.md`
+- 闭环执行方案: `docs/md_landing_socrates_closure_execution_plan_20260408.md`
+- 内部闭环计划: `docs/md_socrates_internal_closure_plan_20260409.md`
+- 人工验收清单: `docs/md_closure_manual_acceptance_checklist_20260409.md`
+
+### 当前下一步建议
+
+- 下一阶段直接转入 `socrates` 内部功能闭环：`select-profile -> 首次使用 -> 错题进入/回看 -> 订阅/支付 -> 支付后继续使用`
+- 以 `docs/md_socrates_internal_closure_plan_20260409.md` 作为本轮执行基线，按 Phase 1 / 2 / 3 推进
+- 如果首批用户包含购书用户，并行补上“购书后自动开通权益 / 自动履约”缺口
+- 上线可用性仍建议补真实人工验收，不仅依赖本机网络探测
+
+---
+
 ## 最新运维节点: 2026-04-02
 
 ### 当前判断
@@ -315,3 +361,45 @@ NEXT_PUBLIC_SITE_URL=https://socrates.socra.cn
 - Current remaining risk is not app code but custom-domain transport on some machines:
   - `pnpm probe:socrates-domain` showed the alias healthy
   - `socrates.socra.cn` still hit TLS setup failure from this machine, so Cloudflare / custom-domain diagnosis remains the correct next track when custom-domain validation is required
+
+## 2026-04-10 Socrates Internal Closure Phase 2 Update
+
+- `review` 首页继续做减法：
+  - 首屏主动作统一为 `继续复习 / 继续学习`
+  - 首屏辅助入口保留 `错题本`
+  - 删除底部两张说明卡，避免学生进入后先看大量解释文字
+- `review` 列表动作词统一：
+  - 未完成题使用 `继续复习`
+  - 已完成题使用 `看复盘`
+  - 原题入口统一为 `看原题`
+- `review session` 继续收口：
+  - intro / recall / judge 三步文案进一步压短
+  - 完成态主动作改成更明确的单一出口
+  - 未关单时主动作是 `继续学习`
+  - 已关单时主动作是 `复习中心`
+- 本轮不改账户架构，不改家长/孩子登录模型；该建议已单独沉淀到下一阶段文档
+- 本轮验证：
+  - `pnpm.cmd --filter @socra/socrates build` passed
+
+## 2026-04-10 Socrates Internal Closure Phase 3 Update
+
+- `subscription -> payment -> payment/success` 已改成保留学习上下文的回流链：
+  - 订阅页会保留 `source / intent / redirect`
+  - 支付页会继续透传同一组参数
+  - 支付成功页优先回到原学习动作，不再固定掉回泛化页
+- `entry-intent` 已放开安全站内回跳到：
+  - `/study`
+  - `/review`
+  - `/dashboard`
+  - `/workbench`
+  - 同时保留已有 `/subscription / payment / error-book / select-profile`
+- 高频付费入口已接入上下文回流：
+  - `dashboard` 里的 Pro 学科入口
+  - 通用 `FeatureLock`
+- 支付成功页新规则：
+  - 有 `redirect` 时：主动作 `回到原任务`
+  - 无 `redirect` 时：主动作默认落到 `/study#quick-start`
+- 本轮验证：
+  - `pnpm.cmd --filter @socra/socrates build` passed
+- 验收文档：
+  - `docs/md_socrates_phase3_payment_return_acceptance_checklist_20260410.md`

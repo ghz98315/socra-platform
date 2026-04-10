@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { readEntryParams } from '@/lib/navigation/entry-intent';
 
 const PRO_BENEFITS = [
   '不限量 AI 对话与题目复盘',
@@ -60,12 +61,18 @@ function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [countdown, setCountdown] = useState(5);
+  const entryParams = readEntryParams(searchParams);
 
   const planName = searchParams.get('plan') || 'pro';
   const amount = searchParams.get('amount') || '99';
   const planMeta = normalizePlan(planName);
   const isPro = planMeta.tier === 'pro';
   const benefits = isPro ? PRO_BENEFITS : STANDARD_BENEFITS;
+  const successDestination = entryParams.redirect || (user ? '/study#quick-start' : '/');
+  const primaryActionLabel = entryParams.redirect ? '回到原任务' : '继续学习';
+  const secondaryDestination =
+    successDestination === '/study#quick-start' ? (user ? '/review' : '/') : '/study#quick-start';
+  const secondaryActionLabel = secondaryDestination === '/review' ? '复习中心' : '学习入口';
 
   useEffect(() => {
     const duration = 3000;
@@ -101,7 +108,7 @@ function PaymentSuccessContent() {
 
   useEffect(() => {
     if (countdown <= 0) {
-      router.push(user ? '/dashboard' : '/');
+      router.push(successDestination);
       return;
     }
 
@@ -110,7 +117,7 @@ function PaymentSuccessContent() {
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [countdown, router, user]);
+  }, [countdown, router, successDestination]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-warm-50 via-white to-orange-50 p-4">
@@ -136,7 +143,7 @@ function PaymentSuccessContent() {
               {isPro ? (
                 <>
                   <Crown className="h-4 w-4" />
-                  Pro 会员
+                  高级会员
                 </>
               ) : (
                 '会员'
@@ -164,6 +171,13 @@ function PaymentSuccessContent() {
             </div>
           </div>
 
+          <div className="mb-6 rounded-xl border border-warm-200 bg-warm-50/80 p-4 text-left">
+            <p className="text-sm font-medium text-warm-900">下一步</p>
+            <p className="mt-1 text-sm text-warm-700">
+              {entryParams.redirect ? '会员已开通，回到刚才的学习动作继续即可。' : '会员已开通，直接继续学习即可。'}
+            </p>
+          </div>
+
           <div className="mb-6">
             <p className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-700">
               <Sparkles className="h-4 w-4 text-orange-500" />
@@ -182,14 +196,14 @@ function PaymentSuccessContent() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => router.push('/dashboard')} className="flex-1">
-              前往工作台
+            <Button variant="outline" onClick={() => router.push(secondaryDestination)} className="flex-1">
+              {secondaryActionLabel}
             </Button>
             <Button
-              onClick={() => router.push('/study')}
+              onClick={() => router.push(successDestination)}
               className="flex-1 bg-gradient-to-r from-orange-500 to-warm-500 text-white hover:from-orange-600 hover:to-warm-600"
             >
-              开始学习
+              {primaryActionLabel}
               <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           </div>

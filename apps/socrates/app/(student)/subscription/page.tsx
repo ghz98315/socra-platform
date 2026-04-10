@@ -7,14 +7,16 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionFeatures } from '@/components/subscription/SubscriptionFeatures';
+import { buildAuthPageHref, buildEntryHref, buildEntryQuery, readEntryParams } from '@/lib/navigation/entry-intent';
 import {
+  ArrowRight,
   CheckCircle,
   Crown,
   Shield,
@@ -62,7 +64,20 @@ const PLAN_CONFIG = {
 export default function SubscriptionPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { subscription, isPro, loading, error } = useSubscription();
+  const entryParams = readEntryParams(searchParams);
+  const flowEntryParams = {
+    source: entryParams.source ?? 'subscription',
+    intent: entryParams.intent ?? 'subscribe',
+    redirect: entryParams.redirect,
+  };
+  const subscriptionReturnHref = buildEntryHref('/subscription', flowEntryParams);
+  const loginRedirectHref = buildAuthPageHref('/login', {
+    source: flowEntryParams.source,
+    intent: flowEntryParams.intent,
+    redirect: subscriptionReturnHref,
+  });
 
   const [selectedPlan, setSelectedPlan] = useState<keyof typeof PLAN_CONFIG>('quarterly');
   const [couponCode, setCouponCode] = useState('');
@@ -101,19 +116,32 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace('/login?redirect=/subscription');
+      window.location.replace(loginRedirectHref);
     }
-  }, [authLoading, router, user]);
+  }, [authLoading, loginRedirectHref, user]);
+
+  useEffect(() => {
+    if (user) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      window.location.replace(loginRedirectHref);
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [loginRedirectHref, user]);
 
   // 处理订阅
   const handleSubscribe = async () => {
     if (!user) {
-      router.push('/login?redirect=/subscription');
+      window.location.href = loginRedirectHref;
       return;
     }
 
-    // 跳转到支付页面
-    router.push(`/payment?plan=${selectedPlan}`);
+    const params = new URLSearchParams(buildEntryQuery(flowEntryParams));
+    params.set('plan', selectedPlan);
+    router.push(`/payment?${params.toString()}`);
   };
 
   if (authLoading || (!user && loading)) {
@@ -167,14 +195,32 @@ export default function SubscriptionPage() {
       {/* Header */}
       <div className="max-w-2xl mx-auto px-4 pt-6">
         <PageHeader
-          title={isPro ? '会员中心' : '升级 Pro'}
-          description={isPro ? '查看您的会员权益' : '解锁全部学习功能，让学习更高效'}
+          title={isPro ? '会员中心' : '升级会员'}
+          description={isPro ? '查看你的会员权益' : '解锁全部学习功能，让学习更高效'}
           icon={Crown}
           iconColor="text-yellow-500"
         />
       </div>
 
       <main className="max-w-2xl mx-auto px-4 pb-24">
+        {flowEntryParams.redirect ? (
+          <Card className="mb-6 border-warm-200 bg-warm-50/90">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-warm-900">支付成功后会回到原学习动作</p>
+                <p className="mt-1 text-sm text-warm-700">这次升级不会打断你当前的学习路径。</p>
+              </div>
+              <Button
+                variant="outline"
+                className="border-warm-200 hover:bg-warm-100"
+                onClick={() => router.push(flowEntryParams.redirect!)}
+              >
+                返回原任务
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {/* 当前订阅状态 */}
         {isPro && subscription?.current_plan && (
           <Card className="mb-6 bg-gradient-to-r from-warm-500 to-orange-400 border-0 shadow-lg">
@@ -187,7 +233,7 @@ export default function SubscriptionPage() {
                   <div>
                     <p className="text-white/80 text-sm">当前会员</p>
                     <p className="text-white font-bold text-lg">
-                      {subscription.current_plan.plan_name || 'Pro 会员'}
+                      {subscription.current_plan.plan_name || '高级会员'}
                     </p>
                   </div>
                 </div>
@@ -211,7 +257,7 @@ export default function SubscriptionPage() {
                 <TrendingUp className="w-4 h-4" />
                 选择套餐
               </h2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {Object.entries(PLAN_CONFIG).map(([key, p]) => (
                   <button
                     key={key}
@@ -335,7 +381,11 @@ export default function SubscriptionPage() {
         {/* 功能对比 */}
         <SubscriptionFeatures
           currentPlan={subscription?.current_plan?.plan_code || 'free'}
-          onUpgrade={() => router.push('/payment?plan=' + selectedPlan)}
+          onUpgrade={() => {
+            const params = new URLSearchParams(buildEntryQuery(flowEntryParams));
+            params.set('plan', selectedPlan);
+            router.push(`/payment?${params.toString()}`);
+          }}
         />
 
         {/* 底部订阅按钮 */}
@@ -349,6 +399,16 @@ export default function SubscriptionPage() {
                 <Crown className="w-5 h-5 mr-2" />
                 立即订阅 ¥{calculateFinalPrice()}/{plan.period}
               </Button>
+              {flowEntryParams.redirect ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(flowEntryParams.redirect!)}
+                  className="mt-2 w-full text-warm-700 hover:bg-warm-50"
+                >
+                  先回原任务
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              ) : null}
               <div className="flex items-center justify-center gap-4 mt-3">
                 <span className="flex items-center gap-1 text-xs text-gray-400">
                   <Shield className="w-3 h-3" />

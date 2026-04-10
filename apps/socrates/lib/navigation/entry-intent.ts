@@ -10,7 +10,16 @@ export type EntryParams = {
   redirect: string | null;
 };
 
-const ALLOWED_REDIRECT_PREFIXES = ['/select-profile', '/subscription', '/error-book', '/payment'] as const;
+const ALLOWED_REDIRECT_PREFIXES = [
+  '/select-profile',
+  '/subscription',
+  '/error-book',
+  '/payment',
+  '/study',
+  '/review',
+  '/dashboard',
+  '/workbench',
+] as const;
 
 function isEntryIntent(value: string | null): value is EntryIntent {
   return value === 'start-tool' || value === 'subscribe' || value === 'bundle' || value === 'continue-reading';
@@ -41,6 +50,38 @@ export function readEntryParams(searchParams: SearchParamsReader): EntryParams {
   };
 }
 
+export function normalizeEntryParams(entryParams: Partial<EntryParams>): EntryParams {
+  return {
+    source: entryParams.source ?? null,
+    intent: isEntryIntent(entryParams.intent ?? null) ? entryParams.intent ?? null : null,
+    redirect: isAllowedRedirect(entryParams.redirect ?? null) ? entryParams.redirect ?? null : null,
+  };
+}
+
+export function buildEntryQuery(entryParams: Partial<EntryParams>) {
+  const normalized = normalizeEntryParams(entryParams);
+  const query = new URLSearchParams();
+
+  if (normalized.source) {
+    query.set('source', normalized.source);
+  }
+
+  if (normalized.intent) {
+    query.set('intent', normalized.intent);
+  }
+
+  if (normalized.redirect) {
+    query.set('redirect', normalized.redirect);
+  }
+
+  return query.toString();
+}
+
+export function buildEntryHref(pathname: string, entryParams: Partial<EntryParams>) {
+  const search = buildEntryQuery(entryParams);
+  return search ? `${pathname}?${search}` : pathname;
+}
+
 export function resolveEntryDestination(entryParams: EntryParams) {
   if (entryParams.redirect) {
     return entryParams.redirect;
@@ -59,21 +100,5 @@ export function resolveEntryDestination(entryParams: EntryParams) {
 }
 
 export function buildAuthPageHref(pathname: '/login' | '/register', entryParams: EntryParams) {
-  const query = new URLSearchParams();
-
-  if (entryParams.source) {
-    query.set('source', entryParams.source);
-  }
-
-  if (entryParams.intent) {
-    query.set('intent', entryParams.intent);
-  }
-
-  if (entryParams.redirect) {
-    query.set('redirect', entryParams.redirect);
-  }
-
-  const search = query.toString();
-
-  return search ? `${pathname}?${search}` : pathname;
+  return buildEntryHref(pathname, entryParams);
 }

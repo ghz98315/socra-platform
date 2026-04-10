@@ -9,6 +9,7 @@ import { useState, useEffect, useDeferredValue } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowRight,
   BookOpen,
   Search,
   Filter,
@@ -202,7 +203,7 @@ export default function ErrorBookPage() {
           [sessionId]: data.review_id,
         }));
       }
-      setActionMessage('已加入复习清单。');
+      setActionMessage('已加入复习。');
     } catch (e: any) {
       console.error('Failed to add to review:', e);
       setActionError(e?.message || '加入复习失败');
@@ -212,6 +213,23 @@ export default function ErrorBookPage() {
   };
 
   const filteredErrors = errors;
+  const nextReviewError = filteredErrors.find((error) => Boolean(reviewSessionMap[error.id]));
+  const nextActionError = filteredErrors[0] ?? null;
+  const nextActionHref = nextReviewError
+    ? `/review/session/${reviewSessionMap[nextReviewError.id]}`
+    : nextActionError
+      ? `/error-book/${nextActionError.id}`
+      : '/study/math/problem';
+  const nextActionLabel = nextReviewError
+    ? '继续复习'
+    : nextActionError
+      ? '看最新错题'
+      : '开始录题';
+  const nextActionDescription = nextReviewError
+    ? '先回到已经进入复习的题。'
+    : nextActionError
+      ? '先处理最近一条错题。'
+      : '先录一道题，再开始沉淀错题。';
 
   // Toggle selection
   const toggleSelect = (id: string) => {
@@ -334,6 +352,35 @@ export default function ErrorBookPage() {
             {actionMessage}
           </div>
         ) : null}
+
+        {!loading ? (
+          <Card className="mb-6 border-warm-200/60 bg-white/90">
+            <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-warm-500">Next Step</p>
+                <h2 className="mt-2 text-xl font-semibold text-warm-900">{nextActionLabel}</h2>
+                <p className="mt-1 text-sm text-warm-700">{nextActionDescription}</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  onClick={() => router.push(nextActionHref)}
+                  className="gap-2 rounded-full bg-warm-500 text-white hover:bg-warm-600"
+                >
+                  {nextActionLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/study/math/problem')}
+                  className="rounded-full border-warm-200"
+                >
+                  录新题
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {/* Stats Cards - 移到顶部 */}
         {!loading && stats.total > 0 && (
           <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -504,7 +551,7 @@ export default function ErrorBookPage() {
                   ? '没有找到匹配的错题记录'
                   : '还没有错题记录，快去上传吧！'}
               </p>
-              <Button onClick={() => router.push('/study')} className="bg-warm-500 hover:bg-warm-600 text-white rounded-full shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+              <Button onClick={() => router.push('/study/math/problem')} className="bg-warm-500 hover:bg-warm-600 text-white rounded-full shadow-lg shadow-warm-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all">
                 去上传错题
               </Button>
             </CardContent>
@@ -512,14 +559,14 @@ export default function ErrorBookPage() {
         ) : (
           <div className="space-y-3">
             {/* Select All */}
-            <div className="flex items-center gap-3 px-2">
+            <div className="flex items-center gap-3 px-2 text-xs text-warm-500">
               <input
                 type="checkbox"
                 checked={selectedIds.size === filteredErrors.length && filteredErrors.length > 0}
                 onChange={toggleSelectAll}
                 className="w-4 h-4 rounded border-warm-300"
               />
-              <span className="text-sm text-warm-600">全选</span>
+              <span>批量管理</span>
             </div>
 
             {/* Error Cards */}
@@ -529,16 +576,32 @@ export default function ErrorBookPage() {
               const closureMeta = getClosureStateMeta(reviewMeta?.mastery_state || error.closure_state);
               const lastJudgementMeta =
                 reviewMeta?.last_judgement ? MASTERY_JUDGEMENT_META[reviewMeta.last_judgement] : null;
+              const hasReviewSession = Boolean(reviewSessionMap[error.id]);
+              const primaryActionLabel = hasReviewSession
+                ? '继续复习'
+                : error.status === 'guided_learning'
+                  ? addingToReview === error.id
+                    ? '加入中...'
+                    : '加入复习'
+                  : error.status === 'mastered'
+                    ? '回看详情'
+                    : '继续学习';
+              const primaryActionHint = hasReviewSession
+                ? '下一步：继续复习'
+                : error.status === 'guided_learning'
+                  ? '下一步：加入复习'
+                  : error.status === 'mastered'
+                    ? '下一步：回看记录'
+                    : '下一步：继续学习';
               return (
                 <Card
                   key={error.id}
                   className={cn(
-                    'border-warm-200/50 border-l-4 transition-all duration-300 hover:shadow-md cursor-pointer',
+                    'border-warm-200/50 border-l-4 transition-all duration-300 hover:shadow-md',
                     subjectBorderColors[error.subject],
                     subjectBgColors[error.subject],
                     selectedIds.has(error.id) && 'ring-2 ring-warm-500'
                   )}
-                  onClick={() => toggleSelect(error.id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
@@ -593,6 +656,7 @@ export default function ErrorBookPage() {
                         <p className="text-sm line-clamp-2 mb-2 text-warm-900">
                           {error.extracted_text || '暂无题目内容'}
                         </p>
+                        <p className="mb-2 text-xs font-medium text-warm-600">{primaryActionHint}</p>
                         {lastJudgementMeta ? (
                           <p className="mb-2 text-xs text-warm-700">上次判定: {lastJudgementMeta.label}</p>
                         ) : null}
@@ -621,43 +685,50 @@ export default function ErrorBookPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-stretch gap-2 sm:min-w-[140px]">
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/error-book/${error.id}`);
-                          }}
-                          className="gap-1 text-warm-600 hover:text-warm-900 hover:bg-warm-100 rounded-full"
-                        >
-                          <Eye className="w-4 h-4" />
-                          查看
-                        </Button>
-                        <Button
-                          variant={reviewSessionMap[error.id] ? 'secondary' : 'outline'}
                           size="sm"
                           disabled={addingToReview === error.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (reviewSessionMap[error.id]) {
+                          onClick={() => {
+                            if (hasReviewSession) {
                               router.push(`/review/session/${reviewSessionMap[error.id]}`);
                               return;
                             }
-                            void handleAddToReview(error.id);
+
+                            if (error.status === 'guided_learning') {
+                              void handleAddToReview(error.id);
+                              return;
+                            }
+
+                            if (error.status === 'mastered') {
+                              router.push(`/error-book/${error.id}`);
+                              return;
+                            }
+
+                            router.push(`/study/${error.subject}/problem?session=${error.id}`);
                           }}
-                          className={cn(
-                            'gap-1 border-warm-200 hover:bg-warm-100 hover:border-warm-300 rounded-full',
-                            reviewSessionMap[error.id] && 'bg-warm-100 text-warm-700 hover:bg-warm-100'
-                          )}
+                          className="gap-1 rounded-full bg-warm-500 text-white hover:bg-warm-600"
                         >
-                          <RefreshCw className={cn('w-4 h-4', addingToReview === error.id && 'animate-spin')} />
-                          {reviewSessionMap[error.id]
-                            ? '已加入复习'
-                            : addingToReview === error.id
-                              ? '加入中...'
-                              : '加入复习'}
+                          {error.status === 'guided_learning' ? (
+                            <RefreshCw className={cn('w-4 h-4', addingToReview === error.id && 'animate-spin')} />
+                          ) : (
+                            <ArrowRight className="w-4 h-4" />
+                          )}
+                          {primaryActionLabel}
                         </Button>
+                        {error.status !== 'mastered' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              router.push(`/error-book/${error.id}`);
+                            }}
+                            className="gap-1 rounded-full text-warm-600 hover:bg-warm-100 hover:text-warm-900"
+                          >
+                            <Eye className="w-4 h-4" />
+                            看详情
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </CardContent>

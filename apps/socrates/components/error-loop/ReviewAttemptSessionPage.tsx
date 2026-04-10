@@ -564,6 +564,16 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
       pendingGateKeys: reviewResult.closure_gate_pending_keys || [],
     });
   }, [reviewResult]);
+  const openSourceQuestion = () => router.push(`/error-book/${reviewSession?.sessionId}`);
+  const returnToReviewHub = () => router.push('/review');
+  const continueStudy = () => {
+    if (!reviewSession) {
+      return;
+    }
+
+    router.push(`/study/${reviewSession.error_session.subject}/problem?session=${reviewSession.sessionId}`);
+  };
+
   const handleStartRecall = () => {
     setRecallStartedAt(Date.now());
     setReviewStep('recall');
@@ -772,9 +782,15 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                 </p>
               </div>
             </div>
-            <Badge className={cn('gap-1', subjectColors[reviewSession.error_session.subject])}>
-              {subjectLabels[reviewSession.error_session.subject]}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={openSourceQuestion} className="gap-2">
+                <FileText className="w-4 h-4" />
+                看原题
+              </Button>
+              <Badge className={cn('gap-1', subjectColors[reviewSession.error_session.subject])}>
+                {subjectLabels[reviewSession.error_session.subject]}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
@@ -829,9 +845,9 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-primary" />
-                    开始这轮复习
+                    继续复习
                   </CardTitle>
-                  <CardDescription>先独立回忆，再提交证据，让系统判断是真会还是假会。</CardDescription>
+                  <CardDescription>先独立回忆，再提交判定。</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {reviewSession.error_session.concept_tags?.length ? (
@@ -868,12 +884,12 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                   ) : null}
 
                   <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-800">
-                    这一步不要急着点“已掌握”。先验证 4 件事：是否独立开始、是否做对、是否讲清思路、变式是否也能过。
+                    先按真实情况做，再看 4 件事：是否独立开始、是否做对、能否讲清、变式能否通过。
                   </div>
 
                   {currentClosurePreview ? (
                     <ClosureGatePreviewCard
-                      title="当前离关单还差什么"
+                      title="关单还差什么"
                       statusLabel={currentClosurePreviewStatus.label}
                       statusClassName={currentClosurePreviewStatus.className}
                       summary={currentClosurePreview.summary}
@@ -884,14 +900,14 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                   <div className="flex gap-3 pt-4">
                     <Button
                       variant="outline"
-                      onClick={() => router.push(`/error-book/${reviewSession.sessionId}`)}
+                      onClick={openSourceQuestion}
                       className="flex-1 gap-2"
                     >
                       <FileText className="w-4 h-4" />
-                      看原错题
+                      看原题
                     </Button>
                     <Button onClick={handleStartRecall} className="flex-1 gap-2">
-                      开始独立回忆
+                      继续复习
                       <ChevronRight className="w-4 h-4" />
                     </Button>
                   </div>
@@ -906,7 +922,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     <BookOpen className="w-5 h-5 text-primary" />
                     独立回忆阶段
                   </CardTitle>
-                  <CardDescription>先自己做，不要先找 AI。做完后进入判定页提交真实证据。</CardDescription>
+                  <CardDescription>先自己做，再进入判定。</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {reviewSession.error_session.original_image_url ? (
@@ -942,7 +958,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                       返回
                     </Button>
                     <Button onClick={() => setReviewStep('judge')} className="flex-1 gap-2">
-                      进入掌握判定
+                      提交判定
                       <ChevronRight className="w-4 h-4" />
                     </Button>
                   </div>
@@ -955,9 +971,9 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
-                    提交这次复习证据
+                    提交判定
                   </CardTitle>
-                  <CardDescription>系统不会只看你是否“点了会”，而是根据真实证据判断。</CardDescription>
+                  <CardDescription>按真实情况填写这次复习结果。</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {userRecall ? (
@@ -969,7 +985,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
 
                   {currentClosurePreview ? (
                     <ClosureGatePreviewCard
-                      title="提交前再确认一次关单条件"
+                      title="提交前确认"
                       statusLabel={currentClosurePreviewStatus.label}
                       statusClassName={currentClosurePreviewStatus.className}
                       summary={currentClosurePreview.summary}
@@ -1256,7 +1272,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     </Button>
                     <Button onClick={handleSubmitAttempt} disabled={isSubmittingAttempt} className="flex-1 gap-2">
                       {isSubmittingAttempt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      提交并判定
+                      提交判定
                     </Button>
                   </div>
                 </CardContent>
@@ -1327,9 +1343,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     )}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {completionOutcomeMeta?.title}
-                      </p>
+                      <p className="text-sm font-medium text-foreground">下一步</p>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -1440,18 +1454,19 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                   <div className="mt-8 flex flex-wrap justify-center gap-3">
                     {!reviewResult.closed ? (
                       <Button
-                        variant="outline"
-                        onClick={() => router.push(`/study/${reviewSession.error_session.subject}/problem?session=${reviewSession.sessionId}`)}
+                        onClick={continueStudy}
                         className="gap-2"
                       >
                         <MessageSquare className="w-4 h-4" />
-                        继续引导学习
+                        继续学习
                       </Button>
                     ) : null}
-                    <Button variant="outline" onClick={() => router.push('/review')}>
-                      返回复习列表
+                    <Button variant={reviewResult.closed ? 'default' : 'outline'} onClick={returnToReviewHub}>
+                      复习中心
                     </Button>
-                    <Button onClick={() => router.push(`/error-book/${reviewSession.sessionId}`)}>回看原题详情</Button>
+                    <Button variant={reviewResult.closed ? 'outline' : 'secondary'} onClick={openSourceQuestion}>
+                      看原题
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
