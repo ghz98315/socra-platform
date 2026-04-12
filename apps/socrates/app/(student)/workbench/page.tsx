@@ -79,7 +79,7 @@ function usePageAnimation() {
 }
 
 function WorkbenchPage() {
-  const { profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pageAnimation = usePageAnimation();
@@ -162,23 +162,6 @@ function WorkbenchPage() {
       shouldAutoParseRef.current = false; // 解析后重置标志
       parseGeometry(ocrText);
     }
-  }, [geometryEnabled, ocrText]);
-
-  useEffect(() => {
-    const shouldParse = geometryEnabled &&
-      shouldAutoParseRef.current &&
-      !!ocrText &&
-      ocrText.trim().length > 0 &&
-      ocrText !== lastParsedTextRef.current &&
-      !isGeometryLoadingRef.current;
-
-    if (!shouldParse) {
-      return;
-    }
-
-    lastParsedTextRef.current = ocrText;
-    shouldAutoParseRef.current = false;
-    void parseGeometry(ocrText);
   }, [geometryEnabled, ocrText]);
 
   useEffect(() => {
@@ -282,6 +265,18 @@ function WorkbenchPage() {
   const [studyDuration, setStudyDuration] = useState(0);
   const studyTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      const currentQuery = searchParams.toString();
+      const redirectTarget = currentQuery ? `/workbench?${currentQuery}` : '/workbench';
+      router.replace(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
+    }
+  }, [authLoading, router, searchParams, user]);
+
   // Load parent's students and check URL params
   useEffect(() => {
     if (isParent && profile?.id) {
@@ -313,6 +308,7 @@ function WorkbenchPage() {
 
     try {
       const supabase = createClient() as any;
+      let restoredStudentName = isParent ? selectedStudentName : profile?.display_name;
 
       const { data: sessionData, error: sessionError } = await supabase
         .from('error_sessions')
@@ -335,6 +331,7 @@ function WorkbenchPage() {
 
         const matchedStudent = parentStudents.find((student) => student.id === sessionData.student_id);
         if (matchedStudent) {
+          restoredStudentName = matchedStudent.display_name;
           setSelectedStudentName(matchedStudent.display_name);
         } else {
           const { data: studentProfile } = await supabase
@@ -344,6 +341,7 @@ function WorkbenchPage() {
             .maybeSingle();
 
           if (studentProfile?.display_name) {
+            restoredStudentName = studentProfile.display_name;
             setSelectedStudentName(studentProfile.display_name);
           }
         }
@@ -357,6 +355,10 @@ function WorkbenchPage() {
       setErrorSessionId(sessionData.id);
       chatSessionRef.current = sessionData.id;
       lastParsedTextRef.current = sessionData.extracted_text || '';
+      lastSyncedGeometrySignatureRef.current =
+        restoredSubject === 'math' && sessionData.geometry_data
+          ? JSON.stringify(sessionData.geometry_data)
+          : '';
       shouldAutoParseRef.current = false;
 
       const { data: messagesData, error: messagesError } = await supabase
@@ -367,6 +369,11 @@ function WorkbenchPage() {
 
       if (messagesError) {
         console.error('[Workbench] Failed to load session messages:', messagesError);
+        setMessages(
+          sessionData.extracted_text
+            ? [buildOpeningAssistantMessage(restoredStudentName)]
+            : [],
+        );
       } else {
         const restoredMessages: Message[] = (messagesData || []).map((message: { id: string; role: 'user' | 'assistant' | 'system'; content: string; created_at: string }) => ({
           id: message.id,
@@ -374,7 +381,13 @@ function WorkbenchPage() {
           content: message.content,
           timestamp: new Date(message.created_at),
         }));
-        setMessages(restoredMessages);
+        setMessages(
+          restoredMessages.length > 0
+            ? restoredMessages
+            : sessionData.extracted_text
+              ? [buildOpeningAssistantMessage(restoredStudentName)]
+              : [],
+        );
       }
     } catch (error) {
       console.error('[Workbench] Exception while restoring session:', error);
@@ -556,6 +569,19 @@ function WorkbenchPage() {
     }
   };
 
+  const buildOpeningAssistantMessage = useCallback((studentName?: string | null): Message => {
+    const normalizedName = studentName?.trim();
+
+    return {
+      id: `msg_${Date.now()}_opening`,
+      role: 'assistant',
+      content: normalizedName
+        ? `你好，${normalizedName}，这道题我看到了。你现在最卡哪一步？`
+        : '你好，这道题我看到了。你现在最卡哪一步？',
+      timestamp: new Date(),
+    };
+  }, []);
+
   const handleImageSelect = (file: File, preview: string) => {
     setSelectedImage(file);
     setImagePreview(preview);
@@ -670,18 +696,22 @@ function WorkbenchPage() {
     // 1. 几何分析已经在 OCR 完成时通过 useEffect 自动触发了
     // 2. 用户可能已经在画板上添加了辅助线或点，重新解析会丢失这些修改
     setOcrText(text);
+    const openingAssistantMessage = buildOpeningAssistantMessage(
+      isParent ? selectedStudentName : profile?.display_name,
+    );
+    setMessages([openingAssistantMessage]);
     setCurrentStep('chat');
 
-    if (!profile?.id) {
-      console.error('[Workbench] No profile ID, cannot save error session');
+    if (!profile?.id || !effectiveStudentId) {
+      console.error('[Workbench] Missing profile or student context, cannot save error session');
       return;
     }
 
-    saveErrorSession(text);
+    await saveErrorSession(text, openingAssistantMessage);
   };
 
-  const saveErrorSession = async (text: string) => {
-    if (!profile?.id) return;
+  const saveErrorSession = async (text: string, openingAssistantMessage?: Message) => {
+    if (!profile?.id || !effectiveStudentId) return;
     try {
       console.log('Creating error session with profile ID:', profile.id);
       const initialGeometryData = geometryEnabled && geometryData && geometryData.type !== 'unknown' ? geometryData : null;
@@ -696,6 +726,14 @@ function WorkbenchPage() {
           extracted_text: text,
           geometry_data: initialGeometryData,
           geometry_svg: initialGeometrySvg,
+          initial_messages: openingAssistantMessage
+            ? [
+                {
+                  role: openingAssistantMessage.role,
+                  content: openingAssistantMessage.content,
+                },
+              ]
+            : [],
           theme_used: profile?.theme_preference || 'junior', // 记录对话时使用的主题模式
         }),
       });
@@ -803,6 +841,20 @@ function WorkbenchPage() {
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
   const aiName = profile?.theme_preference === 'junior' ? 'Jasper' : 'Logic';
   const currentSubjectConfig = getSubjectConfig(activeSubject);
+
+  if (authLoading || (!user && !profile)) {
+    return (
+      <div className={cn("min-h-screen bg-warm-50 flex items-center justify-center", themeClass)}>
+        <div className="text-center space-y-4">
+          <div className="relative w-16 h-16 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-warm-200"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-warm-500 border-t-transparent animate-spin"></div>
+          </div>
+          <p className="text-warm-600">正在检查登录状态...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isRestoringSession) {
     return (
@@ -1173,7 +1225,9 @@ function WorkbenchPage() {
                 <div className="px-6 pt-4">
                   <div className="p-4 rounded-xl bg-warm-100 border border-warm-200">
                     <p className="text-xs text-warm-600 mb-1 font-medium">当前题目：</p>
-                    <p className="text-sm line-clamp-2 text-warm-900">{ocrText}</p>
+                    <div className="max-h-48 overflow-y-auto pr-1">
+                      <p className="text-sm whitespace-pre-wrap break-words text-warm-900">{ocrText}</p>
+                    </div>
                   </div>
                 </div>
               )}

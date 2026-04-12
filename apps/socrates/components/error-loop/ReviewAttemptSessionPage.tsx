@@ -381,7 +381,7 @@ function AttemptToggle({
 }
 
 export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: string }) {
-  const { profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [reviewSession, setReviewSession] = useState<ReviewSession | null>(null);
@@ -398,6 +398,17 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
   const [reviewResult, setReviewResult] = useState<ReviewResultPayload | null>(null);
   const [variantEvidence, setVariantEvidence] = useState<VariantEvidenceSummary | null>(null);
   const [recallStartedAt, setRecallStartedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.replace(`/login?redirect=/review/session/${reviewId}`);
+      return;
+    }
+  }, [authLoading, reviewId, router, user]);
 
   useEffect(() => {
     async function loadReviewSession() {
@@ -741,6 +752,20 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
             <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
           </div>
           <p className="text-muted-foreground">正在加载复习内容...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading || (!user && !profile)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="relative w-12 h-12 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          </div>
+          <p className="text-muted-foreground">正在检查登录状态...</p>
         </div>
       </div>
     );
@@ -1464,9 +1489,11 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
                     <Button variant={reviewResult.closed ? 'default' : 'outline'} onClick={returnToReviewHub}>
                       复习中心
                     </Button>
-                    <Button variant={reviewResult.closed ? 'outline' : 'secondary'} onClick={openSourceQuestion}>
-                      看原题
-                    </Button>
+                    {reviewResult.closed ? (
+                      <Button variant="outline" onClick={openSourceQuestion}>
+                        看原题
+                      </Button>
+                    ) : null}
                   </div>
                 </CardContent>
               </Card>

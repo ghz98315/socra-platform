@@ -91,18 +91,25 @@ Current local release baseline:
 Local helper commands for this machine:
 
 ```bash
+pnpm -C "D:\github\Socrates_ analysis\socra-platform" check:node
 pnpm socrates:start:local
+pnpm socrates:start:dev-local
 pnpm socrates:status:local
 pnpm socrates:stop:local
 ```
 
 Notes:
 
+- If your current PowerShell location is `D:\github\Socrates_ analysis`, do not run `pnpm ...` directly there. Switch into `socra-platform` first, or keep using `pnpm -C "D:\github\Socrates_ analysis\socra-platform" ...`.
 - `pnpm socrates:start:local` now runs behind the local guard wrapper. If startup exceeds 5 minutes, the guard stops it and prints local diagnostics instead of waiting indefinitely.
 - `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` through a detached Node child process and records the tracked PID in `.codex-socrates-start.pid`.
+- `pnpm socrates:start:dev-local` uses the same helper path but launches `next dev`, so local acceptance can continue even when Windows full build is blocked and `.next/BUILD_ID` is missing.
 - Use `pnpm socrates:status:local` to confirm local readiness instead of waiting on a long-running foreground start command.
 - Treat `HTTP=307` as healthy for the local Socrates app.
 - `HEALTH=yes` is the primary signal. If `STATE=healthy_port_stale_pid`, the app is still usable and the tracked PID is just stale or unavailable on that machine.
+- Keep the distinction explicit:
+  - `pnpm socrates:start:local` is the build-output path and should still be used when validating production-like local startup.
+  - `pnpm socrates:start:dev-local` is the fallback path for feature verification or manual acceptance on machines still blocked by Windows `spawn EPERM`.
 - `pnpm --filter @socra/socrates build` and the root `pnpm build` path now fail fast if the helper-managed local Socrates service is still running.
 - If that guard trips, stop the local service first, otherwise Windows may hold `.next` files such as `app-path-routes-manifest.json` and trigger `EPERM unlink`.
 

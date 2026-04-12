@@ -4,6 +4,90 @@
 
 ---
 
+## 最新运维节点: 2026-04-12
+
+### 当前判断
+
+- `Phase 2` 最小人工验收已完成，当前未发现 `error-book -> error detail -> review -> workbench` 主链阻塞问题
+- 已补当前主链未登录保护，避免 `error-book / error-book/[id] / review / review/session / workbench` 在未登录态卡在页面 loading
+- 当前机器重新核对本地链路后，基础环境判断为：
+  - `pnpm check:node` 已通过，Node 仍与仓库基线 `22.x` 对齐
+  - `pnpm socrates:status:local` 当前返回 `HTTP=307`，说明本地已有可用 Socrates 服务在响应
+  - 当前更像“本地 helper 跟踪 PID 丢失”，而不是应用本身不可用
+- 剩余本地阻塞已明确收口到 Windows `next build --webpack` 的 worker/fork 路径 `spawn EPERM`，不再把它误判成当前产品主链回归
+- 为避免本地验收继续被 full build 卡住，已补一个明确的降级入口：
+  - `pnpm socrates:start:dev-local`
+  - 该入口走 `next dev`，不依赖预先生成 `.next/BUILD_ID`
+  - `pnpm socrates:start:local` 仍保留原来的“基于 build 输出的本地 start”语义，不做静默行为变更
+- 本轮收尾文档已补齐到可交接状态：
+  - `Phase 2` 验收执行稿已从模板回填为当前实际结果
+  - runbook 已补本地 `-C ...\\socra-platform` 执行口径，避免再在错误目录运行 `pnpm`
+  - 当前这轮可以视为已完成保存的 checkpoint-ready 节点
+
+### 当前主文档入口
+
+- 内部闭环计划: `docs/md_socrates_internal_closure_plan_20260409.md`
+- 本轮 checkpoint: `docs/md_progress_socrates_20260412_phase2_closure_checkpoint.md`
+- Phase 2 人工验收清单: `docs/md_socrates_phase2_error_loop_acceptance_checklist_20260411.md`
+- Phase 2 验收执行稿: `docs/md_socrates_phase2_error_loop_acceptance_execution_20260411.md`
+- 发布与本地运行手册: `docs/md_RELEASE_RUNBOOK.md`
+
+### 当前下一步建议
+
+- 当前这轮已完成保存，可直接进入 checkpoint / commit 文案整理
+- 本地复验如再遇到 `.next/BUILD_ID` 缺失或 Windows `spawn EPERM`，优先使用 `pnpm socrates:start:dev-local`
+- 如后续继续追 Windows build 阻塞，口径只聚焦本地构建辅助链路，不回头扩大产品功能范围
+
+---
+
+## 最新运维节点: 2026-04-11
+
+### 当前判断
+
+- 当前已在 `Phase 2` 基线下补做一轮 `workbench` 稳定性收口，目标不是扩功能，而是把“录题后进入对话”和“恢复旧会话继续学习”这两条高频路径补稳
+- `study/[subject]/problem -> /workbench` 已改为服务端直跳，减少中间桥页停留
+- `workbench` 已补齐两类稳定性修正：
+  - 恢复旧错题会话时，如果历史 `chat_messages` 为空，会自动补一条开场 assistant 引导消息，避免聊天区空白
+  - 删除重复的几何自动解析触发，避免 OCR 后重复请求几何识别
+- `error-book` 与 `error-book/[id]` 已补一轮动作语义统一：
+  - 列表页 `Next Step` 会优先落到 `继续复习 / 继续学习 / 看原题`
+  - 详情页头部重复主动作已降级，改由页内 `Next Step` 卡承接单一下一步
+  - 已完成态主出口改为 `看复盘 / 复习中心`，不再回到泛化错题列表
+- `review` 首页已继续收口完成态出口：
+  - 有待复习任务时，主动作保持 `继续复习`，辅助动作改为 `看原题`
+  - 无待复习但有最近完成记录时，主动作改为 `看复盘`
+  - 顶部返回工作台动作已统一改成 `继续学习`
+- `review/session` 完成态也已降到双出口：
+  - 未关单时保留 `继续学习 + 复习中心`
+  - 已关单时保留 `复习中心 + 看原题`
+  - 不再在结果页同时并列三条出口
+- `Phase 2` 最小人工验收已完成，当前未发现主链阻塞问题
+- 已补当前主链的未登录保护，避免页面在本地或未登录态下停在 loading：
+  - `error-book`
+  - `error-book/[id]`
+  - `review`
+  - `review/session`
+  - `workbench`
+- 本轮本地构建已重新通过，当前可以继续回到 `error-book -> error detail -> review` 的主动作收口
+
+### 当前主文档入口
+
+- 内部闭环计划: `docs/md_socrates_internal_closure_plan_20260409.md`
+- 账号模型下一阶段备忘: `docs/md_socrates_account_model_next_stage_20260410.md`
+- 闭环节点进度: `docs/md_progress_closure_node_20260408.md`
+- Phase 2 人工验收清单: `docs/md_socrates_phase2_error_loop_acceptance_checklist_20260411.md`
+- Phase 2 验收执行稿: `docs/md_socrates_phase2_error_loop_acceptance_execution_20260411.md`
+
+### 当前下一步建议
+
+- 继续推进 `Phase 2`，优先收口 `error-book` 列表页、详情页、复习页之间的单一下一步语义
+- 当前主链动作收口与最小人工验收已经完成，下一步可转入收尾归档或提交 checkpoint
+- 如继续收尾，优先补验收执行稿回填，并整理一次 commit-ready 状态
+- 保持 `workbench` 当前“少说明、先进入对话”的方向，不回退到中间说明页
+- 如果后续继续改 `workbench`，优先只做闭环稳定性补丁，不并行扩张新信息架构
+
+---
+
 ## 最新运维节点: 2026-04-10
 
 ### 当前判断

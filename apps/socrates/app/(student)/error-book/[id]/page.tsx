@@ -117,7 +117,7 @@ function formatReviewDate(dateStr: string | null) {
 
 export default function ErrorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const [errorSession, setErrorSession] = useState<ErrorSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -132,8 +132,33 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [showVariants, setShowVariants] = useState(false);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.replace(`/login?redirect=/error-book/${resolvedParams.id}`);
+      return;
+    }
+  }, [authLoading, resolvedParams.id, router, user]);
+
+  useEffect(() => {
     loadErrorDetail();
   }, [profile?.id, resolvedParams.id]);
+
+  if (authLoading || (!user && !profile)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="relative w-12 h-12 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          </div>
+          <p className="text-muted-foreground">正在检查登录状态...</p>
+        </div>
+      </div>
+    );
+  }
 
   const loadErrorDetail = async () => {
     setLoading(true);
@@ -326,13 +351,13 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const canContinueLearning = errorSession.status !== 'mastered';
   const canOpenReview = Boolean(reviewId);
   const canJoinReview = errorSession.status === 'guided_learning' && !reviewId;
-  const reviewActionLabel = reviewSummary?.is_completed ? '回看复习记录' : '继续复习';
-  const primaryActionLabel = canContinueLearning ? '继续学习' : canOpenReview ? reviewActionLabel : '返回错题本';
+  const reviewActionLabel = reviewSummary?.is_completed ? '看复盘' : '继续复习';
+  const primaryActionLabel = canContinueLearning ? '继续学习' : canOpenReview ? reviewActionLabel : '复习中心';
   const primaryActionDescription = canContinueLearning
     ? '先把这道题继续推进，再决定是否进入复习。'
     : canOpenReview
       ? '这道题已经进入复习链路，下一步直接回到复习。'
-      : '这道题当前没有新的学习动作，先回到错题本。';
+      : '这道题当前没有新的学习动作，先回到复习中心看下一题。';
 
   const handlePrimaryAction = () => {
     if (canContinueLearning) {
@@ -345,7 +370,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
       return;
     }
 
-    router.push('/error-book');
+    router.push('/review');
   };
 
   const handleSecondaryAction = () => {
@@ -396,16 +421,6 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   {reviewActionMessage}
                 </span>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled
-                className="gap-2 opacity-50 cursor-not-allowed"
-                title="功能调试中"
-              >
-                <Download className="w-4 h-4" />
-                导出PDF
-              </Button>
               {messages.length >= 3 && profile?.role === 'parent' && (
                 <Button
                   size="sm"
@@ -416,48 +431,16 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   AI分析对话
                 </Button>
               )}
-              {canJoinReview && (
-                <Button
-                  size="sm"
-                  onClick={handleStartReviewLoop}
-                  disabled={startingReviewLoop}
-                  className="gap-2 bg-warm-500 hover:bg-warm-600 text-white"
-                >
-                  {startingReviewLoop ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      处理中...
-                    </>
-                  ) : (
-                    <>
-                      <Target className="w-4 h-4" />
-                      加入复习
-                    </>
-                  )}
-                </Button>
-              )}
-              {canOpenReview && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleOpenReview}
-                  className="gap-2"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  继续复习
-                </Button>
-              )}
-              {canContinueLearning && (
-                <Button
-                  size="sm"
-                  onClick={handleContinueLearning}
-                  variant="default"
-                  className="gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  继续学习
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPDF}
+                disabled={exporting}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {exporting ? '导出中...' : '导出PDF'}
+              </Button>
             </div>
           </div>
         </div>
@@ -640,14 +623,6 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               </div>
             ) : null}
-            <div className="flex flex-wrap gap-3">
-              {reviewId ? (
-                <Button variant="outline" onClick={handleOpenReview} className="gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  {reviewSummary?.is_completed ? '回看复习记录' : '继续复习'}
-                </Button>
-              ) : null}
-            </div>
           </CardContent>
         </Card>
 

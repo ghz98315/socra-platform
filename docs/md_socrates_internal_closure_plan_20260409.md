@@ -17,6 +17,55 @@
   - 候选方向为“单账号登录 + 家长二级密码 + 多学生隔离视图”
   - 因涉及 `profiles.role`、家长页权限和家庭关系表，不并入本轮 Phase 2 直接落库
 
+## 0.1 2026-04-11 节点补充
+
+- 已补一轮 `workbench` 稳定性收口，当前口径仍属于 `Phase 2` 前置稳定性修正，不单开新阶段
+- 已完成的修正包括：
+  - `study/[subject]/problem` 改为服务端直接跳转 `/workbench`，减少中间桥页
+  - `workbench` 创建错题会话时会同步写入开场 assistant 消息
+  - 恢复旧会话时，如 `chat_messages` 为空，会自动补一条开场消息，避免聊天区空白
+  - 去除重复的几何自动解析触发，避免 OCR 后重复请求
+  - 补齐学生上下文判断，避免缺少 `student_id` 时误保存错题会话
+- 已继续推进 `Phase 2` 的错题闭环动作统一：
+  - `error-book` 列表页主动作已统一到 `继续复习 / 继续学习 / 看原题`
+  - `error-book/[id]` 详情页头部重复主动作已降级，优先由页内 `Next Step` 卡承接单一下一步
+  - 已完成态不再默认回错题列表，改为优先 `看复盘`，无复习记录时回 `复习中心`
+- `review` 首页也已补齐同一口径：
+  - 有待复习任务时，主动作维持 `继续复习`，辅助动作为 `看原题`
+  - 无待复习但存在最近完成记录时，主动作改为 `看复盘`
+  - 顶部返回学习入口已统一成 `继续学习`
+- `review/session` 完成态出口已继续压缩：
+  - 未关单时只保留 `继续学习 + 复习中心`
+  - 已关单时只保留 `复习中心 + 看原题`
+  - 不再在结果页并列三条去向
+- `Phase 2` 最小人工验收已完成，当前未发现主链阻塞问题
+- 已补当前主链未登录保护，避免 `error-book / error-book/[id] / review / review/session / workbench` 在未登录时卡在页面 loading
+- 已补专项人工验收稿：
+  - `docs/md_socrates_phase2_error_loop_acceptance_checklist_20260411.md`
+- 已补可直接执行的验收稿：
+  - `docs/md_socrates_phase2_error_loop_acceptance_execution_20260411.md`
+- 当前已进入收尾阶段，可回填验收记录并整理 checkpoint
+
+## 0.2 2026-04-12 节点补充
+
+- `Phase 2` 最小人工验收已完成，当前未发现 `error-book -> error detail -> review -> workbench` 主链阻塞问题
+- 当前主链未登录保护也已补齐，避免 `error-book / error-book/[id] / review / review/session / workbench` 在未登录态卡住页面 loading
+- 当日重新核对本地 helper 链路后，判断更新为：
+  - `pnpm check:node` 通过，Node 版本仍与仓库基线一致
+  - `pnpm socrates:status:local` 返回 `HTTP=307`，本地已有可用 Socrates 服务响应
+  - 当前更像 helper 跟踪 PID 丢失，不是应用本体不可用
+- Windows 本地剩余阻塞继续收口为 `next build --webpack` 的 worker/fork `spawn EPERM`
+- 为避免本地验收链路继续被 full build 卡住，新增本地降级入口：
+  - `pnpm socrates:start:dev-local`
+  - 该入口走 `next dev`，不要求预先存在 `.next/BUILD_ID`
+  - 原 `pnpm socrates:start:local` 仍保持 build 输出驱动的本地 start 语义
+- 本轮收尾资料已补齐：
+  - `docs/md_socrates_phase2_error_loop_acceptance_execution_20260411.md` 已回填为实际执行结果
+  - `docs/md_RELEASE_RUNBOOK.md` 已补当前机器的目录与 fallback 启动说明
+  - `docs/md_progress_socrates_20260412_phase2_closure_checkpoint.md` 已整理为本轮独立 checkpoint
+  - 当前可按“已保存节点”处理，不再依赖聊天上下文才能继续
+- 当前阶段建议从“功能继续扩展”切回“收尾归档 + 本地执行路径明确化”
+
 ## 1. 本轮目标
 
 把 `landing -> socrates` 主入口已经接通后的下一阶段工作，明确收口为 `socrates` 站内闭环。

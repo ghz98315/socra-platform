@@ -300,7 +300,7 @@ function ReviewSection({
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [pendingReviews, setPendingReviews] = useState<ReviewHubItem[]>([]);
   const [completedReviews, setCompletedReviews] = useState<ReviewHubItem[]>([]);
   const [summary, setSummary] = useState<ReviewHubSummary>({
@@ -313,6 +313,17 @@ export default function ReviewPage() {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.replace('/login?redirect=/review');
+      return;
+    }
+  }, [authLoading, router, user]);
 
   const loadReviews = useCallback(async (isRefresh = false) => {
     if (!profile?.id) return;
@@ -382,13 +393,17 @@ export default function ReviewPage() {
     [pendingReviews]
   );
   const nextReview = dueNowReviews[0] ?? upcomingReviews[0] ?? null;
+  const latestCompletedReview = completedReviews[0] ?? null;
   const hasDueNowReview = Boolean(dueNowReviews[0]);
-  const nextActionLabel = nextReview ? '继续复习' : '继续学习';
+  const nextActionLabel = nextReview ? '继续复习' : latestCompletedReview ? '看复盘' : '继续学习';
   const nextActionDescription = nextReview
     ? hasDueNowReview
       ? '先做当前到期的题。'
       : '今天没有到期题，先看下一轮。'
-    : '当前没有复习任务，先去学习新题。';
+    : latestCompletedReview
+      ? '当前没有待复习题，先回看最近完成的一题。'
+      : '当前没有复习任务，先去学习新题。';
+  const secondaryActionLabel = nextReview ? '看原题' : latestCompletedReview ? '继续学习' : '错题本';
 
   const openReview = (reviewId: string) => router.push(`/review/session/${reviewId}`);
   const openSource = (sessionId: string) => router.push(`/error-book/${sessionId}`);
@@ -398,8 +413,45 @@ export default function ReviewPage() {
       return;
     }
 
-    router.push('/study/math/problem');
+    if (latestCompletedReview) {
+      openReview(latestCompletedReview.id);
+      return;
+    }
+
+    router.push('/study#quick-start');
   };
+
+  const handleSecondaryAction = () => {
+    if (nextReview) {
+      openSource(nextReview.sessionId);
+      return;
+    }
+
+    if (latestCompletedReview) {
+      router.push('/study#quick-start');
+      return;
+    }
+
+    router.push('/error-book');
+  };
+
+  if (authLoading || (!user && !profile)) {
+    return (
+      <div
+        className={cn(
+          'min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100',
+          profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior'
+        )}
+      >
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-warm-500" />
+            <p className="mt-4 text-sm text-warm-600">正在检查登录状态...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -431,7 +483,7 @@ export default function ReviewPage() {
                 onClick={() => router.push('/study#quick-start')}
                 className="rounded-full border-warm-200 hover:bg-warm-50"
               >
-                返回工作台
+                继续学习
               </Button>
             </div>
           }
@@ -465,9 +517,9 @@ export default function ReviewPage() {
               <Button
                 variant="outline"
                 className="rounded-full border-warm-200 hover:bg-warm-50"
-                onClick={() => router.push('/error-book')}
+                onClick={handleSecondaryAction}
               >
-                错题本
+                {secondaryActionLabel}
               </Button>
             </div>
           </CardContent>

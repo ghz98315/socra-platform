@@ -19,6 +19,7 @@ import {
 } from './socrates-local-utils.mjs';
 
 const nextBin = path.join(appDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+const supportedModes = new Set(['start', 'dev', 'auto']);
 
 function quoteArg(value) {
   if (/[\s"]/u.test(value)) {
@@ -53,11 +54,27 @@ function findNode22Executable() {
   return findExisting(candidates);
 }
 
-function ensureBuildExists() {
+function buildExists() {
   const buildIdPath = path.join(appDir, '.next', 'BUILD_ID');
-  if (!fs.existsSync(buildIdPath)) {
-    throw new Error('Socrates build output is missing. Run `pnpm --filter @socra/socrates build` first.');
+  return fs.existsSync(buildIdPath);
+}
+
+function resolveStartMode(requestedMode) {
+  if (!supportedModes.has(requestedMode)) {
+    throw new Error(`Invalid --mode: ${requestedMode}. Use start, dev, or auto.`);
   }
+
+  if (requestedMode === 'auto') {
+    return buildExists() ? 'start' : 'dev';
+  }
+
+  if (requestedMode === 'start' && !buildExists()) {
+    throw new Error(
+      'Socrates build output is missing. Run `pnpm --filter @socra/socrates build` first, or use `pnpm socrates:start:dev-local` for a local acceptance/dev session without a production build.',
+    );
+  }
+
+  return requestedMode;
 }
 
 async function ensurePortAvailable(host, port) {
@@ -162,6 +179,7 @@ async function main() {
   const host = readArg(process.argv, 'host', defaultHost);
   const timeoutMs = readNumberArg(process.argv, 'timeout-ms', 120000);
   const intervalMs = readNumberArg(process.argv, 'poll-ms', 1000);
+  const requestedMode = readArg(process.argv, 'mode', 'start');
   const node22Exe = findNode22Executable();
   const pidFile = getPidFile(port);
 
@@ -173,7 +191,7 @@ async function main() {
     throw new Error(`Next CLI was not found at ${nextBin}`);
   }
 
-  ensureBuildExists();
+  const startMode = resolveStartMode(requestedMode);
 
   const existing = await inspectExistingService(host, port);
   if (existing.healthy) {
@@ -183,6 +201,7 @@ async function main() {
       fs.writeFileSync(pidFile, String(listenerPid), 'utf8');
     }
     console.log('EXISTING=yes');
+    console.log(`MODE=${startMode}`);
     console.log(`URL=${baseUrl}`);
     console.log(`STATUS=${existing.statusCode}`);
     console.log('NOTE=Local Socrates is already healthy. Reusing the existing service.');
@@ -205,7 +224,7 @@ async function main() {
   try {
     pid = startDetachedProcess({
       command: node22Exe,
-      args: [nextBin, 'start', '-H', host, '-p', String(port)],
+      args: [nextBin, startMode, '-H', host, '-p', String(port)],
       cwd: appDir,
       outLogPath,
       errLogPath,
@@ -220,6 +239,7 @@ async function main() {
     });
 
     console.log(`PID=${pid}`);
+    console.log(`MODE=${startMode}`);
     console.log(`URL=${baseUrl}`);
     console.log(`STATUS=${statusCode}`);
     console.log(`OUT=${quoteArg(outLogPath)}`);

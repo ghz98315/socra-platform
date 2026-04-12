@@ -105,7 +105,7 @@ const subjectBgColors: Record<string, string> = {
 };
 
 export default function ErrorBookPage() {
-  const { profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const [errors, setErrors] = useState<ErrorSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +125,17 @@ export default function ErrorBookPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.replace('/login?redirect=/error-book');
+      return;
+    }
+  }, [authLoading, router, user]);
 
   // Fetch error sessions
   useEffect(() => {
@@ -218,17 +229,23 @@ export default function ErrorBookPage() {
   const nextActionHref = nextReviewError
     ? `/review/session/${reviewSessionMap[nextReviewError.id]}`
     : nextActionError
-      ? `/error-book/${nextActionError.id}`
+      ? nextActionError.status === 'mastered'
+        ? `/error-book/${nextActionError.id}`
+        : `/study/${nextActionError.subject}/problem?session=${nextActionError.id}`
       : '/study/math/problem';
   const nextActionLabel = nextReviewError
     ? '继续复习'
     : nextActionError
-      ? '看最新错题'
+      ? nextActionError.status === 'mastered'
+        ? '看原题'
+        : '继续学习'
       : '开始录题';
   const nextActionDescription = nextReviewError
     ? '先回到已经进入复习的题。'
     : nextActionError
-      ? '先处理最近一条错题。'
+      ? nextActionError.status === 'mastered'
+        ? '先回看最近已经完成的题，再决定下一步。'
+        : '先回到最近这道题，继续推进。'
       : '先录一道题，再开始沉淀错题。';
 
   // Toggle selection
@@ -303,6 +320,22 @@ export default function ErrorBookPage() {
   };
 
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
+
+  if (authLoading || (!user && !profile)) {
+    return (
+      <div className={cn('min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100', themeClass)}>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="relative mx-auto mb-4 h-12 w-12">
+              <div className="absolute inset-0 rounded-full border-4 border-warm-200"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-warm-500 border-t-transparent animate-spin"></div>
+            </div>
+            <p className="text-warm-600">正在检查登录状态...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('min-h-screen bg-gradient-to-br from-warm-50 via-white to-warm-100', themeClass)}>
@@ -584,14 +617,14 @@ export default function ErrorBookPage() {
                     ? '加入中...'
                     : '加入复习'
                   : error.status === 'mastered'
-                    ? '回看详情'
+                    ? '看原题'
                     : '继续学习';
               const primaryActionHint = hasReviewSession
                 ? '下一步：继续复习'
                 : error.status === 'guided_learning'
                   ? '下一步：加入复习'
                   : error.status === 'mastered'
-                    ? '下一步：回看记录'
+                    ? '下一步：看原题'
                     : '下一步：继续学习';
               return (
                 <Card
@@ -726,7 +759,7 @@ export default function ErrorBookPage() {
                             className="gap-1 rounded-full text-warm-600 hover:bg-warm-100 hover:text-warm-900"
                           >
                             <Eye className="w-4 h-4" />
-                            看详情
+                            看原题
                           </Button>
                         ) : null}
                       </div>
