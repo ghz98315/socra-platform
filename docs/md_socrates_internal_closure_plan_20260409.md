@@ -64,6 +64,10 @@
   - `docs/md_RELEASE_RUNBOOK.md` 已补当前机器的目录与 fallback 启动说明
   - `docs/md_progress_socrates_20260412_phase2_closure_checkpoint.md` 已整理为本轮独立 checkpoint
   - 当前可按“已保存节点”处理，不再依赖聊天上下文才能继续
+- 本轮 checkpoint 已完成实际落地：
+  - 已创建 commit `ffb9d77`
+  - 已推送到 `origin/main`
+  - 当前阶段从“checkpoint-ready”转入“preview 待验收”
 - 当前阶段建议从“功能继续扩展”切回“收尾归档 + 本地执行路径明确化”
 
 ## 1. 本轮目标

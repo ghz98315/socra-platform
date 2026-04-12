@@ -23,6 +23,10 @@
   - `Phase 2` 验收执行稿已从模板回填为当前实际结果
   - runbook 已补本地 `-C ...\\socra-platform` 执行口径，避免再在错误目录运行 `pnpm`
   - 当前这轮可以视为已完成保存的 checkpoint-ready 节点
+- 本轮 checkpoint 已实际提交并推送：
+  - commit: `ffb9d77`
+  - branch: `main`
+  - 当前状态已从“可提交”进入“等待 preview 部署与验收”
 
 ### 当前主文档入口
 
@@ -34,7 +38,7 @@
 
 ### 当前下一步建议
 
-- 当前这轮已完成保存，可直接进入 checkpoint / commit 文案整理
+- 当前这轮已完成提交与推送，下一步直接等待 preview 链接并执行 5 点主链验收
 - 本地复验如再遇到 `.next/BUILD_ID` 缺失或 Windows `spawn EPERM`，优先使用 `pnpm socrates:start:dev-local`
 - 如后续继续追 Windows build 阻塞，口径只聚焦本地构建辅助链路，不回头扩大产品功能范围
 
