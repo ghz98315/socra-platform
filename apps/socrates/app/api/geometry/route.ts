@@ -201,6 +201,84 @@ const buildCycleLines = (pointIds: string[]): GeometryData['lines'] => {
   });
 };
 
+const LINE_TOKEN_REGEX = /[A-Z]{2}/g;
+
+const collectLineTokens = (values: Array<string | undefined> | undefined): string[] => unique(
+  (values || [])
+    .flatMap((value) => value?.match(LINE_TOKEN_REGEX) || [])
+    .filter((token) => token.length === 2),
+);
+
+const completeGeometryLines = (geometry: GeometryData): GeometryData => {
+  if (!geometry.points.length) {
+    return geometry;
+  }
+
+  const pointIds = new Set(geometry.points.map((point) => point.id));
+  const nextLines = [...geometry.lines];
+  const seen = new Set(
+    geometry.lines.map((line) => [line.start, line.end].sort().join(':')),
+  );
+
+  const addSegment = (start: string, end: string, id?: string) => {
+    if (!start || !end || start === end) return;
+    if (!pointIds.has(start) || !pointIds.has(end)) return;
+
+    const key = [start, end].sort().join(':');
+    if (seen.has(key)) return;
+
+    seen.add(key);
+    nextLines.push({
+      id: id && /^[A-Z]{2}$/.test(id) ? id : `${start}${end}`,
+      start,
+      end,
+      type: 'segment',
+    });
+  };
+
+  for (const angle of geometry.angles) {
+    addSegment(angle.vertex, angle.point1, `${angle.vertex}${angle.point1}`);
+    addSegment(angle.vertex, angle.point2, `${angle.vertex}${angle.point2}`);
+  }
+
+  for (const relation of geometry.relations) {
+    for (const target of relation.targets) {
+      if (/^[A-Z]{2}$/.test(target)) {
+        addSegment(target[0], target[1], target);
+      }
+    }
+  }
+
+  const conditionLineTokens = collectLineTokens([
+    ...(geometry.conditions.lengths || []),
+    ...(geometry.conditions.ratios || []),
+    ...(geometry.conditions.parallels || []),
+    ...(geometry.conditions.perpendiculars || []),
+    ...(geometry.conditions.intersections || []),
+    ...(geometry.conditions.tangents || []),
+    ...(geometry.conditions.others || []),
+  ]);
+
+  for (const token of conditionLineTokens) {
+    addSegment(token[0], token[1], token);
+  }
+
+  if (nextLines.length === 0) {
+    if (geometry.type === 'triangle' && geometry.points.length >= 3) {
+      nextLines.push(...buildCycleLines(geometry.points.slice(0, 3).map((point) => point.id)));
+    } else if (geometry.type === 'quadrilateral' && geometry.points.length >= 4) {
+      nextLines.push(...buildCycleLines(geometry.points.slice(0, 4).map((point) => point.id)));
+    }
+  }
+
+  return nextLines.length === geometry.lines.length
+    ? geometry
+    : {
+        ...geometry,
+        lines: nextLines,
+      };
+};
+
 const extractJsonObject = (content: string): string | null => {
   const trimmed = content.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -273,7 +351,7 @@ const evaluateMathExpressions = (input: string): string => {
 const parseGeometryContent = (content: string): GeometryData | null => {
   const jsonStr = extractJsonObject(content);
   if (!jsonStr) return null;
-  return normalizeGeometry(JSON.parse(evaluateMathExpressions(jsonStr)));
+  return completeGeometryLines(normalizeGeometry(JSON.parse(evaluateMathExpressions(jsonStr))));
 };
 
 const extractPointNames = (text: string, count: number): string[] => {
