@@ -181,6 +181,127 @@ const isLikelyGeometryText = (text: string, subject?: string): boolean => {
   return signals.pointMentionCount >= 2 && signals.relationCount >= 1;
 };
 
+const buildInverseProportionalRtComposite = (text: string): GeometryData | null => {
+  const normalized = text.replace(/\s+/g, '');
+  const matchesPattern =
+    /OAB/.test(normalized) &&
+    /OBC/.test(normalized) &&
+    /(反比例函数|y=k\/x|y=\d+\/x|k\/x)/.test(normalized) &&
+    /(经过点C|经过C|过点C|恰好经过点C)/.test(normalized) &&
+    /(BA.*(⊥|垂直).*OA|BA⊥OA|BA垂直OA)/.test(normalized) &&
+    /(CB.*(⊥|垂直).*OB|CB⊥OB|CB垂直OB)/.test(normalized);
+
+  if (!matchesPattern) {
+    return null;
+  }
+
+  const abMatch =
+    normalized.match(/AB=√(\d+(?:\.\d+)?)/) ||
+    normalized.match(/AB=sqrt\((\d+(?:\.\d+)?)\)/i) ||
+    normalized.match(/AB=(\d+(?:\.\d+)?)/);
+
+  const angleMatch = normalized.match(/∠AOB=∠BOC=(\d+(?:\.\d+)?)°/) ||
+    normalized.match(/∠AOB=(\d+(?:\.\d+)?)°.*?∠BOC=(\d+(?:\.\d+)?)°/);
+
+  let ab = Math.sqrt(3);
+  if (abMatch?.[1]) {
+    const raw = Number(abMatch[1]);
+    if (Number.isFinite(raw) && raw > 0) {
+      ab = /√|sqrt/i.test(abMatch[0]) ? Math.sqrt(raw) : raw;
+    }
+  }
+
+  const angleDeg = angleMatch?.[1]
+    ? Number(angleMatch[1])
+    : angleMatch?.[2]
+      ? Number(angleMatch[2])
+      : 30;
+  const theta = (Number.isFinite(angleDeg) && angleDeg > 0 ? angleDeg : 30) * Math.PI / 180;
+
+  const OA = ab / Math.tan(theta);
+  const OB = ab / Math.sin(theta);
+  const BC = OB * Math.tan(theta);
+
+  const O = { id: 'O', name: 'O', x: 0, y: 0 };
+  const A = { id: 'A', name: 'A', x: 0, y: Number(OA.toFixed(3)) };
+  const B = { id: 'B', name: 'B', x: Number(ab.toFixed(3)), y: Number(OA.toFixed(3)) };
+
+  const obUnitX = B.x / OB;
+  const obUnitY = B.y / OB;
+  const C = {
+    id: 'C',
+    name: 'C',
+    x: Number((B.x + obUnitY * BC).toFixed(3)),
+    y: Number((B.y - obUnitX * BC).toFixed(3)),
+  };
+
+  const k = Number((C.x * C.y).toFixed(3));
+
+  return normalizeGeometry({
+    type: 'composite',
+    points: [O, A, B, C],
+    lines: [
+      { id: 'OA', start: 'O', end: 'A', type: 'segment' },
+      { id: 'AB', start: 'A', end: 'B', type: 'segment' },
+      { id: 'OB', start: 'O', end: 'B', type: 'segment' },
+      { id: 'BC', start: 'B', end: 'C', type: 'segment' },
+      { id: 'OC', start: 'O', end: 'C', type: 'segment' },
+    ],
+    circles: [],
+    curves: [{
+      id: 'curve1',
+      type: 'inverse_proportional',
+      equation: 'y=k/x',
+      parameter: k,
+      pointsOnCurve: ['C'],
+      xRange: [0.3, Math.max(6, Number((C.x * 1.6).toFixed(1)))],
+      color: '#22c55e',
+    }],
+    angles: [
+      { id: 'angleAOB', vertex: 'O', point1: 'A', point2: 'B', value: Number(angleDeg.toFixed(3)), showArc: true },
+      { id: 'angleBOC', vertex: 'O', point1: 'B', point2: 'C', value: Number(angleDeg.toFixed(3)), showArc: true },
+      { id: 'angleOAB', vertex: 'A', point1: 'O', point2: 'B', value: 90, showArc: true },
+      { id: 'angleOBC', vertex: 'B', point1: 'O', point2: 'C', value: 90, showArc: true },
+    ],
+    labels: [
+      { targetId: 'O', text: 'O', position: 'bottom' },
+      { targetId: 'A', text: 'A', position: 'left' },
+      { targetId: 'B', text: 'B', position: 'top' },
+      { targetId: 'C', text: 'C', position: 'right' },
+    ],
+    relations: [
+      { type: 'perpendicular', targets: ['AB', 'OA'], description: 'BA⊥OA' },
+      { type: 'perpendicular', targets: ['BC', 'OB'], description: 'CB⊥OB' },
+    ],
+    conditions: {
+      lengths: [`AB=${/√|sqrt/i.test(abMatch?.[0] || '') ? abMatch?.[0]?.split('=')[1] || '√3' : ab.toFixed(3)}`],
+      angles: [`∠AOB=${Number(angleDeg.toFixed(3))}°`, `∠BOC=${Number(angleDeg.toFixed(3))}°`],
+      ratios: [],
+      parallels: [],
+      perpendiculars: ['BA⊥OA', 'CB⊥OB'],
+      midpoints: [],
+      tangents: [],
+      intersections: [],
+      functions: ['y=k/x', '经过点C'],
+      others: ['Rt△OAB', 'Rt△OBC'],
+    },
+    confidence: 0.88,
+  });
+};
+
+const enhanceGeometryFromText = (text: string, geometry: GeometryData): GeometryData => {
+  const specialComposite = buildInverseProportionalRtComposite(text);
+  if (specialComposite) {
+    const hasPointC = geometry.points.some((point) => point.id === 'C');
+    const hasRenderableTriangleLines = geometry.lines.some((line) => ['AB', 'BC', 'OC', 'CB'].includes(line.id));
+    if (!hasPointC || !hasRenderableTriangleLines) {
+      return specialComposite;
+    }
+  }
+
+  return completeGeometryLines(geometry);
+};
+
 const buildLabels = (pointIds: string[]): GeometryData['labels'] =>
   pointIds.map((id, idx) => ({
     targetId: id,
@@ -351,7 +472,7 @@ const evaluateMathExpressions = (input: string): string => {
 const parseGeometryContent = (content: string): GeometryData | null => {
   const jsonStr = extractJsonObject(content);
   if (!jsonStr) return null;
-  return completeGeometryLines(normalizeGeometry(JSON.parse(evaluateMathExpressions(jsonStr))));
+  return normalizeGeometry(JSON.parse(evaluateMathExpressions(jsonStr)));
 };
 
 const extractPointNames = (text: string, count: number): string[] => {
@@ -559,6 +680,11 @@ const buildFallbackGeometry = (text: string): GeometryData => {
       },
       confidence: 0.9,
     });
+  }
+
+  const inverseProportionalComposite = buildInverseProportionalRtComposite(text);
+  if (inverseProportionalComposite) {
+    return inverseProportionalComposite;
   }
 
   if (hasFunction) {
@@ -1337,7 +1463,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
     console.log('AI response content:', content.substring(0, 500));
 
     try {
-      const geometry = parseGeometryContent(content);
+      const parsedGeometry = parseGeometryContent(content);
+      const geometry = parsedGeometry ? enhanceGeometryFromText(text, parsedGeometry) : null;
       if (!geometry) {
         throw new Error('No JSON object found in AI response');
       }
