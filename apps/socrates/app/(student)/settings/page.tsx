@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { AVAILABLE_MODELS, PROVIDER_CONFIG, getModelsForPurpose } from '@/lib/ai-models/config';
+import { PROVIDER_CONFIG, getDefaultModel, getModelById, getModelsForPurpose } from '@/lib/ai-models/config';
 import type { ModelPurpose, UserModelPreference } from '@/lib/ai-models/types';
 import { defaultAvatarByRole } from '@/lib/avatar-options';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -143,9 +143,9 @@ export default function SettingsPage() {
       }
 
       setSelectedModels({
-        chat: getModelsForPurpose('chat')[0]?.id ?? '',
-        vision: getModelsForPurpose('vision')[0]?.id ?? '',
-        reasoning: getModelsForPurpose('reasoning')[0]?.id ?? '',
+        chat: getDefaultModel('chat').id,
+        vision: getDefaultModel('vision').id,
+        reasoning: getDefaultModel('reasoning').id,
       });
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -564,15 +564,15 @@ export default function SettingsPage() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">对话模型</span>
-                <span>{AVAILABLE_MODELS.find((model) => model.id === preference.chat_model)?.name}</span>
+                <span>{getModelById(preference.chat_model)?.name}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">图像模型</span>
-                <span>{AVAILABLE_MODELS.find((model) => model.id === preference.vision_model)?.name}</span>
+                <span>{getModelById(preference.vision_model)?.name}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">推理模型</span>
-                <span>{AVAILABLE_MODELS.find((model) => model.id === preference.reasoning_model)?.name}</span>
+                <span>{getModelById(preference.reasoning_model)?.name}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">最近更新时间</span>

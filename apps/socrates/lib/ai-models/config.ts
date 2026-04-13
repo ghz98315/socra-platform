@@ -103,20 +103,41 @@ export const AVAILABLE_MODELS: AIModelConfig[] = [
   },
 ];
 
-export function getDefaultModel(purpose: ModelPurpose): AIModelConfig {
-  const recommended = AVAILABLE_MODELS.find(
-    (model) => model.enabled && model.recommended && model.supports.includes(purpose)
-  );
+const APPROVED_MODEL_IDS_BY_PURPOSE: Record<ModelPurpose, string[]> = {
+  chat: ['qwen-turbo'],
+  vision: ['qwen-vl'],
+  reasoning: ['qwen-plus'],
+};
 
-  if (recommended) {
-    return recommended;
+function requireModel(modelId: string, purpose: ModelPurpose): AIModelConfig {
+  const model = AVAILABLE_MODELS.find((candidate) => candidate.id === modelId);
+
+  if (!model) {
+    throw new Error(`Approved ${purpose} model is missing from config: ${modelId}`);
   }
 
-  const fallback = AVAILABLE_MODELS.find(
-    (model) => model.enabled && model.supports.includes(purpose)
-  );
+  if (!model.enabled) {
+    throw new Error(`Approved ${purpose} model is disabled: ${modelId}`);
+  }
 
-  return fallback ?? AVAILABLE_MODELS[0];
+  if (!model.supports.includes(purpose)) {
+    throw new Error(`Approved ${purpose} model does not support this purpose: ${modelId}`);
+  }
+
+  return model;
+}
+
+export function getApprovedModelIdsForPurpose(purpose: ModelPurpose): string[] {
+  return [...APPROVED_MODEL_IDS_BY_PURPOSE[purpose]];
+}
+
+export function isModelAllowedForPurpose(modelId: string, purpose: ModelPurpose): boolean {
+  return APPROVED_MODEL_IDS_BY_PURPOSE[purpose].includes(modelId);
+}
+
+export function getDefaultModel(purpose: ModelPurpose): AIModelConfig {
+  const primaryModelId = APPROVED_MODEL_IDS_BY_PURPOSE[purpose][0];
+  return requireModel(primaryModelId, purpose);
 }
 
 export function getModelById(id: string): AIModelConfig | undefined {
@@ -124,7 +145,18 @@ export function getModelById(id: string): AIModelConfig | undefined {
 }
 
 export function getModelsForPurpose(purpose: ModelPurpose): AIModelConfig[] {
-  return AVAILABLE_MODELS.filter((model) => model.enabled && model.supports.includes(purpose));
+  return getApprovedModelIdsForPurpose(purpose).map((modelId) => requireModel(modelId, purpose));
+}
+
+export function normalizeModelSelection(modelId: string | null | undefined, purpose: ModelPurpose): AIModelConfig {
+  if (typeof modelId === 'string' && isModelAllowedForPurpose(modelId, purpose)) {
+    const selectedModel = getModelById(modelId);
+    if (selectedModel?.enabled && selectedModel.supports.includes(purpose)) {
+      return selectedModel;
+    }
+  }
+
+  return getDefaultModel(purpose);
 }
 
 export const PROVIDER_CONFIG: Record<

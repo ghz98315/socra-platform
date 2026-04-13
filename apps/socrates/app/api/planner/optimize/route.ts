@@ -191,7 +191,7 @@ ${tasks.map((t, i) => `${i + 1}. ${t.title} | 科目：${t.subject} | 时长：$
 
     try {
       // 尝试调用 AI 模型
-      const defaultModel = getDefaultModel('chat');
+      const defaultModel = getDefaultModel('reasoning');
       const result = await callModelById(
         defaultModel.id,
         [

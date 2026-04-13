@@ -1,4 +1,4 @@
-import { getDefaultModel, getModelById } from './config';
+import { getDefaultModel, getModelById, normalizeModelSelection } from './config';
 import type { AIModelConfig, ModelPurpose, ModelResponse } from './types';
 
 const userPreferencesCache = new Map<
@@ -13,10 +13,7 @@ export async function getUserModelPreference(
   const cached = userPreferencesCache.get(userId);
 
   if (cached) {
-    const cachedModel = getModelById(cached[purpose]);
-    if (cachedModel?.enabled) {
-      return cachedModel;
-    }
+    return normalizeModelSelection(cached[purpose], purpose);
   }
 
   try {
@@ -29,16 +26,13 @@ export async function getUserModelPreference(
 
       if (preference) {
         userPreferencesCache.set(userId, {
-          chat: preference.chat_model,
-          vision: preference.vision_model,
-          reasoning: preference.reasoning_model,
+          chat: normalizeModelSelection(preference.chat_model, 'chat').id,
+          vision: normalizeModelSelection(preference.vision_model, 'vision').id,
+          reasoning: normalizeModelSelection(preference.reasoning_model, 'reasoning').id,
         });
 
         const modelId = preference[`${purpose}_model` as const];
-        const selectedModel = getModelById(modelId);
-        if (selectedModel?.enabled) {
-          return selectedModel;
-        }
+        return normalizeModelSelection(modelId, purpose);
       }
     }
   } catch (error) {
