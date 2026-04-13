@@ -116,10 +116,12 @@ export interface PromptBuildOptions {
   subject: SubjectType;
   grade: GradeLevel;
   userLevel: UserLevel;
+  subjectConfidence?: number;
   questionContent?: string;
   geometryData?: any;
   hasImage?: boolean;
   questionType?: QuestionType;
+  isFirstTurn?: boolean;
 }
 
 /**
