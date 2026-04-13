@@ -71,12 +71,13 @@
 
 下一步建议直接进入：
 
-1. 选一题“圆 + 切线 / 直径”样例作为下一条回归基线
-2. 跑一轮当前识别结果
-3. 如果有问题，再做最小修复
-4. 修完后再固化成基线文档
+1. 先按 `docs/md_socrates_20260413_geometry_wave1_regression_pack.md` 做统一回归
+2. 优先看圆题、矩形投影题、坐标几何题是否一起通过
+3. 如果其中某一类失败，再做该类最小修复
+4. 修完后再把该类固化成新的专项基线文档
 
 ## 当前关联基线
 
 - `docs/md_socrates_20260413_coordinate_geometry_regression_baseline.md`
 - `docs/md_socrates_20260413_geometry_manual_regression_checklist.md`
+- `docs/md_socrates_20260413_geometry_wave1_regression_pack.md`
