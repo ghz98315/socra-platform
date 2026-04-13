@@ -134,6 +134,29 @@ pnpm.cmd --filter @socra/socrates exec tsc --noEmit
 - 不出现几何画板
 - `/api/geometry` 不应再成为主要路径
 
+### Case 9：坐标系中的反比例函数 + 几何组合题，C 点与线段必须完整
+
+建议优先使用原题图：
+
+```text
+D:\github\Socrates_ analysis\test_image\PixPin_2026-02-28_07-35-38.png
+```
+
+可参考 OCR 文本：
+
+```text
+如图，Rt△OAB与Rt△OBC位于平面直角坐标系中，∠AOB=∠BOC=30°，BA⊥OA，CB⊥OB，若AB=√3，反比例函数y=k/x恰好经过点C，则k=______。
+```
+
+预期：
+- `C` 点必须识别出来
+- `BC`、`OC` 等关键线段必须能画出来
+- 反比例函数曲线必须经过 `C`
+- 不能退化成只有函数曲线和 `A/B/O` 点
+
+当前状态：
+- 已人工复测通过
+
 ## 三、重点观察项
 
 每个 case 建议重点看这几项：
