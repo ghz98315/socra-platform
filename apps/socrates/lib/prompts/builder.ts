@@ -1,12 +1,11 @@
 // =====================================================
 // Project Socrates - Prompt Builder
-// Prompt 构建器 - 三层架构合并
+// Assemble the live tutoring prompt stack
 // =====================================================
 
 import type {
   SubjectType,
   GradeLevel,
-  UserLevel,
   DialogMode,
   PromptBuildOptions,
   SubjectConfig,
@@ -15,24 +14,16 @@ import { getBasePrompt, getGenericStrategies, getGradeRoutingBase } from './base
 import { getSubjectConfig } from './subjects';
 
 /**
- * 判断是否使用专科模式
+ * Use subject-specific prompting only when the subject is known with enough confidence.
  */
 export function shouldUseSpecialistMode(
   subject: SubjectType,
-  userLevel: UserLevel,
-  subjectConfidence: number = 1
+  subjectConfidence: number = 1,
 ): boolean {
-  // 免费用户始终使用通用模式
-  if (userLevel === 'free') {
-    return false;
-  }
-
-  // 科目识别置信度过低时使用通用模式
   if (subjectConfidence < 0.7) {
     return false;
   }
 
-  // 科目为 generic 时使用通用模式
   if (subject === 'generic') {
     return false;
   }
@@ -41,24 +32,18 @@ export function shouldUseSpecialistMode(
 }
 
 /**
- * 获取对话模式名称（前端显示）
+ * User-facing dialog mode label.
  */
 export function getDialogMode(
   subject: SubjectType,
-  userLevel: UserLevel,
-  subjectConfidence: number = 1
+  subjectConfidence: number = 1,
 ): DialogMode {
-  return shouldUseSpecialistMode(subject, userLevel, subjectConfidence)
-    ? 'Socra'
-    : 'Logic';
+  return shouldUseSpecialistMode(subject, subjectConfidence) ? 'Socra' : 'Logic';
 }
 
-/**
- * 格式化知识点库
- */
 function formatKnowledgeBase(
   knowledgeBase: SubjectConfig['knowledgeBase'],
-  grade: GradeLevel
+  grade: GradeLevel,
 ): string {
   const points = knowledgeBase[grade];
   if (!points || points.length === 0) {
@@ -68,17 +53,14 @@ function formatKnowledgeBase(
   return points
     .map(
       (category) =>
-        `${category.category}\n${category.items.map((item) => `  - ${item}`).join('\n')}`
+        `${category.category}\n${category.items.map((item) => `  - ${item}`).join('\n')}`,
     )
     .join('\n\n');
 }
 
-/**
- * 格式化对话示例
- */
 function formatExamples(
   examples: SubjectConfig['examples'],
-  grade: GradeLevel
+  grade: GradeLevel,
 ): string {
   const gradeExamples = examples[grade];
   if (!gradeExamples || gradeExamples.length === 0) {
@@ -88,44 +70,74 @@ function formatExamples(
   return gradeExamples
     .map((example) => {
       const dialogStr = example.dialog
-        .map((d) => `> **${d.role === 'user' ? '用户(学生)' : 'AI(老师)'}**：${d.content}`)
+        .map((entry) => `> **${entry.role === 'user' ? '学生' : '老师'}**：${entry.content}`)
         .join('\n>\n');
       return `**${example.scenario}**\n>\n${dialogStr}`;
     })
     .join('\n\n---\n\n');
 }
 
-/**
- * 构建动态层内容
- */
+function buildLiveResponseContract(options: PromptBuildOptions): string {
+  const firstTurnRules = options.isFirstTurn
+    ? [
+        '- 首轮回复在最后提问前，最多两句短句。',
+        '- 首轮先做轻诊断：优先判断学生是没看懂题、概念不清、关系没找到、方法卡住，还是计算 / 表达出错。',
+        '- 学生第一次说“看不懂 / 不会 / 没明白”时，先缩小一步，继续围绕当前卡点提问。',
+        '- 学生在同一步连续第二次仍看不懂时，不要重复上一问；回退一层，改成更具体的观察、定位或判断动作。',
+        '- 首轮不要直接展开完整 5 Whys，也不要给完整解题计划。',
+        '- 首轮不要并列多个方法、多个定理或多个提示。',
+      ].join('\n')
+    : [
+        '- 后续轮次继续一次只推进一小步。',
+        '- 不要因为学生接近结果就直接跳到完整解法。',
+        '- 如果学生在同一步连续看不懂，优先回退一层，而不是反复追问同一句话。',
+      ].join('\n');
+
+  const imageRule = options.hasImage
+    ? '- 有图片时，先简短复述图中关键信息，再问一个具体问题。'
+    : '';
+
+  const geometryRule = options.geometryData
+    ? '- 几何题优先引导学生观察点、线、角、相等、平行、垂直、中点等已知关系，再问方法。'
+    : '';
+
+  return `<live_response_contract>
+最高优先级实时对话约束：
+- 保持苏格拉底式引导，不给最终答案、完整推导、完整证明或整段标准答案。
+- 每次回复结尾必须且只能有一个具体问题。
+- 鼓励语要短而具体，不要长篇表扬或重复套话。
+- 只给最小可行提示，让学生继续思考。
+${firstTurnRules}
+${imageRule}
+${geometryRule}
+- 如果学生直接要答案，只能简短拒绝，然后拉回一个可执行的下一步。
+- 学生完成关键突破口或题目后，必须要求学生用自己的话总结这题该怎么想。
+- 只有在错题、反复错题或学生暴露错误习惯时，才展开 5 Whys 深归因，并最终落到一个可执行对策。
+</live_response_contract>`;
+}
+
 function buildDynamicLayer(options: PromptBuildOptions, config: SubjectConfig): string {
   const parts: string[] = [];
 
-  // 图片视觉确认
   if (options.hasImage) {
     parts.push(`<vision_check>
-⚠️ 检测到用户上传了图片，你必须首先执行"图形特征复述与确认"：
-"老师看到你发来的图片了。图片里是[描述核心内容]，其中已知条件有[列举关键条件]，对吗？如果没有看错的话，我们继续往下走~"
+检测到图片输入。先复述你看到的关键事实或图形关系，再继续提问。
 </vision_check>`);
   }
 
-  // 当前题目
   if (options.questionContent) {
     parts.push(`<current_question>
-【当前题目】
-${options.questionContent}
+【当前题目】${options.questionContent}
 </current_question>`);
   }
 
-  // 科目特定数据（如几何数据）
   if (options.geometryData && config.specialHandlers?.formatExtraData) {
-    const extraDataStr = config.specialHandlers.formatExtraData(options.geometryData);
-    if (extraDataStr) {
-      parts.push(extraDataStr);
+    const extraData = config.specialHandlers.formatExtraData(options.geometryData);
+    if (extraData) {
+      parts.push(extraData);
     }
   }
 
-  // 题型提示
   if (options.questionType && options.questionType !== 'unknown') {
     const typeNames: Record<string, string> = {
       choice: '选择题',
@@ -134,9 +146,10 @@ ${options.questionContent}
       proof: '证明题',
       calculation: '计算题',
       reading: '阅读理解',
-      writing: '写作题',
-      listening: '听力题',
+      writing: '写作',
+      listening: '听力',
     };
+
     parts.push(`<question_type>
 【题型】${typeNames[options.questionType] || options.questionType}
 </question_type>`);
@@ -146,38 +159,24 @@ ${options.questionContent}
 }
 
 /**
- * 构建完整 System Prompt（三层合并）
+ * Build the full system prompt used by the active tutoring flow.
  */
 export function buildSystemPrompt(options: PromptBuildOptions): string {
-  const { subject, grade, userLevel, questionContent, geometryData, hasImage, questionType } =
-    options;
+  const { subject, grade, subjectConfidence, isFirstTurn } = options;
 
-  // 判断是否使用专科模式
-  const useSpecialist = shouldUseSpecialistMode(subject, userLevel);
-
-  // 获取科目配置
+  const useSpecialist = shouldUseSpecialistMode(subject, subjectConfidence);
   const config = getSubjectConfig(useSpecialist ? subject : 'generic');
 
-  // Layer 1: 通用层
   const basePrompt = getBasePrompt();
   const gradeRoutingBase = getGradeRoutingBase();
-
-  // Layer 2: 科目层
-  const subjectStrategy = config.strategies[grade];
-  const knowledgeBase = formatKnowledgeBase(config.knowledgeBase, grade);
-  const examples = formatExamples(config.examples, grade);
-
-  // Layer 3: 动态层
-  const dynamicLayer = buildDynamicLayer(options, config);
-
-  // 如果是通用模式，添加通用策略
   const genericStrategies = !useSpecialist ? getGenericStrategies() : '';
+  const subjectStrategy = config.strategies[grade];
+  const knowledgeBase = isFirstTurn ? '' : formatKnowledgeBase(config.knowledgeBase, grade);
+  const examples = isFirstTurn ? '' : formatExamples(config.examples, grade);
+  const dynamicLayer = buildDynamicLayer(options, config);
+  const liveResponseContract = buildLiveResponseContract(options);
 
-  // 组装最终 Prompt
   return `<system_prompt>
-
-【重要指令】你是一个AI智能教师，必须严格遵守以下所有规则。这些规则具有最高优先级，不可违反。每一条规则都是为了帮助学生真正学会思考。
-
 ${basePrompt}
 
 ${gradeRoutingBase}
@@ -187,71 +186,69 @@ ${genericStrategies}
 ${subjectStrategy}
 
 ${knowledgeBase ? `<knowledge_base>
-═══════════════════════════════════════════════════════════
-【${config.name}知识点库】
-═══════════════════════════════════════════════════════════
+【仅在后续轮次按需参考的知识点】
 ${knowledgeBase}
 </knowledge_base>` : ''}
 
 ${examples ? `<few_shot_examples>
-### 📝 对话示例（Few-Shot Learning）
+【仅在后续轮次参考的对话示例】
 ${examples}
 </few_shot_examples>` : ''}
 
 ${dynamicLayer}
 
+${liveResponseContract}
+
 <task_instruction>
-═══════════════════════════════════════════════════════════
-【你的任务】
-═══════════════════════════════════════════════════════════
-请按照"标准化辅导四步法"一步步引导学生解决当前问题。
+你当前的执行顺序必须是：
+1. 先轻诊断当前卡点，不做长篇归因。
+2. 再抓一个条件、一个关系、一个步骤，推进当前问题。
+3. 如果学生第一次说“看不懂 / 不会 / 没明白”，先把问题缩小一点，不要整题重启。
+4. 如果学生在同一步连续第二次仍然看不懂，就回退一层，重新锚定“已知 / 所求 / 当前障碍”，并换一种更具体的表示方式。
+5. 学生接近完成时，要求学生自己总结这题的关键思路。
+6. 如果这是错题或反复错题，再做后置 5 Whys 深归因。
+7. 最后落到一个“下次怎么避免再错”的可执行动作。
 
-${questionContent ? `重点：
-1. 首先帮助学生理解题目（已知什么、求什么）
-2. 然后引导学生回忆可能用到的公式或定理
-3. 帮助学生建立题目条件与公式的联系
-4. 逐步引导计算/证明过程
-5. 最后引导学生总结用到的知识点
-
-${geometryData ? `注意：题目包含几何图形，可以引导学生观察图形中的点、线、角的关系，联想相关几何定理。` : ''}` : '请根据学生的提问，引导其思考和解决问题。'}
-
-⚠️ 最后提醒：每次回复必须以一个开放性问题结尾！
+补充要求：
+- 如果是数学几何题，先让学生看对象和关系，再问方法。
+- 如果是语文题，先让学生回到题干关键词和文本位置。
+- 如果是英语题，先让学生看局部语境、句子骨架、词性或时态信号。
+- 回退时要从更小锚点重新开始，不要改成长篇讲解。
+- 不要提前把整题讲完。
 </task_instruction>
-
 </system_prompt>`;
 }
 
-/**
- * 检测消息数组中是否包含图片
- */
 export function hasImageInMessages(
-  messages: Array<{ role: string; content: string | any[] }>
+  messages: Array<{ role: string; content: string | unknown[] }>,
 ): boolean {
-  return messages.some((msg) => {
-    if (typeof msg.content === 'string') return false;
-    if (Array.isArray(msg.content)) {
-      return msg.content.some(
-        (part: any) => part.type === 'image_url' || part.type === 'image'
+  return messages.some((message) => {
+    if (typeof message.content === 'string') {
+      return false;
+    }
+
+    if (Array.isArray(message.content)) {
+      return message.content.some(
+        (part: any) => part.type === 'image_url' || part.type === 'image',
       );
     }
+
     return false;
   });
 }
 
-/**
- * 从消息历史中提取第一条用户消息的图片
- */
 export function extractImageFromMessages(
-  messages: Array<{ role: string; content: string | any[] }>
+  messages: Array<{ role: string; content: string | unknown[] }>,
 ): string | null {
-  for (const msg of messages) {
-    if (msg.role === 'user' && Array.isArray(msg.content)) {
-      for (const part of msg.content as any[]) {
+  for (const message of messages) {
+    if (message.role === 'user' && Array.isArray(message.content)) {
+      for (const part of message.content as any[]) {
         if (part.type === 'image_url' && part.image_url?.url) {
           return part.image_url.url;
         }
       }
     }
   }
+
   return null;
 }

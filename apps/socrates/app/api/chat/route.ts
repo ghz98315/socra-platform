@@ -3,15 +3,17 @@
 // Integrated with Multi-Model Support & Prompt System v2.0
 // =====================================================
 
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { callModelById } from '@/lib/ai-models/service';
-import { getDefaultModel } from '@/lib/ai-models/config';
+import { normalizeModelSelection } from '@/lib/ai-models/config';
 import {
   buildSystemPrompt,
   getDialogMode,
   hasImageInMessages,
 } from '@/lib/prompts/builder';
+import { getConversationHistoryStore } from '@/lib/chat/conversation-history';
 import {
   buildConversationRiskSignal,
   shouldNotifyParentForRisk,
@@ -129,11 +131,7 @@ async function maybeNotifyParentConversationRisk({
   }
 }
 
-// 对话历史存储（开发环境使用内存存储）
-const conversationHistory = new Map<
-  string,
-  Array<{ role: string; content: string }>
->();
+const conversationHistory = getConversationHistoryStore();
 
 // 通用 AI 模型调用
 async function callAIModel(
@@ -141,23 +139,11 @@ async function callAIModel(
   modelId?: string,
   isReasoning: boolean = false
 ): Promise<{ content: string; modelUsed: string }> {
-  // 确定使用的模型
-  let targetModelId = modelId;
+  const purpose = isReasoning ? 'reasoning' : 'chat';
+  const selectedModel = normalizeModelSelection(modelId, purpose);
+  const targetModelId = selectedModel.id;
 
-  if (!targetModelId) {
-    // 根据是否需要推理选择默认模型
-    const defaultModel = getDefaultModel(isReasoning ? 'reasoning' : 'chat');
-    targetModelId = defaultModel.id;
-    console.log(
-      'getDefaultModel result:',
-      defaultModel.id,
-      defaultModel.name,
-      'enabled:',
-      defaultModel.enabled
-    );
-  }
-
-  console.log('callAIModel - targetModelId:', targetModelId);
+  console.log('callAIModel - targetModelId:', targetModelId, 'purpose:', purpose);
 
   // 使用模型服务调用
   const result = await callModelById(targetModelId, messages, {
@@ -185,56 +171,148 @@ async function callAIModel(
 }
 
 // 改进的预设回应逻辑（fallback 用）
+function isConfusionMessage(message: string): boolean {
+  return /看不懂|不懂|不会|不知道|太难了|不明白|还是不懂|还是不会/u.test(message);
+}
+
+function getMockQuestionBySubject(params: {
+  subject: SubjectType;
+  questionType: QuestionType;
+  repeatedConfusion: boolean;
+  geometryData?: any;
+}): string {
+  const { subject, questionType, repeatedConfusion, geometryData } = params;
+
+  if (subject === 'math') {
+    if (repeatedConfusion) {
+      if (geometryData && geometryData.type && geometryData.type !== 'unknown') {
+        return '那我们先退一步。图里最关键的一个点、线或角是哪一个？';
+      }
+
+      return '那我们先退一步。题目最后要你求什么？';
+    }
+
+    if (geometryData && geometryData.type && geometryData.type !== 'unknown') {
+      return '先别急着想方法。图里最关键的一个点、线或角是哪一个？';
+    }
+
+    return '先别急着算。题目已经明确告诉了你哪个条件？';
+  }
+
+  if (subject === 'chinese') {
+    if (repeatedConfusion) {
+      return '那我们先退一步。你觉得答案应该回原文哪一句或哪一段找？';
+    }
+
+    return '先别急着答。题干里最关键的词是哪一个？';
+  }
+
+  if (subject === 'english') {
+    if (repeatedConfusion) {
+      if (questionType === 'reading') {
+        return '那我们先退一步。题干现在问的是细节、主旨，还是推断？';
+      }
+
+      return '那我们先退一步。这个空前后各是什么词？';
+    }
+
+    if (questionType === 'reading') {
+      return '先别急着选。题干现在问的是细节、主旨，还是推断？';
+    }
+
+    return '先别急。你先看这个空前后各是什么词？';
+  }
+
+  if (repeatedConfusion) {
+    return '那我们先退一步。你现在最清楚的一个已知条件是什么？';
+  }
+
+  return '先别急。题目最后要你求什么？';
+}
+
+function getNextStepQuestionBySubject(subject: SubjectType, questionType: QuestionType): string {
+  if (subject === 'math') {
+    return '下一步你想先确认哪个条件或关系？';
+  }
+
+  if (subject === 'chinese') {
+    return '下一步你想先回题干，还是先回原文定位？';
+  }
+
+  if (subject === 'english') {
+    if (questionType === 'reading') {
+      return '下一步你想先看题干，还是先回原文定位？';
+    }
+
+    return '下一步你想先看词性、时态，还是固定搭配？';
+  }
+
+  return '下一步你想先确认哪个条件？';
+}
+
 function generateImprovedMockResponse(
   userMessage: string,
   grade: GradeLevel,
   history: Array<{ role: string; content: string }>,
-  questionContent?: string
+  subject: SubjectType,
+  questionType: QuestionType,
+  questionContent?: string,
+  geometryData?: any,
 ): string {
   const userMessageCount = history.filter((m) => m.role === 'user').length;
   const lowerMessage = userMessage.toLowerCase();
+  const userMessages = history.filter((m) => m.role === 'user').map((m) => m.content);
+  const previousUserMessage =
+    userMessages.length >= 2 ? userMessages[userMessages.length - 2] : '';
 
   const askingForAnswer = /答案|结果|对不对|是多少|怎么做/.test(lowerMessage);
   const givingSolution =
     /我觉得|我认为|应该是|我想|第一步|首先|用.*?方法|先算|然后|最后/.test(
       lowerMessage
     );
-  const confused = /不懂|不会|不知道|太难了|不明白/.test(lowerMessage);
+  const confused = isConfusionMessage(userMessage);
+  const repeatedConfusion = confused && isConfusionMessage(previousUserMessage);
 
   if (confused) {
-    if (grade === 'junior') {
-      return `没关系，让我帮你拆解这道题！😊
+    const question = getMockQuestionBySubject({
+      subject,
+      questionType,
+      repeatedConfusion,
+      geometryData,
+    });
 
-第一步：先告诉我题目在问什么？哪怕只说出一句话也行~`;
-    }
-    return `理解题目是关键。请告诉我：题目给了哪些条件？要求解决什么？`;
+    return grade === 'junior'
+      ? `没关系，我们先只抓最小一步。\n\n${question}`
+      : `先不急着往下推。\n\n${question}`;
   }
 
   if (askingForAnswer) {
-    return `不能直接给答案哦！但我可以引导你：
-
-告诉我你的思路，我们一起推导。第一步，题目告诉了我们什么？`;
+    return `我不直接给答案。\n\n先告诉我，题目已经明确给了你什么？`;
   }
 
   if (givingSolution) {
-    return `${grade === 'junior' ? `很好的想法！✨` : `思路清晰。`}
-
-继续：下一步你打算怎么做？`;
+    return `${grade === 'junior' ? '这个切入点可以。' : '这个方向可以。'}\n\n${getNextStepQuestionBySubject(subject, questionType)}`;
   }
 
   // 根据对话轮次提供渐进式引导
   if (userMessageCount === 1) {
-    return `你好！${grade === 'junior' ? `🌟` : ``}
-
-我们来看看这道题。题目告诉了我们什么？要求我们做什么？`;
+    return grade === 'junior'
+      ? `我们先不急着整题往下做。\n\n${getMockQuestionBySubject({
+          subject,
+          questionType,
+          repeatedConfusion: false,
+          geometryData,
+        })}`
+      : `先做轻诊断。\n\n${getMockQuestionBySubject({
+          subject,
+          questionType,
+          repeatedConfusion: false,
+          geometryData,
+        })}`;
   }
 
   // 后续轮次
-  return `${
-    grade === 'junior' ? `继续加油！💪` : `继续。`
-  }
-
-你觉得下一步应该怎么做？${questionContent ? `\n题目提醒：${questionContent}` : ''}`;
+  return `${grade === 'junior' ? '继续。' : '往前推进一小步。'}\n\n${getNextStepQuestionBySubject(subject, questionType)}${questionContent ? `\n题目提醒：${questionContent}` : ''}`;
 }
 
 // POST endpoint - AI 对话
@@ -284,28 +362,32 @@ export async function POST(req: NextRequest) {
     // 计算对话模式
     const dialogMode: DialogMode = getDialogMode(
       actualSubject,
-      actualUserLevel,
       subjectConfidence
     );
     console.log('Chat API - dialogMode:', dialogMode);
 
     // 获取或创建对话历史（内存）
-    const historySessionId = sessionId || session_id;
+    const historySessionId = sessionId || session_id || randomUUID();
+    const existingHistory = conversationHistory.get(historySessionId) || [];
+    const previousUserMessageCount = existingHistory.filter(
+      (entry) => entry.role === 'user'
+    ).length;
+    const isFirstTurn = previousUserMessageCount === 0;
 
     // 检测是否有图片
-    const hasImage = hasImageInMessages(
-      conversationHistory.get(historySessionId) || []
-    );
+    const hasImage = hasImageInMessages(existingHistory);
 
     // 构建 System Prompt（三层架构）
     const systemPrompt = buildSystemPrompt({
       subject: actualSubject,
       grade: actualGrade,
       userLevel: actualUserLevel,
+      subjectConfidence,
       questionContent,
       geometryData,
       hasImage,
       questionType: actualQuestionType,
+      isFirstTurn,
     });
 
     if (!conversationHistory.has(historySessionId)) {
@@ -345,7 +427,10 @@ export async function POST(req: NextRequest) {
           message,
           actualGrade,
           history,
-          questionContent
+          actualSubject,
+          actualQuestionType,
+          questionContent,
+          geometryData,
         );
         modelUsed = 'mock (fallback)';
       }
@@ -355,7 +440,10 @@ export async function POST(req: NextRequest) {
         message,
         actualGrade,
         history,
-        questionContent
+        actualSubject,
+        actualQuestionType,
+        questionContent,
+        geometryData,
       );
       modelUsed = 'mock';
     }
@@ -400,6 +488,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       content: responseText,
       done: true,
+      sessionId: historySessionId,
       dialogMode, // 新增：对话模式（Logic / Socra）
       modelUsed,
       // 调试信息
@@ -423,7 +512,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const sessionId = searchParams.get('sessionId');
+    const sessionId = searchParams.get('sessionId') || searchParams.get('session_id');
 
     if (sessionId) {
       conversationHistory.delete(sessionId);
@@ -440,7 +529,7 @@ export async function DELETE(req: NextRequest) {
 // GET endpoint - 获取对话历史
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const sessionId = searchParams.get('sessionId');
+  const sessionId = searchParams.get('sessionId') || searchParams.get('session_id');
 
   if (!sessionId) {
     return NextResponse.json(
