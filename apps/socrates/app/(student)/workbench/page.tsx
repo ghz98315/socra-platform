@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   BookOpen,
   Camera,
   Play,
@@ -38,6 +39,34 @@ import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
 
 type Step = 'upload' | 'ocr' | 'chat';
+type GeometryUiState =
+  | 'idle'
+  | 'ready'
+  | 'low-confidence'
+  | 'unknown'
+  | 'error'
+  | 'preserved-unknown'
+  | 'preserved-error';
+
+const EMPTY_GEOMETRY: GeometryData = {
+  type: 'unknown',
+  points: [],
+  lines: [],
+  circles: [],
+  curves: [],
+  angles: [],
+  labels: [],
+  relations: [],
+  confidence: 0,
+};
+
+const getGeometryUiStateFromData = (data: GeometryData | null): GeometryUiState => {
+  if (!data || data.type === 'unknown') {
+    return 'idle';
+  }
+
+  return data.confidence < 0.7 ? 'low-confidence' : 'ready';
+};
 
 // 滚动动画 Hook
 function useScrollAnimation(threshold = 0.1) {
@@ -106,8 +135,10 @@ function WorkbenchPage() {
 
   // Geometry state
   const [geometryData, setGeometryData] = useState<GeometryData | null>(null);
+  const [geometryUiState, setGeometryUiState] = useState<GeometryUiState>('idle');
   const [isGeometryLoading, setIsGeometryLoading] = useState(false);
   const geometryAbortRef = useRef<boolean>(false);
+  const geometryDataRef = useRef<GeometryData | null>(null);
   const lastParsedTextRef = useRef<string>(''); // 跟踪已解析的文本，避免重复解析
   const isGeometryLoadingRef = useRef(false); // 用ref跟踪加载状态
   const shouldAutoParseRef = useRef(false); // 控制是否应该自动解析（仅在OCR完成时为true）
@@ -124,6 +155,10 @@ function WorkbenchPage() {
   useEffect(() => {
     isGeometryLoadingRef.current = isGeometryLoading;
   }, [isGeometryLoading]);
+
+  useEffect(() => {
+    geometryDataRef.current = geometryData;
+  }, [geometryData]);
 
   // Debug: Log geometry state changes
   useEffect(() => {
@@ -171,6 +206,8 @@ function WorkbenchPage() {
 
     geometryAbortRef.current = true;
     shouldAutoParseRef.current = false;
+    setGeometryData(null);
+    setGeometryUiState('idle');
     setIsGeometryLoading(false);
 
     if (geometrySyncTimeoutRef.current) {
@@ -351,6 +388,11 @@ function WorkbenchPage() {
       setImagePreview(sessionData.original_image_url || null);
       setOcrText(sessionData.extracted_text || '');
       setGeometryData(restoredSubject === 'math' ? sessionData.geometry_data || null : null);
+      setGeometryUiState(
+        restoredSubject === 'math'
+          ? getGeometryUiStateFromData(sessionData.geometry_data || null)
+          : 'idle',
+      );
       setCurrentStep(sessionData.extracted_text ? 'chat' : sessionData.original_image_url ? 'ocr' : 'upload');
       setErrorSessionId(sessionData.id);
       chatSessionRef.current = sessionData.id;
@@ -592,11 +634,14 @@ function WorkbenchPage() {
   const parseGeometry = async (text: string) => {
     if (!geometryEnabled || !text?.trim()) {
       setGeometryData(null);
+      setGeometryUiState('idle');
       setIsGeometryLoading(false);
       return;
     }
 
     console.log('[Workbench] parseGeometry called with text:', text?.substring(0, 100));
+    const previousGeometry = geometryDataRef.current;
+    const hasPreviousGeometry = !!previousGeometry && previousGeometry.type !== 'unknown';
 
     // 重置 abort 标志
     geometryAbortRef.current = false;
@@ -637,21 +682,37 @@ function WorkbenchPage() {
           if (result.success && result.geometry) {
             // 无论是否为 unknown 都设置数据，以便 UI 显示相应状态
             console.log('[Workbench] Setting geometryData:', result.geometry.type, 'with', result.geometry.points?.length, 'points');
-            setGeometryData(result.geometry);
             if (result.geometry.type !== 'unknown') {
+              setGeometryData(result.geometry);
+              setGeometryUiState(getGeometryUiStateFromData(result.geometry));
               console.log('[Workbench] Geometry parsed successfully, confidence:', result.geometry.confidence);
+            } else if (hasPreviousGeometry) {
+              setGeometryUiState('preserved-unknown');
+              console.log('[Workbench] Geometry became unknown, preserving previous usable geometry');
             } else {
+              setGeometryData(result.geometry);
+              setGeometryUiState('unknown');
               console.log('[Workbench] No geometry content detected (type: unknown)');
             }
           } else {
             console.log('[Workbench] Geometry parsing failed');
-            setGeometryData({ type: 'unknown', points: [], lines: [], circles: [], curves: [], angles: [], labels: [], relations: [], confidence: 0 });
+            if (hasPreviousGeometry) {
+              setGeometryUiState('preserved-error');
+            } else {
+              setGeometryData(EMPTY_GEOMETRY);
+              setGeometryUiState('error');
+            }
           }
         }
       } else {
         if (!geometryAbortRef.current) {
           console.log('[Workbench] Geometry API response not OK:', response.status);
-          setGeometryData({ type: 'unknown', points: [], lines: [], circles: [], curves: [], angles: [], labels: [], relations: [], confidence: 0 });
+          if (hasPreviousGeometry) {
+            setGeometryUiState('preserved-error');
+          } else {
+            setGeometryData(EMPTY_GEOMETRY);
+            setGeometryUiState('error');
+          }
         }
       }
     } catch (error: any) {
@@ -661,7 +722,12 @@ function WorkbenchPage() {
         } else {
           console.error('[Workbench] Failed to parse geometry:', error);
         }
-        setGeometryData(null);
+        if (hasPreviousGeometry) {
+          setGeometryUiState('preserved-error');
+        } else {
+          setGeometryData(null);
+          setGeometryUiState('error');
+        }
       }
     } finally {
       if (!geometryAbortRef.current) {
@@ -680,6 +746,7 @@ function WorkbenchPage() {
     if (!geometryEnabled) {
       geometryAbortRef.current = true;
       setGeometryData(null);
+      setGeometryUiState('idle');
       setIsGeometryLoading(false);
     }
     if (geometrySyncTimeoutRef.current) {
@@ -762,6 +829,7 @@ function WorkbenchPage() {
     setImagePreview(null);
     setOcrText('');
     setGeometryData(null);
+    setGeometryUiState('idle');
     setIsGeometryLoading(false);
     setCurrentStep('upload');
     setMessages([]);
@@ -841,6 +909,45 @@ function WorkbenchPage() {
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
   const aiName = profile?.theme_preference === 'junior' ? 'Jasper' : 'Logic';
   const currentSubjectConfig = getSubjectConfig(activeSubject);
+  const hasGeometryText = geometryEnabled && ocrText.trim().length > 0;
+  const hasRenderableGeometry = !!geometryData && geometryData.type !== 'unknown';
+  const showGeometryEmptyState =
+    hasGeometryText &&
+    !isGeometryLoading &&
+    !hasRenderableGeometry &&
+    (geometryUiState === 'unknown' || geometryUiState === 'error');
+
+  const geometryNotice = (() => {
+    if (!geometryEnabled || isGeometryLoading) {
+      return null;
+    }
+
+    if (geometryUiState === 'low-confidence') {
+      return {
+        tone: 'amber' as const,
+        title: '图形已识别，建议先核对关键条件',
+        description: '当前结果可继续辅助解题，但更适合当作草图。若点位、边或已知条件不完整，请先修正 OCR 文本后重新识别。',
+      };
+    }
+
+    if (geometryUiState === 'preserved-unknown') {
+      return {
+        tone: 'amber' as const,
+        title: '本次未稳定识别出新图形，已保留上一版图形',
+        description: '你可以继续答题，也可以补充题干中的点名、线段关系或角度条件后再次识别，避免当前进度被覆盖。',
+      };
+    }
+
+    if (geometryUiState === 'preserved-error') {
+      return {
+        tone: 'amber' as const,
+        title: '本次几何识别异常，已保留当前图形',
+        description: '当前图形和你添加的辅助信息仍可继续使用。若要重试，建议先检查 OCR 文本是否缺行、漏符号或顺序错乱。',
+      };
+    }
+
+    return null;
+  })();
 
   if (authLoading || (!user && !profile)) {
     return (
@@ -1076,16 +1183,22 @@ function WorkbenchPage() {
               )}
 
               {/* Geometry Status Indicator */}
-              {geometryEnabled && ocrText && ocrText.trim().length > 0 && !isGeometryLoading && geometryData?.type === 'unknown' && (
-                <Card className="border-gray-200/50 bg-gradient-to-br from-gray-50 to-white transition-all duration-300">
+              {showGeometryEmptyState && (
+                <Card className="border-amber-200/60 bg-gradient-to-br from-amber-50 via-white to-orange-50 transition-all duration-300">
                   <CardContent className="py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                        <Hexagon className="w-5 h-5 text-gray-400" />
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                        <AlertTriangle className="w-5 h-5 text-amber-600" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-700">未检测到几何图形</p>
-                        <p className="text-sm text-gray-500">该题目可能不包含几何内容</p>
+                        <p className="font-medium text-amber-900">
+                          {geometryUiState === 'error' ? '几何识别暂时失败' : '未稳定识别出几何图形'}
+                        </p>
+                        <p className="mt-1 text-sm text-amber-700">
+                          {geometryUiState === 'error'
+                            ? '这次识别没有拿到稳定结果。若题目确实有图形，请先检查 OCR 文本是否缺行、漏符号，再重新识别。'
+                            : '如果这道题本身没有图形，可以直接继续对话；如果题干里有点、线、角或圆的条件，建议先补全 OCR 文本后再重试。'}
+                        </p>
                       </div>
                       <Button
                         variant="outline"
@@ -1094,10 +1207,21 @@ function WorkbenchPage() {
                           lastParsedTextRef.current = '';
                           parseGeometry(ocrText);
                         }}
-                        className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                        className="border-amber-200 text-amber-700 hover:bg-amber-50"
                       >
                         <RefreshCw className="w-4 h-4 mr-2" />
                         重试
+                      </Button>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-amber-700">
+                      <span>无图题可直接继续答题；有图题建议先补全 OCR 文本中的点、线、角条件。</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCurrentStep('chat')}
+                        className="h-8 px-2 text-amber-700 hover:bg-amber-100/70"
+                      >
+                        继续答题
                       </Button>
                     </div>
                   </CardContent>
@@ -1105,7 +1229,7 @@ function WorkbenchPage() {
               )}
 
               {/* Geometry Renderer Card */}
-              {geometryEnabled && (isGeometryLoading || (geometryData && geometryData.type !== 'unknown')) && (
+              {geometryEnabled && (isGeometryLoading || hasRenderableGeometry) && (
                 <Card className="border-purple-200/50 bg-gradient-to-br from-purple-50 to-white transition-all duration-300 hover:shadow-lg animate-slide-up">
                   <CardHeader className="pb-4">
                     <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
@@ -1116,9 +1240,17 @@ function WorkbenchPage() {
                           <span className="animate-pulse mr-1">●</span> 分析中...
                         </Badge>
                       )}
-                      {geometryData && !isGeometryLoading && (
-                        <Badge variant="outline" className="ml-2 bg-green-100 text-green-700 border-green-300">
-                          ✓ 已识别
+                      {hasRenderableGeometry && !isGeometryLoading && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "ml-2",
+                            geometryUiState === 'ready'
+                              ? "bg-green-100 text-green-700 border-green-300"
+                              : "bg-amber-100 text-amber-700 border-amber-300",
+                          )}
+                        >
+                          {geometryUiState === 'ready' ? '已识别' : '待确认'}
                         </Badge>
                       )}
                     </CardTitle>
@@ -1140,6 +1272,17 @@ function WorkbenchPage() {
                       </div>
                     ) : geometryData ? (
                       <div className="space-y-3">
+                        {geometryNotice && (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-amber-900">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                              <div>
+                                <p className="text-sm font-medium">{geometryNotice.title}</p>
+                                <p className="mt-1 text-xs leading-5 text-amber-700">{geometryNotice.description}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-sm text-purple-600 bg-purple-100/50 px-3 py-2 rounded-lg">
                           <span className="font-medium">
                             {geometryData.type === 'triangle' ? '三角形' :

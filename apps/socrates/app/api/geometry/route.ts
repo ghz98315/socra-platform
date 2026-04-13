@@ -92,6 +92,11 @@ const EMPTY_CONDITIONS = (): GeometryConditions => ({
   others: [],
 });
 
+const EMPTY_GEOMETRY = (): GeometryData => normalizeGeometry({
+  type: 'unknown',
+  confidence: 0,
+});
+
 const normalizeGeometry = (geometry?: Partial<GeometryData> | null): GeometryData => ({
   type: geometry?.type || 'unknown',
   points: Array.isArray(geometry?.points) ? geometry.points : [],
@@ -109,6 +114,72 @@ const normalizeGeometry = (geometry?: Partial<GeometryData> | null): GeometryDat
 });
 
 const unique = <T,>(items: T[]) => Array.from(new Set(items));
+
+const countPatternMatches = (text: string, patterns: RegExp[]): number =>
+  patterns.reduce((total, pattern) => total + [...text.matchAll(pattern)].length, 0);
+
+const detectGeometrySignals = (text: string) => {
+  const normalized = text.replace(/\s+/g, '');
+
+  const strongShapeCount = countPatternMatches(normalized, [
+    /三角形|四边形|矩形|正方形|平行四边形|梯形|菱形|圆|圆心|半径|直径|弧|扇形|切线/gu,
+    /线段|直线|射线|中点|垂直|平行|相交|角平分线|高|中线|周长|面积/gu,
+    /如图|下图|图中|图形|几何/gu,
+  ]);
+
+  const functionGraphCount = countPatternMatches(normalized, [
+    /函数图像|函数图象|反比例函数|正比例函数|一次函数|二次函数|抛物线|双曲线/gu,
+    /坐标系|平面直角坐标系|x轴|y轴|象限/gu,
+    /y\s*=|k\/x|x\^2/gu,
+  ]);
+
+  const pointMentionCount = countPatternMatches(normalized, [
+    /点[A-Z]/g,
+    /[A-Z]\((-?\d+(?:\.\d+)?)[,，](-?\d+(?:\.\d+)?)\)/g,
+  ]);
+
+  const relationCount = countPatternMatches(normalized, [
+    /∠[A-Z]{1,3}|角[A-Z]{1,3}|直角|\d+°/gu,
+    /[A-Z]{2}(?:\/\/|⊥|∥)[A-Z]{2}/g,
+    /[A-Z]{2}=[A-Z]{2}|[A-Z]{2}:\s*[A-Z]{2}=\d+:\d+/g,
+    /交于点[A-Z]|在[A-Z]{2}上/gu,
+  ]);
+
+  const explicitFigureRefCount = countPatternMatches(normalized, [
+    /△[A-Z]{3}|⊙[A-Z]/g,
+    /Rt△[A-Z]{3}|矩形[A-Z]{4}|正方形[A-Z]{4}|菱形[A-Z]{4}/gu,
+  ]);
+
+  return {
+    strongShapeCount,
+    functionGraphCount,
+    pointMentionCount,
+    relationCount,
+    explicitFigureRefCount,
+  };
+};
+
+const isLikelyGeometryText = (text: string, subject?: string): boolean => {
+  if (subject && subject !== 'math') {
+    return false;
+  }
+
+  const signals = detectGeometrySignals(text);
+
+  if (signals.strongShapeCount > 0) {
+    return true;
+  }
+
+  if (signals.functionGraphCount > 0) {
+    return true;
+  }
+
+  if (signals.explicitFigureRefCount > 0) {
+    return true;
+  }
+
+  return signals.pointMentionCount >= 2 && signals.relationCount >= 1;
+};
 
 const buildLabels = (pointIds: string[]): GeometryData['labels'] =>
   pointIds.map((id, idx) => ({
@@ -1096,6 +1167,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<GeometryParse
     const hasGeometryContent = geometryKeywords.some(keyword => text.includes(keyword));
     console.log('Has geometry content:', hasGeometryContent, 'Keywords found:',
       geometryKeywords.filter(k => text.includes(k)));
+
+    const geometrySignals = detectGeometrySignals(text);
+    const passesGeometryGate = isLikelyGeometryText(text, subject);
+    console.log('Geometry gate result:', passesGeometryGate, 'Signals:', geometrySignals);
+
+    if (!passesGeometryGate) {
+      console.log('Geometry gate rejected text, returning empty unknown geometry');
+      return NextResponse.json({
+        success: true,
+        geometry: EMPTY_GEOMETRY(),
+      });
+    }
 
     if (!hasGeometryContent) {
       console.log('No geometry keywords found, returning unknown');
