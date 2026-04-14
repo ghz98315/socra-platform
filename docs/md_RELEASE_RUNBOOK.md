@@ -1,6 +1,6 @@
 # Release Runbook
 
-Updated: 2026-03-30
+Updated: 2026-04-14
 
 Companion docs:
 
@@ -9,6 +9,9 @@ Companion docs:
 - `docs/md_socrates_full_test_execution_20260402.md`
 - `docs/md_socrates_cloudflare_followup_20260329.md`
 - `docs/md_progress_socrates_20260330_deployment_validation_rollup.md`
+- `docs/md_socrates_20260414_prompt_baseline_command.md`
+- `docs/md_socrates_20260414_chat_regression_command.md`
+- `docs/md_socrates_20260414_online_chat_regression_command.md`
 
 ## 1. Preflight
 
@@ -92,6 +95,9 @@ Local helper commands for this machine:
 
 ```bash
 pnpm -C "D:\github\Socrates_ analysis\socra-platform" check:node
+pnpm socrates:check:prompt-baseline
+pnpm socrates:check:chat-regression
+pnpm socrates:check:online-chat-regression
 pnpm socrates:start:local
 pnpm socrates:start:dev-local
 pnpm socrates:start:probe-local
@@ -106,6 +112,9 @@ Notes:
 - `pnpm socrates:start:local` launches `apps/socrates` with the repo baseline `Node 22` through a detached Node child process and records the tracked PID in `.codex-socrates-start.pid`.
 - `pnpm socrates:start:dev-local` uses the same helper path but launches `next dev`, so local acceptance can continue even when Windows full build is blocked and `.next/BUILD_ID` is missing.
 - `pnpm socrates:start:probe-local` is the third fallback for this Windows machine. It first runs the isolated webpack probe build, then temporarily mounts that probe output as `apps/socrates/.next` and starts `next start` against it.
+- `pnpm socrates:check:prompt-baseline` is the fast structural gate for the first-turn scaffold baseline.
+- `pnpm socrates:check:chat-regression` is the fast helper-level gate for repeated-confusion, mock fallback, and `clear-history` rebuild behavior.
+- `pnpm socrates:check:online-chat-regression` is the current route-level online gate for the real `/api/chat` and `/api/chat/clear-history` endpoints on this machine.
 - Use `pnpm socrates:status:local` to confirm local readiness instead of waiting on a long-running foreground start command.
 - Treat `HTTP=307` as healthy for the local Socrates app.
 - `HEALTH=yes` is the primary signal. If `STATE=healthy_port_stale_pid`, the app is still usable and the tracked PID is just stale or unavailable on that machine.
@@ -114,6 +123,12 @@ Notes:
   - `pnpm socrates:start:local` is the build-output path and should still be used when validating production-like local startup.
   - `pnpm socrates:start:dev-local` is the fallback path for feature verification or manual acceptance on machines still blocked by Windows `spawn EPERM`.
 - Use `pnpm socrates:start:probe-local` only after both `pnpm socrates:start:local` and `pnpm socrates:start:dev-local` are blocked by the same Windows `spawn EPERM` class of failure. It is intended for build-like regression verification, not as the default daily loop.
+- On the current machine, prefer this local validation order before broader manual acceptance:
+  - `pnpm check:node`
+  - `pnpm --filter @socra/socrates exec tsc --noEmit`
+  - `pnpm socrates:check:prompt-baseline`
+  - `pnpm socrates:check:chat-regression`
+  - `pnpm socrates:check:online-chat-regression`
 - `pnpm --filter @socra/socrates build` and the root `pnpm build` path now fail fast if the helper-managed local Socrates service is still running.
 - If that guard trips, stop the local service first, otherwise Windows may hold `.next` files such as `app-path-routes-manifest.json` and trigger `EPERM unlink`.
 
