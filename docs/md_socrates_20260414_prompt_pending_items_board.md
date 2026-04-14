@@ -85,14 +85,11 @@ Latest structural verification on 2026-04-14:
 
 ### P2. Repeated-confusion regression
 
-Status: checkpoint exists, current phase should keep it stable
+Status: helper-level regression command implemented and passing
 
 Still recommended:
 
-- repeat the same "看不懂" flow twice on:
-  - math
-  - chinese
-  - english
+- one later online `/api/chat` pass after local runtime conditions allow it
 
 Acceptance target:
 
@@ -101,15 +98,23 @@ Acceptance target:
 - the tutor still asks only one question
 - the tutor does not become a long explainer
 
+Latest helper-level verification on 2026-04-14:
+
+- `math` repeated confusion:
+  - second same-step confusion returns `那我们先退一步。题目最后要你求什么？`
+- `chinese` repeated confusion:
+  - second same-step confusion returns `那我们先退一步。你觉得答案应该回原文哪一句或哪一段找？`
+- `english reading` repeated confusion:
+  - second same-step confusion returns `那我们先退一步。题干现在问的是细节、主旨，还是推断？`
+- all validated outputs still keep exactly one question
+
 ### P3. Clear-history rebuild regression
 
-Status: implemented, still needs to be treated as part of the shared prompt baseline
+Status: helper-level regression command implemented and passing
 
 Still recommended:
 
-- start one session
-- trigger `clear-history`
-- verify the rebuilt first turn still follows the current main-chain rules
+- one later route-level online pass after local runtime conditions allow it
 
 Acceptance target:
 
@@ -117,20 +122,26 @@ Acceptance target:
 - rebuilt session still uses the current light first-turn behavior
 - session handling remains compatible with `sessionId` and `session_id`
 
+Latest helper-level verification on 2026-04-14:
+
+- previous session is removed from the shared in-memory store
+- new session is written back into the same shared store
+- rebuilt first turn still includes `first_turn_focus`
+- rebuilt first turn still excludes `knowledge_base`
+- rebuilt first turn still excludes `few_shot_examples`
+
 ### P4. Mock fallback consistency
 
-Status: aligned in the earlier prompt checkpoint
+Status: helper-level regression command implemented and passing for the current repeated-confusion path
 
 Still recommended:
 
-- confirm degraded mode still follows:
-  - one-step guidance
-  - one-question output
-  - repeated-confusion step-back behavior
+- one later broader fallback pass after local runtime conditions allow it
 
 Acceptance target:
 
 - fallback output should not revert to generic old tutoring text
+- fallback output should keep one-step guidance and one-question output on the validated confusion cases
 
 ## Explicit Non-Goals
 

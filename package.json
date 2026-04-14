@@ -15,6 +15,7 @@
     "socrates:status:local": "node scripts/status-socrates-local.mjs",
     "socrates:stop:local": "node scripts/stop-socrates-local.mjs",
     "socrates:check:prompt-baseline": "node scripts/check-socrates-prompt-baseline.mjs",
+    "socrates:check:chat-regression": "node scripts/check-socrates-chat-regression.mjs",
     "recommend:regression": "node scripts/recommend-regression.mjs",
     "autopilot": "node scripts/autopilot.mjs",
     "regression:run": "node scripts/run-regression.mjs",

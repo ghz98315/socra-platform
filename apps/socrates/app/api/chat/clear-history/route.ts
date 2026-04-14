@@ -4,16 +4,7 @@
 // =====================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getConversationHistoryStore } from '@/lib/chat/conversation-history';
-import { buildSystemPrompt } from '@/lib/prompts/builder';
-import type {
-  GradeLevel,
-  QuestionType,
-  SubjectType,
-  UserLevel,
-} from '@/lib/prompts/types';
-
-const conversationHistory = getConversationHistoryStore();
+import { initializeConversationSession } from '@/lib/chat/session-initializer';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,32 +22,18 @@ export async function POST(req: NextRequest) {
       questionType = 'unknown',
     } = body;
 
-    const actualGrade: GradeLevel = grade || theme || 'junior';
-    const actualSubject: SubjectType = subject || 'generic';
-    const actualUserLevel: UserLevel = userLevel || 'free';
-    const actualQuestionType: QuestionType = questionType || 'unknown';
-
-    if (sessionId && conversationHistory.has(sessionId)) {
-      conversationHistory.delete(sessionId);
-    }
-
-    if (newSessionId) {
-      const systemPrompt = buildSystemPrompt({
-        subject: actualSubject,
-        grade: actualGrade,
-        userLevel: actualUserLevel,
-        subjectConfidence,
-        questionContent,
-        geometryData,
-        hasImage: false,
-        questionType: actualQuestionType,
-        isFirstTurn: true,
-      });
-
-      conversationHistory.set(newSessionId, [
-        { role: 'system', content: systemPrompt },
-      ]);
-    }
+    initializeConversationSession({
+      sessionId,
+      newSessionId,
+      theme,
+      grade,
+      subject,
+      userLevel,
+      subjectConfidence,
+      questionContent,
+      geometryData,
+      questionType,
+    });
 
     return NextResponse.json({
       success: true,
