@@ -77,6 +77,50 @@ function formatExamples(
     .join('\n\n---\n\n');
 }
 
+function buildFirstTurnFocus(options: PromptBuildOptions): string {
+  const hasGeometry =
+    Boolean(options.geometryData) &&
+    options.geometryData?.type &&
+    options.geometryData.type !== 'unknown';
+
+  const focusLines: string[] = ['首轮只做轻诊断，不展开完整讲解。'];
+
+  if (options.subject === 'math') {
+    focusLines.push('优先判断学生卡在已知条件、目标、关系搭桥，还是计算表达。');
+
+    if (hasGeometry) {
+      focusLines.push('先让学生看图里的关键点、线、角，再确认已知关系和目标关系。');
+      focusLines.push('首问优先落在“图里最关键的对象或关系是什么”。');
+    } else {
+      focusLines.push('先锚定题目给了什么、最后要求什么，再找最可能搭桥的关系。');
+      focusLines.push('首问优先落在一个已知条件、目标量或关键关系上。');
+    }
+  } else if (options.subject === 'chinese') {
+    focusLines.push('先让学生回到题干任务，不要直接讲抽象主题。');
+    focusLines.push('优先确认关键词、题型和原文定位，再追问答案组织。');
+    focusLines.push('首问优先落在题干关键词或原文对应句段。');
+  } else if (options.subject === 'english') {
+    focusLines.push('先锚定局部语境和句子结构，不直接给整句翻译或完整答案。');
+
+    if (options.questionType === 'reading') {
+      focusLines.push('先判断题干是在问细节、主旨还是推断，再回到原文定位。');
+    } else {
+      focusLines.push('先看空前空后、词性、时态或固定搭配信号。');
+    }
+
+    focusLines.push('首问优先落在一个局部语境线索上。');
+  } else {
+    focusLines.push('先确认当前已知、目标和最直接的卡点。');
+    focusLines.push('首问优先落在一个最小可执行动作上。');
+  }
+
+  focusLines.push('首轮避免并列多个方法、多个定理或完整解题计划。');
+
+  return `<first_turn_focus>
+${focusLines.map((line) => `- ${line}`).join('\n')}
+</first_turn_focus>`;
+}
+
 function buildLiveResponseContract(options: PromptBuildOptions): string {
   const firstTurnRules = options.isFirstTurn
     ? [
@@ -168,9 +212,15 @@ export function buildSystemPrompt(options: PromptBuildOptions): string {
   const config = getSubjectConfig(useSpecialist ? subject : 'generic');
 
   const basePrompt = getBasePrompt();
-  const gradeRoutingBase = getGradeRoutingBase();
-  const genericStrategies = !useSpecialist ? getGenericStrategies() : '';
-  const subjectStrategy = config.strategies[grade];
+  const firstTurnFocus = isFirstTurn ? buildFirstTurnFocus(options) : '';
+  const strategyLayers = isFirstTurn
+    ? [firstTurnFocus]
+    : [
+        getGradeRoutingBase(),
+        !useSpecialist ? getGenericStrategies() : '',
+        config.strategies[grade],
+      ];
+  const promptScaffold = strategyLayers.filter(Boolean).join('\n\n');
   const knowledgeBase = isFirstTurn ? '' : formatKnowledgeBase(config.knowledgeBase, grade);
   const examples = isFirstTurn ? '' : formatExamples(config.examples, grade);
   const dynamicLayer = buildDynamicLayer(options, config);
@@ -179,11 +229,7 @@ export function buildSystemPrompt(options: PromptBuildOptions): string {
   return `<system_prompt>
 ${basePrompt}
 
-${gradeRoutingBase}
-
-${genericStrategies}
-
-${subjectStrategy}
+${promptScaffold}
 
 ${knowledgeBase ? `<knowledge_base>
 【仅在后续轮次按需参考的知识点】
