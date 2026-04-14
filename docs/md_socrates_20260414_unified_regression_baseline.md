@@ -141,6 +141,10 @@
 
 - `pnpm.cmd --filter @socra/socrates exec tsc --noEmit`
 - 结果：passed
+- `pnpm.cmd socrates:check:prompt-baseline`
+- 结果：passed
+  - `math / geometry math / english reading / chinese / generic` 首轮 scaffold 断言通过
+  - `math / chinese / generic` 后续轮次恢复 `knowledge_base + few_shot_examples`
 
 - prompt 离线生成验证
 - 结果：
