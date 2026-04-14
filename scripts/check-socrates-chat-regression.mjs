@@ -141,6 +141,93 @@ function checkRepeatedConfusion(generateImprovedMockResponse) {
   console.log('PASS repeated_confusion_english');
 }
 
+function checkMockFallbackBranches(generateImprovedMockResponse) {
+  const askingForAnswer = generateImprovedMockResponse(
+    '直接告诉我答案',
+    'junior',
+    [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: '直接告诉我答案' },
+    ],
+    'math',
+    'proof',
+    '已知等腰三角形ABC中，AB=AC，求证∠B=∠C。',
+  );
+  assertCondition(
+    askingForAnswer.includes('我不直接给答案。'),
+    'asking-for-answer fallback should refuse direct answers',
+  );
+  assertCondition(
+    askingForAnswer.includes('题目已经明确给了你什么'),
+    'asking-for-answer fallback should pull the student back to known conditions',
+  );
+  assertCondition(countQuestions(askingForAnswer) === 1, 'asking-for-answer fallback should ask exactly one question');
+  console.log('PASS fallback_asking_for_answer');
+
+  const givingSolution = generateImprovedMockResponse(
+    '我觉得先回原文定位',
+    'junior',
+    [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: '我觉得先回原文定位' },
+    ],
+    'chinese',
+    'reading',
+    '阅读短文，概括人物心情变化。',
+  );
+  assertCondition(
+    givingSolution.includes('这个切入点可以。'),
+    'giving-solution fallback should acknowledge the student direction',
+  );
+  assertCondition(
+    givingSolution.includes('下一步你想先回题干，还是先回原文定位？'),
+    'giving-solution fallback should continue with one next-step question',
+  );
+  assertCondition(countQuestions(givingSolution) === 1, 'giving-solution fallback should ask exactly one question');
+  console.log('PASS fallback_giving_solution');
+
+  const genericFirstTurn = generateImprovedMockResponse(
+    '我刚打开这道题',
+    'junior',
+    [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: '我刚打开这道题' },
+    ],
+    'generic',
+    'unknown',
+    '我不知道从哪一步开始。',
+  );
+  assertCondition(
+    genericFirstTurn.includes('我们先不急着整题往下做。'),
+    'generic first turn fallback should open with a light diagnosis',
+  );
+  assertCondition(
+    genericFirstTurn.includes('题目最后要你求什么'),
+    'generic first turn fallback should keep the smallest guiding question',
+  );
+  assertCondition(countQuestions(genericFirstTurn) === 1, 'generic first turn fallback should ask exactly one question');
+  console.log('PASS fallback_generic_first_turn');
+
+  const geometryFirstTurn = generateImprovedMockResponse(
+    '我看不懂这道图形题',
+    'junior',
+    [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: '我看不懂这道图形题' },
+    ],
+    'math',
+    'proof',
+    '如图，已知△ABC中，D是BC中点，求证AD⊥BC。',
+    { type: 'triangle' },
+  );
+  assertCondition(
+    geometryFirstTurn.includes('图里最关键的一个点、线或角是哪一个'),
+    'geometry first turn fallback should anchor on point-line-angle observation',
+  );
+  assertCondition(countQuestions(geometryFirstTurn) === 1, 'geometry first turn fallback should ask exactly one question');
+  console.log('PASS fallback_geometry_first_turn');
+}
+
 function checkClearHistory(initializeConversationSession, getConversationHistoryStore) {
   const store = getConversationHistoryStore();
   store.clear();
@@ -199,8 +286,9 @@ function main() {
 
   console.log('==> Run chat regression checks');
   checkRepeatedConfusion(generateImprovedMockResponse);
+  checkMockFallbackBranches(generateImprovedMockResponse);
   checkClearHistory(initializeConversationSession, getConversationHistoryStore);
-  console.log('PASS chat_regression total=4');
+  console.log('PASS chat_regression total=8');
 }
 
 try {

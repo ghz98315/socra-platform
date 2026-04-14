@@ -25,10 +25,15 @@ The command compiles the required Socrates `lib` subtree into temporary JS outpu
    - `math`
    - `chinese`
    - `english reading`
-2. the validated fallback outputs still ask exactly one question
-3. `clear-history` rebuild still deletes the old session from the shared in-memory store
-4. `clear-history` rebuild still initializes the new session in the same shared store
-5. rebuilt first turn still uses the current prompt baseline:
+2. broader mock fallback branches still keep the current live-tutoring contract for:
+   - asking for the answer directly
+   - giving a half-finished solution direction
+   - generic first-turn entry
+   - geometry first-turn entry
+3. the validated fallback outputs still ask exactly one question
+4. `clear-history` rebuild still deletes the old session from the shared in-memory store
+5. `clear-history` rebuild still initializes the new session in the same shared store
+6. rebuilt first turn still uses the current prompt baseline:
    - includes `first_turn_focus`
    - excludes `knowledge_base`
    - excludes `few_shot_examples`
@@ -44,8 +49,12 @@ Observed result on 2026-04-14:
 - `PASS repeated_confusion_math`
 - `PASS repeated_confusion_chinese`
 - `PASS repeated_confusion_english`
+- `PASS fallback_asking_for_answer`
+- `PASS fallback_giving_solution`
+- `PASS fallback_generic_first_turn`
+- `PASS fallback_geometry_first_turn`
 - `PASS clear_history_rebuild`
-- `PASS chat_regression total=4`
+- `PASS chat_regression total=8`
 
 ## Why This Matters
 
@@ -56,6 +65,7 @@ This command turns the already-accepted runtime-side behaviors into a repeatable
 - repeated-confusion should step back instead of looping
 - clear-history should rebuild with the current main prompt rules
 - mock fallback should not drift back to older generic tutoring output
+- asking for the answer or giving a partial idea should still return one-step guidance instead of a direct solution
 
 ## Current Boundary
 

@@ -132,7 +132,7 @@ Latest helper-level verification on 2026-04-14:
 
 ### P4. Mock fallback consistency
 
-Status: helper-level regression command implemented and passing for the current repeated-confusion path
+Status: helper-level broader regression command implemented and passing
 
 Still recommended:
 
@@ -142,6 +142,20 @@ Acceptance target:
 
 - fallback output should not revert to generic old tutoring text
 - fallback output should keep one-step guidance and one-question output on the validated confusion cases
+
+Latest helper-level verification on 2026-04-14:
+
+- asking-for-answer fallback:
+  - refuses direct answer output
+  - pulls the student back to known conditions
+- giving-solution fallback:
+  - acknowledges the student's direction
+  - continues with one next-step question
+- generic first turn fallback:
+  - still opens with light diagnosis
+  - still asks one smallest-step question
+- geometry first turn fallback:
+  - still anchors on point / line / angle observation
 
 ## Explicit Non-Goals
 

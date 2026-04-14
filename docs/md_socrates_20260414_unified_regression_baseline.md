@@ -148,6 +148,7 @@
 - `pnpm.cmd socrates:check:chat-regression`
 - 结果：passed
   - `math / chinese / english reading` repeated-confusion 回退断言通过
+  - `asking-for-answer / giving-solution / generic first turn / geometry first turn` fallback 分支断言通过
   - `clear-history` 重建仍使用当前 first-turn scaffold
   - shared conversation-history store 重建行为通过
 
