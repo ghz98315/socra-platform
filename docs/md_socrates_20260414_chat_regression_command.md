@@ -69,8 +69,14 @@ This command turns the already-accepted runtime-side behaviors into a repeatable
 
 ## Current Boundary
 
-This command validates helper-level behavior and shared in-memory session rebuilding, not the full persisted online `/api/chat` route under a long-lived local server.
+This command still validates helper-level behavior and shared in-memory session rebuilding, not the route-level HTTP path by itself.
 
-The remaining online gap is still:
+That route-level gap is now covered separately by:
 
-- rerun one real `/api/chat` pass after local runtime conditions allow a stable local service
+- `pnpm.cmd socrates:check:online-chat-regression`
+- `docs/md_socrates_20260414_online_chat_regression_command.md`
+
+Current judgment:
+
+- keep this command as the fast helper-level gate
+- use the online command when route-level confirmation is needed

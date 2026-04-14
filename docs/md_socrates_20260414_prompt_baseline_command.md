@@ -57,8 +57,9 @@ This command turns the already-confirmed first-turn scaffold rules into a repeat
 
 This command validates prompt structure, not the final online `/api/chat` response behavior.
 
-The remaining runtime-side prompt checks still belong to:
+The route-level prompt behavior checks now belong to:
 
 - repeated-confusion regression
 - `clear-history` rebuild regression
 - mock fallback consistency
+- `pnpm.cmd socrates:check:online-chat-regression`
