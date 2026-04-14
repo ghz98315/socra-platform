@@ -53,6 +53,7 @@ The latest baseline changed for three reasons:
 
 - remaining confirmed prompt refinements inside the current main chain
 - unified regression checks for geometry, first-turn prompt behavior, session handling, and model selection
+- commandized route-level online chat regression against the real `/api/chat` endpoints
 - documentation consolidation for the stable baseline
 - product polish that affects current user-facing consistency
 - local validation workflow hardening, including the probe-local fallback
@@ -94,21 +95,23 @@ The latest baseline changed for three reasons:
 - `next dev` can still hit `spawn EPERM`
 - the standard local build/start path can still be unreliable
 
-### Blocker 2. Probe-local is now available but has a host caveat
+### Blocker 2. Standard local workflow still has a host caveat
 
 - the new probe-local helper is implemented and documented
 - it successfully validates the probe build, `.next` handoff, and cleanup flow
 - inside the current Codex command host, the detached `next start` process does not stay alive after command return
-- this means the fallback is now part of the baseline, but detached-process persistence still needs confirmation in a normal PowerShell host
+- route-level online chat regression is now covered by `pnpm.cmd socrates:check:online-chat-regression`
+- this means the remaining issue is narrowed to normal detached/manual local workflow persistence in a standard shell host
 
 ## Current Entry Docs
 
 - `docs/md_socrates_20260414_geometry_wave1_pass_checkpoint.md`
 - `docs/md_socrates_20260414_first_turn_prompt_scaffold.md`
+- `docs/md_socrates_20260414_online_chat_regression_command.md`
 - `docs/md_socrates_20260414_unified_regression_baseline.md`
 - `docs/md_socrates_20260414_probe_local_helper.md`
 - `docs/md_socrates_post_preview_polish_plan_20260412.md`
 
 ## One-Line Judgment
 
-Socrates has moved out of the geometry-closure stage and is now in a shared stabilization phase: freeze the geometry baseline, finish the confirmed prompt items, hold one unified regression line, and close the remaining polish.
+Socrates is still in the shared stabilization phase, but the stage has advanced: route-level online chat regression is now closed, so the remaining work is mainly baseline holding, polish, and host-specific local workflow hardening.

@@ -41,7 +41,7 @@ What remains is a small set of confirmation items on top of the existing checkpo
 
 ### P1. Subject coverage confirmation
 
-Status: structurally confirmed
+Status: structurally confirmed and route-level online check now passing
 
 Already confirmed:
 
@@ -51,9 +51,12 @@ Already confirmed:
 - `chinese`
 - one non-geometry generic case
 
-Still recommended:
+Latest route-level verification on 2026-04-14:
 
-- one later online `/api/chat` regression pass after local runtime conditions allow it
+- command: `pnpm.cmd socrates:check:online-chat-regression`
+- `math` first turn passed
+- `geometry math` first turn passed
+- `english reading` first turn passed
 
 Acceptance target:
 
@@ -85,11 +88,12 @@ Latest structural verification on 2026-04-14:
 
 ### P2. Repeated-confusion regression
 
-Status: helper-level regression command implemented and passing
+Status: helper-level regression command implemented and route-level online check now passing
 
-Still recommended:
+Latest route-level verification on 2026-04-14:
 
-- one later online `/api/chat` pass after local runtime conditions allow it
+- command: `pnpm.cmd socrates:check:online-chat-regression`
+- `chinese` repeated confusion passed through real `/api/chat`
 
 Acceptance target:
 
@@ -110,11 +114,14 @@ Latest helper-level verification on 2026-04-14:
 
 ### P3. Clear-history rebuild regression
 
-Status: helper-level regression command implemented and passing
+Status: helper-level regression command implemented and route-level online check now passing
 
-Still recommended:
+Latest route-level verification on 2026-04-14:
 
-- one later route-level online pass after local runtime conditions allow it
+- command: `pnpm.cmd socrates:check:online-chat-regression`
+- `POST /api/chat/clear-history` returned `success=true`
+- rebuilt first turn passed through real `/api/chat`
+- `GET / DELETE /api/chat?session_id=...` compatibility passed
 
 Acceptance target:
 
@@ -132,11 +139,7 @@ Latest helper-level verification on 2026-04-14:
 
 ### P4. Mock fallback consistency
 
-Status: helper-level broader regression command implemented and passing
-
-Still recommended:
-
-- one later broader fallback pass after local runtime conditions allow it
+Status: helper-level broader regression command implemented; route-level online coverage added for the current critical cases
 
 Acceptance target:
 
@@ -174,9 +177,10 @@ Latest helper-level verification on 2026-04-14:
 ## Current Blocking Reality
 
 - structural validation is available now
-- true local online validation is still constrained by Windows `spawn EPERM`
-- the new probe-local fallback improves this situation, but detached-process persistence still needs host-level confirmation outside the current Codex command runner
+- route-level online chat regression is now available through `pnpm.cmd socrates:check:online-chat-regression`
+- Windows `spawn EPERM` still affects normal local-start reliability and detached-process workflows on this machine
+- the remaining risk is no longer "missing online regression coverage"; it is host-specific local workflow instability outside this one-shot command
 
 ## One-Line Judgment
 
-The next prompt step is not "write more prompt"; it is "close the remaining confirmation items on the already-finished prompt chain."
+The next prompt step is no longer "fill the missing online gap"; it is "hold the now-closed prompt/session regression baseline and only make small justified follow-up slices."
