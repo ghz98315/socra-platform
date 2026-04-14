@@ -41,18 +41,19 @@ What remains is a small set of confirmation items on top of the existing checkpo
 
 ### P1. Subject coverage confirmation
 
-Status: partially confirmed
+Status: structurally confirmed
 
 Already confirmed:
 
 - `math`
 - `geometry math`
 - `english reading`
+- `chinese`
+- one non-geometry generic case
 
 Still recommended:
 
-- `chinese`
-- one non-geometry generic case
+- one later online `/api/chat` regression pass after local runtime conditions allow it
 
 Acceptance target:
 
@@ -60,6 +61,27 @@ Acceptance target:
 - the tutor does not open with a lecture
 - the tutor asks one concrete next-step question
 - subject-specific anchoring matches the intended behavior
+
+Latest structural verification on 2026-04-14:
+
+- `chinese` first turn:
+  - `HAS_FIRST_TURN_FOCUS=true`
+  - `HAS_KNOWLEDGE=false`
+  - `HAS_FEWSHOT=false`
+  - chinese anchor signals present
+- `generic` first turn:
+  - `HAS_FIRST_TURN_FOCUS=true`
+  - `HAS_KNOWLEDGE=false`
+  - `HAS_FEWSHOT=false`
+  - generic anchor signals present
+- `chinese` later turn:
+  - `HAS_FIRST_TURN_FOCUS=false`
+  - `HAS_KNOWLEDGE=true`
+  - `HAS_FEWSHOT=true`
+- `generic` later turn:
+  - `HAS_FIRST_TURN_FOCUS=false`
+  - `HAS_KNOWLEDGE=true`
+  - `HAS_FEWSHOT=true`
 
 ### P2. Repeated-confusion regression
 
