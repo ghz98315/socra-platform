@@ -19,6 +19,12 @@ export function getPidFile(port = defaultPort) {
     : path.join(repoRoot, `.codex-socrates-start-${port}.pid`);
 }
 
+export function getProbeStateFile(port = defaultPort) {
+  return port === defaultPort
+    ? path.join(repoRoot, '.codex-socrates-probe-start.json')
+    : path.join(repoRoot, `.codex-socrates-probe-start-${port}.json`);
+}
+
 export function readArg(argv, name, fallback = '') {
   const index = argv.indexOf(`--${name}`);
   if (index === -1 || index === argv.length - 1) {

@@ -11,6 +11,7 @@
     "check:vercel-links": "node scripts/check-vercel-links.mjs",
     "socrates:start:local": "node scripts/run-with-guard.mjs --label \"Socrates local start\" --timeout-ms 300000 --diagnose local-start -- node scripts/start-socrates-local.mjs --timeout-ms 240000 --mode start",
     "socrates:start:dev-local": "node scripts/run-with-guard.mjs --label \"Socrates local dev start\" --timeout-ms 300000 --diagnose local-start -- node scripts/start-socrates-local.mjs --timeout-ms 240000 --mode dev",
+    "socrates:start:probe-local": "node scripts/run-with-guard.mjs --label \"Socrates local probe start\" --timeout-ms 1200000 --diagnose local-start -- node scripts/start-socrates-probe-local.mjs --timeout-ms 600000",
     "socrates:status:local": "node scripts/status-socrates-local.mjs",
     "socrates:stop:local": "node scripts/stop-socrates-local.mjs",
     "recommend:regression": "node scripts/recommend-regression.mjs",
