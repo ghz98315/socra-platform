@@ -31,9 +31,17 @@ import { ImageUploader } from '@/components/ImageUploader';
 import { OCRResult } from '@/components/OCRResult';
 import { ChatMessageList, type Message } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
+import { ChatWrapUpCard, type WrapUpPreviewData } from '@/components/chat/ChatWrapUpCard';
 import { PageHeader } from '@/components/PageHeader';
 import { GeometryRenderer, type GeometryData, type GeometryRendererRef } from '@/components/GeometryRenderer';
 import { SubjectTabs, type SubjectType, getSubjectConfig } from '@/components/SubjectTabs';
+import {
+  getRootCauseSubtypeOptions,
+  isValidRootCauseSubtype,
+  type RootCauseCategory,
+  type RootCauseSubtype,
+} from '@/lib/error-loop/taxonomy';
+import { isLikelyWrapUpSignal } from '@/lib/chat/wrap-up-signal';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -295,6 +303,15 @@ function WorkbenchPage() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatSessionRef = useRef<string>(`session_${Date.now()}`);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [wrapUpPreview, setWrapUpPreview] = useState<WrapUpPreviewData | null>(null);
+  const [isWrapUpLoading, setIsWrapUpLoading] = useState(false);
+  const [isWrapUpSubmitting, setIsWrapUpSubmitting] = useState(false);
+  const [wrapUpSubmitError, setWrapUpSubmitError] = useState<string | null>(null);
+  const [wrapUpCategory, setWrapUpCategory] = useState<RootCauseCategory>('strategy_gap');
+  const [wrapUpSubtype, setWrapUpSubtype] = useState<RootCauseSubtype>('no_entry_strategy');
+  const [wrapUpDifficulty, setWrapUpDifficulty] = useState(3);
+  const [wrapUpDismissedCount, setWrapUpDismissedCount] = useState(0);
+  const [wrapUpSubmitted, setWrapUpSubmitted] = useState(false);
 
   // Study session tracking
   const [isStudying, setIsStudying] = useState(false);
@@ -344,6 +361,8 @@ function WorkbenchPage() {
     setIsRestoringSession(true);
 
     try {
+      // Database typings here do not cover the restored session join shape used by this page.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabase = createClient() as any;
       let restoredStudentName = isParent ? selectedStudentName : profile?.display_name;
 
@@ -387,6 +406,7 @@ function WorkbenchPage() {
       setSelectedImage(null);
       setImagePreview(sessionData.original_image_url || null);
       setOcrText(sessionData.extracted_text || '');
+      resetWrapUpState();
       setGeometryData(restoredSubject === 'math' ? sessionData.geometry_data || null : null);
       setGeometryUiState(
         restoredSubject === 'math'
@@ -463,6 +483,127 @@ function WorkbenchPage() {
     }
     setLoadingStudents(false);
   };
+
+  const resetWrapUpState = useCallback(() => {
+    setWrapUpPreview(null);
+    setIsWrapUpLoading(false);
+    setIsWrapUpSubmitting(false);
+    setWrapUpSubmitError(null);
+    setWrapUpCategory('strategy_gap');
+    setWrapUpSubtype('no_entry_strategy');
+    setWrapUpDifficulty(3);
+    setWrapUpDismissedCount(0);
+    setWrapUpSubmitted(false);
+  }, []);
+
+  const syncWrapUpDefaults = useCallback((preview: WrapUpPreviewData) => {
+    setWrapUpPreview(preview);
+    setWrapUpSubmitError(null);
+    setWrapUpCategory(preview.suggested_root_cause_category);
+    setWrapUpSubtype(preview.suggested_root_cause_subtype);
+    setWrapUpDifficulty(preview.suggested_difficulty_rating);
+  }, []);
+
+  const fetchWrapUpPreview = useCallback(async () => {
+    if (!errorSessionId || !effectiveStudentId || isWrapUpLoading || isWrapUpSubmitting || wrapUpSubmitted) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
+    setIsWrapUpLoading(true);
+    setWrapUpSubmitError(null);
+
+    try {
+      const response = await fetch('/api/error-session/wrap-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          mode: 'preview',
+          session_id: errorSessionId,
+          student_id: effectiveStudentId,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.data) {
+        throw new Error(result?.error || 'Failed to load wrap-up preview');
+      }
+
+      syncWrapUpDefaults(result.data as WrapUpPreviewData);
+    } catch (error) {
+      console.error('[Workbench] Failed to fetch wrap-up preview:', error);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setWrapUpSubmitError('收口建议加载超时，请稍后再试。');
+        return;
+      }
+      setWrapUpSubmitError('收口建议加载失败，请稍后再试。');
+    } finally {
+      window.clearTimeout(timeoutId);
+      setIsWrapUpLoading(false);
+    }
+  }, [
+    effectiveStudentId,
+    errorSessionId,
+    isWrapUpLoading,
+    isWrapUpSubmitting,
+    syncWrapUpDefaults,
+    wrapUpSubmitted,
+  ]);
+
+  const handleContinueWrapUp = useCallback(() => {
+    const currentUserMessageCount = messages.filter((message) => message.role === 'user').length;
+    setWrapUpDismissedCount(currentUserMessageCount);
+    setWrapUpPreview(null);
+    setWrapUpSubmitError(null);
+  }, [messages]);
+
+  const handleSubmitWrapUp = useCallback(async () => {
+    if (!errorSessionId || !effectiveStudentId || isWrapUpSubmitting) {
+      return;
+    }
+
+    setIsWrapUpSubmitting(true);
+    setWrapUpSubmitError(null);
+
+    try {
+      const response = await fetch('/api/error-session/wrap-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'submit',
+          session_id: errorSessionId,
+          student_id: effectiveStudentId,
+          root_cause_category: wrapUpCategory,
+          root_cause_subtype: wrapUpSubtype,
+          difficulty_rating: wrapUpDifficulty,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Failed to submit wrap-up result');
+      }
+
+      setWrapUpSubmitted(true);
+      router.push(`/error-book/${errorSessionId}`);
+    } catch (error) {
+      console.error('[Workbench] Failed to submit wrap-up result:', error);
+      setWrapUpSubmitError('提交错题库失败，请稍后再试。');
+    } finally {
+      setIsWrapUpSubmitting(false);
+    }
+  }, [
+    effectiveStudentId,
+    errorSessionId,
+    router,
+    isWrapUpSubmitting,
+    wrapUpCategory,
+    wrapUpDifficulty,
+    wrapUpSubtype,
+  ]);
 
   // Start study session when component mounts
   useEffect(() => {
@@ -715,9 +856,9 @@ function WorkbenchPage() {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (!geometryAbortRef.current) {
-        if (error.name === 'AbortError') {
+        if (error instanceof Error && error.name === 'AbortError') {
           console.log('[Workbench] Geometry API request was aborted (timeout)');
         } else {
           console.error('[Workbench] Failed to parse geometry:', error);
@@ -766,6 +907,7 @@ function WorkbenchPage() {
     const openingAssistantMessage = buildOpeningAssistantMessage(
       isParent ? selectedStudentName : profile?.display_name,
     );
+    resetWrapUpState();
     setMessages([openingAssistantMessage]);
     setCurrentStep('chat');
 
@@ -809,6 +951,7 @@ function WorkbenchPage() {
         const result = await response.json();
         chatSessionRef.current = result.data.session_id;
         setErrorSessionId(result.data.session_id);
+        resetWrapUpState();
         lastSyncedGeometrySignatureRef.current = initialGeometryData ? JSON.stringify(initialGeometryData) : '';
         console.log('Error session created successfully:', result.data.session_id, 'theme:', result.data.theme_used);
       } else {
@@ -835,11 +978,16 @@ function WorkbenchPage() {
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
     setErrorSessionId(null);
+    resetWrapUpState();
     lastSyncedGeometrySignatureRef.current = '';
   };
 
   // Chat functions
   const handleSendMessage = async (content: string) => {
+    if (wrapUpSubmitted || isWrapUpSubmitting) {
+      return;
+    }
+
     const userMessage: Message = {
       id: `msg_${Date.now()}`,
       role: 'user',
@@ -847,6 +995,7 @@ function WorkbenchPage() {
       timestamp: new Date(),
     };
 
+    setWrapUpSubmitError(null);
     setMessages((prev) => [...prev, userMessage]);
     setIsChatLoading(true);
 
@@ -899,6 +1048,7 @@ function WorkbenchPage() {
   const handleResetChat = () => {
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
+    resetWrapUpState();
   };
 
   // Auto-scroll to bottom of messages
@@ -906,9 +1056,69 @@ function WorkbenchPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (isValidRootCauseSubtype(wrapUpCategory, wrapUpSubtype)) {
+      return;
+    }
+
+    const fallbackSubtype = getRootCauseSubtypeOptions(wrapUpCategory)[0]?.value;
+    if (fallbackSubtype) {
+      setWrapUpSubtype(fallbackSubtype);
+    }
+  }, [wrapUpCategory, wrapUpSubtype]);
+
+  const userMessages = messages.filter((message) => message.role === 'user');
+  const userMessageCount = userMessages.length;
+  const lastUserMessage = userMessages[userMessages.length - 1]?.content || '';
+  const hasWrapUpSignal = isLikelyWrapUpSignal(lastUserMessage);
+
+  useEffect(() => {
+    if (currentStep !== 'chat' || !errorSessionId || !effectiveStudentId) {
+      return;
+    }
+
+    if (isRestoringSession || isChatLoading || isWrapUpSubmitting || wrapUpSubmitted) {
+      return;
+    }
+
+    if (!hasWrapUpSignal || userMessageCount <= wrapUpDismissedCount) {
+      return;
+    }
+
+    if (wrapUpSubmitError && !wrapUpPreview) {
+      return;
+    }
+
+    if (wrapUpPreview && wrapUpPreview.user_message_count === userMessageCount) {
+      return;
+    }
+
+    void fetchWrapUpPreview();
+  }, [
+    currentStep,
+    effectiveStudentId,
+    errorSessionId,
+    fetchWrapUpPreview,
+    isChatLoading,
+    hasWrapUpSignal,
+    isRestoringSession,
+    isWrapUpSubmitting,
+    userMessageCount,
+    wrapUpDismissedCount,
+    wrapUpPreview,
+    wrapUpSubmitError,
+    wrapUpSubmitted,
+  ]);
+
   const themeClass = profile?.theme_preference === 'junior' ? 'theme-junior' : 'theme-senior';
   const aiName = profile?.theme_preference === 'junior' ? 'Jasper' : 'Logic';
   const currentSubjectConfig = getSubjectConfig(activeSubject);
+  const showWrapUpCard =
+    currentStep === 'chat' &&
+    !!errorSessionId &&
+    !wrapUpSubmitted &&
+    hasWrapUpSignal &&
+    (isWrapUpLoading || !!wrapUpPreview || !!wrapUpSubmitError);
   const hasGeometryText = geometryEnabled && ocrText.trim().length > 0;
   const hasRenderableGeometry = !!geometryData && geometryData.type !== 'unknown';
   const showGeometryEmptyState =
@@ -1386,9 +1596,28 @@ function WorkbenchPage() {
               </CardContent>
 
               {/* Input */}
-              <div className="p-4 border-t border-warm-200/50">
+              <div className="relative z-[60] border-t border-warm-200/50 p-4 pb-24 sm:z-auto sm:pb-4">
+                {showWrapUpCard ? (
+                  <div className="mb-4 pointer-events-auto">
+                    <ChatWrapUpCard
+                      preview={wrapUpPreview}
+                      loading={isWrapUpLoading}
+                      submitting={isWrapUpSubmitting}
+                      submitError={wrapUpSubmitError}
+                      selectedCategory={wrapUpCategory}
+                      selectedSubtype={wrapUpSubtype}
+                      selectedDifficulty={wrapUpDifficulty}
+                      onCategoryChange={setWrapUpCategory}
+                      onSubtypeChange={setWrapUpSubtype}
+                      onDifficultyChange={setWrapUpDifficulty}
+                      onContinue={handleContinueWrapUp}
+                      onSubmit={handleSubmitWrapUp}
+                    />
+                  </div>
+                ) : null}
                 <ChatInput
                   onSend={handleSendMessage}
+                  disabled={wrapUpSubmitted || isWrapUpSubmitting}
                   isLoading={isChatLoading}
                   placeholder={
                     profile?.theme_preference === 'junior'
