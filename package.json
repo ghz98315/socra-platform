@@ -18,6 +18,7 @@
     "socrates:check:chat-regression": "node scripts/check-socrates-chat-regression.mjs",
     "socrates:check:wrap-up-regression": "node scripts/check-socrates-wrap-up-regression.mjs",
     "socrates:check:online-chat-regression": "node scripts/check-socrates-online-chat-regression.mjs",
+    "socrates:check:online-wrap-up-regression": "node scripts/check-socrates-wrap-up-online.mjs",
     "socrates:validate:baseline": "node scripts/run-socrates-baseline-validation.mjs",
     "recommend:regression": "node scripts/recommend-regression.mjs",
     "autopilot": "node scripts/autopilot.mjs",
