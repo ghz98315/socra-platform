@@ -3,7 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
-import type { GenerateVariantRequest, VariantDifficulty, VariantQuestion } from '@/lib/variant-questions/types';
+import type {
+  GenerateVariantRequest,
+  VariantDifficulty,
+  VariantGeometryMode,
+  VariantQuestion,
+} from '@/lib/variant-questions/types';
 
 type VariantLogRow = {
   variant_id: string;
@@ -28,6 +33,7 @@ const MAX_VARIANT_COUNT = 3;
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   if (!url || !key) {
     throw new Error('Missing Supabase environment variables');
   }
@@ -84,6 +90,7 @@ function extractFirstJsonObject(content: string) {
   const candidate = codeFenceMatch ? codeFenceMatch[1] : trimmed;
   const start = candidate.indexOf('{');
   const end = candidate.lastIndexOf('}');
+
   if (start === -1 || end === -1 || end <= start) {
     return null;
   }
@@ -105,11 +112,23 @@ function buildGeometryContext(context: ErrorSessionVariantContext) {
   return parts.join('\n');
 }
 
+function buildGeometryModeRule(mode: VariantGeometryMode) {
+  switch (mode) {
+    case 'preserve_figure':
+      return 'If this is a geometry problem, keep the original figure structure and key relationships stable. You may change values, targets, or local conditions, but do not redesign the whole figure.';
+    case 'change_figure':
+      return 'If this is a geometry problem, intentionally change the figure setup while keeping the same core concept. The new figure must be clearly described in text and remain fully solvable.';
+    default:
+      return 'If this is a geometry problem, choose automatically between preserving the figure and changing the figure based on which produces a stronger transfer exercise.';
+  }
+}
+
 function buildVariantPrompt(params: {
   subject: 'math' | 'physics' | 'chemistry';
   originalText: string;
   conceptTags: string[];
   difficulty: VariantDifficulty;
+  geometryMode: VariantGeometryMode;
   count: number;
   geometryContext?: string;
   retry?: boolean;
@@ -149,11 +168,14 @@ ${difficultyLabels[params.difficulty]}
 
 ${geometrySection}
 
+Geometry variant mode:
+${buildGeometryModeRule(params.geometryMode)}
+
 Requirements:
 1. Keep the same core concept as the original problem.
 2. Each variant must be self-contained and solvable on its own.
 3. Change the values, wording, givens, or setup enough that the student must transfer the method rather than recall the original answer.
-4. For geometry, you may change the figure setup, but output text only. If the figure needs to change, describe the new figure clearly in the question text.
+4. For geometry, output text only. If the figure needs to be described, describe it clearly and completely in the question text.
 5. Provide 1 to 3 short hints.
 6. Provide a full step-by-step solution.
 7. Provide a concise final answer.
@@ -281,6 +303,7 @@ async function generateVariantsWithAI(params: {
   originalText: string;
   conceptTags: string[];
   difficulty: VariantDifficulty;
+  geometryMode: VariantGeometryMode;
   count: number;
   geometryContext?: string;
 }) {
@@ -289,6 +312,7 @@ async function generateVariantsWithAI(params: {
     originalText: params.originalText,
     conceptTags: params.conceptTags,
     difficulty: params.difficulty,
+    geometryMode: params.geometryMode,
     count: params.count,
     geometryContext: params.geometryContext,
   });
@@ -313,6 +337,7 @@ async function generateVariantsWithAI(params: {
         originalText: params.originalText,
         conceptTags: params.conceptTags,
         difficulty: params.difficulty,
+        geometryMode: params.geometryMode,
         count: params.count - variants.length,
         geometryContext: params.geometryContext,
         retry: true,
@@ -336,8 +361,8 @@ async function generateVariantsWithAI(params: {
   if (variants.length < params.count) {
     warning =
       variants.length > 0
-        ? `本次只生成了 ${variants.length}/${params.count} 道完整变式题，已自动过滤不完整内容。可以再次点击“生成变式题”补齐。`
-        : '本次没有生成可用的完整变式题，请重试。';
+        ? `本次只生成了 ${variants.length}/${params.count} 道完整变式题，系统已经自动过滤掉不完整内容。可以再次点击“生成变式题”补齐。`
+        : '暂时没有生成出完整的变式题，请稍后再试。';
   }
 
   return {
@@ -437,6 +462,7 @@ export async function POST(req: NextRequest) {
       originalText: sanitizeText(body.original_text),
       conceptTags: body.concept_tags || [],
       difficulty: body.difficulty || 'medium',
+      geometryMode: body.geometry_mode || 'auto',
       count: normalizedCount,
       geometryContext,
     });
@@ -445,20 +471,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         data: [],
-        warning: result.warning || '本次没有生成可用的完整变式题，请稍后重试。',
+        warning: result.warning || '暂时没有生成出完整的变式题，请稍后再试。',
       });
     }
 
-    const { data, error } = await (admin as any)
-      .from('variant_questions')
-      .insert(result.variants)
-      .select();
+    const { data, error } = await (admin as any).from('variant_questions').insert(result.variants).select();
 
     if (error) {
       return NextResponse.json({
         success: true,
         data: result.variants,
-        warning: result.warning || '变式题已生成，但保存失败，请稍后重新生成。',
+        warning: result.warning || '变式题已生成，但写入数据库失败，本次先返回临时结果。',
       });
     }
 
@@ -484,16 +507,14 @@ export async function PATCH(req: NextRequest) {
 
     const admin = getSupabaseAdmin();
 
-    const { error: logError } = await (admin as any)
-      .from('variant_practice_logs')
-      .insert({
-        variant_id,
-        student_id,
-        is_correct,
-        student_answer,
-        time_spent: time_spent || 0,
-        hints_used: hints_used || 0,
-      });
+    const { error: logError } = await (admin as any).from('variant_practice_logs').insert({
+      variant_id,
+      student_id,
+      is_correct,
+      student_answer,
+      time_spent: time_spent || 0,
+      hints_used: hints_used || 0,
+    });
 
     if (logError) {
       console.error('Error saving practice log:', logError);

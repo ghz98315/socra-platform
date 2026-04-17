@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type {
   VariantDifficulty,
+  VariantGeometryMode,
   VariantPracticeFeedback,
   VariantQuestion,
 } from '@/lib/variant-questions/types';
@@ -50,18 +51,48 @@ interface VariantPracticePanelProps {
 }
 
 const difficultyConfig: Record<VariantDifficulty, { label: string; color: string }> = {
-  easy: { label: '基础', color: 'text-green-600' },
-  medium: { label: '提升', color: 'text-amber-600' },
-  hard: { label: '挑战', color: 'text-red-600' },
+  easy: { label: '偏简单', color: 'text-green-600' },
+  medium: { label: '中等', color: 'text-amber-600' },
+  hard: { label: '偏难', color: 'text-red-600' },
+};
+
+const geometryModeConfig: Record<VariantGeometryMode, { label: string; description: string }> = {
+  auto: {
+    label: '自动判断',
+    description: '系统根据题目判断更适合保留图形还是改变图形。',
+  },
+  preserve_figure: {
+    label: '图形保持',
+    description: '更适合先验证方法是否稳定，图形结构尽量不变。',
+  },
+  change_figure: {
+    label: '图形变化',
+    description: '更强调迁移，核心思路不变，但图形设置会变化。',
+  },
 };
 
 const evaluationStrategyLabels: Record<string, string> = {
   exact: '完全匹配',
-  assignment_rhs: '等式右侧匹配',
-  numeric: '数值等价匹配',
-  normalized_text: '标准化文本匹配',
+  assignment_rhs: '按等号右侧匹配',
+  numeric: '按数值匹配',
+  normalized_text: '按标准化文本匹配',
   unmatched: '未匹配',
 };
+
+const GEOMETRY_HINT_PATTERN =
+  /[△▲▵三角形四边形平行四边形梯形菱形矩形正方形圆扇形弧切线直线射线线段中点垂线高线角平分线周长面积相似全等坐标点A点B点C点D点E点F点G点H点∠⊥∥圆心半径直径弦如图下图图中图形几何]/;
+
+function hasGeometrySignals(input: string, geometryData?: unknown, geometrySvg?: string | null) {
+  if (geometryData) {
+    return true;
+  }
+
+  if (typeof geometrySvg === 'string' && geometrySvg.trim()) {
+    return true;
+  }
+
+  return GEOMETRY_HINT_PATTERN.test(input.replace(/\s+/g, ''));
+}
 
 export function VariantPracticePanel({
   sessionId,
@@ -76,6 +107,7 @@ export function VariantPracticePanel({
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<VariantDifficulty>('medium');
+  const [selectedGeometryMode, setSelectedGeometryMode] = useState<VariantGeometryMode>('auto');
   const [activeVariant, setActiveVariant] = useState<VariantQuestion | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [showHints, setShowHints] = useState(0);
@@ -87,6 +119,8 @@ export function VariantPracticePanel({
   const [submissionFeedback, setSubmissionFeedback] = useState<VariantPracticeFeedback | null>(null);
   const [variantSummary, setVariantSummary] = useState<VariantEvidenceSummary | null>(null);
 
+  const supportsGeometryMode = subject === 'math' && hasGeometrySignals(originalText, geometryData, geometrySvg);
+
   useEffect(() => {
     void loadVariants();
   }, [sessionId, studentId]);
@@ -96,6 +130,7 @@ export function VariantPracticePanel({
     try {
       const response = await fetch(`/api/variants?student_id=${studentId}&session_id=${sessionId}`);
       const result = await response.json();
+
       if (!response.ok) {
         throw new Error(result.error || 'Failed to load variants');
       }
@@ -145,12 +180,14 @@ export function VariantPracticePanel({
           original_text: originalText,
           concept_tags: conceptTags,
           difficulty: selectedDifficulty,
+          geometry_mode: supportsGeometryMode ? selectedGeometryMode : 'auto',
           count: 2,
           geometry_data: geometryData,
           geometry_svg: geometrySvg,
         }),
       });
       const result = await response.json();
+
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to generate variants');
       }
@@ -170,7 +207,7 @@ export function VariantPracticePanel({
 
   async function submitAnswer(variant: VariantQuestion) {
     if (!userAnswer.trim()) {
-      setSubmitError('请先填写你的答案再提交。');
+      setSubmitError('请先输入你的答案。');
       return;
     }
 
@@ -189,6 +226,7 @@ export function VariantPracticePanel({
         }),
       });
       const result = await response.json();
+
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to submit answer');
       }
@@ -237,7 +275,7 @@ export function VariantPracticePanel({
             变式练习
           </CardTitle>
           <CardDescription>
-            AI 会基于这道错题生成同考点新题，重点检查你是否真的完成了迁移，而不是只记住原题答案。
+            用两道新题验证这次理解是否稳定。系统会保留同一核心方法，但改变数值、条件或题目表述，避免只靠记忆原题答案。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -251,9 +289,7 @@ export function VariantPracticePanel({
                   onClick={() => setSelectedDifficulty(difficulty)}
                   className={cn(
                     'rounded-full px-3 py-1.5 text-sm font-medium transition-all',
-                    selectedDifficulty === difficulty
-                      ? 'bg-warm-500 text-white'
-                      : 'bg-warm-100/50 hover:bg-warm-100',
+                    selectedDifficulty === difficulty ? 'bg-warm-500 text-white' : 'bg-warm-100/50 hover:bg-warm-100',
                   )}
                 >
                   {difficultyConfig[difficulty].label}
@@ -270,10 +306,33 @@ export function VariantPracticePanel({
             </Button>
           </div>
 
-          {generateError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {generateError}
+          {supportsGeometryMode ? (
+            <div className="space-y-2 rounded-2xl border border-warm-200/70 bg-warm-50/70 p-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-warm-800">几何变式方式</span>
+                <Badge variant="outline">仅几何题显示</Badge>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(geometryModeConfig) as VariantGeometryMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSelectedGeometryMode(mode)}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-sm font-medium transition-all',
+                      selectedGeometryMode === mode ? 'bg-warm-500 text-white' : 'bg-white text-warm-700 hover:bg-warm-100',
+                    )}
+                  >
+                    {geometryModeConfig[mode].label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-sm text-warm-700">{geometryModeConfig[selectedGeometryMode].description}</p>
             </div>
+          ) : null}
+
+          {generateError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{generateError}</div>
           ) : null}
 
           {generateWarning ? (
@@ -297,9 +356,7 @@ export function VariantPracticePanel({
               <Badge variant="outline">独立通过 {variantSummary.independent_success_variants}</Badge>
             </div>
             <p className="text-sm text-slate-700">{variantSummary.coach_summary}</p>
-            {variantSummary.missing_reason ? (
-              <p className="text-sm text-slate-500">{variantSummary.missing_reason}</p>
-            ) : null}
+            {variantSummary.missing_reason ? <p className="text-sm text-slate-500">{variantSummary.missing_reason}</p> : null}
             <p className="text-sm text-slate-600">{variantSummary.next_step}</p>
           </CardContent>
         </Card>
@@ -315,10 +372,7 @@ export function VariantPracticePanel({
           {variants.map((variant, index) => (
             <Card
               key={variant.id}
-              className={cn(
-                'cursor-pointer border-warm-200 transition-all',
-                activeVariant?.id === variant.id && 'ring-2 ring-warm-500',
-              )}
+              className={cn('cursor-pointer border-warm-200 transition-all', activeVariant?.id === variant.id && 'ring-2 ring-warm-500')}
             >
               {activeVariant?.id === variant.id ? (
                 <CardContent className="space-y-4 p-6">
@@ -330,11 +384,7 @@ export function VariantPracticePanel({
                       </Badge>
                       {getVariantStatusBadge(variant)}
                     </div>
-                    <button
-                      type="button"
-                      onClick={resetPractice}
-                      className="text-sm text-warm-600 hover:text-warm-900"
-                    >
+                    <button type="button" onClick={resetPractice} className="text-sm text-warm-600 hover:text-warm-900">
                       收起
                     </button>
                   </div>
@@ -388,9 +438,7 @@ export function VariantPracticePanel({
                       </div>
 
                       {submitError ? (
-                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                          {submitError}
-                        </div>
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</div>
                       ) : null}
                     </div>
                   ) : (
@@ -406,11 +454,9 @@ export function VariantPracticePanel({
                             <CheckCircle className="h-6 w-6 text-green-500" />
                             <div>
                               <p className="font-medium text-green-700 dark:text-green-400">
-                                {submissionFeedback.independent_success ? '回答正确，已计入独立迁移证据' : '回答正确'}
+                                {submissionFeedback.independent_success ? '回答正确，而且是独立完成。' : '回答正确。'}
                               </p>
-                              <p className="text-sm text-green-700 dark:text-green-400">
-                                {submissionFeedback.evidence_label}
-                              </p>
+                              <p className="text-sm text-green-700 dark:text-green-400">{submissionFeedback.evidence_label}</p>
                               <p className="text-sm text-green-600 dark:text-green-500">参考答案：{variant.answer}</p>
                             </div>
                           </>
@@ -418,7 +464,7 @@ export function VariantPracticePanel({
                           <>
                             <XCircle className="h-6 w-6 text-red-500" />
                             <div>
-                              <p className="font-medium text-red-700 dark:text-red-400">回答不正确</p>
+                              <p className="font-medium text-red-700 dark:text-red-400">这道变式还没有做对。</p>
                               <p className="text-sm text-red-700 dark:text-red-400">
                                 你的答案：{userAnswer} | 参考答案：{variant.answer}
                               </p>
@@ -432,14 +478,12 @@ export function VariantPracticePanel({
 
                       {submissionFeedback ? (
                         <div className="rounded-xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground">
-                          <p>
-                            判定方式：{evaluationStrategyLabels[submissionFeedback.evaluation.strategy] || submissionFeedback.evaluation.strategy}
-                          </p>
+                          <p>判定方式：{evaluationStrategyLabels[submissionFeedback.evaluation.strategy] || submissionFeedback.evaluation.strategy}</p>
                           <p className="mt-1">
-                            提示使用：{submissionFeedback.hints_used} 次。
+                            已使用提示 {submissionFeedback.hints_used} 次。
                             {submissionFeedback.hints_used > 0
-                              ? '本次使用了提示，不计入独立迁移证据。'
-                              : '本次未使用提示，可作为独立迁移证据候选。'}
+                              ? ' 这次算完成练习，但独立迁移证据会偏弱。'
+                              : ' 这次更能作为独立迁移证据。'}
                           </p>
                         </div>
                       ) : null}
@@ -468,10 +512,7 @@ export function VariantPracticePanel({
                   )}
                 </CardContent>
               ) : (
-                <CardContent
-                  className="cursor-pointer p-4 transition-colors hover:bg-warm-100/30"
-                  onClick={() => openVariant(variant)}
-                >
+                <CardContent className="cursor-pointer p-4 transition-colors hover:bg-warm-100/30" onClick={() => openVariant(variant)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Badge variant="outline">变式 {index + 1}</Badge>
@@ -492,7 +533,7 @@ export function VariantPracticePanel({
         <div className="py-8 text-center text-warm-600">
           <BookOpen className="mx-auto mb-3 h-12 w-12 opacity-50" />
           <p>还没有生成变式题。</p>
-          <p className="text-sm">先选择难度并点击“生成变式题”，系统会生成可直接练习的新题。</p>
+          <p className="text-sm">先选择难度，然后点击“生成变式题”，系统会生成可直接练习的新题。</p>
         </div>
       )}
     </div>

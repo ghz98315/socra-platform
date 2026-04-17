@@ -2,6 +2,8 @@ export type VariantDifficulty = 'easy' | 'medium' | 'hard';
 
 export type VariantStatus = 'pending' | 'practicing' | 'completed' | 'mastered';
 
+export type VariantGeometryMode = 'auto' | 'preserve_figure' | 'change_figure';
+
 export interface VariantQuestion {
   id: string;
   original_session_id: string;
@@ -29,6 +31,7 @@ export interface GenerateVariantRequest {
   original_text: string;
   concept_tags?: string[];
   difficulty?: VariantDifficulty;
+  geometry_mode?: VariantGeometryMode;
   count?: number;
   geometry_data?: unknown;
   geometry_svg?: string | null;
