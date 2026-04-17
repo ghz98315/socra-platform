@@ -203,11 +203,23 @@ export function VariantPracticePanel({
     () => variants.find((variant) => variant.id === activeVariantId) || null,
     [activeVariantId, variants],
   );
-  const activeVariantGeometry = activeVariant ? variantGeometryMap[activeVariant.id] || null : null;
+  const activeVariantImageUrl =
+    activeVariant && typeof activeVariant.question_image_url === 'string' && activeVariant.question_image_url.trim().length > 0
+      ? activeVariant.question_image_url.trim()
+      : null;
+  const activeVariantGeometry = activeVariant
+    ? variantGeometryMap[activeVariant.id] || (hasRenderableGeometry(originalGeometry)
+        ? {
+            status: 'ready',
+            data: originalGeometry,
+            message: '当前固定显示原题图。',
+          }
+        : null)
+    : null;
   const showOriginalSvgFallback =
     Boolean(activeVariant) &&
-    !hasRenderableGeometry(activeVariantGeometry?.data || null) &&
-    selectedGeometryMode !== 'change_figure' &&
+    !activeVariantImageUrl &&
+    !hasRenderableGeometry(originalGeometry) &&
     typeof geometrySvg === 'string' &&
     geometrySvg.trim().length > 0;
 
@@ -217,7 +229,7 @@ export function VariantPracticePanel({
   }, [sessionId, studentId]);
 
   useEffect(() => {
-    if (!supportsGeometryMode || !activeVariant) {
+    if (!supportsGeometryMode || !activeVariant || activeVariantImageUrl || hasRenderableGeometry(originalGeometry)) {
       return;
     }
 
@@ -228,7 +240,7 @@ export function VariantPracticePanel({
 
     void ensureVariantGeometry(activeVariant);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeVariant, supportsGeometryMode]);
+  }, [activeVariant, activeVariantImageUrl, originalGeometry, supportsGeometryMode]);
 
   useEffect(() => {
     setVariantGeometryMap((current) => {
@@ -336,7 +348,7 @@ export function VariantPracticePanel({
             original_text: originalText,
             concept_tags: conceptTags,
             difficulty: selectedDifficulty,
-            geometry_mode: supportsGeometryMode ? selectedGeometryMode : 'auto',
+            geometry_mode: supportsGeometryMode ? 'preserve_figure' : 'auto',
             count: 1,
             geometry_data: geometryData,
             geometry_svg: geometrySvg,
@@ -590,27 +602,10 @@ export function VariantPracticePanel({
           {supportsGeometryMode ? (
             <div className="space-y-3 rounded-2xl border border-warm-200/70 bg-warm-50/70 p-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-warm-800">几何题图形处理方式</span>
-                <Badge variant="outline">可切换后再次生成</Badge>
+                <span className="text-sm font-medium text-warm-800">几何变式说明</span>
+                <Badge variant="outline">固定沿用原题图</Badge>
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(geometryModeConfig) as VariantGeometryMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setSelectedGeometryMode(mode)}
-                    className={cn(
-                      'rounded-full px-3 py-1.5 text-sm font-medium transition-all',
-                      selectedGeometryMode === mode ? 'bg-warm-500 text-white' : 'bg-white text-warm-700 hover:bg-warm-100',
-                    )}
-                  >
-                    {geometryModeConfig[mode].label}
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-sm text-warm-700">{geometryModeConfig[selectedGeometryMode].description}</p>
+              <p className="text-sm text-warm-700">几何变式只调整题干、条件和问法，不再尝试更换图形；系统会把原题图和变式题干一起保存。</p>
             </div>
           ) : null}
 
@@ -691,7 +686,13 @@ export function VariantPracticePanel({
                       <p className="whitespace-pre-wrap">{variant.question_text}</p>
                     </div>
 
-                    {supportsGeometryMode ? (
+                    {supportsGeometryMode && activeVariantImageUrl ? (
+                      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3">
+                        <img src={activeVariantImageUrl} alt="变式题题图" className="mx-auto max-h-[360px] w-auto max-w-full" />
+                      </div>
+                    ) : null}
+
+                    {supportsGeometryMode && !activeVariantImageUrl ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                           <div>

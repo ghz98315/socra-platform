@@ -22,6 +22,7 @@ type VariantLogRow = {
 type ErrorSessionVariantContext = {
   geometry_data?: unknown;
   geometry_svg?: string | null;
+  original_image_url?: string | null;
 };
 
 const AI_BASE_URL =
@@ -117,11 +118,11 @@ function buildGeometryContext(context: ErrorSessionVariantContext) {
 function buildGeometryModeRule(mode: VariantGeometryMode) {
   switch (mode) {
     case 'preserve_figure':
-      return 'If this is a geometry problem, keep the original figure structure and key relationships stable. You may change values, targets, or local conditions, but do not redesign the whole figure. The text must still describe the figure completely enough to be reconstructed without the original image.';
+      return 'If this is a geometry problem, keep the original figure unchanged and reuse it as the fixed figure for the variant. Only change the givens, target, wording, or local conditions in the text. Do not redesign the figure.';
     case 'change_figure':
-      return 'If this is a geometry problem, intentionally change the figure setup while keeping the same core concept. The new figure must be clearly described in text, use explicit point and line labels, state all critical relations, and remain fully solvable without the original image.';
+      return 'If this is a geometry problem, keep the original figure unchanged and reuse it as the fixed figure for the variant. Do not change the figure.';
     default:
-      return 'If this is a geometry problem, choose automatically between preserving the figure and changing the figure based on which produces a stronger transfer exercise. In either case, the text must fully specify the figure so it can be reconstructed without the original image.';
+      return 'If this is a geometry problem, keep the original figure unchanged and reuse it as the fixed figure for the variant.';
   }
 }
 
@@ -177,7 +178,7 @@ Requirements:
 1. Keep the same core concept as the original problem.
 2. Each variant must be self-contained and solvable on its own.
 3. Change the values, wording, givens, or setup enough that the student must transfer the method rather than recall the original answer.
-4. For geometry, output text only, but make the question text sufficient to reconstruct the figure without the original image. Name the shapes, points, lines, intersections, parallel/perpendicular relations, equal lengths/angles, and coordinates or equations when relevant.
+4. For geometry, assume the original figure will be displayed together with the variant. Keep that figure unchanged, and only output the new question text that matches the same figure.
 5. Provide 1 to 3 short hints.
 6. Provide a full step-by-step solution.
 7. Provide a concise final answer.
@@ -201,11 +202,23 @@ Return exactly this schema:
 async function loadVariantContext(admin: any, sessionId: string) {
   const { data } = await (admin as any)
     .from('error_sessions')
-    .select('geometry_data, geometry_svg')
+    .select('geometry_data, geometry_svg, original_image_url')
     .eq('id', sessionId)
     .maybeSingle();
 
   return (data || {}) as ErrorSessionVariantContext;
+}
+
+function buildFigureImageUrl(context: ErrorSessionVariantContext) {
+  if (typeof context.geometry_svg === 'string' && context.geometry_svg.trim()) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(context.geometry_svg)}`;
+  }
+
+  if (typeof context.original_image_url === 'string' && context.original_image_url.trim()) {
+    return context.original_image_url.trim();
+  }
+
+  return undefined;
 }
 
 async function callVariantModel(prompt: string, maxTokens: number) {
@@ -251,6 +264,7 @@ function parseVariantResponse(params: {
   subject: 'math' | 'physics' | 'chemistry';
   difficulty: VariantDifficulty;
   fallbackConceptTags: string[];
+  figureImageUrl?: string;
 }) {
   const jsonText = extractFirstJsonObject(params.content);
   if (!jsonText) {
@@ -283,6 +297,7 @@ function parseVariantResponse(params: {
       student_id: params.studentId,
       subject: params.subject,
       question_text: question,
+      question_image_url: params.figureImageUrl,
       concept_tags: sanitizeConceptTags(item.concepts, params.fallbackConceptTags),
       difficulty: params.difficulty,
       hints,
@@ -308,6 +323,7 @@ async function generateVariantsWithAI(params: {
   geometryMode: VariantGeometryMode;
   count: number;
   geometryContext?: string;
+  figureImageUrl?: string;
 }) {
   const generationStartedAt = Date.now();
   const firstPrompt = buildVariantPrompt({
@@ -333,6 +349,7 @@ async function generateVariantsWithAI(params: {
       subject: params.subject,
       difficulty: params.difficulty,
       fallbackConceptTags: params.conceptTags,
+      figureImageUrl: params.figureImageUrl,
     });
 
     if (variants.length < params.count) {
@@ -356,6 +373,7 @@ async function generateVariantsWithAI(params: {
         subject: params.subject,
         difficulty: params.difficulty,
         fallbackConceptTags: params.conceptTags,
+        figureImageUrl: params.figureImageUrl,
       });
       variants = [...variants, ...retryVariants].slice(0, params.count);
     }
@@ -469,6 +487,11 @@ export async function POST(req: NextRequest) {
         : await loadVariantContext(admin, body.session_id);
 
     const geometryContext = buildGeometryContext(sessionContext);
+    const figureImageUrl = buildFigureImageUrl(sessionContext);
+    const normalizedGeometryMode =
+      body.subject === 'math' && (sessionContext.geometry_data || sessionContext.geometry_svg)
+        ? 'preserve_figure'
+        : body.geometry_mode || 'auto';
     const result = await generateVariantsWithAI({
       sessionId: body.session_id,
       studentId: body.student_id,
@@ -476,9 +499,10 @@ export async function POST(req: NextRequest) {
       originalText: sanitizeText(body.original_text),
       conceptTags: body.concept_tags || [],
       difficulty: body.difficulty || 'medium',
-      geometryMode: body.geometry_mode || 'auto',
+      geometryMode: normalizedGeometryMode,
       count: normalizedCount,
       geometryContext,
+      figureImageUrl,
     });
 
     if (result.variants.length === 0) {
