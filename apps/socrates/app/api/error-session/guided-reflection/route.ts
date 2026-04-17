@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
     const diagnosis = await loadDiagnosis(sessionId, studentId);
 
     if (!diagnosis?.id) {
-      return NextResponse.json({ error: 'Structured diagnosis is required before guided reflection' }, { status: 404 });
+      return NextResponse.json({ error: '请先完成结构化错因诊断，再进入引导复盘。' }, { status: 404 });
     }
 
     const reflection = normalizeGuidedReflection(diagnosis.guided_reflection);
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
     const diagnosis = await loadDiagnosis(session_id, student_id);
 
     if (!diagnosis?.id) {
-      return NextResponse.json({ error: 'Structured diagnosis is required before guided reflection' }, { status: 404 });
+      return NextResponse.json({ error: '请先完成结构化错因诊断，再进入引导复盘。' }, { status: 404 });
     }
 
     const reflection = normalizeGuidedReflection(diagnosis.guided_reflection);

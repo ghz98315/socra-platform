@@ -512,6 +512,22 @@ function WorkbenchPage() {
     setWrapUpDifficulty(preview.suggested_difficulty_rating);
   }, []);
 
+  const readWrapUpPayload = useCallback(async (response: Response) => {
+    const raw = await response.text();
+
+    try {
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      const contentType = response.headers.get('content-type') || '';
+      const looksLikeHtml = raw.trimStart().startsWith('<') || contentType.includes('text/html');
+      throw new Error(
+        looksLikeHtml
+          ? '收口接口返回了非 JSON 响应，通常表示线上服务报错或当前部署还没有更新完成。请稍后重试。'
+          : '收口接口返回的数据格式不正确，请稍后重试。',
+      );
+    }
+  }, []);
+
   const fetchWrapUpPreview = useCallback(async () => {
     if (!errorSessionId || !effectiveStudentId || isWrapUpLoading || isWrapUpSubmitting || wrapUpSubmitted) {
       return;
@@ -535,7 +551,7 @@ function WorkbenchPage() {
         }),
       });
 
-      const result = await response.json().catch(() => null);
+      const result = await readWrapUpPayload(response);
       if (!response.ok || !result?.data) {
         throw new Error(result?.error || 'Failed to load wrap-up preview');
       }
@@ -544,10 +560,13 @@ function WorkbenchPage() {
     } catch (error) {
       console.error('[Workbench] Failed to fetch wrap-up preview:', error);
       if (error instanceof DOMException && error.name === 'AbortError') {
-        setWrapUpSubmitError('收口建议加载超时，请稍后再试。');
+        setWrapUpSubmitError('加载收口卡片超时，请稍后重试。');
         return;
       }
-      setWrapUpSubmitError('收口建议加载失败，请稍后再试。');
+      if (error instanceof Error) {
+        setWrapUpSubmitError(error.message);
+        return;
+      }
     } finally {
       window.clearTimeout(timeoutId);
       setIsWrapUpLoading(false);
@@ -557,6 +576,7 @@ function WorkbenchPage() {
     errorSessionId,
     isWrapUpLoading,
     isWrapUpSubmitting,
+    readWrapUpPayload,
     syncWrapUpDefaults,
     wrapUpSubmitted,
   ]);
@@ -573,6 +593,9 @@ function WorkbenchPage() {
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
     setIsWrapUpSubmitting(true);
     setWrapUpSubmitError(null);
 
@@ -580,6 +603,7 @@ function WorkbenchPage() {
       const response = await fetch('/api/error-session/wrap-up', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           mode: 'submit',
           session_id: errorSessionId,
@@ -590,7 +614,7 @@ function WorkbenchPage() {
         }),
       });
 
-      const result = await response.json().catch(() => null);
+      const result = await readWrapUpPayload(response);
       if (!response.ok || !result?.success) {
         throw new Error(result?.error || 'Failed to submit wrap-up result');
       }
@@ -599,13 +623,23 @@ function WorkbenchPage() {
       router.push(`/error-book/${errorSessionId}?from=wrap-up`);
     } catch (error) {
       console.error('[Workbench] Failed to submit wrap-up result:', error);
-      setWrapUpSubmitError('提交错题库失败，请稍后再试。');
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setWrapUpSubmitError('提交收口结果超时，请稍后重试。');
+        return;
+      }
+      if (error instanceof Error) {
+        setWrapUpSubmitError(error.message);
+        return;
+      }
+      setWrapUpSubmitError('提交收口结果失败，请稍后重试。');
     } finally {
+      window.clearTimeout(timeoutId);
       setIsWrapUpSubmitting(false);
     }
   }, [
     effectiveStudentId,
     errorSessionId,
+    readWrapUpPayload,
     router,
     isWrapUpSubmitting,
     wrapUpCategory,
@@ -1617,7 +1651,7 @@ function WorkbenchPage() {
                   <div className="mb-4 pointer-events-auto">
                     <ChatWrapUpCard
                       preview={wrapUpPreview}
-                      loading={isWrapUpLoading}
+                      loading={isWrapUpLoading && !wrapUpPreview}
                       submitting={isWrapUpSubmitting}
                       submitError={wrapUpSubmitError}
                       selectedCategory={wrapUpCategory}
