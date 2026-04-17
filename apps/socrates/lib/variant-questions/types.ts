@@ -11,6 +11,8 @@ export interface VariantQuestion {
   subject: 'math' | 'physics' | 'chemistry';
   question_text: string;
   question_image_url?: string;
+  geometry_data?: unknown;
+  geometry_svg?: string | null;
   concept_tags: string[];
   difficulty: VariantDifficulty;
   hints: string[];

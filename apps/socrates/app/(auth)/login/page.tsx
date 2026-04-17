@@ -8,7 +8,7 @@ import { Brain, Home, Loader2, ShieldCheck, Sparkles, Target } from 'lucide-reac
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/lib/contexts/AuthContext';
+import { useAuth, type UserProfile } from '@/lib/contexts/AuthContext';
 import { buildAuthPageHref, readEntryParams, resolveEntryDestination } from '@/lib/navigation/entry-intent';
 import { cn } from '@/lib/utils';
 
@@ -20,10 +20,22 @@ const features = [
   { icon: Sparkles, title: '个性分析', desc: '精准定位薄弱知识点' },
 ];
 
+function resolveAuthenticatedDestination(profile: UserProfile | null, fallbackDestination: string) {
+  if (fallbackDestination !== '/select-profile') {
+    return fallbackDestination;
+  }
+
+  if (!profile?.role) {
+    return '/select-profile';
+  }
+
+  return profile.role === 'parent' ? '/tasks' : '/study/math/problem';
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, requestPhoneCode, verifyPhoneCode } = useAuth();
+  const { signIn, requestPhoneCode, verifyPhoneCode, profile, user, loading: authLoading } = useAuth();
   const entryParams = readEntryParams(searchParams);
   const registerHref = buildAuthPageHref('/register', entryParams);
   const successDestination = resolveEntryDestination(entryParams);
@@ -43,6 +55,14 @@ function LoginPageContent() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (authLoading || !user) {
+      return;
+    }
+
+    router.replace(resolveAuthenticatedDestination(profile, successDestination));
+  }, [authLoading, profile, router, successDestination, user]);
+
   const handlePasswordLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
@@ -50,8 +70,8 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      await signIn(phone, password);
-      router.replace(successDestination);
+      const nextProfile = await signIn(phone, password);
+      router.replace(resolveAuthenticatedDestination(nextProfile, successDestination));
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请检查手机号和密码。');
     } finally {
@@ -88,12 +108,12 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      await verifyPhoneCode({
+      const nextProfile = await verifyPhoneCode({
         phone,
         code,
         purpose: 'login',
       });
-      router.replace(successDestination);
+      router.replace(resolveAuthenticatedDestination(nextProfile, successDestination));
     } catch (err) {
       setError(err instanceof Error ? err.message : '验证码登录失败，请稍后重试。');
     } finally {

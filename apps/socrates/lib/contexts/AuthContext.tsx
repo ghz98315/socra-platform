@@ -13,7 +13,7 @@ import type { PhoneCodePurpose } from '@/lib/auth/phone-auth';
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   email?: string;
   phone?: string;
@@ -32,7 +32,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<UserProfile | null>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   requestPhoneCode: (params: {
     phone: string;
@@ -46,7 +46,7 @@ interface AuthContextType {
     phone: string;
     code: string;
     purpose: PhoneCodePurpose;
-  }) => Promise<void>;
+  }) => Promise<UserProfile | null>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -228,12 +228,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
 
+    let userProfile: UserProfile | null = null;
     if (data.user) {
       setUser(data.user);
-      const userProfile = await fetchProfile(data.user.id);
+      userProfile = await fetchProfile(data.user.id);
       setProfile(userProfile);
     }
     setLoading(false);
+    return userProfile;
   };
 
   const signUp = async (emailOrPhone: string, password: string, name?: string) => {
@@ -434,6 +436,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userProfile = await fetchProfile(sessionData.user.id);
       setProfile(userProfile);
       lastFetchedUserId.current = sessionData.user.id;
+      return userProfile;
     } finally {
       setLoading(false);
     }

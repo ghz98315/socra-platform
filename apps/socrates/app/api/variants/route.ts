@@ -117,11 +117,11 @@ function buildGeometryContext(context: ErrorSessionVariantContext) {
 function buildGeometryModeRule(mode: VariantGeometryMode) {
   switch (mode) {
     case 'preserve_figure':
-      return 'If this is a geometry problem, keep the original figure structure and key relationships stable. You may change values, targets, or local conditions, but do not redesign the whole figure.';
+      return 'If this is a geometry problem, keep the original figure structure and key relationships stable. You may change values, targets, or local conditions, but do not redesign the whole figure. The text must still describe the figure completely enough to be reconstructed without the original image.';
     case 'change_figure':
-      return 'If this is a geometry problem, intentionally change the figure setup while keeping the same core concept. The new figure must be clearly described in text and remain fully solvable.';
+      return 'If this is a geometry problem, intentionally change the figure setup while keeping the same core concept. The new figure must be clearly described in text, use explicit point and line labels, state all critical relations, and remain fully solvable without the original image.';
     default:
-      return 'If this is a geometry problem, choose automatically between preserving the figure and changing the figure based on which produces a stronger transfer exercise.';
+      return 'If this is a geometry problem, choose automatically between preserving the figure and changing the figure based on which produces a stronger transfer exercise. In either case, the text must fully specify the figure so it can be reconstructed without the original image.';
   }
 }
 
@@ -177,7 +177,7 @@ Requirements:
 1. Keep the same core concept as the original problem.
 2. Each variant must be self-contained and solvable on its own.
 3. Change the values, wording, givens, or setup enough that the student must transfer the method rather than recall the original answer.
-4. For geometry, output text only. If the figure needs to be described, describe it clearly and completely in the question text.
+4. For geometry, output text only, but make the question text sufficient to reconstruct the figure without the original image. Name the shapes, points, lines, intersections, parallel/perpendicular relations, equal lengths/angles, and coordinates or equations when relevant.
 5. Provide 1 to 3 short hints.
 6. Provide a full step-by-step solution.
 7. Provide a concise final answer.

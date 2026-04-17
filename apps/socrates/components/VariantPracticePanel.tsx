@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { GeometryRenderer, type GeometryData } from '@/components/GeometryRenderer';
 import { cn } from '@/lib/utils';
 import type {
   VariantDifficulty,
@@ -84,6 +85,13 @@ const GEOMETRY_HINT_PATTERN =
 
 const API_TIMEOUT_MS = 12000;
 const GENERATE_TIMEOUT_MS = 45000;
+const VARIANT_GEOMETRY_TIMEOUT_MS = 20000;
+
+type VariantGeometryState = {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  data: GeometryData | null;
+  message?: string | null;
+};
 
 function hasGeometrySignals(input: string, geometryData?: unknown, geometrySvg?: string | null) {
   if (geometryData) {
@@ -104,6 +112,38 @@ function mergeVariants(current: VariantQuestion[], incoming: VariantQuestion[]) 
 
   const incomingIds = new Set(incoming.map((item) => item.id));
   return [...incoming, ...current.filter((item) => !incomingIds.has(item.id))];
+}
+
+function isGeometryData(value: unknown): value is GeometryData {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Partial<GeometryData>;
+  return (
+    typeof candidate.type === 'string' &&
+    Array.isArray(candidate.points) &&
+    Array.isArray(candidate.lines) &&
+    Array.isArray(candidate.circles) &&
+    Array.isArray(candidate.curves) &&
+    Array.isArray(candidate.angles) &&
+    Array.isArray(candidate.labels) &&
+    Array.isArray(candidate.relations)
+  );
+}
+
+function hasRenderableGeometry(data: GeometryData | null) {
+  if (!data || data.type === 'unknown') {
+    return false;
+  }
+
+  return (
+    data.points.length > 0 ||
+    data.lines.length > 0 ||
+    data.circles.length > 0 ||
+    data.curves.length > 0 ||
+    data.angles.length > 0
+  );
 }
 
 async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, timeoutMs = API_TIMEOUT_MS) {
@@ -155,17 +195,64 @@ export function VariantPracticePanel({
   const [generateWarning, setGenerateWarning] = useState<string | null>(null);
   const [submissionFeedback, setSubmissionFeedback] = useState<VariantPracticeFeedback | null>(null);
   const [variantSummary, setVariantSummary] = useState<VariantEvidenceSummary | null>(null);
+  const [variantGeometryMap, setVariantGeometryMap] = useState<Record<string, VariantGeometryState>>({});
 
   const supportsGeometryMode = subject === 'math' && hasGeometrySignals(originalText, geometryData, geometrySvg);
+  const originalGeometry = isGeometryData(geometryData) ? geometryData : null;
   const activeVariant = useMemo(
     () => variants.find((variant) => variant.id === activeVariantId) || null,
     [activeVariantId, variants],
   );
+  const activeVariantGeometry = activeVariant ? variantGeometryMap[activeVariant.id] || null : null;
+  const showOriginalSvgFallback =
+    Boolean(activeVariant) &&
+    !hasRenderableGeometry(activeVariantGeometry?.data || null) &&
+    selectedGeometryMode !== 'change_figure' &&
+    typeof geometrySvg === 'string' &&
+    geometrySvg.trim().length > 0;
 
   useEffect(() => {
     void loadVariants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, studentId]);
+
+  useEffect(() => {
+    if (!supportsGeometryMode || !activeVariant) {
+      return;
+    }
+
+    const existingState = variantGeometryMap[activeVariant.id];
+    if (existingState && (existingState.status === 'loading' || existingState.status === 'ready')) {
+      return;
+    }
+
+    void ensureVariantGeometry(activeVariant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeVariant, supportsGeometryMode]);
+
+  useEffect(() => {
+    setVariantGeometryMap((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const variant of variants) {
+        if (next[variant.id]) {
+          continue;
+        }
+
+        if (isGeometryData(variant.geometry_data) && hasRenderableGeometry(variant.geometry_data)) {
+          next[variant.id] = {
+            status: 'ready',
+            data: variant.geometry_data,
+            message: null,
+          };
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [variants]);
 
   function resetPracticeState() {
     setUserAnswer('');
@@ -273,7 +360,7 @@ export function VariantPracticePanel({
 
       if (newVariants.length > 0) {
         setVariants((current) => mergeVariants(current, newVariants));
-        setActiveVariantId((current) => current || newVariants[0].id);
+        openVariant(newVariants[0].id);
       }
 
       if (result.summary) {
@@ -341,6 +428,98 @@ export function VariantPracticePanel({
       }
     } finally {
       setSubmittingVariantId(null);
+    }
+  }
+
+  async function ensureVariantGeometry(variant: VariantQuestion) {
+    if (!supportsGeometryMode) {
+      return;
+    }
+
+    setVariantGeometryMap((current) => ({
+      ...current,
+      [variant.id]: {
+        status: 'loading',
+        data: current[variant.id]?.data || null,
+        message: null,
+      },
+    }));
+
+    try {
+      const response = await fetchWithTimeout(
+        '/api/geometry',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: variant.question_text,
+            subject,
+          }),
+        },
+        VARIANT_GEOMETRY_TIMEOUT_MS,
+      );
+      const result = await readApiPayload(
+        response,
+        '变式图形解析接口返回了非 JSON 响应，请稍后重试。',
+      );
+
+      if (response.ok && result.success && isGeometryData(result.geometry) && hasRenderableGeometry(result.geometry)) {
+        setVariantGeometryMap((current) => ({
+          ...current,
+          [variant.id]: {
+            status: 'ready',
+            data: result.geometry,
+            message: '已按当前变式题干重新生成图形。',
+          },
+        }));
+        return;
+      }
+
+      if (selectedGeometryMode !== 'change_figure' && hasRenderableGeometry(originalGeometry)) {
+        setVariantGeometryMap((current) => ({
+          ...current,
+          [variant.id]: {
+            status: 'ready',
+            data: originalGeometry,
+            message: '当前显示原题图形。若你选择了“更换图形”，请重新生成一次后再查看。',
+          },
+        }));
+        return;
+      }
+
+      setVariantGeometryMap((current) => ({
+        ...current,
+        [variant.id]: {
+          status: 'error',
+          data: null,
+          message: '这道变式题暂时没有生成可展示的图形。',
+        },
+      }));
+    } catch (error) {
+      console.error('Failed to parse variant geometry:', error);
+      if (selectedGeometryMode !== 'change_figure' && hasRenderableGeometry(originalGeometry)) {
+        setVariantGeometryMap((current) => ({
+          ...current,
+          [variant.id]: {
+            status: 'ready',
+            data: originalGeometry,
+            message: '变式图形暂未重绘，当前先展示原题图形。',
+          },
+        }));
+        return;
+      }
+
+      setVariantGeometryMap((current) => ({
+        ...current,
+        [variant.id]: {
+          status: 'error',
+          data: null,
+          message:
+            error instanceof DOMException && error.name === 'AbortError'
+              ? '变式图形解析超时，请稍后重试。'
+              : '变式图形解析失败，请稍后重试。',
+        },
+      }));
     }
   }
 
@@ -511,6 +690,59 @@ export function VariantPracticePanel({
                     <div className="rounded-xl bg-warm-100/30 p-4">
                       <p className="whitespace-pre-wrap">{variant.question_text}</p>
                     </div>
+
+                    {supportsGeometryMode ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">变式图形</p>
+                            <p className="text-xs text-slate-500">
+                              {activeVariantGeometry?.message || '打开变式后会自动解析并展示对应图形。'}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void ensureVariantGeometry(variant)}
+                            disabled={activeVariantGeometry?.status === 'loading'}
+                          >
+                            {activeVariantGeometry?.status === 'loading' ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              '重新解析图形'
+                            )}
+                          </Button>
+                        </div>
+
+                        {activeVariantGeometry?.status === 'loading' ? (
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+                            正在解析这道变式题的图形...
+                          </div>
+                        ) : null}
+
+                        {hasRenderableGeometry(activeVariantGeometry?.data || null) ? (
+                          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <GeometryRenderer geometryData={activeVariantGeometry?.data || null} size={360} />
+                          </div>
+                        ) : null}
+
+                        {showOriginalSvgFallback ? (
+                          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                            <div
+                              className="max-h-[360px] overflow-auto p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-[320px] [&_svg]:w-full [&_svg]:max-w-full"
+                              dangerouslySetInnerHTML={{ __html: geometrySvg || '' }}
+                            />
+                          </div>
+                        ) : null}
+
+                        {activeVariantGeometry?.status === 'error' ? (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                            {activeVariantGeometry.message}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     {variant.concept_tags.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
