@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Loader2, Mic, MicOff, Sigma } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -12,9 +13,9 @@ interface ChatInputProps {
   disabled?: boolean;
   isLoading?: boolean;
   placeholder?: string;
+  autoFocusKey?: string | number;
 }
 
-// Web Speech API types
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
 }
@@ -62,6 +63,7 @@ export function ChatInput({
   disabled = false,
   isLoading = false,
   placeholder = '输入你的问题...',
+  autoFocusKey,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -70,126 +72,144 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  // Check if speech recognition is supported
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      setIsSupported(true);
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'zh-CN';
-
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = Array.from(event.results)
-          .map(result => result[0].transcript)
-          .join('');
-        setMessage(transcript);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onerror = () => {
-        setIsListening(false);
-      };
+    if (!SpeechRecognition) {
+      return;
     }
 
+    setIsSupported(true);
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = false;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = 'zh-CN';
+
+    recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join('');
+      setMessage(transcript);
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current.onerror = () => {
+      setIsListening(false);
+    };
+
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
+      recognitionRef.current?.abort();
     };
   }, []);
 
   const toggleListening = useCallback(() => {
-    if (!recognitionRef.current) return;
+    if (!recognitionRef.current) {
+      return;
+    }
 
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
-    } else {
-      setMessage(''); // Clear previous message
-      recognitionRef.current.start();
-      setIsListening(true);
+      return;
     }
+
+    setMessage('');
+    recognitionRef.current.start();
+    setIsListening(true);
   }, [isListening]);
 
-  // 处理数学符号插入
-  const handleSymbolInsert = useCallback((symbol: string) => {
-    const textarea = textareaRef.current;
-    if (textarea) {
+  const handleSymbolInsert = useCallback(
+    (symbol: string) => {
+      const textarea = textareaRef.current;
+      if (!textarea) {
+        setMessage((prev) => prev + symbol);
+        return;
+      }
+
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const newMessage = message.slice(0, start) + symbol + message.slice(end);
-      setMessage(newMessage);
+      const nextMessage = message.slice(0, start) + symbol + message.slice(end);
+      setMessage(nextMessage);
 
-      // 恢复光标位置
-      setTimeout(() => {
+      window.setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + symbol.length;
         textarea.focus();
       }, 0);
-    } else {
-      setMessage((prev) => prev + symbol);
-    }
-  }, [message]);
+    },
+    [message],
+  );
 
   const handleSubmit = () => {
-    if (message.trim() && !disabled && !isLoading) {
-      onSend(message.trim());
-      setMessage('');
+    if (!message.trim() || disabled || isLoading) {
+      return;
     }
+
+    onSend(message.trim());
+    setMessage('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       handleSubmit();
     }
   };
 
-  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    if (!textarea) {
+      return;
     }
+
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
   }, [message]);
+
+  useEffect(() => {
+    if (disabled || isLoading) {
+      return;
+    }
+
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.value.length;
+      textarea.selectionEnd = textarea.value.length;
+    }, 0);
+  }, [autoFocusKey, disabled, isLoading]);
 
   return (
     <Card className="shadow-warm-500/30">
       <CardContent className="p-3">
-        {/* 数学符号快捷栏 */}
-        {showMathPicker && (
-          <div className="mb-2 p-2 bg-warm-100/30 rounded-lg">
-            <MathSymbolPicker
-              onSymbolSelect={handleSymbolInsert}
-              variant="compact"
-            />
+        {showMathPicker ? (
+          <div className="mb-2 rounded-lg bg-warm-100/30 p-2">
+            <MathSymbolPicker onSymbolSelect={handleSymbolInsert} variant="compact" />
           </div>
-        )}
+        ) : null}
 
         <div className="flex gap-2">
-          {/* Math Symbol Button */}
           <Button
             type="button"
             size="icon"
             variant={showMathPicker ? 'default' : 'outline'}
-            onClick={() => setShowMathPicker(!showMathPicker)}
+            onClick={() => setShowMathPicker((current) => !current)}
             disabled={disabled || isLoading}
             className={cn(
-              "rounded-full h-11 w-11 flex-shrink-0 transition-all duration-200",
-              showMathPicker && "bg-warm-500"
+              'h-11 w-11 flex-shrink-0 rounded-full transition-all duration-200',
+              showMathPicker && 'bg-warm-500',
             )}
             title="数学符号"
           >
-            <Sigma className="w-4 h-4" />
+            <Sigma className="h-4 w-4" />
           </Button>
 
-          {/* Voice Input Button */}
-          {isSupported && (
+          {isSupported ? (
             <Button
               type="button"
               size="icon"
@@ -197,56 +217,49 @@ export function ChatInput({
               onClick={toggleListening}
               disabled={disabled || isLoading}
               className={cn(
-                "rounded-full h-11 w-11 flex-shrink-0 transition-all duration-200",
-                isListening && "bg-red-500 hover:bg-red-600 animate-pulse"
+                'h-11 w-11 flex-shrink-0 rounded-full transition-all duration-200',
+                isListening && 'animate-pulse bg-red-500 hover:bg-red-600',
               )}
               title={isListening ? '停止录音' : '语音输入'}
             >
-              {isListening ? (
-                <MicOff className="w-4 h-4" />
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
-          )}
+          ) : null}
 
           <textarea
             ref={textareaRef}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(event) => setMessage(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isListening ? '正在听...' : placeholder}
             disabled={disabled || isLoading}
-            className={`
-              flex-1 resize-none rounded-xl border border-input bg-transparent px-3 py-2 text-sm
-              focus:outline-none focus:ring-1 focus:ring-ring
-              disabled:opacity-50 disabled:cursor-not-allowed
-              max-h-32 min-h-[40px]
-              ${isListening ? 'border-red-300 dark:border-red-700' : ''}
-            `}
+            className={cn(
+              'min-h-[40px] max-h-32 flex-1 resize-none rounded-xl border border-input bg-transparent px-3 py-2 text-sm',
+              'focus:outline-none focus:ring-1 focus:ring-ring',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              isListening && 'border-red-300 dark:border-red-700',
+            )}
             rows={1}
           />
+
           <Button
             size="icon"
             onClick={handleSubmit}
             disabled={disabled || isLoading || !message.trim()}
-            className="rounded-full h-11 w-11 flex-shrink-0 btn-press active:scale-95 transition-transform bg-warm-500 hover:bg-warm-600"
+            className="btn-press h-11 w-11 flex-shrink-0 rounded-full bg-warm-500 transition-transform hover:bg-warm-600 active:scale-95"
           >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
-        <p className="text-xs text-warm-600 mt-2 text-center hidden sm:block">
+
+        <p className="mt-2 hidden text-center text-xs text-warm-600 sm:block">
           {isSupported ? (
             <>
-              按 <kbd className="px-1 py-0.5 bg-warm-100 rounded text-[10px]">Enter</kbd> 发送
+              按 <kbd className="rounded bg-warm-100 px-1 py-0.5 text-[10px]">Enter</kbd> 发送
               {' · '}
-              <kbd className="px-1 py-0.5 bg-warm-100 rounded text-[10px]">Σ</kbd> 数学符号
+              <kbd className="rounded bg-warm-100 px-1 py-0.5 text-[10px]">Σ</kbd> 数学符号
               {' · '}
-              <kbd className="px-1 py-0.5 bg-warm-100 rounded text-[10px]">麦克风</kbd> 语音输入
+              <kbd className="rounded bg-warm-100 px-1 py-0.5 text-[10px]">麦克风</kbd> 语音输入
             </>
           ) : (
             '按 Enter 发送，Shift + Enter 换行'

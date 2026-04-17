@@ -76,6 +76,14 @@ const getGeometryUiStateFromData = (data: GeometryData | null): GeometryUiState 
   return data.confidence < 0.7 ? 'low-confidence' : 'ready';
 };
 
+const GEOMETRY_HINT_PATTERN =
+  /[△▵▲三角形四边形平行四边形梯形菱形矩形正方形圆扇形弧切线直线射线线段中点垂线高线角平分线周长面积相似全等坐标函数抛物线点[ABCDEFGHOPQMNXYZ]边[ABCDEF]{1,2}|∠|⊥|∥|圆心|半径|直径|弦]/;
+
+const hasLikelyGeometryContent = (text: string) => {
+  const normalized = text.replace(/\s+/g, '');
+  return GEOMETRY_HINT_PATTERN.test(normalized);
+};
+
 // 滚动动画 Hook
 function useScrollAnimation(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
@@ -780,6 +788,13 @@ function WorkbenchPage() {
       return;
     }
 
+    if (!hasLikelyGeometryContent(text)) {
+      setGeometryData(null);
+      setGeometryUiState('idle');
+      setIsGeometryLoading(false);
+      return;
+    }
+
     console.log('[Workbench] parseGeometry called with text:', text?.substring(0, 100));
     const previousGeometry = geometryDataRef.current;
     const hasPreviousGeometry = !!previousGeometry && previousGeometry.type !== 'unknown';
@@ -1120,9 +1135,10 @@ function WorkbenchPage() {
     hasWrapUpSignal &&
     (isWrapUpLoading || !!wrapUpPreview || !!wrapUpSubmitError);
   const hasGeometryText = geometryEnabled && ocrText.trim().length > 0;
+  const hasLikelyGeometryText = hasGeometryText && hasLikelyGeometryContent(ocrText);
   const hasRenderableGeometry = !!geometryData && geometryData.type !== 'unknown';
   const showGeometryEmptyState =
-    hasGeometryText &&
+    hasLikelyGeometryText &&
     !isGeometryLoading &&
     !hasRenderableGeometry &&
     (geometryUiState === 'unknown' || geometryUiState === 'error');
@@ -1619,6 +1635,7 @@ function WorkbenchPage() {
                   onSend={handleSendMessage}
                   disabled={wrapUpSubmitted || isWrapUpSubmitting}
                   isLoading={isChatLoading}
+                  autoFocusKey={messages.length}
                   placeholder={
                     profile?.theme_preference === 'junior'
                       ? '告诉我你的想法...'
