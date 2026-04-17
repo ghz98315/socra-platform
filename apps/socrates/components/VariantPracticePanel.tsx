@@ -83,6 +83,7 @@ const GEOMETRY_HINT_PATTERN =
   /(?:三角形|四边形|平行四边形|梯形|菱形|矩形|正方形|圆|弧|切线|垂线|平行|相似|全等|角平分线|中点|高|中线|半径|直径|圆心|坐标|抛物线|几何|△|∠|⊥|∥)/u;
 
 const API_TIMEOUT_MS = 12000;
+const GENERATE_TIMEOUT_MS = 45000;
 
 function hasGeometrySignals(input: string, geometryData?: unknown, geometrySvg?: string | null) {
   if (geometryData) {
@@ -236,22 +237,26 @@ export function VariantPracticePanel({
     setLoadError(null);
 
     try {
-      const response = await fetchWithTimeout('/api/variants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          student_id: studentId,
-          subject,
-          original_text: originalText,
-          concept_tags: conceptTags,
-          difficulty: selectedDifficulty,
-          geometry_mode: supportsGeometryMode ? selectedGeometryMode : 'auto',
-          count: 2,
-          geometry_data: geometryData,
-          geometry_svg: geometrySvg,
-        }),
-      });
+      const response = await fetchWithTimeout(
+        '/api/variants',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            student_id: studentId,
+            subject,
+            original_text: originalText,
+            concept_tags: conceptTags,
+            difficulty: selectedDifficulty,
+            geometry_mode: supportsGeometryMode ? selectedGeometryMode : 'auto',
+            count: 2,
+            geometry_data: geometryData,
+            geometry_svg: geometrySvg,
+          }),
+        },
+        GENERATE_TIMEOUT_MS,
+      );
       const result = await readApiPayload(
         response,
         '变式接口返回了非 JSON 响应，通常表示线上服务报错或当前部署还没有更新完成。请稍后重试。',
@@ -279,7 +284,7 @@ export function VariantPracticePanel({
     } catch (error) {
       console.error('Failed to generate variants:', error);
       if (error instanceof DOMException && error.name === 'AbortError') {
-        setGenerateError('生成变式题超时，请稍后重试。');
+        setGenerateError('生成变式题超时。几何题或较复杂题目可能需要更久，请稍后重试。');
       } else {
         setGenerateError(error instanceof Error ? error.message : '生成变式题失败，请稍后重试。');
       }
