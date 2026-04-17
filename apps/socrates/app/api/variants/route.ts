@@ -10,6 +10,8 @@ import type {
   VariantQuestion,
 } from '@/lib/variant-questions/types';
 
+export const maxDuration = 60;
+
 type VariantLogRow = {
   variant_id: string;
   is_correct: boolean | null;
@@ -307,6 +309,7 @@ async function generateVariantsWithAI(params: {
   count: number;
   geometryContext?: string;
 }) {
+  const generationStartedAt = Date.now();
   const firstPrompt = buildVariantPrompt({
     subject: params.subject,
     originalText: params.originalText,
@@ -321,7 +324,8 @@ async function generateVariantsWithAI(params: {
   let warning: string | null = null;
 
   try {
-    const firstContent = await callVariantModel(firstPrompt, 3200);
+    const firstMaxTokens = params.count <= 1 ? 1800 : 2600;
+    const firstContent = await callVariantModel(firstPrompt, firstMaxTokens);
     variants = parseVariantResponse({
       content: firstContent,
       sessionId: params.sessionId,
@@ -343,7 +347,8 @@ async function generateVariantsWithAI(params: {
         retry: true,
       });
 
-      const retryContent = await callVariantModel(retryPrompt, 2600);
+      const retryMaxTokens = params.count - variants.length <= 1 ? 1400 : 2000;
+      const retryContent = await callVariantModel(retryPrompt, retryMaxTokens);
       const retryVariants = parseVariantResponse({
         content: retryContent,
         sessionId: params.sessionId,
@@ -357,6 +362,15 @@ async function generateVariantsWithAI(params: {
   } catch (error) {
     console.error('AI generation error:', error);
   }
+
+  console.log('[variants] generation finished', {
+    sessionId: params.sessionId,
+    requestedCount: params.count,
+    generatedCount: variants.length,
+    durationMs: Date.now() - generationStartedAt,
+    geometryMode: params.geometryMode,
+    hasGeometryContext: Boolean(params.geometryContext),
+  });
 
   if (variants.length < params.count) {
     warning =

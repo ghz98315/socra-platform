@@ -250,7 +250,7 @@ export function VariantPracticePanel({
             concept_tags: conceptTags,
             difficulty: selectedDifficulty,
             geometry_mode: supportsGeometryMode ? selectedGeometryMode : 'auto',
-            count: 2,
+            count: 1,
             geometry_data: geometryData,
             geometry_svg: geometrySvg,
           }),
@@ -374,7 +374,7 @@ export function VariantPracticePanel({
             变式练习
           </CardTitle>
           <CardDescription>
-            可以反复生成变式题。生成成功后会立即加入当前列表，后台再静默同步最新状态，不会继续卡住按钮。
+            当前改为每次先稳定生成 1 道，支持连续重复生成。生成成功后会立即加入当前列表，后台再静默同步最新状态。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -405,7 +405,7 @@ export function VariantPracticePanel({
               {variants.length > 0 ? '重新生成变式题' : '生成变式题'}
             </Button>
 
-            <Badge variant="outline">支持重复生成</Badge>
+            <Badge variant="outline">每次 1 道，可重复生成</Badge>
           </div>
 
           {supportsGeometryMode ? (
