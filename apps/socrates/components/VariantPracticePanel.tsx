@@ -125,11 +125,27 @@ export function VariantPracticePanel({
     void loadVariants();
   }, [sessionId, studentId]);
 
+  async function readApiPayload(response: Response) {
+    const raw = await response.text();
+
+    try {
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      const contentType = response.headers.get('content-type') || '';
+      const looksLikeHtml = raw.trimStart().startsWith('<') || contentType.includes('text/html');
+      throw new Error(
+        looksLikeHtml
+          ? '变式接口返回了非 JSON 响应，通常表示线上服务报错或当前部署还没有更新完成。请稍后重试。'
+          : '变式接口返回内容无法解析，请稍后重试。',
+      );
+    }
+  }
+
   async function loadVariants() {
     setLoading(true);
     try {
       const response = await fetch(`/api/variants?student_id=${studentId}&session_id=${sessionId}`);
-      const result = await response.json();
+      const result = await readApiPayload(response);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to load variants');
@@ -186,7 +202,7 @@ export function VariantPracticePanel({
           geometry_svg: geometrySvg,
         }),
       });
-      const result = await response.json();
+      const result = await readApiPayload(response);
 
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to generate variants');
@@ -225,7 +241,7 @@ export function VariantPracticePanel({
           hints_used: showHints,
         }),
       });
-      const result = await response.json();
+      const result = await readApiPayload(response);
 
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to submit answer');
