@@ -41,7 +41,7 @@ import {
   type RootCauseCategory,
   type RootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
-import { hasAssistantWrapUpCue, isLikelyWrapUpSignal } from '@/lib/chat/wrap-up-signal';
+import { isLikelyWrapUpSignal } from '@/lib/chat/wrap-up-signal';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -1139,9 +1139,7 @@ function WorkbenchPage() {
   const assistantMessages = messages.filter((message) => message.role === 'assistant');
   const userMessageCount = userMessages.length;
   const lastUserMessage = userMessages[userMessages.length - 1]?.content || '';
-  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]?.content || '';
-  const hasWrapUpSignal =
-    isLikelyWrapUpSignal(lastUserMessage) || hasAssistantWrapUpCue(lastAssistantMessage);
+  const hasWrapUpSignal = userMessageCount >= 2 && isLikelyWrapUpSignal(lastUserMessage);
 
   useEffect(() => {
     if (currentStep !== 'chat' || !errorSessionId || !effectiveStudentId) {

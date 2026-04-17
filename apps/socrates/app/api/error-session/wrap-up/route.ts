@@ -174,7 +174,8 @@ Return strict JSON with this schema:
 
 Rules:
 - Prefer "needs_more_clarification" when the student is still explicitly confused.
-- Prefer "ready_to_wrap" only when the student has shown a concrete next step, explanation, or the dialogue already has enough evidence.
+- Prefer "ready_to_wrap" only when the student has already shown a concrete answer path, explanation, or their own summary of the solution.
+- Do not mark "ready_to_wrap" just because the tutor asked the student to summarize.
 - Root cause must reflect why the student got stuck, not just the surface symptom.
 - Do not classify the student as "prompt_dependency" if the student independently writes a concrete equation chain, explanation, or answer path.
 - Difficulty is the student's felt difficulty for this round, not just OCR difficulty.

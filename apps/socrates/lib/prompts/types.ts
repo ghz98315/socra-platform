@@ -122,6 +122,10 @@ export interface PromptBuildOptions {
   hasImage?: boolean;
   questionType?: QuestionType;
   isFirstTurn?: boolean;
+  recentMessages?: Array<{
+    role: string;
+    content: string;
+  }>;
 }
 
 /**

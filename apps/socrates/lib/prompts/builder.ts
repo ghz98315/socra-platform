@@ -89,8 +89,9 @@ function buildFirstTurnFocus(options: PromptBuildOptions): string {
     focusLines.push('优先判断学生卡在已知条件、目标、关系搭桥，还是计算表达。');
 
     if (hasGeometry) {
-      focusLines.push('先让学生看图里的关键点、线、角，再确认已知关系和目标关系。');
-      focusLines.push('首问优先落在“图里最关键的对象或关系是什么”。');
+      focusLines.push('几何首问先落在“目标是什么、已知里哪组关系离目标最近”。');
+      focusLines.push('不要默认从认点名、认线名、认角名开始。');
+      focusLines.push('优先问哪组边、角、三角形、平行、垂直、相等等关系最关键。');
     } else {
       focusLines.push('先锚定题目给了什么、最后要求什么，再找最可能搭桥的关系。');
       focusLines.push('首问优先落在一个已知条件、目标量或关键关系上。');
@@ -121,6 +122,76 @@ ${focusLines.map((line) => `- ${line}`).join('\n')}
 </first_turn_focus>`;
 }
 
+function extractSubQuestions(questionContent?: string): string[] {
+  if (!questionContent) {
+    return [];
+  }
+
+  const normalized = questionContent.replace(/\r/g, '');
+  const patterns = [
+    /\((\d+)\)\s*([^\n]+(?:\n(?!\(\d+\)).+)*)/g,
+    /（(\d+)）\s*([^\n]+(?:\n(?!（\d+）).+)*)/g,
+    /([①②③④⑤⑥⑦⑧⑨⑩])\s*([^\n]+(?:\n(?![①②③④⑤⑥⑦⑧⑨⑩]).+)*)/g,
+    /(第[一二三四五六七八九十\d]+问)\s*[:：]?\s*([^\n]+(?:\n(?!第[一二三四五六七八九十\d]+问).+)*)/g,
+  ];
+
+  for (const pattern of patterns) {
+    const matches = [...normalized.matchAll(pattern)]
+      .map((match) => `${String(match[1]).trim()} ${String(match[2] || '').trim()}`.trim())
+      .filter(Boolean);
+
+    if (matches.length >= 2) {
+      return matches.slice(0, 5);
+    }
+  }
+
+  return [];
+}
+
+function buildSubQuestionLayer(questionContent?: string): string {
+  const subQuestions = extractSubQuestions(questionContent);
+  if (subQuestions.length < 2) {
+    return '';
+  }
+
+  return `<sub_question_plan>
+检测到这是一道多小题题目，请先拆分再引导：
+${subQuestions.map((item, index) => `- 小题${index + 1}：${item}`).join('\n')}
+- 先判断学生当前在回答哪一小题；若没有明确信号，默认从第一小题开始。
+- 同一轮只围绕一个小题推进，不要把不同小题的条件、结论和方法混在一起。
+- 当前小题未完成前，不要跳到下一小题。
+- 当前小题完成后，要先用一句话明确“这一小题已经解决，接下来转到下一小题”，再开始下一问。
+</sub_question_plan>`;
+}
+
+function buildConversationContinuity(options: PromptBuildOptions): string {
+  const recentMessages = (options.recentMessages || []).filter(
+    (message) => message.role !== 'system' && typeof message.content === 'string' && message.content.trim(),
+  );
+
+  if (recentMessages.length === 0) {
+    return '';
+  }
+
+  const recentWindow = recentMessages.slice(-6);
+  const recentTranscript = recentWindow
+    .map((message) => `- ${message.role === 'user' ? '学生' : '老师'}：${message.content}`)
+    .join('\n');
+
+  return `<conversation_continuity>
+【最近对话】
+${recentTranscript}
+
+【衔接要求】
+- 下一轮必须直接承接学生最后一句，不要重新从题面开场。
+- 先判断学生最后一句是在回答上一问、提出新卡点、还是切换到了另一小题。
+- 如果学生已经回答了上一问，就推进到下一缺口，不要用同义句把同一个问题再问一遍。
+- 如果学生已经给出一个中间结论、思路或明确尝试，先判断这一步哪里对、哪里还缺，再继续追问。
+- 不要围绕同一个点反复换说法追问，例如反复确认同一组对象、同一条关系、同一个已知条件。
+- 如果学生突然切换到另一小题，先用一句话明确“现在转到第几小题”，再继续。
+</conversation_continuity>`;
+}
+
 function buildLiveResponseContract(options: PromptBuildOptions): string {
   const firstTurnRules = options.isFirstTurn
     ? [
@@ -142,7 +213,11 @@ function buildLiveResponseContract(options: PromptBuildOptions): string {
     : '';
 
   const geometryRule = options.geometryData
-    ? '- 几何题优先引导学生观察点、线、角、相等、平行、垂直、中点等已知关系，再问方法。'
+    ? [
+        '- 几何题首问优先围绕“目标关系”和“已知关系”，不要默认认点名。',
+        '- 不要逐个确认 O、A、B、C 这类标签，除非标签歧义真的阻塞推理。',
+        '- 优先问哪组边、角、三角形或平行 / 垂直 / 相等等关系最能连接到目标。',
+      ].join('\n')
     : '';
 
   return `<live_response_contract>
@@ -213,6 +288,8 @@ export function buildSystemPrompt(options: PromptBuildOptions): string {
 
   const basePrompt = getBasePrompt();
   const firstTurnFocus = isFirstTurn ? buildFirstTurnFocus(options) : '';
+  const continuityLayer = buildConversationContinuity(options);
+  const subQuestionLayer = buildSubQuestionLayer(options.questionContent);
   const strategyLayers = isFirstTurn
     ? [firstTurnFocus]
     : [
@@ -243,6 +320,10 @@ ${examples}
 
 ${dynamicLayer}
 
+${subQuestionLayer}
+
+${continuityLayer}
+
 ${liveResponseContract}
 
 <task_instruction>
@@ -251,12 +332,14 @@ ${liveResponseContract}
 2. 再抓一个条件、一个关系、一个步骤，推进当前问题。
 3. 如果学生第一次说“看不懂 / 不会 / 没明白”，先把问题缩小一点，不要整题重启。
 4. 如果学生在同一步连续第二次仍然看不懂，就回退一层，重新锚定“已知 / 所求 / 当前障碍”，并换一种更具体的表示方式。
-5. 学生接近完成时，要求学生自己总结这题的关键思路。
-6. 如果这是错题或反复错题，再做后置 5 Whys 深归因。
-7. 最后落到一个“下次怎么避免再错”的可执行动作。
+5. 如果学生已经回答了上一问，就继续往前推进，不要用同义句重复追问。
+6. 如果题目包含多小题，只推进当前小题，不要串题。
+7. 学生接近完成时，要要求学生自己总结这题的关键思路。
+8. 如果这是错题或反复错题，再做后置 5 Whys 深归因。
+9. 最后落到一个“下次怎么避免再错”的可执行动作。
 
 补充要求：
-- 如果是数学几何题，先让学生看对象和关系，再问方法。
+- 如果是数学几何题，先让学生看目标关系和已知关系，再问方法。
 - 如果是语文题，先让学生回到题干关键词和文本位置。
 - 如果是英语题，先让学生看局部语境、句子骨架、词性或时态信号。
 - 回退时要从更小锚点重新开始，不要改成长篇讲解。

@@ -1,5 +1,9 @@
 import { isConfusionMessage } from '../chat/mock-response';
-import { hasAssistantWrapUpCue, isLikelyWrapUpSignal } from '../chat/wrap-up-signal';
+import {
+  hasAssistantSummaryRequest,
+  hasAssistantWrapUpCue,
+  isLikelyWrapUpSignal,
+} from '../chat/wrap-up-signal';
 import type { RootCauseCategory, RootCauseSubtype } from './taxonomy';
 
 export type WrapUpStatus = 'ongoing' | 'ready_to_wrap' | 'needs_more_clarification';
@@ -68,10 +72,12 @@ export function showsIndependentReasoning(message: string) {
 
   const looksLikeAnswerSeeking = isAnswerSeekingTranscript(normalized);
   const hasReasoningCue =
-    /(?:我觉得|我认为|因为|所以|先|然后|应该|答案是|我来试试|我来总结|下一步)/u.test(normalized);
+    /(?:我觉得|我认为|因为|所以|先.+再.+|应该|我来试试|我来总结|我的思路是|下一步)/u.test(
+      normalized,
+    );
   const hasMathChain =
     /[0-9a-zA-Z)\]]\s*=\s*[0-9a-zA-Z([\-]/.test(normalized) ||
-    /[+\-*/×÷]\s*\d/.test(normalized);
+    /[+\-*/×÷]\s*\d/u.test(normalized);
 
   return !looksLikeAnswerSeeking && (hasReasoningCue || hasMathChain);
 }
@@ -108,14 +114,16 @@ export function buildStatusFromMessages(messages: WrapUpHeuristicMessage[]): {
   const lastUserMessage = userMessages[userMessages.length - 1]?.content || '';
   const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]?.content || '';
   const confusionCount = userMessages.filter((message) => isConfusionMessage(message.content)).length;
-  const hasWrapUpSignal =
-    isLikelyWrapUpSignal(lastUserMessage) || hasAssistantWrapUpCue(lastAssistantMessage);
+  const studentShowsWrapSignal = isLikelyWrapUpSignal(lastUserMessage);
+  const studentShowsIndependentReasoning = showsIndependentReasoning(lastUserMessage);
+  const assistantAskedSummary = hasAssistantSummaryRequest(lastAssistantMessage);
+  const assistantReadyCue = hasAssistantWrapUpCue(lastAssistantMessage);
 
-  if (userMessages.length < 1) {
+  if (userMessages.length < 2) {
     return {
       status: 'ongoing',
       title: '建议再追一轮',
-      summary: '当前对话轮次还偏少，先再追问一轮再决定是否收口更稳。',
+      summary: '当前对话轮次还偏少，先让学生再往前说一步，再决定是否收口更稳。',
     };
   }
 
@@ -127,17 +135,33 @@ export function buildStatusFromMessages(messages: WrapUpHeuristicMessage[]): {
     };
   }
 
-  if (hasWrapUpSignal) {
+  if (studentShowsWrapSignal && studentShowsIndependentReasoning) {
     return {
       status: 'ready_to_wrap',
       title: '这道题可以先收口了',
-      summary: '当前对话已经积累了足够线索，可以先确认错因和难度并提交到错题库。',
+      summary: '学生已经给出明确思路、答案路径或自己的总结，可以确认错因和难度并提交到错题库。',
+    };
+  }
+
+  if (assistantAskedSummary) {
+    return {
+      status: 'ongoing',
+      title: '先等学生完成总结',
+      summary: '老师已经发出总结请求，但学生还没有给出明确总结或完整思路，暂时不要收口。',
+    };
+  }
+
+  if (assistantReadyCue && studentShowsWrapSignal) {
+    return {
+      status: 'ready_to_wrap',
+      title: '这道题可以先收口了',
+      summary: '老师和学生都已经给出收口信号，可以确认错因和难度并提交到错题库。',
     };
   }
 
   return {
     status: 'ongoing',
-    title: '可以准备收口，但还不稳',
-    summary: '已经有初步线索了，如果想更稳一点，可以再追问一轮再提交。',
+    title: '可以继续再推进一轮',
+    summary: '已经有初步线索了，但最好再让学生补出关键思路或自己的总结，再进入收口。',
   };
 }

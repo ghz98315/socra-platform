@@ -1,25 +1,54 @@
 import { isConfusionMessage } from './mock-response';
 
+function normalizeWrapUpText(message: string) {
+  return message.replace(/\s+/g, ' ').trim();
+}
+
 export function isLikelyWrapUpSignal(message: string): boolean {
-  const normalized = message.trim();
+  const normalized = normalizeWrapUpText(message);
 
   if (!normalized || isConfusionMessage(normalized)) {
     return false;
   }
 
-  return /我觉得|我认为|应该是|所以|因此|因为|先.*再|然后|最后|我的思路|我来总结|我会了|我懂了|我明白了|下一步|答案是|结果是|我选|应该选|可以设|可得|推出|证明|解得|等于|=|≈|^\d+(?:\.\d+)?$|^[A-Da-d]\.?$|\d+\s*[+\-*/=]\s*\d/u.test(
-    normalized,
-  );
+  const hasStrongSummaryCue =
+    /(?:我来总结|我的思路是|这题的思路是|这题应该先.+再.+|先.+再.+最后.+|因为.+所以.+|我会了|我懂了|我明白了|我已经会做了)/u.test(
+      normalized,
+    );
+  const hasExplicitAnswerCue =
+    /(?:答案(?:应该)?是|结果(?:应该)?是|我选[ABCD]|应该选[ABCD]|可得|推出|证明得|解得|所以得到)/u.test(
+      normalized,
+    );
+  const hasEquationChain =
+    /[0-9a-zA-Z)\]]\s*=\s*[0-9a-zA-Z([\-]/.test(normalized) ||
+    /(?:≈|≠|≤|≥)/u.test(normalized) ||
+    /(?:\d+\s*[+\-*/×÷]\s*\d)/u.test(normalized) ||
+    /^[A-Da-d]\.?$/u.test(normalized) ||
+    /^\d+(?:\.\d+)?$/u.test(normalized);
+
+  return hasStrongSummaryCue || hasExplicitAnswerCue || hasEquationChain;
 }
 
-export function hasAssistantWrapUpCue(message: string): boolean {
-  const normalized = message.trim();
+export function hasAssistantSummaryRequest(message: string): boolean {
+  const normalized = normalizeWrapUpText(message);
 
   if (!normalized) {
     return false;
   }
 
-  return /总结|收口|提交到错题库|错因|难度|用自己的话再说一遍|用自己的话总结|这题已经会了|这题可以先结束|可以结束本次对话/u.test(
+  return /(?:用自己的话再说一遍|用自己的话总结|你来总结一下|你来复述一下|先把这题思路说一遍|先总结一下这题|你先总结本题)/u.test(
+    normalized,
+  );
+}
+
+export function hasAssistantWrapUpCue(message: string): boolean {
+  const normalized = normalizeWrapUpText(message);
+
+  if (!normalized) {
+    return false;
+  }
+
+  return /(?:可以收口|可以结束本次对话|可以提交到错题库|确认错因和难度后提交|这题可以先结束|进入收口|提交到错题库后本轮结束)/u.test(
     normalized,
   );
 }

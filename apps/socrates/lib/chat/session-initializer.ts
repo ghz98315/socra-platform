@@ -65,6 +65,7 @@ export function initializeConversationSession(
     hasImage: false,
     questionType: actualQuestionType,
     isFirstTurn: true,
+    recentMessages: [],
   });
 
   const history = newSessionId

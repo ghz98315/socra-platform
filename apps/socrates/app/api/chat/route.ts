@@ -229,6 +229,12 @@ export async function POST(req: NextRequest) {
       (entry) => entry.role === 'user'
     ).length;
     const isFirstTurn = previousUserMessageCount === 0;
+    const recentMessages = existingHistory
+      .filter(
+        (entry): entry is { role: 'user' | 'assistant'; content: string } =>
+          (entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string',
+      )
+      .slice(-6);
 
     // 检测是否有图片
     const hasImage = hasImageInMessages(existingHistory);
@@ -244,6 +250,7 @@ export async function POST(req: NextRequest) {
       hasImage,
       questionType: actualQuestionType,
       isFirstTurn,
+      recentMessages,
     });
 
     if (!conversationHistory.has(historySessionId)) {
