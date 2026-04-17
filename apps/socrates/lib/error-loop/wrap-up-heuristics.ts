@@ -1,5 +1,5 @@
 import { isConfusionMessage } from '../chat/mock-response';
-import { isLikelyWrapUpSignal } from '../chat/wrap-up-signal';
+import { hasAssistantWrapUpCue, isLikelyWrapUpSignal } from '../chat/wrap-up-signal';
 import type { RootCauseCategory, RootCauseSubtype } from './taxonomy';
 
 export type WrapUpStatus = 'ongoing' | 'ready_to_wrap' | 'needs_more_clarification';
@@ -104,9 +104,12 @@ export function buildStatusFromMessages(messages: WrapUpHeuristicMessage[]): {
   summary: string;
 } {
   const userMessages = messages.filter((message) => message.role === 'user');
+  const assistantMessages = messages.filter((message) => message.role === 'assistant');
   const lastUserMessage = userMessages[userMessages.length - 1]?.content || '';
+  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]?.content || '';
   const confusionCount = userMessages.filter((message) => isConfusionMessage(message.content)).length;
-  const hasWrapUpSignal = isLikelyWrapUpSignal(lastUserMessage);
+  const hasWrapUpSignal =
+    isLikelyWrapUpSignal(lastUserMessage) || hasAssistantWrapUpCue(lastAssistantMessage);
 
   if (userMessages.length < 1) {
     return {

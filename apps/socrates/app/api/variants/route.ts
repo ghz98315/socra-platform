@@ -10,7 +10,7 @@ import type {
   VariantQuestion,
 } from '@/lib/variant-questions/types';
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 type VariantLogRow = {
   variant_id: string;
@@ -32,6 +32,8 @@ const AI_BASE_URL =
 const AI_API_KEY = process.env.AI_API_KEY_LOGIC || process.env.DASHSCOPE_API_KEY || '';
 const AI_MODEL = process.env.AI_MODEL_LOGIC || 'qwen-plus';
 const MAX_VARIANT_COUNT = 3;
+const VARIANT_MODEL_TIMEOUT_MS = 55000;
+const VARIANT_MODEL_MAX_ATTEMPTS = 2;
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -226,35 +228,112 @@ async function callVariantModel(prompt: string, maxTokens: number) {
     throw new Error('Missing AI API key for variant generation');
   }
 
-  const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${AI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You generate complete practice variants. Return JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.4,
-      max_tokens: maxTokens,
-    }),
-  });
+  let lastError: unknown;
 
-  if (!response.ok) {
-    throw new Error(`AI API call failed: ${response.status}`);
+  for (let attempt = 1; attempt <= VARIANT_MODEL_MAX_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), VARIANT_MODEL_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${AI_API_KEY}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: 'You generate complete practice variants. Return JSON only.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.4,
+          max_tokens: maxTokens,
+        }),
+      });
+
+      if (!response.ok) {
+        const retryable = response.status === 429 || response.status >= 500;
+        if (retryable && attempt < VARIANT_MODEL_MAX_ATTEMPTS) {
+          lastError = new Error(`AI API call failed: ${response.status}`);
+          continue;
+        }
+
+        throw new Error(`AI API call failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return String(result?.choices?.[0]?.message?.content || '');
+    } catch (error) {
+      lastError = error;
+      if (attempt >= VARIANT_MODEL_MAX_ATTEMPTS) {
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  const result = await response.json();
-  return String(result?.choices?.[0]?.message?.content || '');
+  throw lastError instanceof Error ? lastError : new Error('Variant model request failed');
+}
+
+function mapVariantGenerationError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  const causeCode =
+    error &&
+    typeof error === 'object' &&
+    'cause' in error &&
+    error.cause &&
+    typeof error.cause === 'object' &&
+    'code' in error.cause
+      ? String((error.cause as { code?: unknown }).code || '')
+      : '';
+
+  if (message.includes('Missing AI API key')) {
+    return {
+      status: 500,
+      message: '变式生成服务未配置完成，请联系管理员检查模型配置。',
+    };
+  }
+
+  if (message.includes('AbortError') || message.includes('aborted')) {
+    return {
+      status: 504,
+      message: '变式生成服务响应超时，请稍后重试。',
+    };
+  }
+
+  if (
+    causeCode === 'ECONNRESET' ||
+    causeCode === 'ETIMEDOUT' ||
+    causeCode === 'ENOTFOUND' ||
+    causeCode === 'EAI_AGAIN' ||
+    message.includes('fetch failed')
+  ) {
+    return {
+      status: 502,
+      message: '变式生成服务连接异常，请稍后重试。',
+    };
+  }
+
+  if (message.includes('AI API call failed: 429')) {
+    return {
+      status: 429,
+      message: '变式生成请求较多，请稍后再试。',
+    };
+  }
+
+  return {
+    status: 502,
+    message: '变式生成服务暂时不可用，请稍后重试。',
+  };
 }
 
 function parseVariantResponse(params: {
@@ -338,9 +417,15 @@ async function generateVariantsWithAI(params: {
 
   let variants: VariantQuestion[] = [];
   let warning: string | null = null;
+  let fatalError: { status: number; message: string } | null = null;
 
   try {
-    const firstMaxTokens = params.count <= 1 ? 1800 : 2600;
+    const firstMaxTokens =
+      params.count <= 1
+        ? params.geometryContext
+          ? 3200
+          : 2600
+        : 2600;
     const firstContent = await callVariantModel(firstPrompt, firstMaxTokens);
     variants = parseVariantResponse({
       content: firstContent,
@@ -364,7 +449,12 @@ async function generateVariantsWithAI(params: {
         retry: true,
       });
 
-      const retryMaxTokens = params.count - variants.length <= 1 ? 1400 : 2000;
+      const retryMaxTokens =
+        params.count - variants.length <= 1
+          ? params.geometryContext
+            ? 2400
+            : 1800
+          : 2000;
       const retryContent = await callVariantModel(retryPrompt, retryMaxTokens);
       const retryVariants = parseVariantResponse({
         content: retryContent,
@@ -379,6 +469,7 @@ async function generateVariantsWithAI(params: {
     }
   } catch (error) {
     console.error('AI generation error:', error);
+    fatalError = mapVariantGenerationError(error);
   }
 
   console.log('[variants] generation finished', {
@@ -400,6 +491,7 @@ async function generateVariantsWithAI(params: {
   return {
     variants: variants.slice(0, params.count),
     warning,
+    fatalError,
   };
 }
 
@@ -504,6 +596,10 @@ export async function POST(req: NextRequest) {
       geometryContext,
       figureImageUrl,
     });
+
+    if (result.variants.length === 0 && result.fatalError) {
+      return NextResponse.json({ error: result.fatalError.message }, { status: result.fatalError.status });
+    }
 
     if (result.variants.length === 0) {
       return NextResponse.json({

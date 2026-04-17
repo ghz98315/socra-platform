@@ -84,7 +84,7 @@ const GEOMETRY_HINT_PATTERN =
   /(?:三角形|四边形|平行四边形|梯形|菱形|矩形|正方形|圆|弧|切线|垂线|平行|相似|全等|角平分线|中点|高|中线|半径|直径|圆心|坐标|抛物线|几何|△|∠|⊥|∥)/u;
 
 const API_TIMEOUT_MS = 12000;
-const GENERATE_TIMEOUT_MS = 45000;
+const GENERATE_TIMEOUT_MS = 75000;
 const VARIANT_GEOMETRY_TIMEOUT_MS = 20000;
 
 type VariantGeometryState = {

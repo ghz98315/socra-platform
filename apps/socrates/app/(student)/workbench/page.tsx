@@ -41,7 +41,7 @@ import {
   type RootCauseCategory,
   type RootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
-import { isLikelyWrapUpSignal } from '@/lib/chat/wrap-up-signal';
+import { hasAssistantWrapUpCue, isLikelyWrapUpSignal } from '@/lib/chat/wrap-up-signal';
 import { cn } from '@/lib/utils';
 import { downloadErrorQuestionPDF } from '@/lib/pdf/ErrorQuestionPDF';
 import { createClient } from '@/lib/supabase/client';
@@ -320,6 +320,7 @@ function WorkbenchPage() {
   const [wrapUpDifficulty, setWrapUpDifficulty] = useState(3);
   const [wrapUpDismissedCount, setWrapUpDismissedCount] = useState(0);
   const [wrapUpSubmitted, setWrapUpSubmitted] = useState(false);
+  const [isSessionPreparing, setIsSessionPreparing] = useState(false);
 
   // Study session tracking
   const [isStudying, setIsStudying] = useState(false);
@@ -959,17 +960,20 @@ function WorkbenchPage() {
     resetWrapUpState();
     setMessages([openingAssistantMessage]);
     setCurrentStep('chat');
+    setIsSessionPreparing(true);
 
     if (!profile?.id || !effectiveStudentId) {
       console.error('[Workbench] Missing profile or student context, cannot save error session');
+      setIsSessionPreparing(false);
       return;
     }
 
     await saveErrorSession(text, openingAssistantMessage);
+    setIsSessionPreparing(false);
   };
 
   const saveErrorSession = async (text: string, openingAssistantMessage?: Message) => {
-    if (!profile?.id || !effectiveStudentId) return;
+    if (!profile?.id || !effectiveStudentId) return null;
     try {
       console.log('Creating error session with profile ID:', profile.id);
       const initialGeometryData = geometryEnabled && geometryData && geometryData.type !== 'unknown' ? geometryData : null;
@@ -1003,6 +1007,7 @@ function WorkbenchPage() {
         resetWrapUpState();
         lastSyncedGeometrySignatureRef.current = initialGeometryData ? JSON.stringify(initialGeometryData) : '';
         console.log('Error session created successfully:', result.data.session_id, 'theme:', result.data.theme_used);
+        return result.data.session_id as string;
       } else {
         const errorText = await response.text();
         console.error('Failed to create error session. Response:', errorText);
@@ -1010,6 +1015,7 @@ function WorkbenchPage() {
     } catch (error) {
       console.error('Exception creating error session:', error);
     }
+    return null;
   };
 
   const handleImageRemove = () => {
@@ -1027,13 +1033,25 @@ function WorkbenchPage() {
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
     setErrorSessionId(null);
+    setIsSessionPreparing(false);
     resetWrapUpState();
     lastSyncedGeometrySignatureRef.current = '';
   };
 
   // Chat functions
   const handleSendMessage = async (content: string) => {
-    if (wrapUpSubmitted || isWrapUpSubmitting) {
+    if (wrapUpSubmitted || isWrapUpSubmitting || isSessionPreparing) {
+      return;
+    }
+
+    if (!errorSessionId || !chatSessionRef.current || chatSessionRef.current !== errorSessionId) {
+      const pendingMessage: Message = {
+        id: `msg_${Date.now()}_pending_session`,
+        role: 'assistant',
+        content: '题目会话还在初始化，请稍等 1 秒后再发送。',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, pendingMessage]);
       return;
     }
 
@@ -1097,6 +1115,7 @@ function WorkbenchPage() {
   const handleResetChat = () => {
     setMessages([]);
     chatSessionRef.current = `session_${Date.now()}`;
+    setIsSessionPreparing(false);
     resetWrapUpState();
   };
 
@@ -1117,9 +1136,12 @@ function WorkbenchPage() {
   }, [wrapUpCategory, wrapUpSubtype]);
 
   const userMessages = messages.filter((message) => message.role === 'user');
+  const assistantMessages = messages.filter((message) => message.role === 'assistant');
   const userMessageCount = userMessages.length;
   const lastUserMessage = userMessages[userMessages.length - 1]?.content || '';
-  const hasWrapUpSignal = isLikelyWrapUpSignal(lastUserMessage);
+  const lastAssistantMessage = assistantMessages[assistantMessages.length - 1]?.content || '';
+  const hasWrapUpSignal =
+    isLikelyWrapUpSignal(lastUserMessage) || hasAssistantWrapUpCue(lastAssistantMessage);
 
   useEffect(() => {
     if (currentStep !== 'chat' || !errorSessionId || !effectiveStudentId) {
@@ -1166,7 +1188,6 @@ function WorkbenchPage() {
     currentStep === 'chat' &&
     !!errorSessionId &&
     !wrapUpSubmitted &&
-    hasWrapUpSignal &&
     (isWrapUpLoading || !!wrapUpPreview || !!wrapUpSubmitError);
   const hasGeometryText = geometryEnabled && ocrText.trim().length > 0;
   const hasLikelyGeometryText = hasGeometryText && hasLikelyGeometryContent(ocrText);
@@ -1667,8 +1688,8 @@ function WorkbenchPage() {
                 ) : null}
                 <ChatInput
                   onSend={handleSendMessage}
-                  disabled={wrapUpSubmitted || isWrapUpSubmitting}
-                  isLoading={isChatLoading}
+                  disabled={wrapUpSubmitted || isWrapUpSubmitting || isSessionPreparing}
+                  isLoading={isChatLoading || isSessionPreparing}
                   autoFocusKey={messages.length}
                   placeholder={
                     profile?.theme_preference === 'junior'
