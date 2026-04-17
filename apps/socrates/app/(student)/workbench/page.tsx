@@ -588,7 +588,7 @@ function WorkbenchPage() {
       }
 
       setWrapUpSubmitted(true);
-      router.push(`/error-book/${errorSessionId}`);
+      router.push(`/error-book/${errorSessionId}?from=wrap-up`);
     } catch (error) {
       console.error('[Workbench] Failed to submit wrap-up result:', error);
       setWrapUpSubmitError('提交错题库失败，请稍后再试。');

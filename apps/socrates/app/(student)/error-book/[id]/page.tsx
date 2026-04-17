@@ -1,15 +1,14 @@
-// =====================================================
+﻿// =====================================================
 // Project Socrates - Error Detail Page
-// 错题详情页：查看错题的完整对话历史
-// =====================================================
+// 閿欓璇︽儏椤碉細鏌ョ湅閿欓鐨勫畬鏁村璇濆巻鍙?// =====================================================
 
 'use client';
 
 /* eslint-disable react/no-unescaped-entities */
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useRef } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   BookOpen,
@@ -52,6 +51,8 @@ interface ErrorSession {
   subject: 'math' | 'chinese' | 'english' | 'physics' | 'chemistry';
   extracted_text: string | null;
   original_image_url: string | null;
+  geometry_data?: unknown;
+  geometry_svg?: string | null;
   status: 'analyzing' | 'guided_learning' | 'mastered';
   difficulty_rating: number | null;
   concept_tags: string[] | null;
@@ -88,11 +89,11 @@ interface VariantEvidenceSummary {
 }
 
 const subjectLabels: Record<string, string> = {
-  chinese: '语文',
-  english: '英语',
-  math: '数学',
-  physics: '物理',
-  chemistry: '化学',
+  chinese: '璇枃',
+  english: '鑻辫',
+  math: '鏁板',
+  physics: '鐗╃悊',
+  chemistry: '鍖栧',
 };
 
 const statusLabels: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -119,6 +120,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const resolvedParams = use(params);
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [errorSession, setErrorSession] = useState<ErrorSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +132,8 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
   const [variantEvidence, setVariantEvidence] = useState<VariantEvidenceSummary | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
+  const variantSectionRef = useRef<HTMLDivElement | null>(null);
+  const chatSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (authLoading) {
@@ -154,7 +158,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
             <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
           </div>
-          <p className="text-muted-foreground">正在检查登录状态...</p>
+          <p className="text-muted-foreground">姝ｅ湪妫€鏌ョ櫥褰曠姸鎬?..</p>
         </div>
       </div>
     );
@@ -164,7 +168,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
     setLoading(true);
     const supabase = createClient();
 
-    // 加载错题信息
+    // 鍔犺浇閿欓淇℃伅
     const { data: sessionData, error: sessionError } = await supabase
       .from('error_sessions')
       .select('*')
@@ -210,7 +214,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
       setVariantEvidence(null);
     }
 
-    // 加载对话历史
+    // 鍔犺浇瀵硅瘽鍘嗗彶
     const { data: messagesData } = await supabase
       .from('chat_messages')
       .select('*')
@@ -292,13 +296,13 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
           setReviewId(data.review_id);
         }
         void loadErrorDetail();
-        setReviewActionMessage('已加入复习，接下来继续通过复习和变式练习来确认是否真会。');
+        setReviewActionMessage('已加入复习，接下来继续通过复习和变式练习来确认是否真的会。');
       } else {
-        setReviewActionMessage(data.error || '操作失败，请重试');
+        setReviewActionMessage(data.error || '鎿嶄綔澶辫触锛岃閲嶈瘯');
       }
     } catch (error) {
       console.error('Failed to start review loop:', error);
-      setReviewActionMessage('网络错误，请重试');
+      setReviewActionMessage('缃戠粶閿欒锛岃閲嶈瘯');
     } finally {
       setStartingReviewLoop(false);
     }
@@ -323,7 +327,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             <div className="absolute inset-0 rounded-full border-4 border-primary/30"></div>
             <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
           </div>
-          <p className="text-muted-foreground">加载中...</p>
+          <p className="text-muted-foreground">鍔犺浇涓?..</p>
         </div>
       </div>
     );
@@ -335,10 +339,9 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
         <Card className="max-w-md">
           <CardContent className="py-8 text-center">
             <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground mb-4">错题不存在或已被删除</p>
+            <p className="text-muted-foreground mb-4">閿欓涓嶅瓨鍦ㄦ垨宸茶鍒犻櫎</p>
             <Button onClick={() => router.push('/error-book')}>
-              返回错题本
-            </Button>
+              杩斿洖閿欓鏈?            </Button>
           </CardContent>
         </Card>
       </div>
@@ -384,6 +387,15 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const fromWrapUp = searchParams.get('from') === 'wrap-up';
+
+  const handleOpenVariantPractice = () => {
+    setShowVariants(true);
+    window.setTimeout(() => {
+      variantSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
   return (
     <div className={cn(
       "min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-slate-950 dark:via-slate-900 dark:to-orange-950/30",
@@ -401,10 +413,10 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 className="gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                返回
+                杩斿洖
               </Button>
               <div>
-                <h1 className="text-lg font-semibold">错题详情</h1>
+                <h1 className="text-lg font-semibold">閿欓璇︽儏</h1>
                 <p className="text-sm text-muted-foreground">
                   {formatDate(errorSession.created_at)}
                 </p>
@@ -414,7 +426,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               {reviewActionMessage && (
                 <span className={cn(
                   "text-xs px-2 py-1 rounded",
-                  reviewActionMessage.includes('失败') || reviewActionMessage.includes('错误') ? "text-red-600 bg-red-50" :
+                  reviewActionMessage.includes('澶辫触') || reviewActionMessage.includes('閿欒') ? "text-red-600 bg-red-50" :
                   reviewActionMessage.includes('已加入') ? "text-green-600 bg-green-50" :
                   "text-muted-foreground"
                 )}>
@@ -428,7 +440,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   className="gap-2 bg-purple-500 hover:bg-purple-600 text-white"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  AI分析对话
+                  AI鍒嗘瀽瀵硅瘽
                 </Button>
               )}
               <Button
@@ -439,7 +451,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 className="gap-2"
               >
                 <Download className="w-4 h-4" />
-                {exporting ? '导出中...' : '导出PDF'}
+                {exporting ? '瀵煎嚭涓?..' : '瀵煎嚭PDF'}
               </Button>
             </div>
           </div>
@@ -447,7 +459,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* 错题信息卡片 */}
+        {/* 閿欓淇℃伅鍗＄墖 */}
         <Card className="border-border/50">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -459,7 +471,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   <CardTitle className="text-lg">
                     {subjectLabels[errorSession.subject] || errorSession.subject}
                   </CardTitle>
-                  <CardDescription>错题内容</CardDescription>
+                  <CardDescription>閿欓鍐呭</CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -477,7 +489,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* 标签 */}
+            {/* 鏍囩 */}
             {errorSession.concept_tags && errorSession.concept_tags.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <Tag className="w-4 h-4 text-muted-foreground" />
@@ -489,18 +501,18 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
 
-            {/* 图片 */}
+            {/* 鍥剧墖 */}
             {errorSession.original_image_url && (
               <div className="rounded-xl overflow-hidden bg-muted">
                 <img
                   src={errorSession.original_image_url}
-                  alt="错题图片"
+                  alt="閿欓鍥剧墖"
                   className="w-full max-h-80 object-contain"
                 />
               </div>
             )}
 
-            {/* 识别文本 */}
+            {/* 璇嗗埆鏂囨湰 */}
             {errorSession.extracted_text && (
               <div className="p-4 rounded-xl bg-muted/50 border border-border/50">
                 <p className="text-xs text-muted-foreground mb-2">题目内容：</p>
@@ -510,7 +522,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
           </CardContent>
         </Card>
 
-        {/* 对话历史 */}
+        {/* 瀵硅瘽鍘嗗彶 */}
         <Card className="border-warm-200/60 bg-white/90">
           <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -531,19 +543,50 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   className="gap-2 rounded-full border-warm-200"
                 >
                   {canOpenReview ? <BookOpen className="w-4 h-4" /> : <Target className="w-4 h-4" />}
-                  {canOpenReview ? reviewActionLabel : startingReviewLoop ? '加入中...' : '加入复习'}
+                  {canOpenReview ? reviewActionLabel : startingReviewLoop ? '鍔犲叆涓?..' : '鍔犲叆澶嶄範'}
                 </Button>
               ) : null}
             </div>
           </CardContent>
         </Card>
 
+        {fromWrapUp ? (
+          <Card className="border-emerald-200 bg-emerald-50/80">
+            <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.24em] text-emerald-600">Chat Closed</p>
+                <h2 className="mt-2 text-xl font-semibold text-emerald-900">鏈瀵硅瘽宸叉敹鍙ｏ紝宸茶繘鍏ラ敊棰樺簱澶嶇洏</h2>
+                <p className="mt-1 text-sm text-emerald-800">
+                  杩欐鑱婂ぉ宸茬粡缁撴潫銆傚缓璁厛鍋氬彉寮忕粌涔狅紝鍐嶇粨鍚堜笅鏂瑰璇濊褰曞洖鐪嬭嚜宸辨槸鎬庝箞鍗′綇鐨勩€?                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {supportsVariantPractice ? (
+                  <Button
+                    onClick={handleOpenVariantPractice}
+                    className="gap-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    鍏堝仛鍙樺紡缁冧範
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  onClick={() => chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="gap-2 rounded-full border-emerald-200"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  鏌ョ湅鏈璁板綍
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="w-5 h-5 text-primary" />
-              真会 / 假会闭环状态
-            </CardTitle>
+              鐪熶細 / 鍋囦細闂幆鐘舵€?            </CardTitle>
             <CardDescription>{closureMeta.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -551,7 +594,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               <Badge className={closureMeta.badgeClassName}>{closureMeta.label}</Badge>
               {reviewSummary?.last_judgement ? (
                 <Badge variant="outline">
-                  上次判定: {MASTERY_JUDGEMENT_META[reviewSummary.last_judgement].label}
+                  涓婃鍒ゅ畾: {MASTERY_JUDGEMENT_META[reviewSummary.last_judgement].label}
                 </Badge>
               ) : null}
               {reviewSummary?.reopened_count ? (
@@ -560,11 +603,11 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/60 px-4 py-3">
-                <p className="text-xs text-muted-foreground">当前闭环</p>
+                <p className="text-xs text-muted-foreground">褰撳墠闂幆</p>
                 <p className="mt-1 text-sm font-medium">{closureMeta.label}</p>
               </div>
               <div className="rounded-2xl border border-border/60 px-4 py-3">
-                <p className="text-xs text-muted-foreground">当前轮次</p>
+                <p className="text-xs text-muted-foreground">褰撳墠杞</p>
                 <p className="mt-1 text-sm font-medium">
                   {reviewSummary ? `第 ${reviewSummary.review_stage} 轮` : '尚未进入复习'}
                 </p>
@@ -572,7 +615,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               <div className="rounded-2xl border border-border/60 px-4 py-3">
                 <p className="text-xs text-muted-foreground">下一次复习</p>
                 <p className="mt-1 text-sm font-medium">
-                  {reviewSummary?.is_completed ? '已关闭' : formatReviewDate(reviewSummary?.next_review_at || null)}
+                  {reviewSummary?.is_completed ? '已关题' : formatReviewDate(reviewSummary?.next_review_at || null)}
                 </p>
               </div>
             </div>
@@ -586,7 +629,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium text-foreground">独立迁移证据</p>
+                  <p className="text-sm font-medium text-foreground">鐙珛杩佺Щ璇佹嵁</p>
                   <Badge
                     className={
                       variantEvidence?.qualified_transfer_evidence ? 'bg-emerald-500' : 'bg-amber-500'
@@ -610,15 +653,14 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   {variantEvidence?.next_step || '先打开变式练习，补做至少一道能独立完成的新题。'}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-3">
-                  <Button variant="outline" onClick={() => setShowVariants(true)} className="gap-2">
+                  <Button variant="outline" onClick={handleOpenVariantPractice} className="gap-2">
                     <Sparkles className="w-4 h-4" />
-                    打开变式练习
+                    鎵撳紑鍙樺紡缁冧範
                   </Button>
                   {reviewId ? (
                     <Button variant="ghost" onClick={handleOpenReview} className="gap-2">
                       <BookOpen className="w-4 h-4" />
-                      去复习
-                    </Button>
+                      鍘诲涔?                    </Button>
                   ) : null}
                 </div>
               </div>
@@ -650,22 +692,64 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
           />
         )}
 
-        <Card className="border-border/50">
+        {/* 閸欐ê绱＄紒鍐х瘎閸忋儱褰?*/}
+        {profile?.role === 'student' && errorSession.extracted_text && supportsVariantPractice && (
+          <div ref={variantSectionRef}>
+            <Card className="border-border/50">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">閸欐ê绱＄紒鍐х瘎</CardTitle>
+                      <CardDescription>AI 閺嶈宓佹潻娆撲壕妫版鏁撻幋鎰祲娴艰偐绮屾稊鐘活暯閿涘奔濡囨稉鈧崣宥勭瑏</CardDescription>
+                    </div>
+                  </div>
+                  <Button
+                    variant={showVariants ? 'default' : 'outline'}
+                    onClick={() => setShowVariants(!showVariants)}
+                    className="gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {showVariants ? '收起' : '开始练习'}
+                  </Button>
+                </div>
+              </CardHeader>
+              {showVariants && (
+                <CardContent>
+                  <VariantPracticePanel
+                    sessionId={errorSession.id}
+                    studentId={profile.id}
+                    subject={errorSession.subject as 'math' | 'physics' | 'chemistry'}
+                    originalText={errorSession.extracted_text}
+                    conceptTags={errorSession.concept_tags || undefined}
+                    geometryData={errorSession.geometry_data}
+                    geometrySvg={errorSession.geometry_svg || null}
+                  />
+                </CardContent>
+              )}
+            </Card>
+          </div>
+        )}
+
+        <div ref={chatSectionRef}>
+          <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Bot className="w-5 h-5 text-primary" />
-              学习对话记录
+              瀛︿範瀵硅瘽璁板綍
               <Badge variant="outline" className="ml-2">
-                {messages.length} 条
-              </Badge>
+                {messages.length} 鏉?              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             {messages.length === 0 ? (
               <div className="text-center py-8">
                 <Bot className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-muted-foreground">暂无对话记录</p>
-                <p className="text-sm text-muted-foreground mt-1">点击"继续学习"开始AI对话</p>
+                <p className="text-muted-foreground">鏆傛棤瀵硅瘽璁板綍</p>
+                <p className="text-sm text-muted-foreground mt-1">鐐瑰嚮"缁х画瀛︿範"寮€濮婣I瀵硅瘽</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -705,52 +789,16 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </CardContent>
-        </Card>
-
-        {/* 变式练习入口 */}
-        {profile?.role === 'student' && errorSession.extracted_text && supportsVariantPractice && (
-          <Card className="border-border/50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-purple-500" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">变式练习</CardTitle>
-                    <CardDescription>AI 根据这道题生成相似练习题，举一反三</CardDescription>
-                  </div>
-                </div>
-                <Button
-                  variant={showVariants ? 'default' : 'outline'}
-                  onClick={() => setShowVariants(!showVariants)}
-                  className="gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {showVariants ? '收起' : '开始练习'}
-                </Button>
-              </div>
-            </CardHeader>
-            {showVariants && (
-              <CardContent>
-                <VariantPracticePanel
-                  sessionId={errorSession.id}
-                  studentId={profile.id}
-                  subject={errorSession.subject as 'math' | 'physics' | 'chemistry'}
-                  originalText={errorSession.extracted_text}
-                  conceptTags={errorSession.concept_tags || undefined}
-                />
-              </CardContent>
-            )}
           </Card>
-        )}
+        </div>
 
-        {/* 底部操作栏 */}
+
+        {/* 搴曢儴鎿嶄綔鏍?*/}
         <div className="hidden">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              创建于 {formatDate(errorSession.created_at)}
+              鍒涘缓浜?{formatDate(errorSession.created_at)}
             </div>
             <div className="flex items-center gap-2">
               {messages.length >= 3 && profile?.role === 'parent' && (
@@ -760,25 +808,25 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
                   className="gap-2"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  AI分析
+                  AI鍒嗘瀽
                 </Button>
               )}
               {reviewId && (
                 <Button variant="outline" onClick={handleOpenReview} className="gap-2">
                   <BookOpen className="w-4 h-4" />
-                  继续复习
+                  缁х画澶嶄範
                 </Button>
               )}
               <Button onClick={handleContinueLearning} className="gap-2">
                 <Play className="w-4 h-4" />
-                继续学习
+                缁х画瀛︿範
               </Button>
             </div>
           </div>
         </div>
       </main>
 
-      {/* AI分析弹窗 */}
+      {/* AI鍒嗘瀽寮圭獥 */}
       <AnalysisDialog
         open={showAnalysis}
         onOpenChange={setShowAnalysis}

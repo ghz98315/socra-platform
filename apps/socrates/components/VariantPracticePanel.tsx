@@ -45,20 +45,22 @@ interface VariantPracticePanelProps {
   subject: 'math' | 'physics' | 'chemistry';
   originalText: string;
   conceptTags?: string[];
+  geometryData?: unknown;
+  geometrySvg?: string | null;
 }
 
 const difficultyConfig: Record<VariantDifficulty, { label: string; color: string }> = {
-  easy: { label: '简单', color: 'text-green-600' },
-  medium: { label: '中等', color: 'text-amber-600' },
-  hard: { label: '困难', color: 'text-red-600' },
+  easy: { label: '基础', color: 'text-green-600' },
+  medium: { label: '提升', color: 'text-amber-600' },
+  hard: { label: '挑战', color: 'text-red-600' },
 };
 
 const evaluationStrategyLabels: Record<string, string> = {
-  exact: '原样匹配',
-  assignment_rhs: '变量结果匹配',
-  numeric: '数值归一匹配',
+  exact: '完全匹配',
+  assignment_rhs: '等式右侧匹配',
+  numeric: '数值等价匹配',
   normalized_text: '标准化文本匹配',
-  unmatched: '未通过',
+  unmatched: '未匹配',
 };
 
 export function VariantPracticePanel({
@@ -67,6 +69,8 @@ export function VariantPracticePanel({
   subject,
   originalText,
   conceptTags = [],
+  geometryData,
+  geometrySvg,
 }: VariantPracticePanelProps) {
   const [variants, setVariants] = useState<VariantQuestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,6 +82,8 @@ export function VariantPracticePanel({
   const [showSolution, setShowSolution] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateWarning, setGenerateWarning] = useState<string | null>(null);
   const [submissionFeedback, setSubmissionFeedback] = useState<VariantPracticeFeedback | null>(null);
   const [variantSummary, setVariantSummary] = useState<VariantEvidenceSummary | null>(null);
 
@@ -125,6 +131,9 @@ export function VariantPracticePanel({
 
   async function generateVariants() {
     setGenerating(true);
+    setGenerateError(null);
+    setGenerateWarning(null);
+
     try {
       const response = await fetch('/api/variants', {
         method: 'POST',
@@ -137,6 +146,8 @@ export function VariantPracticePanel({
           concept_tags: conceptTags,
           difficulty: selectedDifficulty,
           count: 2,
+          geometry_data: geometryData,
+          geometry_svg: geometrySvg,
         }),
       });
       const result = await response.json();
@@ -144,9 +155,14 @@ export function VariantPracticePanel({
         throw new Error(result.error || 'Failed to generate variants');
       }
 
+      if (typeof result.warning === 'string' && result.warning.trim()) {
+        setGenerateWarning(result.warning);
+      }
+
       await loadVariants();
     } catch (error) {
       console.error('Failed to generate variants:', error);
+      setGenerateError(error instanceof Error ? error.message : '变式题生成失败，请稍后重试。');
     } finally {
       setGenerating(false);
     }
@@ -154,7 +170,7 @@ export function VariantPracticePanel({
 
   async function submitAnswer(variant: VariantQuestion) {
     if (!userAnswer.trim()) {
-      setSubmitError('请先输入答案。');
+      setSubmitError('请先填写你的答案再提交。');
       return;
     }
 
@@ -187,7 +203,7 @@ export function VariantPracticePanel({
       }
     } catch (error) {
       console.error('Failed to submit answer:', error);
-      setSubmitError(error instanceof Error ? error.message : '提交失败，请重试');
+      setSubmitError(error instanceof Error ? error.message : '提交答案失败，请稍后重试。');
     }
   }
 
@@ -200,7 +216,7 @@ export function VariantPracticePanel({
       case 'practicing':
         return <Badge className="bg-amber-500">练习中</Badge>;
       default:
-        return <Badge variant="outline">待练习</Badge>;
+        return <Badge variant="outline">待开始</Badge>;
     }
   }
 
@@ -220,35 +236,51 @@ export function VariantPracticePanel({
             <Sparkles className="h-5 w-5 text-warm-500" />
             变式练习
           </CardTitle>
-          <CardDescription>先单点打透，再看是否形成独立迁移证据。</CardDescription>
+          <CardDescription>
+            AI 会基于这道错题生成同考点新题，重点检查你是否真的完成了迁移，而不是只记住原题答案。
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-warm-700">难度</span>
-            {(['easy', 'medium', 'hard'] as const).map((difficulty) => (
-              <button
-                key={difficulty}
-                type="button"
-                onClick={() => setSelectedDifficulty(difficulty)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-sm font-medium transition-all',
-                  selectedDifficulty === difficulty
-                    ? 'bg-warm-500 text-white'
-                    : 'bg-warm-100/50 hover:bg-warm-100',
-                )}
-              >
-                {difficultyConfig[difficulty].label}
-              </button>
-            ))}
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-warm-700">难度</span>
+              {(['easy', 'medium', 'hard'] as const).map((difficulty) => (
+                <button
+                  key={difficulty}
+                  type="button"
+                  onClick={() => setSelectedDifficulty(difficulty)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-sm font-medium transition-all',
+                    selectedDifficulty === difficulty
+                      ? 'bg-warm-500 text-white'
+                      : 'bg-warm-100/50 hover:bg-warm-100',
+                  )}
+                >
+                  {difficultyConfig[difficulty].label}
+                </button>
+              ))}
+            </div>
+            <Button
+              onClick={() => void generateVariants()}
+              disabled={generating}
+              className="gap-2 rounded-full bg-warm-500 hover:bg-warm-600"
+            >
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              生成变式题
+            </Button>
           </div>
-          <Button
-            onClick={() => void generateVariants()}
-            disabled={generating}
-            className="gap-2 rounded-full bg-warm-500 hover:bg-warm-600"
-          >
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            生成变式题
-          </Button>
+
+          {generateError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {generateError}
+            </div>
+          ) : null}
+
+          {generateWarning ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              {generateWarning}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -283,7 +315,10 @@ export function VariantPracticePanel({
           {variants.map((variant, index) => (
             <Card
               key={variant.id}
-              className={cn('cursor-pointer border-warm-200 transition-all', activeVariant?.id === variant.id && 'ring-2 ring-warm-500')}
+              className={cn(
+                'cursor-pointer border-warm-200 transition-all',
+                activeVariant?.id === variant.id && 'ring-2 ring-warm-500',
+              )}
             >
               {activeVariant?.id === variant.id ? (
                 <CardContent className="space-y-4 p-6">
@@ -300,7 +335,7 @@ export function VariantPracticePanel({
                       onClick={resetPractice}
                       className="text-sm text-warm-600 hover:text-warm-900"
                     >
-                      关闭
+                      收起
                     </button>
                   </div>
 
@@ -327,7 +362,7 @@ export function VariantPracticePanel({
                         className="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-800 disabled:opacity-50"
                       >
                         <Lightbulb className="h-4 w-4" />
-                        {showHints >= variant.hints.length ? '提示已全部展示' : '显示提示'}
+                        {showHints >= variant.hints.length ? '提示已全部显示' : '查看下一条提示'}
                       </button>
 
                       {showHints > 0 ? (
@@ -348,7 +383,7 @@ export function VariantPracticePanel({
                           className="flex-1 border-warm-200"
                         />
                         <Button onClick={() => void submitAnswer(variant)} className="rounded-full bg-warm-500 hover:bg-warm-600">
-                          提交
+                          提交答案
                         </Button>
                       </div>
 
@@ -371,21 +406,21 @@ export function VariantPracticePanel({
                             <CheckCircle className="h-6 w-6 text-green-500" />
                             <div>
                               <p className="font-medium text-green-700 dark:text-green-400">
-                                {submissionFeedback.independent_success ? '回答正确，已形成独立迁移证据' : '回答正确'}
+                                {submissionFeedback.independent_success ? '回答正确，已计入独立迁移证据' : '回答正确'}
                               </p>
                               <p className="text-sm text-green-700 dark:text-green-400">
                                 {submissionFeedback.evidence_label}
                               </p>
-                              <p className="text-sm text-green-600 dark:text-green-500">正确答案: {variant.answer}</p>
+                              <p className="text-sm text-green-600 dark:text-green-500">参考答案：{variant.answer}</p>
                             </div>
                           </>
                         ) : (
                           <>
                             <XCircle className="h-6 w-6 text-red-500" />
                             <div>
-                              <p className="font-medium text-red-700 dark:text-red-400">回答错误</p>
+                              <p className="font-medium text-red-700 dark:text-red-400">回答不正确</p>
                               <p className="text-sm text-red-700 dark:text-red-400">
-                                你的答案: {userAnswer} | 正确答案: {variant.answer}
+                                你的答案：{userAnswer} | 参考答案：{variant.answer}
                               </p>
                               {submissionFeedback?.evidence_label ? (
                                 <p className="text-sm text-red-700 dark:text-red-400">{submissionFeedback.evidence_label}</p>
@@ -397,10 +432,14 @@ export function VariantPracticePanel({
 
                       {submissionFeedback ? (
                         <div className="rounded-xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground">
-                          <p>判题方式: {evaluationStrategyLabels[submissionFeedback.evaluation.strategy] || submissionFeedback.evaluation.strategy}</p>
+                          <p>
+                            判定方式：{evaluationStrategyLabels[submissionFeedback.evaluation.strategy] || submissionFeedback.evaluation.strategy}
+                          </p>
                           <p className="mt-1">
-                            提示使用: {submissionFeedback.hints_used} 次
-                            {submissionFeedback.hints_used > 0 ? '，因此本次不计入独立迁移证据。' : '，本次满足独立作答要求。'}
+                            提示使用：{submissionFeedback.hints_used} 次。
+                            {submissionFeedback.hints_used > 0
+                              ? '本次使用了提示，不计入独立迁移证据。'
+                              : '本次未使用提示，可作为独立迁移证据候选。'}
                           </p>
                         </div>
                       ) : null}
@@ -412,7 +451,7 @@ export function VariantPracticePanel({
                           className="flex items-center gap-2 text-sm font-medium"
                         >
                           {showSolution ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          查看解析
+                          {showSolution ? '收起解析' : '查看解析'}
                         </button>
 
                         {showSolution ? (
@@ -423,7 +462,7 @@ export function VariantPracticePanel({
                       </div>
 
                       <Button variant="outline" onClick={resetPractice} className="rounded-full">
-                        继续练习
+                        返回题目列表
                       </Button>
                     </div>
                   )}
@@ -452,8 +491,8 @@ export function VariantPracticePanel({
       ) : (
         <div className="py-8 text-center text-warm-600">
           <BookOpen className="mx-auto mb-3 h-12 w-12 opacity-50" />
-          <p>还没有变式题目</p>
-          <p className="text-sm">先生成一组变式题，检查是否真的会了。</p>
+          <p>还没有生成变式题。</p>
+          <p className="text-sm">先选择难度并点击“生成变式题”，系统会生成可直接练习的新题。</p>
         </div>
       )}
     </div>

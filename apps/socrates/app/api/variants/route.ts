@@ -1,26 +1,351 @@
-// =====================================================
-// Project Socrates - Variant Questions API
-// 变式题目生成 API (Supabase 版本)
-// =====================================================
-
+import { randomUUID } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
-import type { VariantQuestion, GenerateVariantRequest, VariantDifficulty } from '@/lib/variant-questions/types';
-import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
-import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate-answer';
 
-// 创建 Supabase Admin 客户端
+import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
+import type { GenerateVariantRequest, VariantDifficulty, VariantQuestion } from '@/lib/variant-questions/types';
+
+type VariantLogRow = {
+  variant_id: string;
+  is_correct: boolean | null;
+  hints_used: number | null;
+  created_at: string | null;
+};
+
+type ErrorSessionVariantContext = {
+  geometry_data?: unknown;
+  geometry_svg?: string | null;
+};
+
+const AI_BASE_URL =
+  process.env.AI_BASE_URL_LOGIC ||
+  process.env.DASHSCOPE_BASE_URL ||
+  'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const AI_API_KEY = process.env.AI_API_KEY_LOGIC || process.env.DASHSCOPE_API_KEY || '';
+const AI_MODEL = process.env.AI_MODEL_LOGIC || 'qwen-plus';
+const MAX_VARIANT_COUNT = 3;
+
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
     throw new Error('Missing Supabase environment variables');
   }
+
   return createClient(url, key);
 }
 
-// GET - 获取变式题目列表
+function clampVariantCount(value: number | undefined) {
+  const normalized = Number.isFinite(value) ? Math.round(Number(value)) : 2;
+  return Math.min(MAX_VARIANT_COUNT, Math.max(1, normalized || 2));
+}
+
+function sanitizeText(value: unknown) {
+  return typeof value === 'string' ? value.replace(/\r/g, '').trim() : '';
+}
+
+function sanitizeHints(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => sanitizeText(item))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function sanitizeConceptTags(value: unknown, fallback: string[]) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const normalized = value.map((item) => sanitizeText(item)).filter(Boolean);
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function isCompleteVariant(input: {
+  question: string;
+  solution: string;
+  answer: string;
+  hints: string[];
+}) {
+  return (
+    input.question.length >= 12 &&
+    input.solution.length >= 12 &&
+    input.answer.length >= 1 &&
+    input.hints.length >= 1
+  );
+}
+
+function extractFirstJsonObject(content: string) {
+  const trimmed = content.trim();
+  const codeFenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = codeFenceMatch ? codeFenceMatch[1] : trimmed;
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  return candidate.slice(start, end + 1);
+}
+
+function buildGeometryContext(context: ErrorSessionVariantContext) {
+  const parts: string[] = [];
+
+  if (context.geometry_data) {
+    parts.push(`Geometry data: ${JSON.stringify(context.geometry_data).slice(0, 1800)}`);
+  }
+
+  if (typeof context.geometry_svg === 'string' && context.geometry_svg.trim()) {
+    parts.push(`Geometry SVG excerpt: ${context.geometry_svg.trim().slice(0, 1800)}`);
+  }
+
+  return parts.join('\n');
+}
+
+function buildVariantPrompt(params: {
+  subject: 'math' | 'physics' | 'chemistry';
+  originalText: string;
+  conceptTags: string[];
+  difficulty: VariantDifficulty;
+  count: number;
+  geometryContext?: string;
+  retry?: boolean;
+}) {
+  const subjectLabels: Record<string, string> = {
+    math: 'mathematics',
+    physics: 'physics',
+    chemistry: 'chemistry',
+  };
+
+  const difficultyLabels: Record<VariantDifficulty, string> = {
+    easy: 'Make the variant slightly easier than the original while keeping the same core concept.',
+    medium: 'Keep roughly the same difficulty and same core concept, but change the setup enough to require transfer.',
+    hard: 'Keep the same core concept, but increase transfer difficulty through changed conditions or combined steps.',
+  };
+
+  const geometrySection = params.geometryContext
+    ? `Geometry context:\n${params.geometryContext}\nUse it to preserve meaningful geometric relationships when relevant.`
+    : 'No extra geometry context was provided.';
+
+  const retryRule = params.retry
+    ? 'Previous output was incomplete. Every variant in this response must be fully complete.'
+    : '';
+
+  return `Generate ${params.count} complete ${subjectLabels[params.subject]} variant practice questions for a student.
+
+${retryRule}
+
+Original problem:
+${params.originalText}
+
+Concept tags:
+${params.conceptTags.length > 0 ? params.conceptTags.join(', ') : 'None provided'}
+
+Target difficulty:
+${difficultyLabels[params.difficulty]}
+
+${geometrySection}
+
+Requirements:
+1. Keep the same core concept as the original problem.
+2. Each variant must be self-contained and solvable on its own.
+3. Change the values, wording, givens, or setup enough that the student must transfer the method rather than recall the original answer.
+4. For geometry, you may change the figure setup, but output text only. If the figure needs to change, describe the new figure clearly in the question text.
+5. Provide 1 to 3 short hints.
+6. Provide a full step-by-step solution.
+7. Provide a concise final answer.
+8. Return JSON only. No markdown, no commentary, no code fences.
+9. Do not return partial or truncated variants.
+
+Return exactly this schema:
+{
+  "variants": [
+    {
+      "question": "complete question text",
+      "hints": ["hint 1", "hint 2"],
+      "solution": "complete step-by-step solution",
+      "answer": "final answer",
+      "concepts": ["concept 1", "concept 2"]
+    }
+  ]
+}`;
+}
+
+async function loadVariantContext(admin: any, sessionId: string) {
+  const { data } = await (admin as any)
+    .from('error_sessions')
+    .select('geometry_data, geometry_svg')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  return (data || {}) as ErrorSessionVariantContext;
+}
+
+async function callVariantModel(prompt: string, maxTokens: number) {
+  if (!AI_API_KEY) {
+    throw new Error('Missing AI API key for variant generation');
+  }
+
+  const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${AI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: 'You generate complete practice variants. Return JSON only.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.4,
+      max_tokens: maxTokens,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AI API call failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return String(result?.choices?.[0]?.message?.content || '');
+}
+
+function parseVariantResponse(params: {
+  content: string;
+  sessionId: string;
+  studentId: string;
+  subject: 'math' | 'physics' | 'chemistry';
+  difficulty: VariantDifficulty;
+  fallbackConceptTags: string[];
+}) {
+  const jsonText = extractFirstJsonObject(params.content);
+  if (!jsonText) {
+    return [] as VariantQuestion[];
+  }
+
+  const parsed = JSON.parse(jsonText) as {
+    variants?: Array<{
+      question?: unknown;
+      hints?: unknown;
+      solution?: unknown;
+      answer?: unknown;
+      concepts?: unknown;
+    }>;
+  };
+
+  return (parsed.variants || []).reduce<VariantQuestion[]>((acc, item) => {
+    const question = sanitizeText(item.question);
+    const hints = sanitizeHints(item.hints);
+    const solution = sanitizeText(item.solution);
+    const answer = sanitizeText(item.answer);
+
+    if (!isCompleteVariant({ question, hints, solution, answer })) {
+      return acc;
+    }
+
+    acc.push({
+      id: randomUUID(),
+      original_session_id: params.sessionId,
+      student_id: params.studentId,
+      subject: params.subject,
+      question_text: question,
+      concept_tags: sanitizeConceptTags(item.concepts, params.fallbackConceptTags),
+      difficulty: params.difficulty,
+      hints,
+      solution,
+      answer,
+      status: 'pending',
+      attempts: 0,
+      correct_attempts: 0,
+      created_at: new Date().toISOString(),
+    });
+
+    return acc;
+  }, []);
+}
+
+async function generateVariantsWithAI(params: {
+  sessionId: string;
+  studentId: string;
+  subject: 'math' | 'physics' | 'chemistry';
+  originalText: string;
+  conceptTags: string[];
+  difficulty: VariantDifficulty;
+  count: number;
+  geometryContext?: string;
+}) {
+  const firstPrompt = buildVariantPrompt({
+    subject: params.subject,
+    originalText: params.originalText,
+    conceptTags: params.conceptTags,
+    difficulty: params.difficulty,
+    count: params.count,
+    geometryContext: params.geometryContext,
+  });
+
+  let variants: VariantQuestion[] = [];
+  let warning: string | null = null;
+
+  try {
+    const firstContent = await callVariantModel(firstPrompt, 3200);
+    variants = parseVariantResponse({
+      content: firstContent,
+      sessionId: params.sessionId,
+      studentId: params.studentId,
+      subject: params.subject,
+      difficulty: params.difficulty,
+      fallbackConceptTags: params.conceptTags,
+    });
+
+    if (variants.length < params.count) {
+      const retryPrompt = buildVariantPrompt({
+        subject: params.subject,
+        originalText: params.originalText,
+        conceptTags: params.conceptTags,
+        difficulty: params.difficulty,
+        count: params.count - variants.length,
+        geometryContext: params.geometryContext,
+        retry: true,
+      });
+
+      const retryContent = await callVariantModel(retryPrompt, 2600);
+      const retryVariants = parseVariantResponse({
+        content: retryContent,
+        sessionId: params.sessionId,
+        studentId: params.studentId,
+        subject: params.subject,
+        difficulty: params.difficulty,
+        fallbackConceptTags: params.conceptTags,
+      });
+      variants = [...variants, ...retryVariants].slice(0, params.count);
+    }
+  } catch (error) {
+    console.error('AI generation error:', error);
+  }
+
+  if (variants.length < params.count) {
+    warning =
+      variants.length > 0
+        ? `本次只生成了 ${variants.length}/${params.count} 道完整变式题，已自动过滤不完整内容。可以再次点击“生成变式题”补齐。`
+        : '本次没有生成可用的完整变式题，请重试。';
+  }
+
+  return {
+    variants: variants.slice(0, params.count),
+    warning,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
@@ -39,12 +364,10 @@ export async function GET(req: NextRequest) {
       .eq('student_id', student_id)
       .order('created_at', { ascending: false });
 
-    // 按原错题筛选
     if (session_id) {
       query = query.eq('original_session_id', session_id);
     }
 
-    // 按状态筛选
     if (status) {
       query = query.eq('status', status);
     }
@@ -52,7 +375,6 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching variants:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -66,9 +388,7 @@ export async function GET(req: NextRequest) {
         .select('variant_id, is_correct, hints_used, created_at')
         .in('variant_id', variantIds);
 
-      if (logError) {
-        console.error('Error fetching variant practice logs:', logError);
-      } else {
+      if (!logError) {
         summary = summarizeVariantEvidence({
           questions: questions.map((question) => ({
             id: question.id,
@@ -79,12 +399,7 @@ export async function GET(req: NextRequest) {
             completed_at: question.completed_at || null,
             created_at: question.created_at || null,
           })),
-          logs: (logData || []) as Array<{
-            variant_id: string;
-            is_correct: boolean | null;
-            hints_used: number | null;
-            created_at: string | null;
-          }>,
+          logs: (logData || []) as VariantLogRow[],
         });
       }
     }
@@ -95,52 +410,62 @@ export async function GET(req: NextRequest) {
       summary,
     });
   } catch (error: any) {
-    console.error('Variant questions GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST - 生成变式题目
 export async function POST(req: NextRequest) {
   try {
     const body: GenerateVariantRequest = await req.json();
-    const { session_id, student_id, subject, original_text, concept_tags, difficulty, count = 2 } = body;
+    const normalizedCount = clampVariantCount(body.count);
 
-    if (!session_id || !student_id || !original_text) {
+    if (!body.session_id || !body.student_id || !sanitizeText(body.original_text)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 使用 AI 生成变式题目
-    const variants = await generateVariantsWithAI({
-      session_id,
-      student_id,
-      subject: subject || 'math',
-      original_text,
-      concept_tags: concept_tags || [],
-      difficulty: difficulty || 'medium',
-      count,
+    const admin = getSupabaseAdmin();
+    const sessionContext =
+      body.geometry_data || body.geometry_svg !== undefined
+        ? { geometry_data: body.geometry_data, geometry_svg: body.geometry_svg }
+        : await loadVariantContext(admin, body.session_id);
+
+    const geometryContext = buildGeometryContext(sessionContext);
+    const result = await generateVariantsWithAI({
+      sessionId: body.session_id,
+      studentId: body.student_id,
+      subject: body.subject || 'math',
+      originalText: sanitizeText(body.original_text),
+      conceptTags: body.concept_tags || [],
+      difficulty: body.difficulty || 'medium',
+      count: normalizedCount,
+      geometryContext,
     });
 
-    // 存储到数据库
-    const admin = getSupabaseAdmin();
+    if (result.variants.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        warning: result.warning || '本次没有生成可用的完整变式题，请稍后重试。',
+      });
+    }
+
     const { data, error } = await (admin as any)
       .from('variant_questions')
-      .insert(variants)
+      .insert(result.variants)
       .select();
 
     if (error) {
-      console.error('Error saving variants:', error);
-      // 即使保存失败，也返回生成的变式题（降级方案）
       return NextResponse.json({
         success: true,
-        data: variants,
-        warning: 'Failed to save to database',
+        data: result.variants,
+        warning: result.warning || '变式题已生成，但保存失败，请稍后重新生成。',
       });
     }
 
     return NextResponse.json({
       success: true,
-      data: data || variants,
+      data: data || result.variants,
+      warning: result.warning,
     });
   } catch (error: any) {
     console.error('Variant questions POST error:', error);
@@ -148,7 +473,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH - 更新变式题目状态（练习结果）
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -160,7 +484,6 @@ export async function PATCH(req: NextRequest) {
 
     const admin = getSupabaseAdmin();
 
-    // 插入练习记录（触发器会自动更新变式题目状态）
     const { error: logError } = await (admin as any)
       .from('variant_practice_logs')
       .insert({
@@ -176,7 +499,6 @@ export async function PATCH(req: NextRequest) {
       console.error('Error saving practice log:', logError);
     }
 
-    // 获取更新后的变式题目
     const { data: variant, error } = await (admin as any)
       .from('variant_questions')
       .select('*')
@@ -184,7 +506,6 @@ export async function PATCH(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error fetching updated variant:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -193,147 +514,6 @@ export async function PATCH(req: NextRequest) {
       data: variant,
     });
   } catch (error: any) {
-    console.error('Variant questions PATCH error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// 使用 AI 生成变式题目
-async function generateVariantsWithAI(params: {
-  session_id: string;
-  student_id: string;
-  subject: 'math' | 'physics' | 'chemistry';
-  original_text: string;
-  concept_tags: string[];
-  difficulty: VariantDifficulty;
-  count: number;
-}): Promise<VariantQuestion[]> {
-  const { session_id, student_id, subject, original_text, concept_tags, difficulty, count } = params;
-
-  // 构建 AI prompt
-  const subjectLabels: Record<string, string> = {
-    math: '数学',
-    physics: '物理',
-    chemistry: '化学',
-  };
-
-  const difficultyLabels: Record<string, string> = {
-    easy: '简单（数字变化，结构相同）',
-    medium: '中等（条件变化，解法相似）',
-    hard: '困难（情境变化，需要灵活应用）',
-  };
-
-  const prompt = `你是一位${subjectLabels[subject]}老师。请根据以下原题，生成${count}道变式练习题。
-
-【原题】
-${original_text}
-
-【涉及知识点】
-${concept_tags.length > 0 ? concept_tags.join('、') : '请自行分析'}
-
-【难度要求】
-${difficultyLabels[difficulty]}
-
-【要求】
-1. 保持相同的知识点和解题思路
-2. 改变数字、条件或情境
-3. 每道题提供2-3个递进提示
-4. 提供详细解析和答案
-5. 答案要简洁明了（如：42、x=5、30°等）
-
-请按以下JSON格式返回（仅返回JSON，不要其他内容）：
-{
-  "variants": [
-    {
-      "question": "题目内容",
-      "hints": ["提示1", "提示2"],
-      "solution": "详细解析",
-      "answer": "答案",
-      "concepts": ["知识点1", "知识点2"]
-    }
-  ]
-}`;
-
-  try {
-    // 优先使用 DeepSeek，降级到通义千问
-    const aiBaseUrl = process.env.AI_BASE_URL_LOGIC || process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-    const aiApiKey = process.env.AI_API_KEY_LOGIC || process.env.DASHSCOPE_API_KEY;
-    const aiModel = process.env.AI_MODEL_LOGIC || 'qwen-plus';
-
-    const response = await fetch(`${aiBaseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${aiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: aiModel,
-        messages: [
-          {
-            role: 'system',
-            content: '你是一位专业的题目设计专家，擅长根据原题设计变式练习题。请只返回JSON格式的结果。',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`AI API call failed: ${response.status}`);
-    }
-
-    const result = await response.json();
-    const content = result.choices[0]?.message?.content || '';
-
-    // 解析 JSON
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Failed to parse AI response');
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const variants: VariantQuestion[] = (parsed.variants || []).map((v: any, index: number) => ({
-      id: randomUUID(),
-      original_session_id: session_id,
-      student_id,
-      subject,
-      question_text: v.question,
-      concept_tags: v.concepts || concept_tags,
-      difficulty,
-      hints: v.hints || [],
-      solution: v.solution,
-      answer: v.answer,
-      status: 'pending' as const,
-      attempts: 0,
-      correct_attempts: 0,
-      created_at: new Date().toISOString(),
-    }));
-
-    return variants.slice(0, count);
-  } catch (error) {
-    console.error('AI generation error:', error);
-
-    // 返回模拟数据作为降级方案
-    return Array.from({ length: count }, (_, index) => ({
-      id: randomUUID(),
-      original_session_id: session_id,
-      student_id,
-      subject,
-      question_text: `【变式${index + 1}】基于原题的变式练习题。请根据 "${original_text.slice(0, 50)}..." 进行变化练习。`,
-      concept_tags: concept_tags.length > 0 ? concept_tags : ['综合知识点'],
-      difficulty,
-      hints: ['提示1：仔细审题', '提示2：回顾相关公式', '提示3：分步求解'],
-      solution: '这是变式题的详细解析...',
-      answer: '答案',
-      status: 'pending' as const,
-      attempts: 0,
-      correct_attempts: 0,
-      created_at: new Date().toISOString(),
-    }));
   }
 }
