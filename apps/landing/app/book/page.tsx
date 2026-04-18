@@ -1,6 +1,7 @@
 ﻿import BookPageClient from '../../components/BookPageClient';
 import SiteLayout from '../../components/SiteLayout';
 import { buildMetadata } from '../../lib/metadata';
+import { resolveLandingBookAccess } from '../../lib/bookAccess.server';
 
 export const metadata = buildMetadata({
   title: '《从错误开始》',
@@ -9,10 +10,12 @@ export const metadata = buildMetadata({
   type: 'book',
 });
 
-export default function BookPage() {
+export default async function BookPage() {
+  const access = await resolveLandingBookAccess();
+
   return (
     <SiteLayout>
-      <BookPageClient />
+      <BookPageClient hasFullAccess={access.hasFullAccess} />
     </SiteLayout>
   );
 }

@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock } from 'lucide-react';
 import Link from 'next/link';
 import BookCoverMockup from './BookCoverMockup';
+import { canReadBookChapter } from '../lib/bookAccess';
 import { buildSocratesEntryUrl } from '../lib/socratesLinks';
 import { useBookChapters, type BookChapter } from '../lib/useBookChapters';
 
@@ -53,8 +54,17 @@ function buildTocParts(chapters: BookChapter[]): TocPart[] {
   return parts;
 }
 
-function ChapterLink({ chapter, compact = false }: { chapter: BookChapter; compact?: boolean }) {
-  const href = chapter.isFree ? `/read/${chapter.id}` : '/book-purchase';
+function ChapterLink({
+  chapter,
+  compact = false,
+  hasFullAccess = false,
+}: {
+  chapter: BookChapter;
+  compact?: boolean;
+  hasFullAccess?: boolean;
+}) {
+  const isAccessible = canReadBookChapter(chapter.id, hasFullAccess);
+  const href = isAccessible ? `/read/${chapter.id}` : '/book-purchase';
   const chapterNumber =
     !compact &&
     typeof chapter.chapterNumber === 'number' &&
@@ -86,6 +96,10 @@ function ChapterLink({ chapter, compact = false }: { chapter: BookChapter; compa
               <span className="mt-0.5 shrink-0 rounded-sm bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
                 试读
               </span>
+            ) : isAccessible ? (
+              <span className="mt-0.5 shrink-0 rounded-sm bg-neutral-900 px-2 py-0.5 text-[10px] font-medium text-white">
+                已解锁
+              </span>
             ) : (
               <Lock className="mt-1 h-3.5 w-3.5 shrink-0 text-neutral-300" />
             )}
@@ -106,7 +120,7 @@ function ChapterLink({ chapter, compact = false }: { chapter: BookChapter; compa
   );
 }
 
-export default function BookPage() {
+export default function BookPage({ hasFullAccess = false }: { hasFullAccess?: boolean }) {
   const { chapters, isLoaded } = useBookChapters();
   const startToolHref = buildSocratesEntryUrl({
     source: 'landing-book',
@@ -119,6 +133,9 @@ export default function BookPage() {
   }
 
   const orderedChapters = [...chapters].sort((a, b) => a.order - b.order);
+  const firstPaidChapter = orderedChapters.find((chapter) => !chapter.isPartCover && !chapter.isFree);
+  const purchaseHref = hasFullAccess && firstPaidChapter ? `/read/${firstPaidChapter.id}` : '/book-purchase';
+  const purchaseLabel = hasFullAccess ? '继续阅读完整版' : '详情与购买';
   const prefaceChapter = orderedChapters.find((chapter) => chapter.id === 'prologue');
   const epilogueChapter = orderedChapters.find((chapter) => chapter.id === 'epilogue');
   const appendixChapter = orderedChapters.find((chapter) => chapter.id === 'appendix');
@@ -190,6 +207,14 @@ export default function BookPage() {
               </p>
             </div>
 
+            <div className="mb-10 rounded-2xl border border-[#e6ded3] bg-[#f9f5ef] p-5 sm:p-6">
+              <p className="text-sm leading-loose text-neutral-700 sm:text-base">
+                {hasFullAccess
+                  ? '已识别当前账号为付费用户，完整版章节已自动解锁。'
+                  : '当前开放免费阅读：前言、第 1 章、第 2 章。其余章节需付费解锁。'}
+              </p>
+            </div>
+
             <div className="mb-10 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
               <h3 className="mb-5 text-lg font-bold text-neutral-900 sm:text-xl">你将在这本书中获得</h3>
               <ul className="space-y-4 text-base leading-relaxed sm:text-lg">
@@ -213,10 +238,10 @@ export default function BookPage() {
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
-                  href="/book-purchase"
-                  className="inline-flex min-h-[56px] items-center justify-center rounded-full bg-white px-6 py-3 text-center text-sm font-semibold text-neutral-950 transition-all hover:-translate-y-0.5 hover:bg-neutral-100 sm:flex-1 sm:text-base"
+                  href={purchaseHref}
+                  className="inline-flex min-h-[56px] items-center justify-center whitespace-nowrap rounded-full bg-white px-6 py-3 text-center text-sm font-semibold text-neutral-950 transition-all hover:-translate-y-0.5 hover:bg-neutral-100 sm:flex-1 sm:text-base"
                 >
-                  了解详情与购买
+                  {purchaseLabel}
                 </Link>
                 <a
                   href={startToolHref}
@@ -251,7 +276,7 @@ export default function BookPage() {
           <div className="space-y-0">
             {prefaceChapter && (
               <div className="border-t border-[#d4cfc8]">
-                <ChapterLink chapter={prefaceChapter} compact />
+                <ChapterLink chapter={prefaceChapter} compact hasFullAccess={hasFullAccess} />
               </div>
             )}
 
@@ -276,7 +301,7 @@ export default function BookPage() {
                 <div className="pb-5 pl-0 md:pl-14">
                   {part.chapters.map((chapter) => (
                     <div key={chapter.id} className="border-t border-dashed border-[#d4cfc8] first:border-t">
-                      <ChapterLink chapter={chapter} />
+                      <ChapterLink chapter={chapter} hasFullAccess={hasFullAccess} />
                     </div>
                   ))}
                 </div>
@@ -285,13 +310,13 @@ export default function BookPage() {
 
             {epilogueChapter && (
               <div className="border-t border-[#d4cfc8]">
-                <ChapterLink chapter={epilogueChapter} compact />
+                <ChapterLink chapter={epilogueChapter} compact hasFullAccess={hasFullAccess} />
               </div>
             )}
 
             {appendixChapter && (
               <div className="border-t border-[#d4cfc8]">
-                <ChapterLink chapter={appendixChapter} compact />
+                <ChapterLink chapter={appendixChapter} compact hasFullAccess={hasFullAccess} />
               </div>
             )}
           </div>
@@ -304,10 +329,10 @@ export default function BookPage() {
             <div className="w-full rounded-[30px] bg-neutral-950 p-4 sm:p-5">
               <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Link
-                  href="/book-purchase"
-                  className="inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-full bg-white px-8 py-4 font-semibold text-neutral-950 no-underline transition-all hover:-translate-y-0.5 hover:bg-neutral-100 sm:w-auto"
+                  href={purchaseHref}
+                  className="inline-flex min-h-[56px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white px-8 py-4 font-semibold text-neutral-950 no-underline transition-all hover:-translate-y-0.5 hover:bg-neutral-100 sm:w-auto"
                 >
-                  了解详情与购买
+                  {purchaseLabel}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <a

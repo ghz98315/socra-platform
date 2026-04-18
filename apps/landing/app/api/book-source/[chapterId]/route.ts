@@ -1,5 +1,7 @@
 ﻿import { NextResponse } from 'next/server';
 import { getBookChapterFileSource } from '../../../../lib/bookChapterRegistry';
+import { canReadBookChapter } from '../../../../lib/bookAccess';
+import { resolveLandingBookAccess } from '../../../../lib/bookAccess.server';
 import { getBookChapterContent } from '../../../../lib/bookChapterSource';
 
 type RouteContext = {
@@ -10,6 +12,12 @@ type RouteContext = {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const { chapterId } = await params;
+  const access = await resolveLandingBookAccess();
+
+  if (!canReadBookChapter(chapterId, access.hasFullAccess)) {
+    return NextResponse.json({ error: 'Chapter access denied' }, { status: 403 });
+  }
+
   const source = getBookChapterFileSource(chapterId);
 
   if (!source) {

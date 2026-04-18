@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "@socra/config": "workspace:*",
     "@socra/ui": "workspace:*",
     "lucide-react": "^0.300.0",

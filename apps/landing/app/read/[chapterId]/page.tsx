@@ -1,5 +1,8 @@
 ﻿import type { Metadata } from 'next';
 import BookReaderClient from '../../../components/BookReaderClient';
+import { redirect } from 'next/navigation';
+import { canReadBookChapter } from '../../../lib/bookAccess';
+import { resolveLandingBookAccess } from '../../../lib/bookAccess.server';
 import { getBookChapterContent } from '../../../lib/bookChapterSource';
 import { buildMetadata } from '../../../lib/metadata';
 
@@ -22,12 +25,19 @@ export async function generateMetadata({ params }: ReaderPageProps): Promise<Met
 
 export default async function ReaderPage({ params }: ReaderPageProps) {
   const { chapterId } = await params;
+  const access = await resolveLandingBookAccess();
+
+  if (!canReadBookChapter(chapterId, access.hasFullAccess)) {
+    redirect('/book-purchase');
+  }
+
   const chapterContentOverride = await getBookChapterContent(chapterId);
 
   return (
     <BookReaderClient
       chapterId={chapterId}
       chapterContentOverride={chapterContentOverride ?? undefined}
+      hasFullAccess={access.hasFullAccess}
     />
   );
 }

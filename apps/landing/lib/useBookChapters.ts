@@ -236,7 +236,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch3', 
     title: '为什么那本错题本，从来没有真正起过作用', 
     chapterNumber: 3, 
-    isFree: true, 
+    isFree: false, 
     order: 4,
     summary: '一个只进不出的仓库，不是资产，是积压。大多数错题本记录的是症状，不是根因；有入口，没出口；做了很多动作，但这些动作从来没有被连成一条路。',
     partId: 'part1',
@@ -294,7 +294,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     {
     id: 'part2-cover',
     title: '第二部分：法',
-    isFree: true,
+    isFree: false,
     order: 4.5,
     isPartCover: true,
     partId: 'part2',
@@ -308,7 +308,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch4', 
     title: '向丰田借来的追问法——用5 Why找到错误的真正原因', 
     chapterNumber: 4, 
-    isFree: true, 
+    isFree: false, 
     order: 5,
     summary: '机器停了，换保险丝，下周还会停。真正的解决是问五个为什么，找到滤网堵塞的那个根因。一道题做错了，改正翻页，下次还会错。道理，完全一样。',
     partId: 'part2',
@@ -376,7 +376,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch5', 
     title: '费曼的那把尺子——"能讲清楚"才算真的懂了', 
     chapterNumber: 5, 
-    isFree: true, 
+    isFree: false, 
     order: 6,
     summary: '诺贝尔奖得主用一把尺子检验自己有没有真正理解一件事：能不能用简单的语言把它讲清楚。做出来，和讲清楚，是两件完全不同的事。后者，才是真正的判断标准。',
     partId: 'part2',
@@ -453,7 +453,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch6', 
     title: '艾宾浩斯的那条曲线——为什么你的孩子不是记性差，而是复习的时机全错了', 
     chapterNumber: 6, 
-    isFree: true, 
+    isFree: false, 
     order: 7,
     summary: '学完二十分钟，已经忘了将近一半。不是孩子记性差，是遗忘曲线在正常工作。但在将要忘记、还没完全忘记的那个窗口复习——成本最低，效果最好。时机对了，一切不同。',
     partId: 'part2',
@@ -588,7 +588,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch7', 
     title: 'PDCA——让这套系统真正转起来，而不是用一次就断掉', 
     chapterNumber: 7, 
-    isFree: true, 
+    isFree: false, 
     order: 8,
     summary: '这不是一个四步流程，而是一个持续进化的机制。计划是假设，执行是实验，检查是反馈，改进是调整。戴明把它带进日本，催生了丰田。现在，我们把它带进孩子的书桌旁边。',
     partId: 'part2',
@@ -886,7 +886,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     {
     id: 'part3-cover',
     title: '第三部分：术',
-    isFree: true,
+    isFree: false,
     order: 8.5,
     isPartCover: true,
     partId: 'part3',
@@ -900,7 +900,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch8', 
     title: '从一道错题到稳定掌握——这套系统在家里怎么真正跑起来', 
     chapterNumber: 8, 
-    isFree: true, 
+    isFree: false, 
     order: 9,
     summary: '六个动作，一条完整的路：闭卷重做找出真Bug，5 Why追问找到根因，根因打标建立图谱，防呆设计打上补丁，设定节点写进日历，费曼通关才算结束。顺序不能乱，每一步都有它的位置。',
     partId: 'part3',
@@ -913,7 +913,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch9', 
     title: '家长的正确站位——不是发动机，而是变速箱', 
     chapterNumber: 9, 
-    isFree: true, 
+    isFree: false, 
     order: 10,
     summary: '家长一旦变成发动机，孩子就变成了被拉着走的拖车。真正有效的参与，是在孩子还有能力自己往前走的时候，忍住不出手；在真正需要支撑的时候，出现，做完，退出去。',
     partId: 'part3',
@@ -925,7 +925,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     {
     id: 'part4-cover',
     title: '第四部分：器',
-    isFree: true,
+    isFree: false,
     order: 10.5,
     isPartCover: true,
     partId: 'part4',
@@ -939,7 +939,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch10', 
     title: '从纸笔到系统——什么该手工做，什么值得交给工具', 
     chapterNumber: 10, 
-    isFree: true, 
+    isFree: false, 
     order: 11,
     summary: '手工慢，但慢是优点——它逼你真正想清楚才能写下去。但三个月后，复习节点超过三十个，标签要手动统计，两个孩子的数据无法整合——这时候，工具该出现了。',
     partId: 'part4',
@@ -952,7 +952,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'ch11', 
     title: '最难熬的那三周——让这套系统真正扎根', 
     chapterNumber: 11, 
-    isFree: true, 
+    isFree: false, 
     order: 12,
     summary: '第一周新鲜，第二周摩擦，第三周最难。那个说"算了"的声音出现的时候，正是这套系统离真正扎根最近的地方。不断，比什么都重要。',
     partId: 'part4',
@@ -965,7 +965,7 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'epilogue', 
     title: '尾声·第十二章：两年之后——那个下午，以及它真正改变了什么', 
     chapterNumber: 12,
-    isFree: true, 
+    isFree: false, 
     order: 13,
     summary: '两年后，大宝主动拿出纸，自己写下5 Why。这套思维方式，已经变成他自己的一部分。这才是一道错题，应该有的结局。',
     content: `
@@ -1164,14 +1164,14 @@ export const DEFAULT_CHAPTERS: BookChapter[] = [
     id: 'appendix', 
     title: '附录：配套工具包', 
     chapterNumber: 13,
-    isFree: true, 
+    isFree: false, 
     order: 14,
     summary: '把系统除错单、复习计划表、周复盘模板和根因标签表收成一组真正可落地的执行工具。',
     content: `<p>本章内容正在撰写中...</p>`
   }
 ];
 
-const STORAGE_KEY = 'socrates_book_chapters_v14';
+const STORAGE_KEY = 'socrates_book_chapters_v15';
 
 function normalizeStoredChapters(storedChapters: BookChapter[]): BookChapter[] {
   const storedById = new Map(

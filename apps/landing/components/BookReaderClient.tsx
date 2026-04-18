@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, List, Lock, Moon, ScrollText, Settings, Sun } from 'lucide-react';
 import { isFileBackedBookChapter } from '../lib/bookChapterRegistry';
+import { canReadBookChapter } from '../lib/bookAccess';
 import { useBookChapters } from '../lib/useBookChapters';
 
 type BookReaderClientProps = {
   chapterId: string;
   chapterContentOverride?: string;
+  hasFullAccess?: boolean;
 };
 
 const DEFAULT_CHAPTER_CONTENT = '<p>本章暂无内容，作者正在努力撰写中...</p>';
@@ -18,7 +20,11 @@ function isPlaceholderChapterContent(content?: string): boolean {
   return !content || content.includes('本章内容正在撰写中');
 }
 
-export default function BookReaderClient({ chapterId, chapterContentOverride }: BookReaderClientProps) {
+export default function BookReaderClient({
+  chapterId,
+  chapterContentOverride,
+  hasFullAccess = false,
+}: BookReaderClientProps) {
   const router = useRouter();
   const { chapters, isLoaded } = useBookChapters();
 
@@ -103,6 +109,8 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
   const chapter = chapters[currentIndex];
   const prevChapter = currentIndex > 0 ? chapters[currentIndex - 1] : null;
   const nextChapter = currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null;
+  const canReadPrevChapter = prevChapter ? canReadBookChapter(prevChapter.id, hasFullAccess) : false;
+  const canReadNextChapter = nextChapter ? canReadBookChapter(nextChapter.id, hasFullAccess) : false;
 
   const openChapter = useCallback((targetId: string) => {
     router.push(`/read/${targetId}`);
@@ -115,10 +123,10 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
       return;
     }
     if (prevChapter) {
-      if (prevChapter.isFree) openChapter(prevChapter.id);
+      if (canReadPrevChapter) openChapter(prevChapter.id);
       else router.push('/book');
     }
-  }, [currentPage, layoutMode, openChapter, prevChapter, router]);
+  }, [canReadPrevChapter, currentPage, layoutMode, openChapter, prevChapter, router]);
 
   const handleNext = useCallback(() => {
     if (layoutMode !== 'paged') return;
@@ -127,10 +135,10 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
       return;
     }
     if (nextChapter) {
-      if (nextChapter.isFree) openChapter(nextChapter.id);
+      if (canReadNextChapter) openChapter(nextChapter.id);
       else router.push('/book');
     }
-  }, [currentPage, layoutMode, nextChapter, openChapter, router, totalPages]);
+  }, [canReadNextChapter, currentPage, layoutMode, nextChapter, openChapter, router, totalPages]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -254,7 +262,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
                   <div className="flex flex-col gap-1">
                     {chapters.map((item) => {
                       const isActive = item.id === chapterId;
-                      if (item.isFree) {
+                      if (canReadBookChapter(item.id, hasFullAccess)) {
                         return (
                           <button
                             key={item.id}
@@ -383,7 +391,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
               )}
 
               <div className={`mt-20 pt-8 border-t flex flex-col sm:flex-row justify-between items-center gap-4 ${theme === 'dark' ? 'border-neutral-800' : 'border-neutral-200'}`}>
-                {prevChapter && prevChapter.isFree ? (
+                {prevChapter && canReadPrevChapter ? (
                   <Link href={`/read/${prevChapter.id}`} className={`flex items-center gap-3 transition-colors w-full sm:w-auto justify-center sm:justify-start p-4 sm:p-0 rounded-xl ${theme === 'dark' ? 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 sm:hover:bg-transparent' : 'text-neutral-500 hover:text-[#1a2744] hover:bg-neutral-100 sm:hover:bg-transparent'}`}>
                     <ChevronLeft className="w-5 h-5 shrink-0" />
                     <div className="text-left">
@@ -403,7 +411,7 @@ export default function BookReaderClient({ chapterId, chapterContentOverride }: 
                   <div className="w-full sm:w-1/2" />
                 )}
 
-                {nextChapter && nextChapter.isFree ? (
+                {nextChapter && canReadNextChapter ? (
                   <Link href={`/read/${nextChapter.id}`} className={`flex items-center gap-3 transition-colors w-full sm:w-auto justify-center sm:justify-end p-4 sm:p-0 rounded-xl text-right ${theme === 'dark' ? 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 sm:hover:bg-transparent' : 'text-neutral-500 hover:text-[#1a2744] hover:bg-neutral-100 sm:hover:bg-transparent'}`}>
                     <div className="text-right">
                       <div className="text-xs text-neutral-400 mb-1">下一章</div>
