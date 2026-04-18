@@ -23,6 +23,10 @@ import {
   stripTranscript,
   type WrapUpStatus,
 } from '@/lib/error-loop/wrap-up-heuristics';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -269,14 +273,13 @@ async function maybeBuildModelSuggestionWithTimeout(session: ErrorSessionRow, me
   }
 }
 
-async function loadSessionWithMessages(sessionId: string, studentId: string) {
+async function loadSessionWithMessages(sessionId: string) {
   // Database types in this repo lag behind the deployed schema for these fields.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: session, error: sessionError } = await (supabase as any)
     .from('error_sessions')
     .select('id, student_id, subject, extracted_text, difficulty_rating, concept_tags')
     .eq('id', sessionId)
-    .eq('student_id', studentId)
     .maybeSingle();
 
   if (sessionError) {
@@ -318,17 +321,16 @@ export async function POST(req: NextRequest) {
     const {
       mode = 'preview',
       session_id,
-      student_id,
       root_cause_category,
       root_cause_subtype,
       difficulty_rating,
     } = body ?? {};
 
-    if (!session_id || !student_id) {
-      return NextResponse.json({ error: 'Missing required fields: session_id, student_id' }, { status: 400 });
+    if (!session_id) {
+      return NextResponse.json({ error: 'Missing required field: session_id' }, { status: 400 });
     }
 
-    const loaded = await loadSessionWithMessages(session_id, student_id);
+    const loaded = await loadSessionWithMessages(session_id);
     if ('migrationError' in loaded && loaded.migrationError) {
       return loaded.migrationError;
     }
@@ -337,6 +339,11 @@ export async function POST(req: NextRequest) {
     }
 
     const { session, messages } = loaded;
+    const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
 
     if (mode === 'preview') {
       const heuristicSuggestion = buildHeuristicSuggestion(session, messages);
@@ -384,7 +391,7 @@ export async function POST(req: NextRequest) {
         closure_state: 'open',
       })
       .eq('id', session_id)
-      .eq('student_id', student_id);
+      .eq('student_id', studentId);
 
     if (updateError) {
       console.error('[error-session/wrap-up] Failed to update error session:', updateError);

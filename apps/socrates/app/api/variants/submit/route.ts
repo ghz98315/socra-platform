@@ -4,6 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
 import { evaluateVariantAnswer } from '@/lib/variant-questions/evaluate-answer';
 import type { VariantQuestion } from '@/lib/variant-questions/types';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -65,9 +69,9 @@ async function buildSessionSummary(admin: any, studentId: string, sessionId: str
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { variant_id, student_id, student_answer, time_spent, hints_used } = body;
+    const { variant_id, student_answer, time_spent, hints_used } = body;
 
-    if (!variant_id || !student_id || typeof student_answer !== 'string') {
+    if (!variant_id || typeof student_answer !== 'string') {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -85,9 +89,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: variantError?.message || 'Variant not found' }, { status: 404 });
     }
 
-    if (currentVariant.student_id !== student_id) {
-      return NextResponse.json({ error: 'Variant does not belong to student' }, { status: 403 });
+    const authorizedStudent = await getAuthorizedStudentProfile(currentVariant.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
     }
+    const studentId = authorizedStudent.profile.id;
 
     const evaluation = evaluateVariantAnswer({
       expectedAnswer: currentVariant.answer || '',
@@ -99,7 +105,7 @@ export async function POST(req: NextRequest) {
       .from('variant_practice_logs')
       .insert({
         variant_id,
-        student_id,
+        student_id: studentId,
         is_correct: evaluation.is_correct,
         student_answer,
         time_spent: normalizedTimeSpent,
@@ -120,7 +126,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: updatedVariantError?.message || 'Failed to load updated variant' }, { status: 500 });
     }
 
-    const summary = await buildSessionSummary(admin, student_id, currentVariant.original_session_id);
+    const summary = await buildSessionSummary(admin, studentId, currentVariant.original_session_id);
 
     return NextResponse.json({
       success: true,

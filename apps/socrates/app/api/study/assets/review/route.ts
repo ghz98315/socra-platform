@@ -9,6 +9,10 @@ import {
   readStudyAssetReviewBridge,
 } from '@/lib/study/bridges-v2';
 import { getScheduledReviewDate } from '@/lib/error-loop/review';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -163,10 +167,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const assetId = typeof body?.asset_id === 'string' ? body.asset_id.trim() : '';
-    const studentId = typeof body?.student_id === 'string' ? body.student_id.trim() : '';
 
-    if (!assetId || !studentId) {
-      return NextResponse.json({ error: 'Missing required fields: asset_id, student_id' }, { status: 400 });
+    if (!assetId) {
+      return NextResponse.json({ error: 'Missing required field: asset_id' }, { status: 400 });
     }
 
     const { data: asset, error: assetError } = await (supabase as any)
@@ -175,7 +178,6 @@ export async function POST(req: NextRequest) {
         'id, student_id, subject, module, source_type, source_id, title, summary, status, payload, created_at, updated_at',
       )
       .eq('id', assetId)
-      .eq('student_id', studentId)
       .maybeSingle();
 
     if (assetError) {
@@ -186,6 +188,12 @@ export async function POST(req: NextRequest) {
     if (!asset) {
       return NextResponse.json({ error: 'Study asset not found' }, { status: 404 });
     }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(asset.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
 
     let sessionId = await resolveExistingSessionId(asset, studentId);
     let createdSession = false;

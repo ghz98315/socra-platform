@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +34,6 @@ const buildStatusCountQuery = (studentId: string, status?: ErrorStatus) => {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const studentId = searchParams.get('student_id');
     const query = (searchParams.get('q') || '').trim();
     const subject = searchParams.get('subject') || 'all';
     const status = searchParams.get('status') || 'all';
@@ -38,9 +41,11 @@ export async function GET(req: NextRequest) {
     const page = Math.max(Number(searchParams.get('page') || '1'), 1);
     const pageSize = Math.min(Math.max(Number(searchParams.get('page_size') || '24'), 1), 60);
 
-    if (!studentId) {
-      return NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 });
+    const authorizedStudent = await getAuthorizedStudentProfile(searchParams.get('student_id'));
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
     }
+    const studentId = authorizedStudent.profile.id;
 
     const safeSort = VALID_SORTS.has(sortBy) ? sortBy : 'newest';
     const safeSubject = VALID_SUBJECTS.has(subject as ErrorSubject) ? subject : 'all';

@@ -14,6 +14,10 @@ import {
   type RootCauseCategory,
   type RootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -109,14 +113,48 @@ async function loadDiagnosis(sessionId: string, studentId: string) {
   return data as DiagnosisRow | null;
 }
 
+async function authorizeSession(sessionId: string) {
+  const { data: session, error } = await supabase
+    .from('error_sessions')
+    .select('id, student_id')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!session?.id) {
+    return {
+      response: NextResponse.json({ error: 'Error session not found' }, { status: 404 }),
+    };
+  }
+
+  const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+  if ('error' in authorizedStudent) {
+    return {
+      response: createAuthorizedStudentErrorResponse(authorizedStudent.error),
+    };
+  }
+
+  return {
+    studentId: authorizedStudent.profile.id,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const sessionId = req.nextUrl.searchParams.get('session_id');
-    const studentId = req.nextUrl.searchParams.get('student_id');
 
-    if (!sessionId || !studentId) {
-      return NextResponse.json({ error: 'Missing required query params: session_id, student_id' }, { status: 400 });
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Missing required query param: session_id' }, { status: 400 });
     }
+
+    const authorizedSession = await authorizeSession(sessionId);
+    if ('response' in authorizedSession) {
+      return authorizedSession.response;
+    }
+    const studentId = authorizedSession.studentId;
 
     const diagnosis = await loadDiagnosis(sessionId, studentId);
 
@@ -177,13 +215,19 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { session_id, student_id, current_step, student_answer } = body ?? {};
+    const { session_id, current_step, student_answer } = body ?? {};
 
-    if (!session_id || !student_id) {
-      return NextResponse.json({ error: 'Missing required fields: session_id, student_id' }, { status: 400 });
+    if (!session_id) {
+      return NextResponse.json({ error: 'Missing required field: session_id' }, { status: 400 });
     }
 
-    const diagnosis = await loadDiagnosis(session_id, student_id);
+    const authorizedSession = await authorizeSession(session_id);
+    if ('response' in authorizedSession) {
+      return authorizedSession.response;
+    }
+    const studentId = authorizedSession.studentId;
+
+    const diagnosis = await loadDiagnosis(session_id, studentId);
 
     if (!diagnosis?.id) {
       return NextResponse.json({ error: '请先完成结构化错因诊断，再进入引导复盘。' }, { status: 404 });
@@ -268,7 +312,7 @@ export async function POST(req: NextRequest) {
         guided_reflection: updatedReflection,
       })
       .eq('id', diagnosis.id)
-      .eq('student_id', student_id);
+      .eq('student_id', studentId);
 
     if (updateError) {
       console.error('[error-session/guided-reflection] Failed to persist reflection state:', updateError);

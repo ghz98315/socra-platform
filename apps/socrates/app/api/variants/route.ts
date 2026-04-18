@@ -3,6 +3,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 import { summarizeVariantEvidence } from '@/lib/error-loop/variant-evidence';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 import type {
   GenerateVariantRequest,
   VariantDifficulty,
@@ -209,6 +213,66 @@ async function loadVariantContext(admin: any, sessionId: string) {
     .maybeSingle();
 
   return (data || {}) as ErrorSessionVariantContext;
+}
+
+async function loadAuthorizedVariantSession(admin: any, sessionId: string) {
+  const { data: session, error } = await (admin as any)
+    .from('error_sessions')
+    .select('id, student_id, subject, geometry_data, geometry_svg, original_image_url')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!session?.id) {
+    return {
+      response: NextResponse.json({ error: 'Error session not found' }, { status: 404 }),
+    };
+  }
+
+  const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+  if ('error' in authorizedStudent) {
+    return {
+      response: createAuthorizedStudentErrorResponse(authorizedStudent.error),
+    };
+  }
+
+  return {
+    session,
+    studentId: authorizedStudent.profile.id,
+  };
+}
+
+async function loadAuthorizedVariant(admin: any, variantId: string) {
+  const { data: variant, error } = await (admin as any)
+    .from('variant_questions')
+    .select('*')
+    .eq('id', variantId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!variant?.id) {
+    return {
+      response: NextResponse.json({ error: 'Variant not found' }, { status: 404 }),
+    };
+  }
+
+  const authorizedStudent = await getAuthorizedStudentProfile(variant.student_id);
+  if ('error' in authorizedStudent) {
+    return {
+      response: createAuthorizedStudentErrorResponse(authorizedStudent.error),
+    };
+  }
+
+  return {
+    variant,
+    studentId: authorizedStudent.profile.id,
+  };
 }
 
 function buildFigureImageUrl(context: ErrorSessionVariantContext) {
@@ -498,19 +562,20 @@ async function generateVariantsWithAI(params: {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const student_id = searchParams.get('student_id');
     const session_id = searchParams.get('session_id');
     const status = searchParams.get('status');
 
-    if (!student_id) {
-      return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
+    const authorizedStudent = await getAuthorizedStudentProfile(searchParams.get('student_id'));
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
     }
+    const studentId = authorizedStudent.profile.id;
 
     const admin = getSupabaseAdmin();
     let query = (admin as any)
       .from('variant_questions')
       .select('*')
-      .eq('student_id', student_id)
+      .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
     if (session_id) {
@@ -568,26 +633,38 @@ export async function POST(req: NextRequest) {
     const body: GenerateVariantRequest = await req.json();
     const normalizedCount = clampVariantCount(body.count);
 
-    if (!body.session_id || !body.student_id || !sanitizeText(body.original_text)) {
+    if (!body.session_id || !sanitizeText(body.original_text)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const admin = getSupabaseAdmin();
+    const authorizedSession = await loadAuthorizedVariantSession(admin, body.session_id);
+    if ('response' in authorizedSession) {
+      return authorizedSession.response;
+    }
+
     const sessionContext =
       body.geometry_data || body.geometry_svg !== undefined
-        ? { geometry_data: body.geometry_data, geometry_svg: body.geometry_svg }
+        ? {
+            geometry_data: body.geometry_data,
+            geometry_svg: body.geometry_svg,
+            original_image_url: authorizedSession.session.original_image_url,
+          }
         : await loadVariantContext(admin, body.session_id);
 
     const geometryContext = buildGeometryContext(sessionContext);
     const figureImageUrl = buildFigureImageUrl(sessionContext);
+    const requestedSubject = body.subject || authorizedSession.session.subject || 'math';
+    const subject =
+      requestedSubject === 'physics' || requestedSubject === 'chemistry' ? requestedSubject : 'math';
     const normalizedGeometryMode =
-      body.subject === 'math' && (sessionContext.geometry_data || sessionContext.geometry_svg)
+      subject === 'math' && (sessionContext.geometry_data || sessionContext.geometry_svg)
         ? 'preserve_figure'
         : body.geometry_mode || 'auto';
     const result = await generateVariantsWithAI({
       sessionId: body.session_id,
-      studentId: body.student_id,
-      subject: body.subject || 'math',
+      studentId: authorizedSession.studentId,
+      subject: subject || 'math',
       originalText: sanitizeText(body.original_text),
       conceptTags: body.concept_tags || [],
       difficulty: body.difficulty || 'medium',
@@ -633,17 +710,21 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { variant_id, student_id, is_correct, student_answer, time_spent, hints_used } = body;
+    const { variant_id, is_correct, student_answer, time_spent, hints_used } = body;
 
-    if (!variant_id || !student_id) {
+    if (!variant_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const admin = getSupabaseAdmin();
+    const authorizedVariant = await loadAuthorizedVariant(admin, variant_id);
+    if ('response' in authorizedVariant) {
+      return authorizedVariant.response;
+    }
 
     const { error: logError } = await (admin as any).from('variant_practice_logs').insert({
       variant_id,
-      student_id,
+      student_id: authorizedVariant.studentId,
       is_correct,
       student_answer,
       time_spent: time_spent || 0,
@@ -658,6 +739,7 @@ export async function PATCH(req: NextRequest) {
       .from('variant_questions')
       .select('*')
       .eq('id', variant_id)
+      .eq('student_id', authorizedVariant.studentId)
       .single();
 
     if (error) {

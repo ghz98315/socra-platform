@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -240,6 +244,38 @@ async function fetchStudyAssetDetail(assetId: string, studentId: string) {
   };
 }
 
+async function loadAuthorizedAsset(assetId: string) {
+  const { data: asset, error } = await (supabase as any)
+    .from('study_assets')
+    .select(
+      'id, student_id, subject, module, source_type, source_id, input_type, question_type, title, summary, status, payload, created_at, updated_at',
+    )
+    .eq('id', assetId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!asset?.id) {
+    return {
+      response: NextResponse.json({ error: 'Study asset not found' }, { status: 404 }),
+    };
+  }
+
+  const authorizedStudent = await getAuthorizedStudentProfile(asset.student_id);
+  if ('error' in authorizedStudent) {
+    return {
+      response: createAuthorizedStudentErrorResponse(authorizedStudent.error),
+    };
+  }
+
+  return {
+    asset,
+    studentId: authorizedStudent.profile.id,
+  };
+}
+
 function normalizeMessages(messages: unknown): AssetMessageInput[] {
   if (!Array.isArray(messages)) {
     return [];
@@ -437,19 +473,19 @@ async function syncLegacySources(studentId: string, subject?: string | null, mod
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const studentId = searchParams.get('student_id');
     const assetId = searchParams.get('asset_id');
     const subject = searchParams.get('subject');
     const module = searchParams.get('module');
     const includeLegacy = searchParams.get('include_legacy') !== '0';
     const limit = Math.min(Number.parseInt(searchParams.get('limit') || '6', 10) || 6, 20);
 
-    if (!studentId) {
-      return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
-    }
-
     if (assetId) {
-      const detail = await fetchStudyAssetDetail(assetId, studentId);
+      const authorizedAsset = await loadAuthorizedAsset(assetId);
+      if ('response' in authorizedAsset) {
+        return authorizedAsset.response;
+      }
+
+      const detail = await fetchStudyAssetDetail(assetId, authorizedAsset.studentId);
 
       if (!detail) {
         return NextResponse.json({ error: 'Study asset not found' }, { status: 404 });
@@ -457,6 +493,12 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({ data: detail });
     }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(searchParams.get('student_id'));
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
 
     if (includeLegacy) {
       await syncLegacySources(studentId, subject, module);
@@ -516,9 +558,15 @@ export async function POST(req: NextRequest) {
       messages,
     } = body;
 
-    if (!student_id || !subject || !module) {
-      return NextResponse.json({ error: 'student_id, subject and module are required' }, { status: 400 });
+    if (!subject || !module) {
+      return NextResponse.json({ error: 'subject and module are required' }, { status: 400 });
     }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
 
     if (!VALID_SUBJECTS.has(subject)) {
       return NextResponse.json({ error: 'Invalid subject' }, { status: 400 });
@@ -537,7 +585,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await (supabase as any)
       .from('study_assets')
       .insert({
-        student_id,
+        student_id: studentId,
         study_session_id,
         subject,
         module,
@@ -608,11 +656,17 @@ export async function PATCH(req: NextRequest) {
 
     const normalizedMessages = normalizeMessages(messages);
 
+    const authorizedAsset = await loadAuthorizedAsset(asset_id);
+    if ('response' in authorizedAsset) {
+      return authorizedAsset.response;
+    }
+
     if (Object.keys(updatePayload).length > 0) {
       const { error } = await (supabase as any)
         .from('study_assets')
         .update(updatePayload)
-        .eq('id', asset_id);
+        .eq('id', asset_id)
+        .eq('student_id', authorizedAsset.studentId);
 
       if (error) {
         console.error('Error updating study asset:', error);
@@ -629,6 +683,7 @@ export async function PATCH(req: NextRequest) {
       .from('study_assets')
       .select('id, student_id, subject, module, title, summary, status, payload, created_at, updated_at')
       .eq('id', asset_id)
+      .eq('student_id', authorizedAsset.studentId)
       .single();
 
     if (error) {

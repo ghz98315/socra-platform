@@ -1,18 +1,25 @@
 // =====================================================
-// Project Socrates - Error Session API (保存错题会话)
+// Project Socrates - Error Session API
 // =====================================================
 
-import { NextResponse, type NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse, type NextRequest } from 'next/server';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
-// 创建 Supabase 服务端客户端（使用 service_role 绕过 RLS）
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// POST endpoint - 创建新的错题会话
+type InitialMessageInput = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -26,28 +33,36 @@ export async function POST(req: NextRequest) {
       theme_used,
       geometry_data,
       geometry_svg,
+      initial_messages,
     } = body;
 
-    // 验证必填字段
-    if (!student_id || !subject || !extracted_text) {
-      return NextResponse.json({ error: '缺少必填字段: student_id, subject, extracted_text' }, { status: 400 });
+    if (!subject || !extracted_text) {
+      return NextResponse.json(
+        { error: 'Missing required fields: subject, extracted_text' },
+        { status: 400 },
+      );
     }
 
-    // 创建新的错题会话
+    const authorizedStudent = await getAuthorizedStudentProfile(student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const resolvedStudentId = authorizedStudent.profile.id;
+
     const { data, error } = await supabase
       .from('error_sessions')
       .insert({
-        id: randomUUID(), // 使用 UUID 作为主键
-        student_id,
+        id: randomUUID(),
+        student_id: resolvedStudentId,
         subject,
         original_image_url,
         extracted_text,
         status: 'guided_learning',
         difficulty_rating: difficulty_rating || null,
         concept_tags: concept_tags || null,
-        theme_used: theme_used || null, // 记录对话时使用的主题模式
-        geometry_data: geometry_data || null, // 几何图形JSON数据
-        geometry_svg: geometry_svg || null, // 几何图形SVG图片
+        theme_used: theme_used || null,
+        geometry_data: geometry_data || null,
+        geometry_svg: geometry_svg || null,
         created_at: new Date().toISOString(),
       })
       .select()
@@ -55,23 +70,46 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('Error creating error session:', error);
-      return NextResponse.json({ error: '创建错题会话失败' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create error session' }, { status: 500 });
     }
 
-    // 获取该学生的错题总数，用于成就检查
+    const normalizedInitialMessages: InitialMessageInput[] = Array.isArray(initial_messages)
+      ? initial_messages.filter(
+          (message): message is InitialMessageInput =>
+            message &&
+            (message.role === 'user' || message.role === 'assistant') &&
+            typeof message.content === 'string' &&
+            message.content.trim().length > 0,
+        )
+      : [];
+
+    if (normalizedInitialMessages.length > 0) {
+      const { error: messageInsertError } = await supabase.from('chat_messages').insert(
+        normalizedInitialMessages.map((message) => ({
+          session_id: data.id,
+          role: message.role,
+          content: message.content.trim(),
+          created_at: new Date().toISOString(),
+        })),
+      );
+
+      if (messageInsertError) {
+        console.error('Error creating initial chat messages:', messageInsertError);
+      }
+    }
+
     const { count: errorCount, error: countError } = await supabase
       .from('error_sessions')
       .select('*', { count: 'exact', head: true })
-      .eq('student_id', student_id);
+      .eq('student_id', resolvedStudentId);
 
-    console.log('[Error Session] Total error count for user:', student_id, 'is:', errorCount);
+    console.log('[Error Session] Total error count for user:', resolvedStudentId, 'is:', errorCount);
     if (countError) {
       console.error('[Error Session] Failed to count errors:', countError);
     }
 
-    // 触发成就检查 - 上传错题
-    // 构建完整的 URL（服务端 fetch 需要绝对路径）
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const achievementUrl = `${baseUrl}/api/achievements`;
     console.log('[Error Session] Triggering achievement check at:', achievementUrl);
@@ -81,7 +119,7 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: student_id,
+          user_id: resolvedStudentId,
           action: 'error_uploaded',
           data: { count: errorCount || 1 },
         }),
@@ -89,15 +127,15 @@ export async function POST(req: NextRequest) {
 
       const achievementResult = await achievementResponse.json();
       console.log('[Error Session] Achievement API response:', achievementResult);
-    } catch (e) {
-      console.error('[Error Session] Failed to check upload achievements:', e);
+    } catch (achievementError) {
+      console.error('[Error Session] Failed to check upload achievements:', achievementError);
     }
 
     return NextResponse.json({
       data: {
         session_id: data.id,
         theme_used: data.theme_used,
-        message: '错题会话创建成功',
+        message: 'Error session created successfully',
       },
     });
   } catch (error: any) {
@@ -106,7 +144,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET endpoint - 获取学生的错题列表
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -130,22 +167,43 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
     }
 
+    const { data: session, error: sessionError } = await supabase
+      .from('error_sessions')
+      .select('id, student_id')
+      .eq('id', session_id)
+      .maybeSingle();
+
+    if (sessionError) {
+      console.error('Error loading error session before update:', sessionError);
+      return NextResponse.json({ error: 'Failed to load error session' }, { status: 500 });
+    }
+
+    if (!session?.id) {
+      return NextResponse.json({ error: 'Error session not found' }, { status: 404 });
+    }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+
     const { data, error } = await supabase
       .from('error_sessions')
       .update(updatePayload)
       .eq('id', session_id)
+      .eq('student_id', authorizedStudent.profile.id)
       .select('id')
       .single();
 
     if (error) {
       console.error('Error updating error session:', error);
-      return NextResponse.json({ error: '更新错题会话失败' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update error session' }, { status: 500 });
     }
 
     return NextResponse.json({
       data: {
         session_id: data.id,
-        message: '错题会话更新成功',
+        message: 'Error session updated successfully',
       },
     });
   } catch (error: any) {
@@ -157,18 +215,17 @@ export async function PATCH(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const student_id = searchParams.get('student_id');
     const status = searchParams.get('status');
-
-    if (!student_id) {
-      return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
+    const authorizedStudent = await getAuthorizedStudentProfile(searchParams.get('student_id'));
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
     }
+    const studentId = authorizedStudent.profile.id;
 
-    // 构建查询
     let query = supabase
       .from('error_sessions')
       .select('*')
-      .eq('student_id', student_id)
+      .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -179,7 +236,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error('Error fetching error sessions:', error);
-      return NextResponse.json({ error: '获取错题列表失败' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to fetch error sessions' }, { status: 500 });
     }
 
     return NextResponse.json({

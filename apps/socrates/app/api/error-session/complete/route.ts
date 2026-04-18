@@ -5,6 +5,10 @@ import {
   isMissingMathErrorLoopMigrationError,
 } from '@/lib/error-loop/migration-guard';
 import { getScheduledReviewDate } from '@/lib/error-loop/review';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,15 +26,15 @@ const SUBJECT_NAMES: Record<string, string> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { session_id, student_id } = body;
+    const { session_id } = body;
 
-    if (!session_id || !student_id) {
-      return NextResponse.json({ error: 'Missing required fields: session_id, student_id' }, { status: 400 });
+    if (!session_id) {
+      return NextResponse.json({ error: 'Missing required field: session_id' }, { status: 400 });
     }
 
     const { data: sessionInfo, error: sessionInfoError } = await supabase
       .from('error_sessions')
-      .select('subject, extracted_text, closure_state')
+      .select('student_id, subject, extracted_text, closure_state')
       .eq('id', session_id)
       .maybeSingle();
 
@@ -43,6 +47,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to load error session' }, { status: 500 });
     }
 
+    if (!sessionInfo?.student_id) {
+      return NextResponse.json({ error: 'Error session not found' }, { status: 404 });
+    }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(sessionInfo.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
+
     const { error: updateError } = await supabase
       .from('error_sessions')
       .update({
@@ -50,7 +64,7 @@ export async function POST(req: NextRequest) {
         closure_state: sessionInfo?.closure_state || 'open',
       })
       .eq('id', session_id)
-      .eq('student_id', student_id);
+      .eq('student_id', studentId);
 
     if (updateError) {
       console.error('Error updating session status:', updateError);
@@ -65,7 +79,7 @@ export async function POST(req: NextRequest) {
       .from('review_schedule')
       .select('id')
       .eq('session_id', session_id)
-      .eq('student_id', student_id)
+      .eq('student_id', studentId)
       .maybeSingle();
 
     if (existingReviewError) {
@@ -92,7 +106,7 @@ export async function POST(req: NextRequest) {
       .from('review_schedule')
       .insert({
         session_id,
-        student_id,
+        student_id: studentId,
         review_stage: 1,
         next_review_at: firstReviewDate,
         is_completed: false,
@@ -115,7 +129,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    await sendReviewLoopNotification(student_id, session_id, reviewData?.id, sessionInfo);
+    await sendReviewLoopNotification(studentId, session_id, reviewData?.id, sessionInfo);
 
     return NextResponse.json({
       success: true,

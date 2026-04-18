@@ -1,44 +1,71 @@
-// =====================================================
-// Project Socrates - Study Session API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// 创建 Supabase 服务端客户端
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// POST endpoint - 管理学习会话 (开始/结束/心跳)
+async function loadAuthorizedStudySession(sessionId: string) {
+  const { data: session, error } = await supabase
+    .from('study_sessions')
+    .select('id, student_id, start_time')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error loading study session:', error);
+    return {
+      response: NextResponse.json({ error: 'Failed to load session' }, { status: 500 }),
+    };
+  }
+
+  if (!session?.id) {
+    return {
+      response: NextResponse.json({ error: 'Session not found' }, { status: 404 }),
+    };
+  }
+
+  const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+  if ('error' in authorizedStudent) {
+    return {
+      response: createAuthorizedStudentErrorResponse(authorizedStudent.error),
+    };
+  }
+
+  return {
+    session,
+    studentId: authorizedStudent.profile.id,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const student_id = body.student_id as string | undefined;
-    const session_id = body.session_id as string | undefined;
-    const session_type = body.session_type as 'error_analysis' | 'review' | undefined;
-
-    // 从header获取action，默认为start
+    const requestedStudentId = typeof body?.student_id === 'string' ? body.student_id.trim() : undefined;
+    const sessionId = typeof body?.session_id === 'string' ? body.session_id.trim() : '';
+    const sessionType = body?.session_type as 'error_analysis' | 'review' | undefined;
     const action = req.headers.get('x-action') || 'start';
     const now = new Date().toISOString();
 
-    // 如果 student_id 为空，返回优雅的错误而不是500
-    if (!student_id && (action === 'start' || action === 'end')) {
-      return NextResponse.json({
-        error: 'student_id is required',
-        message: '请先完成登录或等待页面加载完成'
-      }, { status: 400 });
-    }
-
     switch (action) {
       case 'start': {
-        // 开始新的学习会话
+        const authorizedStudent = await getAuthorizedStudentProfile(requestedStudentId);
+        if ('error' in authorizedStudent) {
+          return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+        }
+        const studentId = authorizedStudent.profile.id;
+
         const { data, error } = await supabase
           .from('study_sessions')
           .insert({
-            student_id,
-            session_type: session_type || 'error_analysis',
+            student_id: studentId,
+            session_type: sessionType || 'error_analysis',
             start_time: now,
             last_heartbeat: now,
           })
@@ -50,8 +77,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Failed to start session' }, { status: 500 });
         }
 
-        // 更新连续学习天数
-        await updateStreak(student_id!);
+        await updateStreak(studentId);
 
         return NextResponse.json({
           data: { session_id: data.id },
@@ -60,33 +86,26 @@ export async function POST(req: NextRequest) {
       }
 
       case 'end': {
-        // 结束学习会话
-        const end_time = now;
+        const endTime = now;
 
-        // 如果提供了session_id，直接结束该会话
-        if (session_id) {
-          // 先获取会话开始时间计算时长
-          const { data: session } = await supabase
-            .from('study_sessions')
-            .select('start_time')
-            .eq('id', session_id)
-            .single();
-
-          if (!session) {
-            return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+        if (sessionId) {
+          const authorizedSession = await loadAuthorizedStudySession(sessionId);
+          if ('response' in authorizedSession) {
+            return authorizedSession.response;
           }
 
           const duration = Math.floor(
-            (new Date(end_time).getTime() - new Date(session.start_time).getTime()) / 1000
+            (new Date(endTime).getTime() - new Date(authorizedSession.session.start_time).getTime()) / 1000,
           );
 
           const { error } = await supabase
             .from('study_sessions')
             .update({
-              end_time: end_time,
+              end_time: endTime,
               duration_seconds: duration,
             })
-            .eq('id', session_id);
+            .eq('id', sessionId)
+            .eq('student_id', authorizedSession.studentId);
 
           if (error) {
             console.error('Error ending study session:', error);
@@ -94,37 +113,47 @@ export async function POST(req: NextRequest) {
           }
 
           return NextResponse.json({
-            data: { session_id, duration_seconds: duration },
+            data: { session_id: sessionId, duration_seconds: duration },
             message: 'Study session ended',
           });
         }
 
-        // 否则查找该学生的活跃会话
-        const { data: activeSessions } = await supabase
+        const authorizedStudent = await getAuthorizedStudentProfile(requestedStudentId);
+        if ('error' in authorizedStudent) {
+          return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+        }
+        const studentId = authorizedStudent.profile.id;
+
+        const { data: activeSessions, error: activeSessionsError } = await supabase
           .from('study_sessions')
-          .select('*')
-          .eq('student_id', student_id)
+          .select('id, start_time')
+          .eq('student_id', studentId)
           .is('end_time', null)
           .order('start_time', { ascending: false })
           .limit(1);
 
-        const activeSession = activeSessions?.[0];
+        if (activeSessionsError) {
+          console.error('Error loading active study sessions:', activeSessionsError);
+          return NextResponse.json({ error: 'Failed to load active session' }, { status: 500 });
+        }
 
+        const activeSession = activeSessions?.[0];
         if (!activeSession) {
           return NextResponse.json({ error: 'No active session found' }, { status: 404 });
         }
 
         const duration = Math.floor(
-          (new Date(end_time).getTime() - new Date(activeSession.start_time).getTime()) / 1000
+          (new Date(endTime).getTime() - new Date(activeSession.start_time).getTime()) / 1000,
         );
 
         const { error } = await supabase
           .from('study_sessions')
           .update({
-            end_time: end_time,
+            end_time: endTime,
             duration_seconds: duration,
           })
-          .eq('id', activeSession.id);
+          .eq('id', activeSession.id)
+          .eq('student_id', studentId);
 
         if (error) {
           console.error('Error ending study session:', error);
@@ -138,15 +167,20 @@ export async function POST(req: NextRequest) {
       }
 
       case 'heartbeat': {
-        // 心跳保持会话活跃
-        if (!session_id) {
+        if (!sessionId) {
           return NextResponse.json({ error: 'session_id is required for heartbeat' }, { status: 400 });
+        }
+
+        const authorizedSession = await loadAuthorizedStudySession(sessionId);
+        if ('response' in authorizedSession) {
+          return authorizedSession.response;
         }
 
         const { error } = await supabase
           .from('study_sessions')
           .update({ last_heartbeat: now })
-          .eq('id', session_id);
+          .eq('id', sessionId)
+          .eq('student_id', authorizedSession.studentId);
 
         if (error) {
           console.error('Error updating heartbeat:', error);
@@ -154,7 +188,7 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({
-          data: { session_id },
+          data: { session_id: sessionId },
           message: 'Heartbeat recorded',
         });
       }
@@ -168,29 +202,25 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET endpoint - 获取学习时长统计
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
-    const student_id = searchParams.get('student_id');
-    const start_date = searchParams.get('start_date');
-    const end_date = searchParams.get('end_date');
+    const startDate = searchParams.get('start_date');
+    const endDate = searchParams.get('end_date');
+    const authorizedStudent = await getAuthorizedStudentProfile(searchParams.get('student_id'));
 
-    if (!student_id) {
-      return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
     }
+    const studentId = authorizedStudent.profile.id;
 
-    // 构建查询
-    let query = supabase
-      .from('study_sessions')
-      .select('*')
-      .eq('student_id', student_id);
+    let query = supabase.from('study_sessions').select('*').eq('student_id', studentId);
 
-    if (start_date) {
-      query = query.gte('start_time', start_date);
+    if (startDate) {
+      query = query.gte('start_time', startDate);
     }
-    if (end_date) {
-      query = query.lte('start_time', end_date);
+    if (endDate) {
+      query = query.lte('start_time', endDate);
     }
 
     const { data: sessions, error } = await query;
@@ -200,34 +230,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
     }
 
-    // Helper function to check if a session is from today
     const isToday = (startTime: string): boolean => {
       const sessionDate = new Date(startTime);
       const today = new Date();
       return sessionDate.toDateString() === today.toDateString();
     };
 
-    // 计算统计
     const totalSessions = sessions?.length || 0;
-    const totalDurationSeconds = sessions?.reduce(
-      (sum, s) => sum + (s.duration_seconds || 0),
-      0
-    ) || 0;
-    const todaySessionsList = sessions?.filter(s => isToday(s.start_time)) || [];
+    const totalDurationSeconds =
+      sessions?.reduce((sum, session) => sum + (session.duration_seconds || 0), 0) || 0;
+    const todaySessionsList = sessions?.filter((session) => isToday(session.start_time)) || [];
     const todayDurationSeconds = todaySessionsList.reduce(
-      (sum, s) => sum + (s.duration_seconds || 0),
-      0
+      (sum, session) => sum + (session.duration_seconds || 0),
+      0,
     );
 
-    const stats = {
-      total_sessions: totalSessions,
-      total_duration_minutes: Math.round(totalDurationSeconds / 60),
-      today_sessions: todaySessionsList.length,
-      today_duration_minutes: Math.round(todayDurationSeconds / 60),
-    };
-
     return NextResponse.json({
-      data: stats,
+      data: {
+        total_sessions: totalSessions,
+        total_duration_minutes: Math.round(totalDurationSeconds / 60),
+        today_sessions: todaySessionsList.length,
+        today_duration_minutes: Math.round(todayDurationSeconds / 60),
+      },
     });
   } catch (error) {
     console.error('Study stats API error:', error);
@@ -235,12 +259,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 更新连续学习天数
 async function updateStreak(userId: string) {
   try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
 
-    // 获取用户等级数据
     const { data: levelData, error: fetchError } = await supabase
       .from('user_levels')
       .select('*')
@@ -264,23 +286,18 @@ async function updateStreak(userId: string) {
       const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
 
       if (diffDays === 0) {
-        // 同一天，不更新streak
         return;
-      } else if (diffDays === 1) {
-        // 连续学习
+      }
+
+      if (diffDays === 1) {
         newStreak = currentStreak + 1;
-      } else {
-        // 断了，重新开始
-        newStreak = 1;
       }
     }
 
     const newLongestStreak = Math.max(longestStreak, newStreak);
 
-    // 更新或创建记录
-    const { error: upsertError } = await supabase
-      .from('user_levels')
-      .upsert({
+    const { error: upsertError } = await supabase.from('user_levels').upsert(
+      {
         user_id: userId,
         current_streak: newStreak,
         longest_streak: newLongestStreak,
@@ -288,18 +305,21 @@ async function updateStreak(userId: string) {
         level: levelData?.level || 1,
         xp: levelData?.xp || 0,
         total_xp: levelData?.total_xp || 0,
-      }, { onConflict: 'user_id' });
+      },
+      { onConflict: 'user_id' },
+    );
 
     if (upsertError) {
       console.error('Error updating streak:', upsertError);
       return;
     }
 
-    // 触发连续学习成就检查
     if (newStreak > currentStreak) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+        const baseUrl =
+          process.env.NEXT_PUBLIC_SITE_URL ||
           (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
         await fetch(`${baseUrl}/api/achievements`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -309,8 +329,8 @@ async function updateStreak(userId: string) {
             data: { streak: newStreak },
           }),
         });
-      } catch (e) {
-        console.error('Failed to check streak achievements:', e);
+      } catch (achievementError) {
+        console.error('Failed to check streak achievements:', achievementError);
       }
     }
 

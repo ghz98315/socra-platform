@@ -8,6 +8,10 @@ import {
   isCarelessnessLike,
   isValidRootCauseSubtype,
 } from '@/lib/error-loop/taxonomy';
+import {
+  createAuthorizedStudentErrorResponse,
+  getAuthorizedStudentProfile,
+} from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,11 +84,31 @@ function assertMeaningfulRootCause({
 export async function GET(req: NextRequest) {
   try {
     const sessionId = req.nextUrl.searchParams.get('session_id');
-    const studentId = req.nextUrl.searchParams.get('student_id');
 
-    if (!sessionId || !studentId) {
-      return NextResponse.json({ error: 'Missing required query params: session_id, student_id' }, { status: 400 });
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Missing required query param: session_id' }, { status: 400 });
     }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('error_sessions')
+      .select('id, student_id')
+      .eq('id', sessionId)
+      .maybeSingle();
+
+    if (sessionError) {
+      console.error('[error-session/diagnose] Failed to load session:', sessionError);
+      return NextResponse.json({ error: 'Failed to load error session' }, { status: 500 });
+    }
+
+    if (!session?.id) {
+      return NextResponse.json({ error: 'Error session not found' }, { status: 404 });
+    }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
 
     const { data, error } = await supabase
       .from('error_diagnoses')
@@ -118,7 +142,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       session_id,
-      student_id,
       subject,
       surface_labels,
       surface_error,
@@ -136,7 +159,6 @@ export async function POST(req: NextRequest) {
 
     if (
       !session_id ||
-      !student_id ||
       !subject ||
       !surface_error ||
       !root_cause_category ||
@@ -146,7 +168,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Missing required fields: session_id, student_id, subject, surface_error, root_cause_category, root_cause_subtype, root_cause_statement',
+            'Missing required fields: session_id, subject, surface_error, root_cause_category, root_cause_subtype, root_cause_statement',
         },
         { status: 400 },
       );
@@ -198,13 +220,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to load error session' }, { status: 500 });
     }
 
-    if (!session?.id || session.student_id !== student_id) {
-      return NextResponse.json({ error: 'Error session not found for this student' }, { status: 404 });
+    if (!session?.id) {
+      return NextResponse.json({ error: 'Error session not found' }, { status: 404 });
     }
+
+    const authorizedStudent = await getAuthorizedStudentProfile(session.student_id);
+    if ('error' in authorizedStudent) {
+      return createAuthorizedStudentErrorResponse(authorizedStudent.error);
+    }
+    const studentId = authorizedStudent.profile.id;
 
     const diagnosisPayload = {
       session_id,
-      student_id,
+      student_id: studentId,
       subject,
       surface_labels: normalizedSurfaceLabels,
       surface_error: String(surface_error).trim(),
@@ -240,7 +268,7 @@ export async function POST(req: NextRequest) {
         closure_state: 'open',
       })
       .eq('id', session_id)
-      .eq('student_id', student_id);
+      .eq('student_id', studentId);
 
     if (sessionUpdateError) {
       console.error('[error-session/diagnose] Failed to update error session root cause fields:', sessionUpdateError);
