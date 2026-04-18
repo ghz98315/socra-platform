@@ -1,12 +1,10 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-// Supabase 配置
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mock.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key';
 const sharedCookieDomain = process.env.NEXT_PUBLIC_SHARED_AUTH_COOKIE_DOMAIN?.trim();
 
-// 单例模式：确保只有一个客户端实例
 let clientInstance: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
 function resolveCookieDomain() {
@@ -26,12 +24,50 @@ function resolveCookieDomain() {
   return '';
 }
 
+function writeBrowserCookie(key: string, value: string, maxAge: number) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const isSecure = window.location.protocol === 'https:';
+  const secureFlag = isSecure ? 'secure;' : '';
+  const cookieDomain = resolveCookieDomain();
+  const encodedValue = encodeURIComponent(value);
+
+  // Remove the legacy host-only cookie first so it does not shadow the
+  // shared-domain cookie introduced for landing <-> socrates auth sharing.
+  document.cookie = `${key}=; max-age=-1; path=/; ${secureFlag} samesite=lax`;
+
+  if (cookieDomain) {
+    document.cookie = `${key}=${encodedValue}; max-age=${maxAge}; path=/; domain=${cookieDomain}; ${secureFlag} samesite=lax`;
+    return;
+  }
+
+  document.cookie = `${key}=${encodedValue}; max-age=${maxAge}; path=/; ${secureFlag} samesite=lax`;
+}
+
+function removeBrowserCookie(key: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const isSecure = window.location.protocol === 'https:';
+  const secureFlag = isSecure ? 'secure;' : '';
+  const cookieDomain = resolveCookieDomain();
+
+  // Clear both the current-host cookie and the shared-domain cookie so older
+  // sessions cannot survive sign-out after the cookie-domain rollout.
+  document.cookie = `${key}=; max-age=-1; path=/; ${secureFlag} samesite=lax`;
+
+  if (cookieDomain) {
+    document.cookie = `${key}=; max-age=-1; path=/; domain=${cookieDomain}; ${secureFlag} samesite=lax`;
+  }
+}
+
 export function createClient() {
   if (!clientInstance) {
     clientInstance = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
-        // 使用 cookies 存储令牌（而不是 localStorage）
-        // 这样服务端才能读取认证信息
         storage: {
           getItem: (key: string) => {
             if (typeof window === 'undefined') return null;
@@ -44,29 +80,16 @@ export function createClient() {
             }
           },
           setItem: (key: string, value: string) => {
-            if (typeof window === 'undefined') return;
-            // 设置 cookie 时根据协议决定是否使用 secure 标志
-            // localhost 开发环境不使用 secure，生产环境使用
-            const maxAge = 60 * 60 * 24 * 7; // 7 天
-            const isSecure = window.location.protocol === 'https:';
-            const secureFlag = isSecure ? 'secure;' : '';
-            const cookieDomain = resolveCookieDomain();
-            const domainFlag = cookieDomain ? `domain=${cookieDomain}; ` : '';
-            const encodedValue = encodeURIComponent(value);
-            document.cookie = `${key}=${encodedValue}; max-age=${maxAge}; path=/; ${domainFlag}${secureFlag} samesite=lax`;
+            writeBrowserCookie(key, value, 60 * 60 * 24 * 7);
           },
           removeItem: (key: string) => {
-            if (typeof window === 'undefined') return;
-            const isSecure = window.location.protocol === 'https:';
-            const secureFlag = isSecure ? 'secure;' : '';
-            const cookieDomain = resolveCookieDomain();
-            const domainFlag = cookieDomain ? `domain=${cookieDomain}; ` : '';
-            document.cookie = `${key}=; max-age=-1; path=/; ${domainFlag}${secureFlag} samesite=lax`;
+            removeBrowserCookie(key);
           },
         },
       },
     });
   }
+
   return clientInstance;
 }
 
