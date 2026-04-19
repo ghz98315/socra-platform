@@ -1,134 +1,156 @@
-# Socrates Auth Study Chain Online Checklist
+# Socrates 统一账号多 Profile 联调清单
 
-- Date: 2026-04-19
-- Scope: auth-hardening regression for `error-book / error-session / study-assets / variants`
-- Goal: confirm both `student self` and `parent acting for linked child` work correctly after backend authorization tightening
+- 更新时间：2026-04-19
+- 当前目标：把原来的“家长账号 / 孩子账号”切换模型，收敛为“同一登录账号下多个 profile”
+- 本轮范围：`auth / select-profile / family / students / error-book / review / study / variants`
 
-## Precondition
+## 一、改造目标确认
 
-- Use the deployed Socrates environment that already includes this round of backend changes.
-- Prepare 2 accounts:
-  - one student account
-  - one parent account that is already linked to at least one child student
-- Prepare 1 existing error-session record and 1 study-asset record if possible, so both create flow and read/update flow can be checked.
+- 一个登录账号只对应一个认证身份。
+- 登录账号下可以有多个 profile。
+- 家长本人是账号 owner profile。
+- 家长可在账号下挂 0 到多个孩子 profile。
+- 切换身份不再修改数据库里的 `profiles.role`。
+- 进入学生链路时，以当前激活的孩子 profile 作为 `student_id` 来源。
+- 新增孩子默认只创建 profile，不强制创建独立手机号和密码。
 
-## A. Student Self Flow
+## 二、登录与身份选择
 
-### A1. Error Book List
+### A1. 家长账号登录
 
-- [ ] Log in as a student.
-- [ ] Open `/error-book`.
-- [ ] Confirm the list loads normally.
-- [ ] Confirm filtering, pagination, and stats still load.
-- [ ] Confirm there is no `401 / 403 / Student not found` response in the browser network panel.
+- [ ] 家长手机号验证码登录成功。
+- [ ] 家长密码登录成功。
+- [ ] 登录后进入 `/select-profile`，而不是直接落到学生页。
+- [ ] 身份选择页能看到“家长本人 profile”。
+- [ ] 身份选择页能看到该账号下所有孩子 profile。
+- [ ] 点击家长 profile 后进入 `/tasks`。
+- [ ] 点击某个孩子 profile 后进入 `/study/math/problem`。
 
-### A2. Create Error Session
+### A2. 学生账号兼容
 
-- [ ] Upload or create a new wrong-question session from the student side.
-- [ ] Confirm the session is created successfully.
-- [ ] Confirm the first chat messages are saved.
-- [ ] Confirm refresh after creation still shows the same session in the wrong-question list.
+- [ ] 独立学生账号登录后，不需要选择页，直接进入学生学习页。
+- [ ] 独立学生账号进入 `/select-profile` 时，不出现异常死循环。
 
-### A3. Error Session Follow-up Actions
+### A3. 退出与再次登录
 
-- [ ] Submit difficulty rating.
-- [ ] Submit structured diagnosis.
-- [ ] Complete one round of guided reflection.
-- [ ] Trigger wrap-up preview.
-- [ ] Submit wrap-up result.
-- [ ] Click submit-to-error-book / finish flow if the page exposes it.
-- [ ] Confirm the session status updates normally and the page does not get stuck loading.
+- [ ] 在 `/select-profile` 右上或底部退出登录可正常返回 `/login`。
+- [ ] 退出后再次登录，不会残留上一次其他账号的激活 profile。
+- [ ] 同一账号再次登录后，能恢复上一次激活的 profile。
 
-### A4. Review Loop Bridge
+## 三、家长侧联调
 
-- [ ] After wrap-up submission, confirm review-loop creation succeeds.
-- [ ] Open the generated review session.
-- [ ] Confirm the review session page loads without permission error.
+### B1. 家长 profile 进入家长工作台
 
-### A5. Study Session
+- [ ] 家长 profile 进入 `/tasks` 正常。
+- [ ] 家长 profile 进入 `/family` 正常。
+- [ ] 家长 profile 进入家长报告、监管、任务相关页面正常。
+- [ ] 家长 profile 访问学生专属路由时，会引导到 `/select-profile` 或正确跳转。
 
-- [ ] Start a study session from a study page or workbench page.
-- [ ] Leave the page open long enough for at least one heartbeat.
-- [ ] End the study session.
-- [ ] Confirm duration data and study stats still update.
+### B2. 家庭页与孩子 profile
 
-### A6. Study Asset
+- [ ] `/family` 页面文案已体现“统一账号 + 孩子 profile”。
+- [ ] 家庭页能拉取当前家长名下的孩子 profile 列表。
+- [ ] 新增孩子后，只创建 profile，不要求输入独立密码。
+- [ ] 新增孩子后，重新进入 `/select-profile` 能看到新孩子。
+- [ ] 删除孩子 profile 后，`/select-profile` 不再出现该孩子。
+- [ ] 老数据里若孩子曾有独立 auth 账号，现有列表仍可正常展示。
 
-- [ ] Open study-asset list or study history.
-- [ ] Open one study-asset detail page.
-- [ ] Confirm messages, legacy bridge data, and related links still load.
-- [ ] Update one study-asset if the UI exposes save/update behavior.
-- [ ] Trigger "add to review" from a study-asset and confirm it succeeds.
+## 四、学生侧联调
 
-### A7. Variant Practice
+### C1. 孩子 profile 进入学习链路
 
-- [ ] Generate variants for one wrong-question session.
-- [ ] Confirm generated variants appear in the list.
-- [ ] Submit at least one variant answer through the normal submit flow.
-- [ ] Confirm practice logs and summary update normally.
+- [ ] 从选择页切到某个孩子后，可正常进入 `/study/math/problem`。
+- [ ] `/error-book` 列表只显示当前孩子的数据。
+- [ ] `/error-book/[id]` 详情只展示当前孩子可访问的题目。
+- [ ] `/review` 只展示当前孩子的复习记录。
+- [ ] `/workbench`、学习资产、错题详情导出等学生页面不报错。
 
-## B. Parent Acting For Linked Child
+### C2. 孩子 profile 取数隔离
 
-### B1. Wrong Question List Under Child Context
+- [ ] 家长账号切到孩子 A 后，学生页数据全部来自孩子 A。
+- [ ] 再切到孩子 B 后，学生页数据切换为孩子 B，不残留孩子 A 数据。
+- [ ] 刷新页面后，仍保持当前激活的孩子 profile。
+- [ ] 直接访问学生页深链时，不会丢失当前激活 profile。
 
-- [ ] Log in as a parent.
-- [ ] Switch to a linked child in the parent/student selector flow.
-- [ ] Open the child wrong-question view or workbench entry.
-- [ ] Confirm wrong-question list loads for the selected child.
+### C3. 学习时长与青少年模式
 
-### B2. Parent-Assisted Error Session Flow
+- [ ] 当前激活孩子进入学生页后，青少年模式按该孩子配置读取。
+- [ ] 使用时长上报写入当前激活孩子的 `user_id / student_id`。
+- [ ] 切换到另一个孩子后，剩余时长与当日时长同步切换。
 
-- [ ] Create a wrong-question session while parent is acting on behalf of the selected child.
-- [ ] Confirm session creation succeeds.
-- [ ] Confirm diagnosis, difficulty, guided reflection, wrap-up preview, and wrap-up submit all succeed.
-- [ ] Confirm review-loop creation still succeeds for the child.
+## 五、错题链路联调
 
-### B3. Parent-Assisted Study Flow
+### D1. 错题会话与收口
 
-- [ ] Start and end a study session while parent is operating in child context.
-- [ ] Open study assets for the selected child.
-- [ ] Trigger study-asset review creation.
-- [ ] Generate variants for the child and submit one answer.
-- [ ] Confirm all requests succeed without cross-student leakage.
+- [ ] 孩子 profile 发起新错题会话成功。
+- [ ] 会话消息保存完整，不会只保存少量对话。
+- [ ] 收口弹窗能正常出现，不无限 loading。
+- [ ] 提交到错题库后，本次对话结束逻辑正常。
 
-## C. Authorization Guard Checks
+### D2. 错题详情
 
-- [ ] While logged in as Student A, manually revisit a URL belonging to Student B if such a test sample exists.
-- [ ] Confirm the API returns rejection instead of leaking data.
-- [ ] While logged in as a parent, switch to an unlinked or nonexistent child id through devtools or a crafted request if convenient.
-- [ ] Confirm the API rejects the request with `404 / 403 / student_id is required`, and does not expose another child's data.
+- [ ] 从错题本进入详情无乱码。
+- [ ] “看原题”文案与加载提示无乱码。
+- [ ] 变式练习区域已在对话记录上方。
+- [ ] 返回原题、继续复习、查看对话记录链路正常。
 
-## D. Network Regression Focus
+## 六、复习与变式联调
 
-Check these endpoints during the above flows:
+### E1. 复习链路
 
+- [ ] 当前激活孩子可以正常生成复习计划。
+- [ ] 复习页面能按当前孩子拉取待复习记录。
+- [ ] 完成一次复习后，艾宾浩斯节奏推进正常。
+
+### E2. 变式链路
+
+- [ ] 错题详情页可以正常生成变式题。
+- [ ] 生成变式后按钮不会一直 loading。
+- [ ] 重新生成变式时状态可恢复，不报 JSON 解析错误。
+- [ ] 几何题当前只做“变题干”，不再依赖“变图形”。
+- [ ] 原题图片可作为静态图片随题干一起保留展示。
+
+## 七、服务端授权联调
+
+### F1. 当前激活 profile 授权
+
+- [ ] 家长切到孩子后，学生接口无需手输 `student_id` 也能按当前孩子工作。
+- [ ] 直接带 `student_id` 请求接口时，仍会校验必须属于该家长。
+- [ ] 不属于当前家长的孩子数据返回 `403` 或 `404`。
+
+### F2. 重点接口抽查
+
+- [ ] `GET /api/account/profile`
+- [ ] `PATCH /api/account/profile`
+- [ ] `GET /api/students`
+- [ ] `POST /api/students/add`
+- [ ] `DELETE /api/students/[studentId]`
 - [ ] `GET /api/error-book`
 - [ ] `GET/POST/PATCH /api/error-session`
-- [ ] `POST /api/error-session/complete`
-- [ ] `GET/POST /api/error-session/diagnose`
-- [ ] `GET/POST /api/error-session/guided-reflection`
-- [ ] `POST /api/error-session/wrap-up`
-- [ ] `GET/POST /api/error-session/difficulty`
+- [ ] `GET/POST /api/review/schedule`
 - [ ] `GET/POST /api/study/session`
 - [ ] `GET/POST/PATCH /api/study/assets`
-- [ ] `POST /api/study/assets/review`
 - [ ] `GET/POST/PATCH /api/variants`
-- [ ] `POST /api/variants/submit`
 
-## Pass Standard
+## 八、异常场景
 
-This round is considered closed only if all of the following are true:
+- [ ] 家长账号下没有孩子 profile 时，选择页仍可正常进入家长侧。
+- [ ] 当前激活孩子被删除后，刷新页面不会白屏。
+- [ ] cookie 中保留了失效 profile id 时，系统会自动回退到账号 owner profile。
+- [ ] 旧学生独立账号仍可登录，不被本轮改造破坏。
+- [ ] 任一接口报错时，不出现 `Unexpected token '<'` 这类前端误解析报错。
 
-- Student self-flow works end to end.
-- Parent acting for linked child works end to end.
-- Unauthorized cross-student access is rejected.
-- No route enters permanent loading because of new auth checks.
-- No wrong-question, review, study-asset, or variant data disappears after refresh.
-
-## Current Local Verification
-
-Already verified locally before online regression:
+## 九、构建校验
 
 - [x] `pnpm.cmd --filter @socra/socrates build`
 
-Online regression is still required for the flows above.
+## 十、上线后优先回归
+
+- [ ] 家长登录
+- [ ] 选择家长 / 孩子 profile
+- [ ] 孩子错题对话
+- [ ] 提交错题库
+- [ ] 错题详情
+- [ ] 复习
+- [ ] 变式生成
+- [ ] 家庭页新增孩子

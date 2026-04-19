@@ -40,72 +40,169 @@ type AccountProfile = {
   grade_level: number | null;
   theme_preference: 'junior' | 'senior' | null;
   avatar_url: string | null;
-  student_avatar_url?: string | null;
-  parent_avatar_url?: string | null;
+  student_avatar_url: string | null;
+  parent_avatar_url: string | null;
+  parent_id: string | null;
+  created_at: string;
 };
+
+async function getAuthenticatedUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return null;
+  }
+
+  return user;
+}
+
+async function getAccountProfile(admin: ReturnType<typeof createClient>, userId: string) {
+  const { data, error } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as AccountProfile | null) || null;
+}
+
+async function getAvailableProfiles(
+  admin: ReturnType<typeof createClient>,
+  accountProfile: AccountProfile,
+) {
+  if (accountProfile.role !== 'parent') {
+    return [accountProfile];
+  }
+
+  const { data: children, error } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('role', 'student')
+    .eq('parent_id', accountProfile.id)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return [accountProfile, ...((children as AccountProfile[] | null) || [])];
+}
+
+async function resolveTargetProfile(
+  admin: ReturnType<typeof createClient>,
+  accountProfile: AccountProfile,
+  targetProfileId: string | null | undefined,
+) {
+  const normalizedTargetId = targetProfileId?.trim();
+  if (!normalizedTargetId || normalizedTargetId === accountProfile.id) {
+    return accountProfile;
+  }
+
+  if (accountProfile.role !== 'parent') {
+    return null;
+  }
+
+  const { data, error } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('id', normalizedTargetId)
+    .eq('role', 'student')
+    .eq('parent_id', accountProfile.id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as AccountProfile | null) || null;
+}
+
+export async function GET() {
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    const admin = getSupabaseAdmin();
+    const accountProfile = await getAccountProfile(admin, user.id);
+
+    if (!accountProfile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    const availableProfiles = await getAvailableProfiles(admin, accountProfile);
+
+    return NextResponse.json({
+      data: {
+        account_profile: accountProfile,
+        available_profiles: availableProfiles,
+      },
+    });
+  } catch (error) {
+    console.error('[API account/profile] GET unexpected error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 export async function PATCH(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    const user = await getAuthenticatedUser();
+    if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const body = await req.json();
     const admin = getSupabaseAdmin();
+    const accountProfile = await getAccountProfile(admin, user.id);
 
-    const { data: existingProfile, error: profileError } = await admin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error('[API account/profile] Failed to fetch profile:', profileError);
-      return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
+    if (!accountProfile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    const profileRecord = existingProfile as AccountProfile | null;
-
-    if (!profileRecord) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    const targetProfile = await resolveTargetProfile(admin, accountProfile, body.profile_id);
+    if (!targetProfile) {
+      return NextResponse.json({ error: 'Target profile not found' }, { status: 404 });
     }
 
     const nextDisplayName =
       typeof body.display_name === 'string' && body.display_name.trim().length > 0
         ? body.display_name.trim()
-        : profileRecord.display_name;
+        : targetProfile.display_name;
 
     const nextStudentAvatar =
       typeof body.student_avatar_url === 'string' && body.student_avatar_url.trim().length > 0
-        ? body.student_avatar_url
-        : profileRecord.student_avatar_url || profileRecord.avatar_url;
+        ? body.student_avatar_url.trim()
+        : targetProfile.student_avatar_url || targetProfile.avatar_url;
 
     const nextParentAvatar =
       typeof body.parent_avatar_url === 'string' && body.parent_avatar_url.trim().length > 0
-        ? body.parent_avatar_url
-        : profileRecord.parent_avatar_url || profileRecord.avatar_url;
+        ? body.parent_avatar_url.trim()
+        : targetProfile.parent_avatar_url || targetProfile.avatar_url;
 
     const nextGradeLevel =
       body.grade_level === null || body.grade_level === undefined || body.grade_level === ''
-        ? profileRecord.grade_level
+        ? targetProfile.grade_level
         : Number(body.grade_level);
 
     if (
@@ -119,21 +216,26 @@ export async function PATCH(req: NextRequest) {
     const nextTheme =
       typeof body.theme_preference === 'string'
         ? body.theme_preference
-        : resolveThemeByGrade(nextGradeLevel) || profileRecord.theme_preference;
+        : resolveThemeByGrade(nextGradeLevel) || targetProfile.theme_preference;
 
-    let nextPhone = profileRecord.phone;
-    if (typeof body.phone === 'string' && body.phone.trim().length > 0) {
-      const normalizedPhone = normalizePhone(body.phone);
-      if (!/^1[3-9]\d{9}$/.test(normalizedPhone)) {
-        return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
+    let nextPhone = targetProfile.phone;
+    if (typeof body.phone === 'string') {
+      const trimmedPhone = body.phone.trim();
+      if (trimmedPhone.length === 0) {
+        nextPhone = null;
+      } else {
+        const normalizedPhone = normalizePhone(trimmedPhone);
+        if (!/^1[3-9]\d{9}$/.test(normalizedPhone)) {
+          return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
+        }
+        nextPhone = normalizedPhone;
       }
-      nextPhone = normalizedPhone;
     }
 
-    if (nextPhone && nextPhone !== profileRecord.phone) {
+    if (targetProfile.id === user.id && nextPhone && nextPhone !== targetProfile.phone) {
       const { data: existingUsers } = await admin.auth.admin.listUsers();
       const duplicate = existingUsers.users.find(
-        (candidate) => candidate.id !== user.id && candidate.email === `${nextPhone}@student.local`
+        (candidate) => candidate.id !== user.id && candidate.email === `${nextPhone}@student.local`,
       );
 
       if (duplicate) {
@@ -141,30 +243,34 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const currentMetadata =
-      user.user_metadata && typeof user.user_metadata === 'object'
-        ? { ...user.user_metadata }
-        : {};
+    const nextAvatarUrl =
+      targetProfile.role === 'parent'
+        ? nextParentAvatar || targetProfile.avatar_url
+        : nextStudentAvatar || targetProfile.avatar_url;
 
-    const activeRole = profileRecord.role === 'parent' ? 'parent' : 'student';
-    const nextAvatarUrl = activeRole === 'parent' ? nextParentAvatar : nextStudentAvatar;
+    if (targetProfile.id === user.id) {
+      const currentMetadata =
+        user.user_metadata && typeof user.user_metadata === 'object'
+          ? { ...user.user_metadata }
+          : {};
 
-    const { error: authUpdateError } = await admin.auth.admin.updateUserById(user.id, {
-      email: nextPhone ? `${nextPhone}@student.local` : user.email || undefined,
-      email_confirm: true,
-      user_metadata: {
-        ...currentMetadata,
-        display_name: nextDisplayName,
-        phone: nextPhone,
-        avatar_url: nextAvatarUrl,
-        student_avatar_url: nextStudentAvatar,
-        parent_avatar_url: nextParentAvatar,
-      },
-    });
+      const { error: authUpdateError } = await admin.auth.admin.updateUserById(user.id, {
+        email: nextPhone ? `${nextPhone}@student.local` : user.email || undefined,
+        email_confirm: true,
+        user_metadata: {
+          ...currentMetadata,
+          display_name: nextDisplayName,
+          phone: nextPhone,
+          avatar_url: nextAvatarUrl,
+          student_avatar_url: nextStudentAvatar,
+          parent_avatar_url: nextParentAvatar,
+        },
+      });
 
-    if (authUpdateError) {
-      console.error('[API account/profile] Failed to update auth user:', authUpdateError);
-      return NextResponse.json({ error: 'Failed to update account' }, { status: 500 });
+      if (authUpdateError) {
+        console.error('[API account/profile] Failed to update auth user:', authUpdateError);
+        return NextResponse.json({ error: 'Failed to update account' }, { status: 500 });
+      }
     }
 
     const { data: updatedProfile, error: updateError } = await (admin as any)
@@ -178,7 +284,7 @@ export async function PATCH(req: NextRequest) {
         student_avatar_url: nextStudentAvatar,
         parent_avatar_url: nextParentAvatar,
       })
-      .eq('id', user.id)
+      .eq('id', targetProfile.id)
       .select('*')
       .single();
 
@@ -192,7 +298,7 @@ export async function PATCH(req: NextRequest) {
       message: 'Profile updated successfully',
     });
   } catch (error) {
-    console.error('[API account/profile] Unexpected error:', error);
+    console.error('[API account/profile] PATCH unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

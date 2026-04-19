@@ -8,8 +8,9 @@ import { Brain, Home, Loader2, ShieldCheck, Sparkles, Target } from 'lucide-reac
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuth, type UserProfile } from '@/lib/contexts/AuthContext';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { buildAuthPageHref, readEntryParams, resolveEntryDestination } from '@/lib/navigation/entry-intent';
+import { resolveRoleAwareDestination } from '@/lib/navigation/role-home';
 import { cn } from '@/lib/utils';
 
 type LoginMode = 'code' | 'password';
@@ -20,22 +21,19 @@ const features = [
   { icon: Sparkles, title: '个性分析', desc: '精准定位薄弱知识点' },
 ];
 
-function resolveAuthenticatedDestination(profile: UserProfile | null, fallbackDestination: string) {
-  if (fallbackDestination !== '/select-profile') {
-    return fallbackDestination;
-  }
-
-  if (!profile?.role) {
-    return '/select-profile';
-  }
-
-  return profile.role === 'parent' ? '/tasks' : '/study/math/problem';
-}
-
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, requestPhoneCode, verifyPhoneCode, profile, user, loading: authLoading } = useAuth();
+  const {
+    signIn,
+    requestPhoneCode,
+    verifyPhoneCode,
+    profile,
+    accountProfile,
+    availableProfiles,
+    user,
+    loading: authLoading,
+  } = useAuth();
   const entryParams = readEntryParams(searchParams);
   const registerHref = buildAuthPageHref('/register', entryParams);
   const successDestination = resolveEntryDestination(entryParams);
@@ -60,8 +58,13 @@ function LoginPageContent() {
       return;
     }
 
-    router.replace(resolveAuthenticatedDestination(profile, successDestination));
-  }, [authLoading, profile, router, successDestination, user]);
+    if (accountProfile?.role === 'parent' && availableProfiles.length > 1) {
+      router.replace('/select-profile');
+      return;
+    }
+
+    router.replace(resolveRoleAwareDestination(profile, successDestination));
+  }, [accountProfile?.role, authLoading, availableProfiles.length, profile, router, successDestination, user]);
 
   const handlePasswordLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -70,8 +73,8 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      const nextProfile = await signIn(phone, password);
-      router.replace(resolveAuthenticatedDestination(nextProfile, successDestination));
+      await signIn(phone, password);
+      router.replace('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请检查手机号和密码。');
     } finally {
@@ -108,12 +111,12 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      const nextProfile = await verifyPhoneCode({
+      await verifyPhoneCode({
         phone,
         code,
         purpose: 'login',
       });
-      router.replace(resolveAuthenticatedDestination(nextProfile, successDestination));
+      router.replace('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : '验证码登录失败，请稍后重试。');
     } finally {

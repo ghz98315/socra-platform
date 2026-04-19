@@ -205,7 +205,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
     if (resolvedReviewData?.id && profile?.id) {
       try {
         const response = await fetch(
-          `/api/review/attempt?review_id=${encodeURIComponent(resolvedReviewData.id)}&student_id=${encodeURIComponent(profile.id)}`,
+          `/api/review/attempt?review_id=${encodeURIComponent(resolvedReviewData.id)}`,
         );
         const payload = await response.json();
 
@@ -242,7 +242,7 @@ export default function ErrorDetailPage({ params }: { params: Promise<{ id: stri
       await downloadErrorQuestionPDF({
         subject: errorSession.subject,
         createdAt: errorSession.created_at,
-        studentName: profile?.display_name,
+        studentName: profile?.display_name || undefined,
         ocrText: errorSession.extracted_text || undefined,
         imageUrl: errorSession.original_image_url || undefined,
         conceptTags: errorSession.concept_tags || undefined,

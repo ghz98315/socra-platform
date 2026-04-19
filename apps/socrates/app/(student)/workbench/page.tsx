@@ -782,7 +782,7 @@ function WorkbenchPage() {
       await downloadErrorQuestionPDF({
         subject: activeSubject,
         createdAt: new Date().toISOString(),
-        studentName: profile?.display_name,
+        studentName: profile?.display_name || undefined,
         ocrText: ocrText || undefined,
         imageUrl: imagePreview || undefined,
         messages: messages.map(m => ({

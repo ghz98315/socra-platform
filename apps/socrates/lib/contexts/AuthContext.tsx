@@ -1,36 +1,46 @@
-// =====================================================
-// Project Socrates - Authentication Context
-// =====================================================
-
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
+
+import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/database.types';
 import type { PhoneCodePurpose } from '@/lib/auth/phone-auth';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
-type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+
+const ACTIVE_PROFILE_COOKIE = 'socrates-active-profile';
+const ACTIVE_PROFILE_STORAGE_PREFIX = 'socrates-active-profile:';
 
 export interface UserProfile {
   id: string;
-  email?: string;
-  phone?: string;
+  email?: string | null;
+  phone?: string | null;
   role: 'admin' | 'student' | 'parent';
-  theme_preference?: 'junior' | 'senior';
-  grade_level?: number;
-  display_name?: string;
-  avatar_url?: string;
-  student_avatar_url?: string;
-  parent_avatar_url?: string;
-  xp_points?: number;
+  theme_preference?: 'junior' | 'senior' | null;
+  grade_level?: number | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  student_avatar_url?: string | null;
+  parent_avatar_url?: string | null;
+  xp_points?: number | null;
+  parent_id?: string | null;
   created_at: string;
+}
+
+interface AccountProfilesResponse {
+  data?: {
+    account_profile?: ProfileRow | null;
+    available_profiles?: ProfileRow[];
+  };
+  error?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
+  accountProfile: UserProfile | null;
+  availableProfiles: UserProfile[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<UserProfile | null>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
@@ -50,302 +60,406 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  selectProfile: (profileId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const SESSION_TIMEOUT_MS = 2500;
+
+function getStorageKey(userId: string) {
+  return `${ACTIVE_PROFILE_STORAGE_PREFIX}${userId}`;
+}
+
+function readCookieValue(name: string) {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const prefix = `${name}=`;
+  const item = document.cookie
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(prefix));
+
+  if (!item) {
+    return null;
+  }
+
+  return decodeURIComponent(item.slice(prefix.length));
+}
+
+function writeActiveProfileCookie(profileId: string | null) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  if (!profileId) {
+    document.cookie = `${ACTIVE_PROFILE_COOKIE}=; path=/; max-age=0; samesite=lax`;
+    return;
+  }
+
+  document.cookie = `${ACTIVE_PROFILE_COOKIE}=${encodeURIComponent(profileId)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+}
+
+function writeStoredActiveProfile(userId: string, profileId: string | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const storageKey = getStorageKey(userId);
+  if (!profileId) {
+    window.localStorage.removeItem(storageKey);
+    return;
+  }
+
+  window.localStorage.setItem(storageKey, profileId);
+}
+
+function readStoredActiveProfile(userId: string) {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.localStorage.getItem(getStorageKey(userId));
+}
+
+function clearStoredActiveProfile(userId?: string | null) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (userId) {
+    window.localStorage.removeItem(getStorageKey(userId));
+    return;
+  }
+
+  const keysToRemove: string[] = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(ACTIVE_PROFILE_STORAGE_PREFIX)) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+}
+
+function toUserProfile(profile: ProfileRow | null | undefined): UserProfile | null {
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    id: profile.id,
+    email: profile.email,
+    phone: profile.phone,
+    role: profile.role,
+    theme_preference: profile.theme_preference,
+    grade_level: profile.grade_level,
+    display_name: profile.display_name,
+    avatar_url: profile.avatar_url,
+    student_avatar_url: profile.student_avatar_url,
+    parent_avatar_url: profile.parent_avatar_url,
+    xp_points: profile.xp_points,
+    parent_id: profile.parent_id,
+    created_at: profile.created_at,
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const supabase = createClient();
 
-  // Track last fetched user ID to prevent duplicate fetches
-  const lastFetchedUserId = React.useRef<string | null>(null);
-  const profileFetchInFlight = React.useRef<Promise<UserProfile | null> | null>(null);
-  const profileFetchUserId = React.useRef<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [accountProfile, setAccountProfile] = useState<UserProfile | null>(null);
+  const [availableProfiles, setAvailableProfiles] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchProfileInternal = async (userId: string, retries = 2): Promise<UserProfile | null> => {
+  const activeProfileRef = useRef<UserProfile | null>(null);
+  const profileLoadRef = useRef<Promise<UserProfile | null> | null>(null);
+  const profileLoadUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeProfileRef.current = profile;
+  }, [profile]);
+
+  const persistActiveProfile = (userId: string, profileId: string | null) => {
+    writeStoredActiveProfile(userId, profileId);
+    writeActiveProfileCookie(profileId);
+  };
+
+  const chooseActiveProfileId = (
+    userId: string,
+    nextAccountProfile: UserProfile,
+    nextAvailableProfiles: UserProfile[],
+    preferredProfileId?: string | null,
+  ) => {
+    const validIds = new Set(nextAvailableProfiles.map((item) => item.id));
+    const candidates = [
+      preferredProfileId || null,
+      activeProfileRef.current?.id || null,
+      readStoredActiveProfile(userId),
+      readCookieValue(ACTIVE_PROFILE_COOKIE),
+      nextAccountProfile.id,
+    ];
+
+    const match = candidates.find(
+      (candidate): candidate is string => typeof candidate === 'string' && validIds.has(candidate),
+    );
+    return match || nextAccountProfile.id;
+  };
+
+  const fetchProfilesBundle = async (userId: string) => {
+    const response = await fetch('/api/account/profile', {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    let payload: AccountProfilesResponse | null = null;
     try {
-      console.log('[AuthContext] Fetching profile for user:', userId);
+      payload = (await response.json()) as AccountProfilesResponse;
+    } catch (error) {
+      console.error('[AuthContext] Failed to parse account profile payload:', error);
+    }
 
-      const queryPromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Query timeout after 10s')), 10000)
-      );
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-      if (error) {
-        console.error('[AuthContext] Error fetching profile:', JSON.stringify(error, null, 2));
-        if (retries > 0) {
-          console.log(`[AuthContext] Retrying profile fetch (${retries} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchProfileInternal(userId, retries - 1);
-        }
+    if (!response.ok) {
+      if (response.status === 404) {
         return null;
       }
+      throw new Error(payload?.error || 'Failed to fetch account profiles');
+    }
 
-      console.log('[AuthContext] Profile fetched:', data);
-      lastFetchedUserId.current = userId;
-      return (data as UserProfile | null);
-    } catch (error: any) {
-      if (error?.message?.includes('timeout')) {
-        console.error('[AuthContext] Profile fetch timeout');
-        if (retries > 0) {
-          console.log(`[AuthContext] Retrying profile fetch after timeout (${retries} attempts left)`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchProfileInternal(userId, retries - 1);
-        }
-        return null;
-      }
-      console.error('[AuthContext] Exception fetching profile:', error?.message || error);
+    const nextAccountProfile = toUserProfile(payload?.data?.account_profile || null);
+    const nextAvailableProfiles = (payload?.data?.available_profiles || [])
+      .map((item) => toUserProfile(item))
+      .filter((item): item is UserProfile => Boolean(item));
+
+    if (!nextAccountProfile) {
       return null;
+    }
+
+    if (nextAvailableProfiles.length === 0) {
+      return {
+        accountProfile: nextAccountProfile,
+        availableProfiles: [nextAccountProfile],
+      };
+    }
+
+    return {
+      accountProfile: nextAccountProfile,
+      availableProfiles: nextAvailableProfiles,
+    };
+  };
+
+  const ensureOwnProfile = async (params: {
+    role?: 'student' | 'parent';
+    displayName?: string | null;
+    phone?: string | null;
+    avatarUrl?: string | null;
+  }) => {
+    const response = await fetch('/api/profile/ensure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: params.role || 'student',
+        display_name: params.displayName || undefined,
+        phone: params.phone || undefined,
+        avatar_url: params.avatarUrl || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || 'Failed to ensure profile');
     }
   };
 
-  // Fetch user profile from database with retry logic
-  const fetchProfile = async (userId: string, retries = 2): Promise<UserProfile | null> => {
-    if (profileFetchInFlight.current && profileFetchUserId.current === userId) {
-      console.log('[AuthContext] Reusing in-flight profile fetch for user:', userId);
-      return profileFetchInFlight.current;
+  const loadProfilesForUser = async (
+    authUser: User,
+    preferredProfileId?: string | null,
+  ): Promise<UserProfile | null> => {
+    if (profileLoadRef.current && profileLoadUserIdRef.current === authUser.id) {
+      return profileLoadRef.current;
     }
 
-    const fetchPromise = fetchProfileInternal(userId, retries);
-    profileFetchInFlight.current = fetchPromise;
-    profileFetchUserId.current = userId;
+    const loadPromise = (async () => {
+      let bundle = await fetchProfilesBundle(authUser.id);
+
+      if (!bundle) {
+        await ensureOwnProfile({
+          role: 'student',
+          displayName:
+            typeof authUser.user_metadata?.display_name === 'string'
+              ? authUser.user_metadata.display_name
+              : authUser.email?.split('@')[0] || null,
+          phone:
+            typeof authUser.user_metadata?.phone === 'string'
+              ? authUser.user_metadata.phone
+              : null,
+          avatarUrl:
+            typeof authUser.user_metadata?.avatar_url === 'string'
+              ? authUser.user_metadata.avatar_url
+              : null,
+        });
+        bundle = await fetchProfilesBundle(authUser.id);
+      }
+
+      if (!bundle) {
+        setAccountProfile(null);
+        setAvailableProfiles([]);
+        setProfile(null);
+        persistActiveProfile(authUser.id, null);
+        return null;
+      }
+
+      setAccountProfile(bundle.accountProfile);
+      setAvailableProfiles(bundle.availableProfiles);
+
+      const nextActiveProfileId = chooseActiveProfileId(
+        authUser.id,
+        bundle.accountProfile,
+        bundle.availableProfiles,
+        preferredProfileId,
+      );
+      const nextActiveProfile =
+        bundle.availableProfiles.find((item) => item.id === nextActiveProfileId) || bundle.accountProfile;
+
+      setProfile(nextActiveProfile);
+      persistActiveProfile(authUser.id, nextActiveProfile.id);
+      return nextActiveProfile;
+    })();
+
+    profileLoadRef.current = loadPromise;
+    profileLoadUserIdRef.current = authUser.id;
 
     try {
-      return await fetchPromise;
+      return await loadPromise;
     } finally {
-      if (profileFetchInFlight.current === fetchPromise) {
-        profileFetchInFlight.current = null;
-        profileFetchUserId.current = null;
+      if (profileLoadRef.current === loadPromise) {
+        profileLoadRef.current = null;
+        profileLoadUserIdRef.current = null;
       }
     }
   };
 
   useEffect(() => {
-    // Check active session and set up auth listener
-    const getSession = async () => {
-      console.log('[AuthContext] Getting initial session');
-      let timedOut = false;
-      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    const init = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      const sessionResult = await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<{ data: { session: null }; error: null }>((resolve) => {
-          timeoutHandle = setTimeout(() => {
-            timedOut = true;
-            resolve({ data: { session: null }, error: null });
-          }, SESSION_TIMEOUT_MS);
-        }),
-      ]);
+        if (!session?.user) {
+          setLoading(false);
+          return;
+        }
 
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
+        setUser(session.user);
+        await loadProfilesForUser(session.user);
+      } catch (error) {
+        console.error('[AuthContext] Failed to initialize session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void init();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        return;
       }
 
-      const { data: { session }, error } = sessionResult;
-
-      if (error) {
-        console.error('[AuthContext] Error getting session:', error);
+      if (!session?.user) {
+        if (user?.id) {
+          clearStoredActiveProfile(user.id);
+        }
+        writeActiveProfileCookie(null);
+        setUser(null);
+        setProfile(null);
+        setAccountProfile(null);
+        setAvailableProfiles([]);
         setLoading(false);
         return;
       }
 
-      if (timedOut) {
-        console.warn('[AuthContext] getSession timeout, falling back to logged-out state');
-      }
-
-      console.log('[AuthContext] Initial session:', !!session?.user);
-      if (session?.user) {
-        setUser(session.user);
-        const userProfile = await fetchProfile(session.user.id);
-        setProfile(userProfile);
-      }
-
+      setUser(session.user);
+      await loadProfilesForUser(session.user);
       setLoading(false);
-    };
+    });
 
-    getSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('[AuthContext] onAuthStateChange:', event, !!session?.user);
-
-        // 跳过 TOKEN_REFRESHED 事件，避免不必要的 profile 刷新
-        if (event === 'TOKEN_REFRESHED') {
-          console.log('[AuthContext] Token refreshed, keeping existing profile');
-          return;
-        }
-
-        if (session?.user) {
-          setUser(session.user);
-          // 只有当用户ID变化时才重新获取profile
-          if (lastFetchedUserId.current !== session.user.id) {
-            const userProfile = await fetchProfile(session.user.id);
-            setProfile(userProfile);
-          }
-        } else {
-          setUser(null);
-          setProfile(null);
-          lastFetchedUserId.current = null;
-        }
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (emailOrPhone: string, password: string) => {
     setLoading(true);
 
-    // 判断是手机号还是邮箱
     const phoneRegex = /^1[3-9]\d{9}$/;
-    const email = phoneRegex.test(emailOrPhone)
-      ? `${emailOrPhone}@student.local`  // 手机号转换为 email
-      : emailOrPhone;
+    const email = phoneRegex.test(emailOrPhone) ? `${emailOrPhone}@student.local` : emailOrPhone;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setLoading(false);
-      throw error;
-    }
+      if (error) {
+        throw error;
+      }
 
-    let userProfile: UserProfile | null = null;
-    if (data.user) {
+      if (!data.user) {
+        return null;
+      }
+
       setUser(data.user);
-      userProfile = await fetchProfile(data.user.id);
-      setProfile(userProfile);
+      return await loadProfilesForUser(data.user);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    return userProfile;
   };
 
   const signUp = async (emailOrPhone: string, password: string, name?: string) => {
-    console.log('[AuthContext] signUp started');
     setLoading(true);
 
-    // 判断是手机号还是邮箱
     const phoneRegex = /^1[3-9]\d{9}$/;
     const isPhone = phoneRegex.test(emailOrPhone);
-    const email = isPhone
-      ? `${emailOrPhone}@student.local`  // 手机号转换为 email
-      : emailOrPhone;
-
-    // 记录原始手机号（如果是手机号注册）
+    const email = isPhone ? `${emailOrPhone}@student.local` : emailOrPhone;
     const phone = isPhone ? emailOrPhone : null;
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: undefined, // 不需要邮件验证
-        data: {
-          display_name: name,
-          phone: phone,  // 存储手机号到 metadata
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: undefined,
+          data: {
+            display_name: name,
+            phone,
+          },
         },
-      },
-    });
+      });
 
-    console.log('[AuthContext] signUp response:', { hasUser: !!data.user, hasSession: !!data.session, error });
+      if (error) {
+        throw error;
+      }
 
-    if (error) {
-      console.error('[AuthContext] signUp error:', error);
-      setLoading(false);
-      throw error;
-    }
+      if (!data.user || !data.session) {
+        throw new Error('Sign up succeeded but session was not created');
+      }
 
-    // 检查是否有 session（如果没有 session，说明需要邮箱确认）
-    if (!data.session) {
-      console.error('[AuthContext] No session after signUp');
-      setLoading(false);
-      throw new Error('注册成功，但需要邮箱确认。请检查您的邮箱。');
-    }
-
-    if (data.user) {
-      console.log('[AuthContext] Setting user:', data.user.id);
       setUser(data.user);
-
-      // 等待触发器创建 profile，然后获取
-      // 使用重试逻辑，因为触发器是异步的
-      let userProfile = null;
-      for (let i = 0; i < 5; i++) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log(`[AuthContext] Fetching profile attempt ${i + 1}/5`);
-        userProfile = await fetchProfile(data.user.id);
-        if (userProfile) {
-          console.log('[AuthContext] Profile fetched successfully');
-          break;
-        }
-      }
-
-      // 如果找到 profile，确保 phone 字段已设置
-      if (userProfile) {
-        // 如果 phone 字段为空，更新它
-        if (!userProfile.phone && phone) {
-          console.log('[AuthContext] Updating profile with phone:', phone);
-          const { error: updateError } = await (supabase as any)
-            .from('profiles')
-            .update({ phone, display_name: name || userProfile.display_name })
-            .eq('id', data.user.id);
-
-          if (updateError) {
-            console.error('[AuthContext] Error updating profile phone:', updateError);
-          } else {
-            // 重新获取更新后的 profile
-            userProfile = await fetchProfile(data.user.id);
-          }
-        }
-      } else {
-        // 如果触发器未创建 profile，通过 API 创建（绕过 RLS）
-        console.log('[AuthContext] Profile not found after retries, creating via API');
-        try {
-          const response = await fetch('/api/profile/ensure', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone,
-              display_name: name || phone || email.split('@')[0],
-              avatar_url: data.user.user_metadata?.avatar_url || null,
-              role: 'student',
-            }),
-          });
-
-          if (response.ok) {
-            console.log('[AuthContext] Profile created via API, fetching again');
-            userProfile = await fetchProfile(data.user.id);
-          } else {
-            const error = await response.json();
-            console.error('[AuthContext] API error creating profile:', error);
-          }
-        } catch (apiError) {
-          console.error('[AuthContext] Failed to call profile ensure API:', apiError);
-        }
-      }
-
-      console.log('[AuthContext] Setting profile:', userProfile);
-      setProfile(userProfile);
+      await ensureOwnProfile({
+        role: 'student',
+        displayName: name || phone || email.split('@')[0],
+        phone,
+      });
+      await loadProfilesForUser(data.user);
+    } finally {
+      setLoading(false);
     }
-
-    console.log('[AuthContext] signUp completed, setting loading to false');
-    setLoading(false);
   };
 
   const requestPhoneCode = async ({
@@ -380,7 +494,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || '验证码发送失败，请稍后重试。');
+      throw new Error(data.error || 'Failed to send verification code');
     }
 
     return {
@@ -414,13 +528,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || '验证码校验失败，请重试。');
+        throw new Error(data.error || 'Failed to verify code');
       }
 
       const accessToken = data?.session?.access_token;
       const refreshToken = data?.session?.refresh_token;
       if (!accessToken || !refreshToken) {
-        throw new Error('登录状态创建失败，请稍后重试。');
+        throw new Error('Verification succeeded but no session was returned');
       }
 
       const { data: sessionData, error } = await supabase.auth.setSession({
@@ -429,111 +543,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error || !sessionData.user) {
-        throw error || new Error('登录状态创建失败，请稍后重试。');
+        throw error || new Error('Failed to establish session');
       }
 
       setUser(sessionData.user);
-      const userProfile = await fetchProfile(sessionData.user.id);
-      setProfile(userProfile);
-      lastFetchedUserId.current = sessionData.user.id;
-      return userProfile;
+      return await loadProfilesForUser(sessionData.user);
     } finally {
       setLoading(false);
     }
   };
 
-  const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('[AuthContext] signOut error:', error);
-      }
-    } catch (err) {
-      console.error('[AuthContext] signOut exception:', err);
-    }
-    // 清除本地状态
-    setUser(null);
-    setProfile(null);
-    lastFetchedUserId.current = null;
-    // 使用 window.location.href 进行硬重定向，确保一定跳转
-    window.location.href = '/login';
-  };
-
-  const updateProfile = async (updates: Partial<UserProfile>) => {
+  const selectProfile = async (profileId: string) => {
     if (!user) {
       throw new Error('Not authenticated');
     }
 
-    console.log('updateProfile called with:', updates);
-
-    try {
-      // 先检查 profile 是否存在
-      const existingProfile = await fetchProfile(user.id);
-
-      // 如果 profile 不存在，使用 API 创建（绕过 RLS）
-      if (!existingProfile) {
-        console.log('Profile not found, creating via API');
-        const response = await fetch('/api/profile/ensure', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: user.user_metadata?.phone || null,
-              display_name: updates.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
-              avatar_url: updates.avatar_url || user.user_metadata?.avatar_url || null,
-              student_avatar_url: updates.student_avatar_url || user.user_metadata?.student_avatar_url || null,
-              parent_avatar_url: updates.parent_avatar_url || user.user_metadata?.parent_avatar_url || null,
-              role: updates.role || 'student',
-            }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          console.log('Profile created via API:', result);
-          setProfile(result.data as UserProfile);
-          return;
-        } else {
-          const error = await response.json();
-          console.error('API error creating profile:', error);
-          throw new Error('Failed to create profile');
-        }
-      }
-
-      // Profile 存在，使用 upsert 更新
-      const profileData = {
-        id: user.id,
-        ...updates,
-        // 确保 phone 从 user_metadata 同步
-        phone: updates.phone || existingProfile.phone || user.user_metadata?.phone || null,
-        display_name: updates.display_name || existingProfile.display_name || user.user_metadata?.display_name || user.email?.split('@')[0],
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from('profiles')
-        .upsert(profileData, { onConflict: 'id' })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error updating profile:', JSON.stringify(error, null, 2));
-        throw error;
-      }
-
-      console.log('Profile updated successfully:', data);
-
-      // 更新后立即刷新本地 profile 状态
-      setProfile(data as UserProfile);
-    } catch (err: any) {
-      console.error('Exception in updateProfile:', err);
-      throw err;
+    const nextProfile = availableProfiles.find((item) => item.id === profileId);
+    if (!nextProfile) {
+      throw new Error('Profile not found');
     }
+
+    setProfile(nextProfile);
+    persistActiveProfile(user.id, nextProfile.id);
+  };
+
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user || !profile) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch('/api/account/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        profile_id: profile.id,
+        ...updates,
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to update profile');
+    }
+
+    await loadProfilesForUser(user, profile.id);
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      const userProfile = await fetchProfile(user.id);
-      setProfile(userProfile);
+    if (!user) {
+      return;
     }
+
+    await loadProfilesForUser(user);
+  };
+
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('[AuthContext] signOut failed:', error);
+    }
+
+    clearStoredActiveProfile(user?.id);
+    writeActiveProfileCookie(null);
+    setUser(null);
+    setProfile(null);
+    setAccountProfile(null);
+    setAvailableProfiles([]);
+    window.location.href = '/login';
   };
 
   return (
@@ -541,6 +618,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         profile,
+        accountProfile,
+        availableProfiles,
         loading,
         signIn,
         signUp,
@@ -549,6 +628,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         updateProfile,
         refreshProfile,
+        selectProfile,
       }}
     >
       {children}

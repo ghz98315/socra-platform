@@ -2,6 +2,8 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 
+const ACTIVE_PROFILE_COOKIE = 'socrates-active-profile';
+
 export type AuthenticatedProfile = {
   id: string;
   role: 'parent' | 'student' | 'admin';
@@ -68,10 +70,49 @@ export async function getAuthenticatedParentProfile() {
 
 export async function getAuthenticatedStudentProfile() {
   const profile = await getAuthenticatedProfile();
-  if (!profile || profile.role !== 'student') {
+  if (!profile) {
     return null;
   }
-  return profile;
+
+  if (profile.role === 'student') {
+    return profile;
+  }
+
+  if (profile.role !== 'parent') {
+    return null;
+  }
+
+  const cookieStore = await cookies();
+  const activeProfileId = cookieStore.get(ACTIVE_PROFILE_COOKIE)?.value?.trim() || '';
+  if (!activeProfileId) {
+    return null;
+  }
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    },
+  );
+
+  const { data: student, error } = await supabase
+    .from('profiles')
+    .select('id, role, parent_id, display_name, grade_level')
+    .eq('id', activeProfileId)
+    .eq('role', 'student')
+    .eq('parent_id', profile.id)
+    .maybeSingle();
+
+  if (error || !student) {
+    return null;
+  }
+
+  return student as AuthorizedStudentProfile;
 }
 
 export async function getAuthorizedStudentProfile(requestedStudentId?: string | null) {
@@ -113,7 +154,8 @@ export async function getAuthorizedStudentProfile(requestedStudentId?: string | 
   }
 
   if (profile.role === 'parent') {
-    const normalizedStudentId = requestedStudentId?.trim() || '';
+    const activeProfileId = cookieStore.get(ACTIVE_PROFILE_COOKIE)?.value?.trim() || '';
+    const normalizedStudentId = requestedStudentId?.trim() || activeProfileId;
     if (!normalizedStudentId) {
       return { error: 'student_id_required' as AuthorizedStudentError };
     }

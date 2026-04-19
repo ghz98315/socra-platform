@@ -217,7 +217,7 @@ export default function ErrorBookPage() {
       const response = await fetch('/api/review/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, student_id: profile.id }),
+        body: JSON.stringify({ session_id: sessionId }),
       });
       const data = await response.json();
 
@@ -251,7 +251,7 @@ export default function ErrorBookPage() {
     try {
       const selectedErrors = errors.filter((error) => selectedIds.has(error.id));
       await downloadErrorBookPDF({
-        studentName: profile?.display_name,
+        studentName: profile?.display_name || undefined,
         errors: selectedErrors.map((error) => ({
           subject: error.subject,
           extractedText: error.extracted_text || '',

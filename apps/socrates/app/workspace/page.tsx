@@ -1,32 +1,36 @@
-// =====================================================
-// Project Socrates - Learning Workspace (Multi-role)
-// 家长和学生都可以访问的学习工作区
-// =====================================================
-
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { getRoleHome } from '@/lib/navigation/role-home';
+
 export default function WorkspacePage() {
-  const { profile, loading } = useAuth();
+  const { profile, accountProfile, availableProfiles, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // 如果认证完成，直接重定向到工作台
-    // 家长账号现在也可以访问这个功能
-    if (!loading && profile) {
-      router.replace(profile.role === 'parent' ? '/tasks' : '/study');
+    if (loading || !profile) {
+      return;
     }
-  }, [profile, loading, router]);
+
+    if (accountProfile?.role === 'parent' && availableProfiles.length > 1) {
+      router.replace('/select-profile');
+      return;
+    }
+
+    if (!loading && profile) {
+      router.replace(getRoleHome(profile.role));
+    }
+  }, [accountProfile?.role, availableProfiles.length, profile, loading, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center space-y-4">
-        <Loader2 className="w-12 h-12 animate-spin text-muted-foreground mx-auto" />
-        <p className="text-muted-foreground">正在进入学习工作区...</p>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="space-y-4 text-center">
+        <Loader2 className="mx-auto h-12 w-12 animate-spin text-muted-foreground" />
+        <p className="text-muted-foreground">正在进入对应工作区...</p>
       </div>
     </div>
   );

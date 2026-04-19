@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, UserPlus, Users } from 'lucide-react';
+import { Loader2, LockKeyhole, UserPlus, Users } from 'lucide-react';
 
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -32,14 +32,32 @@ interface SearchUser {
   role: string;
 }
 
+interface StudentAccount {
+  id: string;
+  display_name: string | null;
+  phone: string | null;
+  grade_level: number | null;
+  avatar_url: string | null;
+}
+
+function getGradeLabel(gradeLevel?: number | null) {
+  if (!gradeLevel) {
+    return '未设置年级';
+  }
+
+  return `${gradeLevel} 年级`;
+}
+
 export default function FamilyPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [family, setFamily] = useState<FamilyGroup | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [managedStudents, setManagedStudents] = useState<StudentAccount[]>([]);
   const [familyName, setFamilyName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
   const [creating, setCreating] = useState(false);
   const [searching, setSearching] = useState(false);
   const [submittingUserId, setSubmittingUserId] = useState<string | null>(null);
@@ -49,15 +67,11 @@ export default function FamilyPage() {
   const memberIds = useMemo(() => new Set(members.map((member) => member.userId)), [members]);
 
   const fetchFamily = async () => {
-    if (!user?.id) {
-      return;
-    }
-
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      const response = await fetch(`/api/family?user_id=${user.id}`);
+      const response = await fetch('/api/family');
       const data = await response.json();
 
       if (!response.ok) {
@@ -76,13 +90,47 @@ export default function FamilyPage() {
     }
   };
 
+  const fetchStudents = async () => {
+    if (profile?.role !== 'parent') {
+      setManagedStudents([]);
+      return;
+    }
+
+    setLoadingStudents(true);
+
+    try {
+      const response = await fetch('/api/students');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '加载孩子 profile 失败');
+      }
+
+      setManagedStudents((data.data || []) as StudentAccount[]);
+    } catch (error: any) {
+      console.error('Failed to fetch students:', error);
+      setManagedStudents([]);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
   useEffect(() => {
-    void fetchFamily();
-  }, [user?.id]);
+    if (!user?.id || !profile) {
+      return;
+    }
+
+    if (profile.role !== 'parent') {
+      setLoading(false);
+      return;
+    }
+
+    void Promise.all([fetchFamily(), fetchStudents()]);
+  }, [profile, user?.id]);
 
   const createFamily = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user?.id || !familyName.trim()) {
+    if (!familyName.trim()) {
       return;
     }
 
@@ -96,7 +144,6 @@ export default function FamilyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: familyName.trim(),
-          createdBy: user.id,
         }),
       });
       const data = await response.json();
@@ -106,7 +153,7 @@ export default function FamilyPage() {
       }
 
       setFamilyName('');
-      setStatusMessage('家庭创建成功。');
+      setStatusMessage('家庭已创建');
       await fetchFamily();
     } catch (error: any) {
       console.error('Create family error:', error);
@@ -169,10 +216,10 @@ export default function FamilyPage() {
         throw new Error(data.error || '添加成员失败');
       }
 
-      setStatusMessage(`${candidate.display_name} 已加入家庭。`);
+      setStatusMessage(`${candidate.display_name} 已加入家庭`);
       setSearchQuery('');
       setSearchResults([]);
-      await fetchFamily();
+      await Promise.all([fetchFamily(), fetchStudents()]);
     } catch (error: any) {
       console.error('Add member failed:', error);
       setErrorMessage(error.message || '添加成员失败');
@@ -182,7 +229,7 @@ export default function FamilyPage() {
   };
 
   const removeMember = async (member: FamilyMember) => {
-    if (!family?.id || !user?.id) {
+    if (!family?.id) {
       return;
     }
 
@@ -194,7 +241,6 @@ export default function FamilyPage() {
       const params = new URLSearchParams({
         family_id: family.id,
         user_id: member.userId,
-        request_user_id: user.id,
       });
       const response = await fetch(`/api/family?${params}`, { method: 'DELETE' });
       const data = await response.json();
@@ -203,8 +249,8 @@ export default function FamilyPage() {
         throw new Error(data.error || '移除成员失败');
       }
 
-      setStatusMessage(`${member.nickname || '成员'} 已移除。`);
-      await fetchFamily();
+      setStatusMessage(`${member.nickname || '成员'} 已移出家庭`);
+      await Promise.all([fetchFamily(), fetchStudents()]);
     } catch (error: any) {
       console.error('Remove member failed:', error);
       setErrorMessage(error.message || '移除成员失败');
@@ -212,6 +258,29 @@ export default function FamilyPage() {
       setSubmittingUserId(null);
     }
   };
+
+  if (!profile) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-warm-500" />
+      </div>
+    );
+  }
+
+  if (profile.role !== 'parent') {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h1 className="text-lg font-semibold text-gray-900">仅家长身份可查看家庭页面</h1>
+            <p className="mt-2 text-sm text-gray-500">
+              请先切换到家长 profile，再管理家庭关系与孩子 profile。
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -222,14 +291,14 @@ export default function FamilyPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warm-100">
           <Users className="h-5 w-5 text-warm-600" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-gray-900">家庭管理</h1>
-          <p className="text-sm text-gray-500">创建家庭、搜索用户并管理成员。</p>
+          <p className="text-sm text-gray-500">统一账号下管理家庭成员与孩子 profile。</p>
         </div>
       </div>
 
@@ -250,16 +319,13 @@ export default function FamilyPage() {
           <CardContent className="p-4">
             <h3 className="mb-4 font-semibold text-gray-900">创建家庭</h3>
             <form onSubmit={createFamily} className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">家庭名称</label>
-                <Input
-                  type="text"
-                  value={familyName}
-                  onChange={(event) => setFamilyName(event.target.value)}
-                  placeholder="例如：王家"
-                  required
-                />
-              </div>
+              <Input
+                type="text"
+                value={familyName}
+                onChange={(event) => setFamilyName(event.target.value)}
+                placeholder="例如：王同学家庭"
+                required
+              />
               <Button type="submit" className="w-full" disabled={creating}>
                 {creating ? (
                   <>
@@ -267,10 +333,7 @@ export default function FamilyPage() {
                     创建中...
                   </>
                 ) : (
-                  <>
-                    <Users className="mr-2 h-4 w-4" />
-                    创建家庭
-                  </>
+                  '创建家庭'
                 )}
               </Button>
             </form>
@@ -286,7 +349,7 @@ export default function FamilyPage() {
                 <div>
                   <h3 className="font-semibold text-gray-900">{family.name}</h3>
                   <p className="text-sm text-gray-500">
-                    邀请码: <span className="font-mono font-medium">{family.inviteCode}</span>
+                    家庭邀请码：<span className="font-mono font-medium">{family.inviteCode}</span>
                   </p>
                 </div>
                 <div className="text-sm text-gray-500">{members.length} 位成员</div>
@@ -297,15 +360,62 @@ export default function FamilyPage() {
           <Card className="mb-6">
             <CardContent className="p-4">
               <div className="mb-4 flex items-center gap-2">
+                <LockKeyhole className="h-5 w-5 text-warm-500" />
+                <h3 className="font-semibold text-gray-900">孩子 profile</h3>
+              </div>
+
+              <div className="mb-4 rounded-xl border border-warm-100 bg-warm-50 px-4 py-3 text-sm text-warm-800">
+                孩子不再单独创建登录账号。家长登录后可在选择页切换到对应孩子 profile 进入学习空间。
+              </div>
+
+              {loadingStudents ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-warm-500" />
+                </div>
+              ) : managedStudents.length > 0 ? (
+                <div className="space-y-3">
+                  {managedStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      className="rounded-xl border border-gray-200 bg-white p-4"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {student.display_name || '未命名孩子'}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {getGradeLabel(student.grade_level)}
+                            {student.phone ? ` · ${student.phone}` : ''}
+                          </p>
+                        </div>
+                        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                          可在“选择身份”页面切换进入
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+                  当前还没有绑定的孩子 profile。
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="mb-4 flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-warm-500" />
-                <h3 className="font-semibold text-gray-900">添加成员</h3>
+                <h3 className="font-semibold text-gray-900">添加家庭成员</h3>
               </div>
 
               <form onSubmit={searchUsers} className="space-y-4">
                 <div className="flex gap-2">
                   <Input
                     type="text"
-                    placeholder="按昵称或手机号搜索"
+                    placeholder="输入手机号或昵称搜索"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     className="flex-1"
@@ -324,18 +434,11 @@ export default function FamilyPage() {
                           key={candidate.id}
                           className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warm-100">
-                              <span className="text-sm font-medium text-warm-700">
-                                {candidate.display_name?.[0] || '?'}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{candidate.display_name}</p>
-                              <p className="text-sm text-gray-500">
-                                {candidate.phone || '未设置手机号'}
-                              </p>
-                            </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{candidate.display_name}</p>
+                            <p className="text-sm text-gray-500">
+                              {candidate.phone || '未绑定手机号'}
+                            </p>
                           </div>
                           <Button
                             size="sm"
@@ -343,7 +446,7 @@ export default function FamilyPage() {
                             onClick={() => addMember(candidate)}
                             disabled={submittingUserId === candidate.id}
                           >
-                            {submittingUserId === candidate.id ? '添加中...' : '添加为孩子'}
+                            {submittingUserId === candidate.id ? '添加中...' : '加入家庭'}
                           </Button>
                         </div>
                       ))}
@@ -363,20 +466,13 @@ export default function FamilyPage() {
                       key={member.id}
                       className="flex items-center justify-between rounded-lg border bg-white p-3 hover:bg-gray-50"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warm-100">
-                          <span className="text-sm font-medium text-warm-700">
-                            {member.nickname?.[0] || '?'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {member.nickname || '未命名成员'}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {member.role === 'parent' ? '家长' : '孩子'}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {member.nickname || '未命名成员'}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {member.role === 'parent' ? '家长' : '孩子'}
+                        </p>
                       </div>
                       <Button
                         size="sm"
@@ -393,8 +489,7 @@ export default function FamilyPage() {
               ) : (
                 <div className="py-8 text-center text-gray-500">
                   <Users className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-                  <p>暂无成员。</p>
-                  <p className="text-sm">请在上方搜索用户并添加为家庭成员。</p>
+                  <p>当前还没有家庭成员</p>
                 </div>
               )}
             </CardContent>
