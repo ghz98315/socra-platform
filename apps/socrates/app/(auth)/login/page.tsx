@@ -58,13 +58,13 @@ function LoginPageContent() {
       return;
     }
 
-    if (accountProfile?.role === 'parent' && availableProfiles.length > 1) {
+    if (accountProfile?.role === 'parent') {
       router.replace('/select-profile');
       return;
     }
 
     router.replace(resolveRoleAwareDestination(profile, successDestination));
-  }, [accountProfile?.role, authLoading, availableProfiles.length, profile, router, successDestination, user]);
+  }, [accountProfile?.role, authLoading, profile, router, successDestination, user]);
 
   const handlePasswordLogin = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -27,10 +27,10 @@ export default function SelectProfilePageV3() {
       return;
     }
 
-    if (availableProfiles.length === 1 && availableProfiles[0]) {
+    if (accountProfile?.role !== 'parent' && availableProfiles.length === 1 && availableProfiles[0]) {
       router.replace(getRoleHome(availableProfiles[0].role));
     }
-  }, [availableProfiles, loading, router, user]);
+  }, [accountProfile?.role, availableProfiles, loading, router, user]);
 
   if (loading || !user || !accountProfile || !profile) {
     return (

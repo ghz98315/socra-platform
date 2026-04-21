@@ -192,6 +192,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     nextAvailableProfiles: UserProfile[],
     preferredProfileId?: string | null,
   ) => {
+    if (
+      nextAccountProfile.role === 'parent' &&
+      nextAvailableProfiles.length > 1 &&
+      !preferredProfileId?.trim()
+    ) {
+      return nextAccountProfile.id;
+    }
+
     const validIds = new Set(nextAvailableProfiles.map((item) => item.id));
     const candidates = [
       preferredProfileId || null,
