@@ -10,6 +10,14 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
+function buildStudentAuthEmail(studentId: string, phone: string | null) {
+  if (phone) {
+    return `${phone}@student.local`;
+  }
+
+  return `student-profile+${studentId}@socra.local`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -76,9 +84,28 @@ export async function POST(req: NextRequest) {
 
     const studentId = randomUUID();
     const themePreference = parsedGradeLevel && parsedGradeLevel <= 6 ? 'junior' : 'senior';
+    const studentEmail = buildStudentAuthEmail(studentId, phone);
+    const bootstrapPassword = `Tmp!${randomUUID()}Aa`;
+
+    const { data: createdAuthUser, error: createAuthUserError } = await supabaseAdmin.auth.admin.createUser({
+      email: studentEmail,
+      password: bootstrapPassword,
+      email_confirm: true,
+      user_metadata: {
+        display_name: displayName,
+        phone,
+        linked_parent_id: user.id,
+        profile_mode: 'child_profile_backing_user',
+      },
+    });
+
+    if (createAuthUserError || !createdAuthUser?.user?.id) {
+      console.error('[students/add] auth user create failed:', createAuthUserError);
+      return NextResponse.json({ error: 'Failed to create student profile' }, { status: 500 });
+    }
 
     const { error: insertError } = await supabaseAdmin.from('profiles').insert({
-      id: studentId,
+      id: createdAuthUser.user.id,
       role: 'student',
       parent_id: user.id,
       display_name: displayName,
@@ -89,12 +116,15 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error('[students/add] profile insert failed:', insertError);
+      await supabaseAdmin.auth.admin.deleteUser(createdAuthUser.user.id).catch((error) => {
+        console.warn('[students/add] auth user cleanup skipped:', error);
+      });
       return NextResponse.json({ error: 'Failed to create student profile' }, { status: 500 });
     }
 
     return NextResponse.json({
       data: {
-        id: studentId,
+        id: createdAuthUser.user.id,
         display_name: displayName,
         phone,
         grade_level: parsedGradeLevel,

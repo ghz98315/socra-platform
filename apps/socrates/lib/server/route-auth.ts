@@ -1,8 +1,21 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 const ACTIVE_PROFILE_COOKIE = 'socrates-active-profile';
+let supabaseAdminInstance: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseAdmin() {
+  if (!supabaseAdminInstance) {
+    supabaseAdminInstance = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+  }
+
+  return supabaseAdminInstance;
+}
 
 export type AuthenticatedProfile = {
   id: string;
@@ -88,19 +101,8 @@ export async function getAuthenticatedStudentProfile() {
     return null;
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    },
-  );
-
-  const { data: student, error } = await supabase
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data: student, error } = await supabaseAdmin
     .from('profiles')
     .select('id, role, parent_id, display_name, grade_level')
     .eq('id', activeProfileId)
@@ -160,7 +162,8 @@ export async function getAuthorizedStudentProfile(requestedStudentId?: string | 
       return { error: 'student_id_required' as AuthorizedStudentError };
     }
 
-    const { data: student, error } = await supabase
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: student, error } = await supabaseAdmin
       .from('profiles')
       .select('id, role, parent_id, display_name, grade_level')
       .eq('id', normalizedStudentId)
