@@ -72,7 +72,7 @@ export default function StudentTasksPage() {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/parent-tasks?child_id=${profile.id}`);
+        const response = await fetch('/api/parent-tasks');
         if (response.ok) {
           const result = await response.json();
           setTasks(result.tasks || []);
@@ -149,7 +149,6 @@ export default function StudentTasksPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           taskId,
-          childId: profile?.id,
           progressCount: newProgress,
         }),
       });

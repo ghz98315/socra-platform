@@ -1,7 +1,3 @@
-// =====================================================
-// Project Socrates - Review Schedule API
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -10,11 +6,11 @@ import {
   type VariantPracticeLogEvidenceRow,
   type VariantQuestionEvidenceRow,
 } from '@/lib/error-loop/variant-evidence';
+import { getAuthenticatedStudentProfile } from '@/lib/server/route-auth';
 
-// 创建 Supabase 客户端
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 async function buildVariantEvidenceBySession(studentId: string, sessionIds: string[]) {
@@ -34,9 +30,7 @@ async function buildVariantEvidenceBySession(studentId: string, sessionIds: stri
   }
 
   const questionRows = (questions || []) as Array<
-    VariantQuestionEvidenceRow & {
-      original_session_id: string;
-    }
+    VariantQuestionEvidenceRow & { original_session_id: string }
   >;
   const questionIds = questionRows.map((item) => item.id).filter(Boolean);
 
@@ -75,46 +69,45 @@ async function buildVariantEvidenceBySession(studentId: string, sessionIds: stri
   return evidenceBySession;
 }
 
-// GET - 获取待复习列表
 export async function GET(req: NextRequest) {
   try {
+    const student = await getAuthenticatedStudentProfile();
+    if (!student) {
+      return NextResponse.json({ error: 'Only students can view review schedule' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
-    const student_id = searchParams.get('student_id');
     const scope = searchParams.get('scope') || 'due';
     const includeCounts = searchParams.get('include_counts') === '1';
 
-    if (!student_id) {
-      return NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 });
-    }
-
     const reviewSelect = `
+      id,
+      session_id,
+      student_id,
+      review_stage,
+      next_review_at,
+      is_completed,
+      mastery_state,
+      last_judgement,
+      reopened_count,
+      created_at,
+      error_sessions (
         id,
-        session_id,
-        student_id,
-        review_stage,
-        next_review_at,
-        is_completed,
-        mastery_state,
-        last_judgement,
-        reopened_count,
+        subject,
+        extracted_text,
+        difficulty_rating,
+        student_difficulty_rating,
+        final_difficulty_rating,
+        concept_tags,
         created_at,
-        error_sessions (
-          id,
-          subject,
-          extracted_text,
-          difficulty_rating,
-          student_difficulty_rating,
-          final_difficulty_rating,
-          concept_tags,
-          created_at,
-          status
-        )
-      `;
+        status
+      )
+    `;
 
     let pendingQuery = supabase
       .from('review_schedule')
       .select(reviewSelect)
-      .eq('student_id', student_id)
+      .eq('student_id', student.id)
       .eq('is_completed', false)
       .order('next_review_at', { ascending: true });
 
@@ -122,30 +115,26 @@ export async function GET(req: NextRequest) {
       pendingQuery = pendingQuery.lte('next_review_at', new Date().toISOString());
     }
 
-    const pendingPromise = pendingQuery;
-    const completedPromise = includeCounts
-      ? supabase
-          .from('review_schedule')
-          .select('id', { count: 'exact', head: true })
-          .eq('student_id', student_id)
-          .eq('is_completed', true)
-      : Promise.resolve({ count: 0, error: null } as { count: number | null; error: null });
-
-    const completedListPromise = includeCounts
-      ? supabase
-          .from('review_schedule')
-          .select(reviewSelect)
-          .eq('student_id', student_id)
-          .eq('is_completed', true)
-          .order('next_review_at', { ascending: false })
-          .limit(6)
-      : Promise.resolve({ data: [], error: null } as { data: any[]; error: null });
-
     const [pendingResult, completedResult, completedListResult] = await Promise.all([
-      pendingPromise,
-      completedPromise,
-      completedListPromise,
+      pendingQuery,
+      includeCounts
+        ? supabase
+            .from('review_schedule')
+            .select('id', { count: 'exact', head: true })
+            .eq('student_id', student.id)
+            .eq('is_completed', true)
+        : Promise.resolve({ count: 0, error: null } as { count: number | null; error: null }),
+      includeCounts
+        ? supabase
+            .from('review_schedule')
+            .select(reviewSelect)
+            .eq('student_id', student.id)
+            .eq('is_completed', true)
+            .order('next_review_at', { ascending: false })
+            .limit(6)
+        : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
     ]);
+
     const { data: reviews, error } = pendingResult;
     const { data: completedReviews, error: completedListError } = completedListResult;
 
@@ -160,9 +149,12 @@ export async function GET(req: NextRequest) {
 
     const allReviews = [...(reviews || []), ...(completedReviews || [])];
     const evidenceBySession = await buildVariantEvidenceBySession(
-      student_id,
-      allReviews.map((review: any) => review.session_id).filter((value: unknown): value is string => typeof value === 'string'),
+      student.id,
+      allReviews
+        .map((review: any) => review.session_id)
+        .filter((value: unknown): value is string => typeof value === 'string'),
     );
+
     const now = Date.now();
     const mapReview = (review: any) => {
       const session = Array.isArray(review.error_sessions) ? review.error_sessions[0] : review.error_sessions;
@@ -193,16 +185,16 @@ export async function GET(req: NextRequest) {
         is_overdue: daysUntilDue <= 0,
         error_session: session
           ? {
-            id: session.id,
-            subject: session.subject,
-            extracted_text: session.extracted_text,
-            difficulty_rating: session.difficulty_rating,
-            student_difficulty_rating: session.student_difficulty_rating,
-            final_difficulty_rating: session.final_difficulty_rating,
-            concept_tags: session.concept_tags,
-            created_at: session.created_at,
-            status: session.status,
-          }
+              id: session.id,
+              subject: session.subject,
+              extracted_text: session.extracted_text,
+              difficulty_rating: session.difficulty_rating,
+              student_difficulty_rating: session.student_difficulty_rating,
+              final_difficulty_rating: session.final_difficulty_rating,
+              concept_tags: session.concept_tags,
+              created_at: session.created_at,
+              status: session.status,
+            }
           : null,
       };
     };
@@ -234,19 +226,38 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - 完成复习并进入下一阶段
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { review_id, student_id, result } = body; // result: 'correct' | 'incorrect' | 'skipped'
+    const student = await getAuthenticatedStudentProfile();
+    if (!student) {
+      return NextResponse.json({ error: 'Only students can complete reviews' }, { status: 403 });
+    }
 
-    if (!review_id || !student_id) {
+    const body = await req.json();
+    const reviewId = typeof body?.review_id === 'string' ? body.review_id : '';
+
+    if (!reviewId) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    // 调用数据库函数推进复习阶段
+    const { data: review, error: reviewError } = await supabase
+      .from('review_schedule')
+      .select('id')
+      .eq('id', reviewId)
+      .eq('student_id', student.id)
+      .maybeSingle();
+
+    if (reviewError) {
+      console.error('Error validating review schedule:', reviewError);
+      return NextResponse.json({ error: 'Failed to validate review' }, { status: 500 });
+    }
+
+    if (!review) {
+      return NextResponse.json({ error: 'Review schedule not found' }, { status: 404 });
+    }
+
     const { data, error } = await supabase.rpc('advance_review_stage', {
-      p_review_id: review_id
+      p_review_id: reviewId,
     });
 
     if (error) {
@@ -254,15 +265,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to complete review' }, { status: 500 });
     }
 
-    // 记录复习结果到聊天历史（可选）
-    if (result && result !== 'skipped') {
-      // 可以在这里添加记录复习结果的逻辑
-    }
-
     return NextResponse.json({
       success: true,
-      completed: data === true, // true = 已完成所有阶段
-      message: data === true ? '恭喜！这道错题已完全掌握' : '复习完成，进入下一阶段',
+      completed: data === true,
+      message: data === true ? '复习已完成并进入下一阶段' : '复习记录已更新',
     });
   } catch (error: any) {
     console.error('Review complete API error:', error);

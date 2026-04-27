@@ -15,6 +15,10 @@ import {
   type PhoneCodePurpose,
   phoneToPseudoEmail,
 } from '@/lib/auth/phone-auth';
+import {
+  isPhoneCodeAuthEnabled,
+  PHONE_CODE_AUTH_DISABLED_MESSAGE,
+} from '@/lib/auth/phone-auth-config';
 import { sendVerificationSms } from '@/lib/auth/sms-provider';
 import { createSupabaseAdminClient } from '@/lib/server/supabase-auth-clients';
 
@@ -49,6 +53,13 @@ export async function POST(req: NextRequest) {
     const purpose = body.purpose === 'register' ? 'register' : 'login';
     const phone = normalizePhone(typeof body.phone === 'string' ? body.phone : '');
     const profilePayload = getProfilePayload(body);
+
+    if (!isPhoneCodeAuthEnabled()) {
+      return NextResponse.json(
+        { error: PHONE_CODE_AUTH_DISABLED_MESSAGE },
+        { status: 503 },
+      );
+    }
 
     if (!isValidMainlandPhone(phone)) {
       return NextResponse.json({ error: '请输入正确的 11 位手机号。' }, { status: 400 });
@@ -152,6 +163,7 @@ export async function POST(req: NextRequest) {
         email_confirm: true,
         user_metadata: {
           phone,
+          role: 'parent',
           ...profilePayload,
           phone_auth_pending: true,
         },
@@ -162,17 +174,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: '验证码生成失败，请稍后重试。' }, { status: 500 });
       }
 
-      targetUser = createdUserData.user;
+      const createdTargetUser = createdUserData.user;
+      targetUser = createdTargetUser;
 
       await db.from('profiles').upsert(
         {
-          id: targetUser.id,
+          id: createdTargetUser.id,
           phone,
           display_name: profilePayload.display_name || phone,
           avatar_url: profilePayload.avatar_url,
           student_avatar_url: profilePayload.student_avatar_url || profilePayload.avatar_url,
           parent_avatar_url: profilePayload.parent_avatar_url || profilePayload.avatar_url,
-          role: 'student',
+          role: 'parent',
           theme_preference: 'junior',
         },
         { onConflict: 'id' },
@@ -182,7 +195,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (purpose === 'register' && targetUser) {
-      const isPending = targetUser.user_metadata?.phone_auth_pending === true;
+      const registerTargetUser = targetUser;
+      const isPending = registerTargetUser.user_metadata?.phone_auth_pending === true;
       if (!isPending && existingUser) {
         return NextResponse.json({ error: '该手机号已注册，请直接登录。' }, { status: 400 });
       }

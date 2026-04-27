@@ -10,6 +10,7 @@ import {
   Eye,
   IdCard,
   Info,
+  KeyRound,
   Loader2,
   MessageSquare,
   RefreshCw,
@@ -72,8 +73,11 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [savingModels, setSavingModels] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [preference, setPreference] = useState<UserModelPreference | null>(null);
   const [teenModeData, setTeenModeData] = useState<TeenModeData | null>(null);
   const [selectedModels, setSelectedModels] = useState<Record<ModelPurpose, string>>({
@@ -87,6 +91,11 @@ export default function SettingsPage() {
     gradeLevel: '',
     studentAvatar: defaultAvatarByRole.student,
     parentAvatar: defaultAvatarByRole.parent,
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    nextPassword: '',
+    confirmPassword: '',
   });
 
   useEffect(() => {
@@ -219,6 +228,7 @@ export default function SettingsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profile_id: profile?.id,
           display_name: profileForm.displayName.trim(),
           phone: profileForm.phone.trim(),
           grade_level: profileForm.gradeLevel ? Number(profileForm.gradeLevel) : null,
@@ -238,6 +248,64 @@ export default function SettingsPage() {
       setProfileError(error instanceof Error ? error.message : '保存资料失败');
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function savePasswordSettings() {
+    setPasswordError('');
+    setPasswordMessage('');
+
+    const currentPassword = passwordForm.currentPassword.trim();
+    const nextPassword = passwordForm.nextPassword.trim();
+    const confirmPassword = passwordForm.confirmPassword.trim();
+
+    if (currentPassword.length < 6) {
+      setPasswordError('请输入当前密码');
+      return;
+    }
+
+    if (nextPassword.length < 6) {
+      setPasswordError('新密码至少需要 6 位');
+      return;
+    }
+
+    if (nextPassword !== confirmPassword) {
+      setPasswordError('两次输入的新密码不一致');
+      return;
+    }
+
+    if (currentPassword === nextPassword) {
+      setPasswordError('新密码不能与当前密码相同');
+      return;
+    }
+
+    setSavingPassword(true);
+
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: nextPassword,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || '修改密码失败');
+      }
+
+      setPasswordForm({
+        currentPassword: '',
+        nextPassword: '',
+        confirmPassword: '',
+      });
+      setPasswordMessage('登录密码已更新，家长模式二次验证将同步使用新密码。');
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : '修改密码失败');
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -399,6 +467,86 @@ export default function SettingsPage() {
                   <RefreshCw className="mr-2 h-4 w-4" />
                 )}
                 保存基础资料
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200/60">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <KeyRound className="h-5 w-5 text-blue-600" />
+              账号安全
+            </CardTitle>
+            <CardDescription>
+              修改的是当前登录账号的密码。后续进入家长端时，二次密码验证也会使用这里的新密码。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {passwordError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {passwordError}
+              </div>
+            ) : null}
+            {passwordMessage ? (
+              <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
+                {passwordMessage}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">当前密码</label>
+                <Input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      currentPassword: event.target.value,
+                    }))
+                  }
+                  placeholder="请输入当前密码"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">新密码</label>
+                <Input
+                  type="password"
+                  value={passwordForm.nextPassword}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      nextPassword: event.target.value,
+                    }))
+                  }
+                  placeholder="至少 6 位"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">确认新密码</label>
+                <Input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(event) =>
+                    setPasswordForm((current) => ({
+                      ...current,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                  placeholder="再次输入新密码"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={savePasswordSettings} disabled={savingPassword}>
+                {savingPassword ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="mr-2 h-4 w-4" />
+                )}
+                修改登录密码
               </Button>
             </div>
           </CardContent>

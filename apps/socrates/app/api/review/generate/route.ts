@@ -1,26 +1,26 @@
-// =====================================================
-// Project Socrates - AI Review Reminder Generator
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedStudentProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// POST - 生成个性化复习提醒
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { student_id, session_id } = body;
+    const student = await getAuthenticatedStudentProfile();
+    if (!student) {
+      return NextResponse.json({ error: 'Only students can generate review reminders' }, { status: 403 });
+    }
 
-    if (!student_id || !session_id) {
+    const body = await req.json();
+    const sessionId = typeof body?.session_id === 'string' ? body.session_id : '';
+
+    if (!sessionId) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    // 获取错题信息
     const { data: session, error: sessionError } = await supabase
       .from('error_sessions')
       .select(`
@@ -30,36 +30,31 @@ export async function POST(req: NextRequest) {
           grade_level
         )
       `)
-      .eq('id', session_id)
-      .eq('student_id', student_id)
+      .eq('id', sessionId)
+      .eq('student_id', student.id)
       .single();
 
     if (sessionError || !session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // 获取历史对话（用于个性化提醒）
     const { data: messages } = await supabase
       .from('chat_messages')
       .select('role, content')
-      .eq('session_id', session_id)
+      .eq('session_id', sessionId)
       .order('created_at', { ascending: true })
       .limit(10);
 
-    // 构建 AI 提示词
     const prompt = buildReviewReminderPrompt(session, messages || []);
-
-    // 调用通义千问 API 生成复习提醒
     const reminder = await callTongyiAPI(prompt);
 
-    // 保存提醒内容
     const { error: updateError } = await supabase
       .from('review_schedule')
       .update({
         variant_question_text: reminder,
       })
-      .eq('session_id', session_id)
-      .eq('student_id', student_id)
+      .eq('session_id', sessionId)
+      .eq('student_id', student.id)
       .eq('is_completed', false);
 
     if (updateError) {
@@ -76,53 +71,45 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 构建复习提醒提示词
 function buildReviewReminderPrompt(session: any, history: any[]): string {
-  const studentName = session.profiles?.display_name || '同学';
+  const studentName = session.profiles?.display_name || '学生';
   const subject = getSubjectName(session.subject);
   const difficulty = session.difficulty_rating || 3;
-  const tags = session.concept_tags?.join('、') || '';
+  const tags = session.concept_tags?.join('、') || '未标注';
 
   const historyText = history
-    .map(m => `${m.role === 'assistant' ? '老师' : '学生'}: ${m.content}`)
+    .map((message) => `${message.role === 'assistant' ? '导师' : '学生'}: ${message.content}`)
     .join('\n');
 
-  return `你是苏格拉底AI学习助手，正在为${studentName}生成错题复习提醒。
+  return `你是一名数学复习教练，请为${studentName}生成一条简短的复习提醒。
 
-【错题信息】
-科目：${subject}
-难度：${difficulty}/5
-知识点：${tags}
-原题内容：${session.extracted_text?.slice(0, 200)}...
+题目信息：
+- 学科：${subject}
+- 难度：${difficulty}/5
+- 关联标签：${tags}
+- 原题片段：${session.extracted_text?.slice(0, 200) || '无'}
 
-【历史对话】
-${historyText}
+对话摘录：
+${historyText || '无'}
 
-【复习阶段】
-这是第 1 次复习，需要帮助学生巩固记忆。
-
-【任务】
-生成一段温馨、鼓励性的复习提醒（50-100字），要求：
-1. 提及具体的知识点
-2. 用苏格拉底式的引导提问
-3. 鼓励学生主动思考
-4. 语气亲切自然
-
-请直接输出提醒内容，不要有其他说明。`;
+请输出 1 段 80-120 字的中文提醒，要求：
+1. 点出本题最值得复习的关键点
+2. 语气自然，适合学生阅读
+3. 不要直接给出完整答案
+4. 最后附一个可执行的小提醒`;
 }
 
-// 调用通义千问 API
 async function callTongyiAPI(prompt: string): Promise<string> {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) {
-    return '💡 该题需要复习巩固了。你还记得这道题的解题思路吗？';
+    return '回看这道题时，先自己说出题目考查的知识点，再尝试不用提示重做一遍，最后总结这次最容易出错的一步。';
   }
 
   try {
     const response = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -130,12 +117,12 @@ async function callTongyiAPI(prompt: string): Promise<string> {
         messages: [
           {
             role: 'system',
-            content: '你是苏格拉底AI学习助手，擅长用引导式提问帮助学生思考。'
+            content: '你是一名面向中学生的复习提醒助手，输出简洁、自然、可执行的中文提示。',
           },
           {
             role: 'user',
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature: 0.7,
         max_tokens: 300,
@@ -147,19 +134,19 @@ async function callTongyiAPI(prompt: string): Promise<string> {
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || '💡 该题需要复习巩固了，来试试看吧！';
+    return data.choices?.[0]?.message?.content ||
+      '回看这道题时，先自己说出题目考查的知识点，再尝试不用提示重做一遍，最后总结这次最容易出错的一步。';
   } catch (error) {
     console.error('Tongyi API Error:', error);
-    return '💡 该题需要复习巩固了，来试试看吧！';
+    return '回看这道题时，先自己说出题目考查的知识点，再尝试不用提示重做一遍，最后总结这次最容易出错的一步。';
   }
 }
 
-// 科目名称映射
 function getSubjectName(subject: string): string {
   const names: Record<string, string> = {
-    'math': '数学',
-    'physics': '物理',
-    'chemistry': '化学',
+    math: '数学',
+    physics: '物理',
+    chemistry: '化学',
   };
   return names[subject] || subject;
 }

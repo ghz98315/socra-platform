@@ -25,7 +25,7 @@ interface OCRResultProps {
 
 // 云端 OCR API
 const CLOUD_OCR_URL = '/api/ocr';
-const OCR_TIMEOUT = 60000; // 60秒超时（云端可能较慢）
+const OCR_TIMEOUT = 45000; // 45秒超时，避免用户长时间空等
 
 export function OCRResult({ initialText, onTextChange, onConfirm, onOCRSuccess, imageData }: OCRResultProps) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -94,7 +94,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, onOCRSuccess, 
         const response = await fetch(CLOUD_OCR_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Image }),
+          body: JSON.stringify({ image: base64Image, detectSubject: false }),
           signal: controller.signal,
         });
 
@@ -232,7 +232,7 @@ export function OCRResult({ initialText, onTextChange, onConfirm, onOCRSuccess, 
                 onChange={handleTextChange}
                 placeholder="上传图片后，AI将自动识别题目内容..."
                 className={cn(
-                  "w-full h-32 rounded-xl border border-warm-200 bg-white px-4 py-3 text-sm resize-none",
+                  "w-full min-h-32 rounded-xl border border-warm-200 bg-white px-4 py-3 text-sm resize-y",
                   "transition-all duration-200",
                   "focus:outline-none focus:ring-2 focus:ring-warm-500/20 focus:border-warm-500/50",
                   "placeholder:text-warm-600/60"

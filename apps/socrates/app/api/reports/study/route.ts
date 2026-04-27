@@ -7,6 +7,7 @@ import {
   getStudyAssetModuleDisplayLabel,
   hasStudyAssetStructuredResult,
 } from '@/lib/study/bridges-v2';
+import { getAuthenticatedProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,6 +46,50 @@ interface BreakdownItem {
   key: string;
   label: string;
   count: number;
+}
+
+async function resolveAuthorizedStudent(requestedStudentId?: string) {
+  const profile = await getAuthenticatedProfile();
+  if (!profile) {
+    return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) };
+  }
+
+  if (profile.role === 'student') {
+    const { data: student, error } = await (supabase as any)
+      .from('profiles')
+      .select('id, display_name, grade_level')
+      .eq('id', profile.id)
+      .single();
+
+    if (error || !student) {
+      return { error: NextResponse.json({ error: 'Student not found' }, { status: 404 }) };
+    }
+
+    return { student };
+  }
+
+  if (profile.role !== 'parent') {
+    return { error: NextResponse.json({ error: 'Unsupported role' }, { status: 403 }) };
+  }
+
+  const studentId = requestedStudentId?.trim() || '';
+  if (!studentId) {
+    return { error: NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 }) };
+  }
+
+  const { data: student, error } = await (supabase as any)
+    .from('profiles')
+    .select('id, display_name, grade_level')
+    .eq('id', studentId)
+    .eq('role', 'student')
+    .eq('parent_id', profile.id)
+    .maybeSingle();
+
+  if (error || !student) {
+    return { error: NextResponse.json({ error: 'Student not found' }, { status: 404 }) };
+  }
+
+  return { student };
 }
 
 const subjectLabels: Record<string, string> = {
@@ -316,24 +361,17 @@ ${focusText}
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const studentId = typeof body?.student_id === 'string' ? body.student_id.trim() : '';
+    const requestedStudentId = typeof body?.student_id === 'string' ? body.student_id.trim() : '';
     const reportType = typeof body?.report_type === 'string' ? body.report_type : 'weekly';
     const days = Number.isFinite(body?.days) ? Number(body.days) : 7;
     const focusAssetId = typeof body?.focus_asset_id === 'string' ? body.focus_asset_id.trim() : '';
 
-    if (!studentId) {
-      return NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 });
+    const resolvedStudent = await resolveAuthorizedStudent(requestedStudentId);
+    if (resolvedStudent.error) {
+      return resolvedStudent.error;
     }
-
-    const { data: student, error: studentError } = await (supabase as any)
-      .from('profiles')
-      .select('id, display_name, grade_level')
-      .eq('id', studentId)
-      .single();
-
-    if (studentError || !student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-    }
+    const student = resolvedStudent.student;
+    const studentId = student.id;
 
     const endDate = new Date();
     const startDate = new Date();
@@ -449,12 +487,14 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const studentId = searchParams.get('student_id');
+    const requestedStudentId = searchParams.get('student_id') || undefined;
     const limit = Number.parseInt(searchParams.get('limit') || '10', 10);
 
-    if (!studentId) {
-      return NextResponse.json({ error: 'Missing student_id parameter' }, { status: 400 });
+    const resolvedStudent = await resolveAuthorizedStudent(requestedStudentId);
+    if (resolvedStudent.error) {
+      return resolvedStudent.error;
     }
+    const studentId = resolvedStudent.student.id;
 
     const { data: reports, error } = await (supabase as any)
       .from('learning_reports')

@@ -16,6 +16,7 @@
     "socrates:stop:local": "node scripts/stop-socrates-local.mjs",
     "socrates:check:prompt-baseline": "node scripts/check-socrates-prompt-baseline.mjs",
     "socrates:check:chat-regression": "node scripts/check-socrates-chat-regression.mjs",
+    "socrates:check:auth-profile-regression": "node scripts/check-socrates-auth-profile-regression.mjs",
     "socrates:check:wrap-up-regression": "node scripts/check-socrates-wrap-up-regression.mjs",
     "socrates:check:online-chat-regression": "node scripts/check-socrates-online-chat-regression.mjs",
     "socrates:check:online-wrap-up-regression": "node scripts/check-socrates-wrap-up-online.mjs",

@@ -1,54 +1,111 @@
-// =====================================================
-// Project Socrates - Student Stats API for Parent Dashboard
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedProfile } from '@/lib/server/route-auth';
 
-// 创建 Supabase 服务端客户端
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// GET endpoint - 获取学生学习统计数据
+async function resolveAuthorizedStudentId(req: NextRequest) {
+  const profile = await getAuthenticatedProfile();
+  if (!profile) {
+    return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) };
+  }
+
+  const requestedStudentId = req.nextUrl.searchParams.get('student_id')?.trim() || '';
+
+  if (profile.role === 'student') {
+    return { studentId: profile.id };
+  }
+
+  if (profile.role !== 'parent') {
+    return { error: NextResponse.json({ error: 'Unsupported role' }, { status: 403 }) };
+  }
+
+  if (!requestedStudentId) {
+    return { error: NextResponse.json({ error: 'student_id is required' }, { status: 400 }) };
+  }
+
+  const { data: student, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', requestedStudentId)
+    .eq('role', 'student')
+    .eq('parent_id', profile.id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!student) {
+    return { error: NextResponse.json({ error: 'Student not found' }, { status: 404 }) };
+  }
+
+  return { studentId: student.id };
+}
+
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = req.nextUrl;
-    const student_id = searchParams.get('student_id');
-    const days = searchParams.get('days') || '30'; // 默认30天
-
-    if (!student_id) {
-      return NextResponse.json({ error: 'student_id is required' }, { status: 400 });
+    const resolved = await resolveAuthorizedStudentId(req);
+    if (resolved.error) {
+      return resolved.error;
     }
 
-    // 1. 获取总体统计数据（包含 theme_used）
-    const { data: errorSessions, error: sessionsError } = await supabase
-      .from('error_sessions')
-      .select('id, status, subject, created_at, concept_tags, theme_used')
-      .eq('student_id', student_id)
-      .order('created_at', { ascending: false });
+    const studentId = resolved.studentId;
+    const days = Number.parseInt(req.nextUrl.searchParams.get('days') || '30', 10);
 
-    if (sessionsError) {
-      console.error('Error fetching error sessions:', sessionsError);
+    const [
+      errorSessionsResult,
+      todayUsageResult,
+      lastUsageResult,
+      pointsResult,
+    ] = await Promise.all([
+      supabase
+        .from('error_sessions')
+        .select('id, status, subject, created_at, concept_tags, theme_used')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('usage_logs')
+        .select('total_minutes')
+        .eq('user_id', studentId)
+        .eq('date', new Date().toISOString().split('T')[0])
+        .maybeSingle(),
+      supabase
+        .from('usage_logs')
+        .select('date')
+        .eq('user_id', studentId)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('socra_points')
+        .select('streak_days')
+        .eq('user_id', studentId)
+        .maybeSingle(),
+    ]);
+
+    if (errorSessionsResult.error) {
+      console.error('Error fetching error sessions:', errorSessionsResult.error);
       return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
     }
 
-    const totalErrors = errorSessions?.length || 0;
-    const masteredCount = errorSessions?.filter(s => s.status === 'mastered').length || 0;
-    const masteryRate = totalErrors > 0 ? Math.round((masteredCount / totalErrors) * 100 * 10) / 10 : 0;
+    const errorSessions = errorSessionsResult.data || [];
+    const totalErrors = errorSessions.length;
+    const masteredCount = errorSessions.filter((session) => session.status === 'mastered').length;
+    const masteryRate = totalErrors > 0 ? Math.round((masteredCount / totalErrors) * 1000) / 10 : 0;
 
-    // 按主题模式统计（Junior/Senior）
-    const juniorCount = errorSessions?.filter(s => s.theme_used === 'junior').length || 0;
-    const seniorCount = errorSessions?.filter(s => s.theme_used === 'senior').length || 0;
-    const unknownThemeCount = errorSessions?.filter(s => !s.theme_used).length || 0;
+    const juniorCount = errorSessions.filter((session) => session.theme_used === 'junior').length;
+    const seniorCount = errorSessions.filter((session) => session.theme_used === 'senior').length;
+    const unknownThemeCount = errorSessions.filter((session) => !session.theme_used).length;
 
-    // 2. 生成热力图数据（最近N天）
-    const numDays = parseInt(days);
+    const numDays = Number.isFinite(days) && days > 0 ? days : 30;
     const today = new Date();
     const heatmapData: { date: string; count: number }[] = [];
 
-    for (let i = numDays - 1; i >= 0; i--) {
+    for (let i = numDays - 1; i >= 0; i -= 1) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       date.setHours(0, 0, 0, 0);
@@ -56,11 +113,10 @@ export async function GET(req: NextRequest) {
       const nextDate = new Date(date);
       nextDate.setDate(date.getDate() + 1);
 
-      // 统计当天创建的错题数
-      const dayCount = errorSessions?.filter(session => {
+      const dayCount = errorSessions.filter((session) => {
         const sessionDate = new Date(session.created_at);
         return sessionDate >= date && sessionDate < nextDate;
-      }).length || 0;
+      }).length;
 
       heatmapData.push({
         date: `${date.getMonth() + 1}/${date.getDate()}`,
@@ -68,38 +124,36 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. 获取薄弱知识点（基于错题频率）
     const conceptCounts = new Map<string, number>();
-
-    errorSessions?.forEach(session => {
-      const tags = session.concept_tags;
-      if (Array.isArray(tags)) {
-        tags.forEach(tag => {
-          conceptCounts.set(tag, (conceptCounts.get(tag) || 0) + 1);
+    errorSessions.forEach((session) => {
+      if (Array.isArray(session.concept_tags)) {
+        session.concept_tags.forEach((tag) => {
+          if (typeof tag === 'string' && tag.trim()) {
+            conceptCounts.set(tag, (conceptCounts.get(tag) || 0) + 1);
+          }
         });
       }
     });
 
-    // 转换为数组并排序
     const weakPoints = Array.from(conceptCounts.entries())
       .map(([tag, count]) => {
-        // 简单的趋势判断：如果最近7天出现的次数多于之前的7天，则趋势向上
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const recentCount = errorSessions?.filter(s => {
-          const sessionDate = new Date(s.created_at);
-          return sessionDate >= weekAgo &&
-                 Array.isArray(s.concept_tags) &&
-                 s.concept_tags.includes(tag);
-        }).length || 0;
+        const recentCount = errorSessions.filter((session) => {
+          const sessionDate = new Date(session.created_at);
+          return (
+            sessionDate >= weekAgo &&
+            Array.isArray(session.concept_tags) &&
+            session.concept_tags.includes(tag)
+          );
+        }).length;
 
-        // 趋势判断：最近频率高则为上升
-        const trend: 'up' | 'down' | 'stable' = recentCount > count / 2 ? 'up' :
-                                                        recentCount < count / 4 ? 'down' : 'stable';
+        const trend: 'up' | 'down' | 'stable' =
+          recentCount > count / 2 ? 'up' : recentCount < count / 4 ? 'down' : 'stable';
 
         return { tag, count, trend };
       })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10); // 只取前10个
+      .sort((left, right) => right.count - left.count)
+      .slice(0, 10);
 
     return NextResponse.json({
       data: {
@@ -108,12 +162,14 @@ export async function GET(req: NextRequest) {
         mastery_rate: masteryRate,
         heatmap_data: heatmapData,
         weak_points: weakPoints,
-        // 新增：主题模式统计
         theme_stats: {
           junior: juniorCount,
           senior: seniorCount,
           unknown: unknownThemeCount,
         },
+        today_minutes: todayUsageResult.data?.total_minutes || 0,
+        streak_days: pointsResult.data?.streak_days || 0,
+        last_active: lastUsageResult.data?.date || null,
       },
     });
   } catch (error) {

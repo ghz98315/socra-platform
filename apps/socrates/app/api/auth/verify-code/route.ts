@@ -10,6 +10,10 @@ import {
   phoneToPseudoEmail,
 } from '@/lib/auth/phone-auth';
 import {
+  isPhoneCodeAuthEnabled,
+  PHONE_CODE_AUTH_DISABLED_MESSAGE,
+} from '@/lib/auth/phone-auth-config';
+import {
   createSupabaseAdminClient,
   createSupabasePublicClient,
 } from '@/lib/server/supabase-auth-clients';
@@ -31,17 +35,24 @@ type VerificationRecord = {
   } | null;
 };
 
-async function syncVerifiedUserProfile(admin: ReturnType<typeof createSupabaseAdminClient>, user: any, phone: string) {
+async function syncVerifiedUserProfile(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  user: any,
+  phone: string,
+) {
   const metadata = (user?.user_metadata ?? {}) as Record<string, string | null | undefined>;
   const displayName = metadata.display_name || phone;
   const avatarUrl = metadata.avatar_url || metadata.student_avatar_url || null;
   const studentAvatarUrl = metadata.student_avatar_url || avatarUrl || null;
   const parentAvatarUrl = metadata.parent_avatar_url || avatarUrl || null;
+  const requestedRole = metadata.role === 'parent' || metadata.role === 'student' ? metadata.role : null;
+
   const { data: existingProfileRaw } = await admin
     .from('profiles')
     .select('id, role, phone, display_name, avatar_url, student_avatar_url, parent_avatar_url')
     .eq('id', user.id)
     .maybeSingle();
+
   const existingProfile = existingProfileRaw as
     | {
         id: string;
@@ -56,6 +67,7 @@ async function syncVerifiedUserProfile(admin: ReturnType<typeof createSupabaseAd
 
   if (existingProfile) {
     const updates: Record<string, string | null> = {};
+
     if (!existingProfile.phone) updates.phone = phone;
     if (!existingProfile.display_name && displayName) updates.display_name = displayName;
     if (!existingProfile.avatar_url && avatarUrl) updates.avatar_url = avatarUrl;
@@ -65,10 +77,14 @@ async function syncVerifiedUserProfile(admin: ReturnType<typeof createSupabaseAd
     if (!existingProfile.parent_avatar_url && parentAvatarUrl) {
       updates.parent_avatar_url = parentAvatarUrl;
     }
+    if (requestedRole && existingProfile.role !== requestedRole) {
+      updates.role = requestedRole;
+    }
 
     if (Object.keys(updates).length > 0) {
       await (admin as any).from('profiles').update(updates).eq('id', user.id);
     }
+
     return;
   }
 
@@ -80,7 +96,7 @@ async function syncVerifiedUserProfile(admin: ReturnType<typeof createSupabaseAd
       avatar_url: avatarUrl,
       student_avatar_url: studentAvatarUrl,
       parent_avatar_url: parentAvatarUrl,
-      role: 'student',
+      role: requestedRole || 'student',
       theme_preference: 'junior',
     },
     { onConflict: 'id' },
@@ -93,6 +109,14 @@ export async function POST(req: NextRequest) {
     const purpose = body.purpose === 'register' ? 'register' : 'login';
     const phone = normalizePhone(typeof body.phone === 'string' ? body.phone : '');
     const code = typeof body.code === 'string' ? body.code.trim() : '';
+    const password = typeof body.password === 'string' ? body.password.trim() : '';
+
+    if (!isPhoneCodeAuthEnabled()) {
+      return NextResponse.json(
+        { error: PHONE_CODE_AUTH_DISABLED_MESSAGE },
+        { status: 503 },
+      );
+    }
 
     if (!isValidMainlandPhone(phone)) {
       return NextResponse.json({ error: '请输入正确的 11 位手机号。' }, { status: 400 });
@@ -100,6 +124,10 @@ export async function POST(req: NextRequest) {
 
     if (!isValidVerificationCode(code)) {
       return NextResponse.json({ error: '请输入正确的 6 到 8 位验证码。' }, { status: 400 });
+    }
+
+    if (purpose === 'register' && password.length < 6) {
+      return NextResponse.json({ error: '密码至少需要 6 位。' }, { status: 400 });
     }
 
     const admin = createSupabaseAdminClient();
@@ -126,6 +154,7 @@ export async function POST(req: NextRequest) {
     }
 
     const record = verificationRecord as VerificationRecord;
+
     if (new Date(record.expires_at).getTime() < Date.now()) {
       return NextResponse.json({ error: '验证码已过期，请重新获取。' }, { status: 400 });
     }
@@ -147,34 +176,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '验证码校验失败，请重新获取后再试。' }, { status: 400 });
     }
 
-    await syncVerifiedUserProfile(admin, verifyData.user, phone);
+    const verifiedUser = verifyData.user;
+    const verifiedSession = verifyData.session;
+
+    await syncVerifiedUserProfile(admin, verifiedUser, phone);
 
     if (purpose === 'register') {
       const nextMetadata = {
-        ...(verifyData.user.user_metadata || {}),
+        ...(verifiedUser.user_metadata || {}),
         phone_auth_pending: false,
         phone_verified_at: new Date().toISOString(),
       };
 
-      await admin.auth.admin.updateUserById(verifyData.user.id, {
+      await admin.auth.admin.updateUserById(verifiedUser.id, {
+        password,
         user_metadata: nextMetadata,
       });
     }
 
-    const identityPayload = {
-      user_id: verifyData.user.id,
-      provider: 'phone',
-      provider_user_id: phone,
-      phone,
-      is_primary: true,
-      metadata: {
-        pseudo_email: pseudoEmail,
+    await db.from('user_auth_identities').upsert(
+      {
+        user_id: verifiedUser.id,
+        provider: 'phone',
+        provider_user_id: phone,
+        phone,
+        is_primary: true,
+        metadata: {
+          pseudo_email: pseudoEmail,
+        },
       },
-    };
-
-    await db.from('user_auth_identities').upsert(identityPayload, {
-      onConflict: 'provider,provider_user_id',
-    });
+      {
+        onConflict: 'provider,provider_user_id',
+      },
+    );
 
     await db
       .from('auth_verification_codes')
@@ -186,10 +220,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       session: {
-        access_token: verifyData.session.access_token,
-        refresh_token: verifyData.session.refresh_token,
+        access_token: verifiedSession.access_token,
+        refresh_token: verifiedSession.refresh_token,
       },
-      user: verifyData.user,
+      user: verifiedUser,
       isNewUser: purpose === 'register',
     });
   } catch (error) {

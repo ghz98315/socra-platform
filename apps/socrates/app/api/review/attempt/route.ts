@@ -29,6 +29,7 @@ import {
   buildMissingMathErrorLoopMigrationResponse,
   isMissingMathErrorLoopMigrationError,
 } from '@/lib/error-loop/migration-guard';
+import { getAuthenticatedStudentProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -449,18 +450,22 @@ async function sendParentRiskNotification({
 
 export async function GET(req: NextRequest) {
   try {
-    const reviewId = req.nextUrl.searchParams.get('review_id');
-    const studentId = req.nextUrl.searchParams.get('student_id');
+    const student = await getAuthenticatedStudentProfile();
+    if (!student) {
+      return NextResponse.json({ error: 'Only students can view review attempts' }, { status: 403 });
+    }
 
-    if (!reviewId || !studentId) {
-      return NextResponse.json({ error: 'Missing required query params: review_id, student_id' }, { status: 400 });
+    const reviewId = req.nextUrl.searchParams.get('review_id');
+
+    if (!reviewId) {
+      return NextResponse.json({ error: 'Missing required query param: review_id' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('review_attempts')
       .select('*')
       .eq('review_id', reviewId)
-      .eq('student_id', studentId)
+      .eq('student_id', student.id)
       .order('attempt_no', { ascending: true });
 
     if (error) {
@@ -476,7 +481,7 @@ export async function GET(req: NextRequest) {
       .from('review_schedule')
       .select('session_id')
       .eq('id', reviewId)
-      .eq('student_id', studentId)
+      .eq('student_id', student.id)
       .maybeSingle();
 
     if (reviewScheduleError) {
@@ -491,7 +496,7 @@ export async function GET(req: NextRequest) {
     const variantEvidence = reviewSchedule?.session_id
       ? await loadVariantEvidenceForSession({
           sessionId: reviewSchedule.session_id,
-          studentId,
+          studentId: student.id,
         })
       : summarizeVariantEvidence({ questions: [], logs: [] });
 
@@ -509,10 +514,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const student = await getAuthenticatedStudentProfile();
+    if (!student) {
+      return NextResponse.json({ error: 'Only students can submit review attempts' }, { status: 403 });
+    }
+
     const body = await req.json();
     const {
       review_id,
-      student_id,
       attempt_mode,
       independent_first,
       asked_ai,
@@ -526,15 +535,15 @@ export async function POST(req: NextRequest) {
       metadata,
     } = body ?? {};
 
-    if (!review_id || !student_id) {
-      return NextResponse.json({ error: 'Missing required fields: review_id, student_id' }, { status: 400 });
+    if (!review_id) {
+      return NextResponse.json({ error: 'Missing required field: review_id' }, { status: 400 });
     }
 
     const { data: review, error: reviewError } = await supabase
       .from('review_schedule')
       .select('id, session_id, student_id, review_stage, reopened_count, is_completed, next_review_at')
       .eq('id', review_id)
-      .eq('student_id', student_id)
+      .eq('student_id', student.id)
       .maybeSingle();
 
     if (reviewError) {
@@ -570,7 +579,7 @@ export async function POST(req: NextRequest) {
       .from('error_sessions')
       .select('subject, primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement')
       .eq('id', review.session_id)
-      .eq('student_id', student_id)
+      .eq('student_id', student.id)
       .maybeSingle();
 
     const rootCauseSnapshot: RootCauseSnapshot = {
@@ -586,7 +595,7 @@ export async function POST(req: NextRequest) {
         'attempt_mode, independent_first, asked_ai, ai_hint_count, solved_correctly, explained_correctly, variant_passed',
       )
       .eq('review_id', review_id)
-      .eq('student_id', student_id)
+      .eq('student_id', student.id)
       .order('attempt_no', { ascending: true });
 
     if (priorAttemptsError) {
@@ -628,7 +637,7 @@ export async function POST(req: NextRequest) {
     const previousAttemptEvidence = ((priorAttempts || []) as ReviewAttemptEvidenceRow[]).map(mapAttemptRowToEvidence);
     const variantEvidence = await loadVariantEvidenceForSession({
       sessionId: review.session_id,
-      studentId: student_id,
+      studentId: student.id,
     });
     const { judgement, closureGate } = determineJudgement({
       currentAttempt: currentAttemptEvidence,
@@ -642,7 +651,7 @@ export async function POST(req: NextRequest) {
       .insert({
         review_id,
         session_id: review.session_id,
-        student_id,
+        student_id: student.id,
         attempt_no: (priorAttempts?.length || 0) + 1,
         attempt_mode: normalizedAttemptMode,
         independent_first: normalizedIndependentFirst,
@@ -690,7 +699,7 @@ export async function POST(req: NextRequest) {
         next_interval_days: scheduleUpdate.next_interval_days,
       })
       .eq('id', review_id)
-      .eq('student_id', student_id)
+      .eq('student_id', student.id)
       .select('*')
       .single();
 
@@ -710,7 +719,7 @@ export async function POST(req: NextRequest) {
         closure_state: scheduleUpdate.closure_state,
       })
       .eq('id', review.session_id)
-      .eq('student_id', student_id);
+      .eq('student_id', student.id);
 
     if (updateSessionError) {
       console.error('[review/attempt] Failed to update error session closure state:', updateSessionError);
@@ -738,7 +747,7 @@ export async function POST(req: NextRequest) {
       : judgementGuidance.next_actions;
     const rootCauseContext = getRootCauseContext(rootCauseSnapshot);
     const interventionTaskId = await ensureReviewInterventionTask({
-      studentId: student_id,
+      studentId: student.id,
       sessionId: review.session_id,
       subject: sessionSubject,
       judgement,
@@ -749,7 +758,7 @@ export async function POST(req: NextRequest) {
     });
 
     await sendParentRiskNotification({
-      studentId: student_id,
+      studentId: student.id,
       sessionId: review.session_id,
       reviewId: review_id,
       judgement,

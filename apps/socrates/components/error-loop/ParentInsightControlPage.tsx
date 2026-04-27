@@ -426,7 +426,7 @@ export default function ParentInsightControlPage() {
       }
 
       try {
-        const response = await fetch(`/api/parent-tasks?parent_id=${profile.id}`);
+        const response = await fetch('/api/parent-tasks');
         const payload = await response.json();
 
         if (!response.ok) {
@@ -646,7 +646,6 @@ export default function ParentInsightControlPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          parentId: profile.id,
           childId: selectedStudent.id,
           title: taskDraft.title,
           description: taskDraft.description,
@@ -695,7 +694,6 @@ export default function ParentInsightControlPage() {
         },
         body: JSON.stringify({
           taskId: alert.intervention_task_id,
-          childId: selectedStudent.id,
           progressCount: 1,
           notes: interventionNotes[taskKey]?.trim() || null,
         }),
@@ -735,7 +733,6 @@ export default function ParentInsightControlPage() {
         },
         body: JSON.stringify({
           taskId: outcome.task_id,
-          childId: selectedStudent.id,
           progressCount: 1,
           notes: interventionNotes[taskKey]?.trim() || null,
         }),

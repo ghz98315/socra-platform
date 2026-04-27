@@ -212,7 +212,7 @@ export function SubscriptionFeatures({ currentPlan, onUpgrade }: SubscriptionFea
             <div className="text-center">
               <div className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-warm-500 to-orange-500 rounded-full">
                 <Crown className="w-4 h-4 text-yellow-200" />
-                <span className="text-sm font-bold text-white">Pro</span>
+                <span className="text-sm font-bold text-white">会员版</span>
               </div>
             </div>
           </div>
@@ -291,7 +291,7 @@ export function SubscriptionFeatures({ currentPlan, onUpgrade }: SubscriptionFea
                         )}
                       </div>
 
-                      {/* Pro版 */}
+                      {/* 会员版 */}
                       <div className="flex items-center justify-center">
                         {typeof item.pro === 'boolean' ? (
                           item.pro ? (
@@ -327,7 +327,7 @@ export function SubscriptionFeatures({ currentPlan, onUpgrade }: SubscriptionFea
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">
-                    解锁全部 Pro 功能
+                    解锁全部会员功能
                   </p>
                   <p className="text-sm text-gray-500">
                     首月仅需 ¥14.5，随时可取消
@@ -346,7 +346,7 @@ export function SubscriptionFeatures({ currentPlan, onUpgrade }: SubscriptionFea
       </div>
 
       {/* 信任标识 */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col items-center p-3 bg-white rounded-xl border border-gray-100">
           <Shield className="w-6 h-6 text-green-500 mb-1" />
           <span className="text-xs font-medium text-gray-700">安全支付</span>

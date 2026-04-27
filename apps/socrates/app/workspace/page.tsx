@@ -8,11 +8,15 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { getRoleHome } from '@/lib/navigation/role-home';
 
 export default function WorkspacePage() {
-  const { profile, accountProfile, loading } = useAuth();
+  const { user, profile, accountProfile, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading || !profile) {
+    if (loading || !user) {
+      return;
+    }
+
+    if (!accountProfile || !profile) {
       return;
     }
 
@@ -21,10 +25,8 @@ export default function WorkspacePage() {
       return;
     }
 
-    if (!loading && profile) {
-      router.replace(getRoleHome(profile.role));
-    }
-  }, [accountProfile?.role, profile, loading, router]);
+    router.replace(getRoleHome(profile.role));
+  }, [accountProfile, loading, profile, router, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

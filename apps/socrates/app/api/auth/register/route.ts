@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       avatar_url,
       student_avatar_url,
       parent_avatar_url,
-      role = 'student',
+      role = 'parent',
     } = body;
     const initialAvatarUrl = avatar_url || student_avatar_url || parent_avatar_url || null;
 
@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       user_metadata: {
         display_name,
         phone,
+        role,
         avatar_url: initialAvatarUrl,
         student_avatar_url: student_avatar_url || initialAvatarUrl,
         parent_avatar_url: parent_avatar_url || initialAvatarUrl,
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
         avatar_url: initialAvatarUrl,
         student_avatar_url: student_avatar_url || initialAvatarUrl,
         parent_avatar_url: parent_avatar_url || initialAvatarUrl,
+        role,
         theme_preference: 'junior',
       })
       .eq('id', authUser.id);

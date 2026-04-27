@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   BarChart3,
@@ -22,7 +22,6 @@ import {
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { PointsDisplay } from '@/components/points/PointsDisplay';
-import { RoleSwitcher, RoleSwitcherButton } from '@/components/RoleSwitcherV3';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -42,7 +41,7 @@ const parentNavItems: NavItem[] = [
   { id: 'dashboard', href: '/tasks', icon: Home, label: { zh: '总览', en: 'Dashboard' }, color: 'text-warm-500' },
   { id: 'tasks', href: '/tasks', icon: ClipboardList, label: { zh: '任务', en: 'Tasks' }, color: 'text-blue-500' },
   { id: 'family', href: '/family', icon: Users, label: { zh: '家庭', en: 'Family' }, color: 'text-purple-500' },
-  { id: 'reports', href: '/reports', icon: BarChart3, label: { zh: '报告', en: 'Reports' }, color: 'text-warm-400' },
+  { id: 'controls', href: '/controls', icon: BarChart3, label: { zh: '洞察', en: 'Insights' }, color: 'text-warm-400' },
 ];
 
 const studentNavItems: NavItem[] = [
@@ -125,7 +124,6 @@ export function GlobalNav() {
               mounted ? 'opacity-100' : 'opacity-0'
             )}
           >
-            <RoleSwitcher compact />
             <div className="flex items-center gap-2 rounded-full border border-warm-200 bg-warm-50 px-4 py-2">
               <Avatar className="size-10 border border-white/80 shadow-sm">
                 <AvatarImage src={activeAvatar} alt={displayName} />
@@ -257,10 +255,6 @@ export function GlobalNav() {
                 </Link>
               );
             })}
-          </div>
-
-          <div className="mt-4 border-t border-border/50 pt-4">
-            <RoleSwitcherButton className="w-full" />
           </div>
 
           <div className="mt-4 flex gap-2">

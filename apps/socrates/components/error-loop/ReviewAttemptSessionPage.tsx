@@ -464,7 +464,7 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
 
         if (profile?.id) {
           const response = await fetch(
-            `/api/review/attempt?review_id=${encodeURIComponent(reviewId)}&student_id=${encodeURIComponent(profile.id)}`,
+            `/api/review/attempt?review_id=${encodeURIComponent(reviewId)}`,
           );
           const payload = await response.json();
 
@@ -670,7 +670,6 @@ export default function ReviewAttemptSessionPage({ reviewId }: { reviewId: strin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           review_id: reviewSession.id,
-          student_id: profile.id,
           attempt_mode: attemptForm.attemptMode,
           independent_first: attemptForm.independentFirst,
           asked_ai: attemptForm.askedAi,

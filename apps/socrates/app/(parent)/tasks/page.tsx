@@ -219,7 +219,7 @@ export default function ParentTasksPage() {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/parent-tasks?parent_id=${profile.id}`);
+        const response = await fetch('/api/parent-tasks');
         if (response.ok) {
           const result = await response.json();
           setTasks(result.tasks || []);
@@ -248,7 +248,6 @@ export default function ParentTasksPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parentId: profile.id,
           childId: formData.childId,
           title: formData.title,
           description: formData.description || null,
@@ -268,7 +267,7 @@ export default function ParentTasksPage() {
       }
 
       // Refresh tasks
-      const tasksResponse = await fetch(`/api/parent-tasks?parent_id=${profile.id}`);
+      const tasksResponse = await fetch('/api/parent-tasks');
       if (tasksResponse.ok) {
         const result = await tasksResponse.json();
         setTasks(result.tasks || []);

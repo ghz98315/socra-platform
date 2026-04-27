@@ -183,7 +183,6 @@ export function ReportsDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          student_id: profile.id,
           report_type: selectedPeriod === 30 ? 'monthly' : 'weekly',
           days: selectedPeriod,
           focus_asset_id: focusAssetId || undefined,
@@ -202,7 +201,7 @@ export function ReportsDashboard() {
       setFocusAsset((result?.data?.focusAsset || null) as FocusAssetSummary | null);
       setAiAnalysis(typeof result?.data?.aiAnalysis === 'string' ? result.data.aiAnalysis : '');
 
-      const historyResponse = await fetch(`/api/reports/study?student_id=${profile.id}&limit=6`);
+      const historyResponse = await fetch('/api/reports/study?limit=6');
       if (!historyResponse.ok) {
         throw new Error('reports-study-get-failed');
       }

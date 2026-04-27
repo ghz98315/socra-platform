@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { randomUUID } from 'crypto';
 
 let supabaseAdminInstance: ReturnType<typeof createClient> | null = null;
 
@@ -45,6 +46,10 @@ type AccountProfile = {
   parent_id: string | null;
   created_at: string;
 };
+
+function buildDefaultStudentAuthEmail(parentId: string) {
+  return `student-profile+${parentId}@socra.local`;
+}
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -94,7 +99,7 @@ async function getAvailableProfiles(
     return [accountProfile];
   }
 
-  const { data: children, error } = await admin
+  let { data: children, error } = await admin
     .from('profiles')
     .select('*')
     .eq('role', 'student')
@@ -103,6 +108,75 @@ async function getAvailableProfiles(
 
   if (error) {
     throw error;
+  }
+
+  if (!children || children.length === 0) {
+    const defaultStudentEmail = buildDefaultStudentAuthEmail(accountProfile.id);
+    const bootstrapPassword = `Tmp!${randomUUID()}Aa`;
+    const { data: createdAuthUser, error: createAuthUserError } = await admin.auth.admin.createUser({
+      email: defaultStudentEmail,
+      password: bootstrapPassword,
+      email_confirm: true,
+      user_metadata: {
+        display_name: accountProfile.display_name || '学生',
+        linked_parent_id: accountProfile.id,
+        profile_mode: 'child_profile_backing_user',
+      },
+    });
+
+    let studentUserId = createdAuthUser?.user?.id || null;
+
+    if (createAuthUserError) {
+      const { data: existingUsers } = await admin.auth.admin.listUsers();
+      const existingStudentUser =
+        existingUsers.users.find((candidate) => candidate.email === defaultStudentEmail) || null;
+
+      if (!existingStudentUser?.id) {
+        throw createAuthUserError;
+      }
+
+      studentUserId = existingStudentUser.id;
+    }
+
+    if (!studentUserId) {
+      throw new Error('Failed to provision default student profile user');
+    }
+
+    const { error: insertError } = await (admin as any).from('profiles').upsert(
+      {
+        id: studentUserId,
+        role: 'student',
+        parent_id: accountProfile.id,
+        display_name: accountProfile.display_name || '学生',
+        phone: null,
+        grade_level: null,
+        theme_preference: null,
+        avatar_url: accountProfile.student_avatar_url || accountProfile.avatar_url,
+        student_avatar_url: accountProfile.student_avatar_url || accountProfile.avatar_url,
+        parent_avatar_url: accountProfile.parent_avatar_url || accountProfile.avatar_url,
+      },
+      {
+        onConflict: 'id',
+      },
+    );
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    const reloadResult = await admin
+      .from('profiles')
+      .select('*')
+      .eq('role', 'student')
+      .eq('parent_id', accountProfile.id)
+      .order('created_at', { ascending: true });
+
+    children = reloadResult.data;
+    error = reloadResult.error;
+
+    if (error) {
+      throw error;
+    }
   }
 
   return [accountProfile, ...((children as AccountProfile[] | null) || [])];

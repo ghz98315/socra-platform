@@ -8,6 +8,10 @@ import { Brain, Home, Loader2, ShieldCheck, Sparkles, Target } from 'lucide-reac
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  isPhoneCodeAuthEnabled,
+  PHONE_CODE_AUTH_DISABLED_MESSAGE,
+} from '@/lib/auth/phone-auth-config';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { buildAuthPageHref, readEntryParams, resolveEntryDestination } from '@/lib/navigation/entry-intent';
 import { resolveRoleAwareDestination } from '@/lib/navigation/role-home';
@@ -37,8 +41,9 @@ function LoginPageContent() {
   const entryParams = readEntryParams(searchParams);
   const registerHref = buildAuthPageHref('/register', entryParams);
   const successDestination = resolveEntryDestination(entryParams);
+  const phoneCodeAuthEnabled = isPhoneCodeAuthEnabled();
 
-  const [mode, setMode] = useState<LoginMode>('code');
+  const [mode, setMode] = useState<LoginMode>('password');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -58,6 +63,10 @@ function LoginPageContent() {
       return;
     }
 
+    if (!accountProfile || !profile) {
+      return;
+    }
+
     if (accountProfile?.role === 'parent') {
       router.replace('/select-profile');
       return;
@@ -73,8 +82,13 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      await signIn(phone, password);
-      router.replace('/workspace');
+      const nextProfile = await signIn(phone, password);
+      if (nextProfile?.role === 'parent') {
+        router.replace('/select-profile');
+        return;
+      }
+
+      router.replace(resolveRoleAwareDestination(nextProfile, successDestination));
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败，请检查手机号和密码。');
     } finally {
@@ -86,6 +100,10 @@ function LoginPageContent() {
     setError('');
     setSuccess('');
     setDebugCode('');
+    if (!phoneCodeAuthEnabled) {
+      setError(PHONE_CODE_AUTH_DISABLED_MESSAGE);
+      return;
+    }
     setSendingCode(true);
 
     try {
@@ -108,15 +126,24 @@ function LoginPageContent() {
     event.preventDefault();
     setError('');
     setSuccess('');
+    if (!phoneCodeAuthEnabled) {
+      setError(PHONE_CODE_AUTH_DISABLED_MESSAGE);
+      return;
+    }
     setLoading(true);
 
     try {
-      await verifyPhoneCode({
+      const nextProfile = await verifyPhoneCode({
         phone,
         code,
         purpose: 'login',
       });
-      router.replace('/workspace');
+      if (nextProfile?.role === 'parent') {
+        router.replace('/select-profile');
+        return;
+      }
+
+      router.replace(resolveRoleAwareDestination(nextProfile, successDestination));
     } catch (err) {
       setError(err instanceof Error ? err.message : '验证码登录失败，请稍后重试。');
     } finally {
@@ -203,9 +230,14 @@ function LoginPageContent() {
           <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-warm-100/70 p-1">
             <button
               type="button"
-              onClick={() => setMode('code')}
+              onClick={() => {
+                if (phoneCodeAuthEnabled) {
+                  setMode('code');
+                }
+              }}
+              disabled={!phoneCodeAuthEnabled}
               className={cn(
-                'rounded-2xl px-4 py-3 text-sm font-medium transition',
+                'rounded-2xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
                 mode === 'code'
                   ? 'bg-white text-warm-900 shadow-sm'
                   : 'text-warm-600 hover:text-warm-900',
@@ -226,6 +258,12 @@ function LoginPageContent() {
               密码登录
             </button>
           </div>
+
+          {!phoneCodeAuthEnabled ? (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              手机验证码暂不可用。当前请先使用手机号加密码登录，验证码登录入口先保留为停用状态。
+            </div>
+          ) : null}
 
           {error ? (
             <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">

@@ -336,7 +336,7 @@ export default function ReviewPage() {
 
     try {
       const response = await fetch(
-        `/api/review/schedule?student_id=${encodeURIComponent(profile.id)}&scope=all&include_counts=1`
+        '/api/review/schedule?scope=all&include_counts=1'
       );
       const payload = await response.json();
 

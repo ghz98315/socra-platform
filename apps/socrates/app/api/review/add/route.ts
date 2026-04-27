@@ -1,34 +1,51 @@
-// =====================================================
-// Project Socrates - Add To Review API
-// Purpose: Allow students to manually add an error session into review_schedule.
-// =====================================================
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getScheduledReviewDate } from '@/lib/error-loop/review';
+import { getAuthenticatedStudentProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { session_id, student_id } = body ?? {};
+    const student = await getAuthenticatedStudentProfile();
+    if (!student) {
+      return NextResponse.json({ error: 'Only students can add reviews' }, { status: 403 });
+    }
 
-    if (!session_id || !student_id) {
+    const body = await req.json();
+    const sessionId = typeof body?.session_id === 'string' ? body.session_id : '';
+
+    if (!sessionId) {
       return NextResponse.json(
-        { error: 'Missing required fields: session_id, student_id' },
-        { status: 400 }
+        { error: 'Missing required field: session_id' },
+        { status: 400 },
       );
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('error_sessions')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('student_id', student.id)
+      .maybeSingle();
+
+    if (sessionError) {
+      console.error('[review/add] Error checking session:', sessionError);
+      return NextResponse.json({ error: 'Failed to verify error session' }, { status: 500 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'Error session not found' }, { status: 404 });
     }
 
     const { data: existing, error: existingError } = await supabase
       .from('review_schedule')
       .select('id')
-      .eq('session_id', session_id)
-      .eq('student_id', student_id)
+      .eq('session_id', sessionId)
+      .eq('student_id', student.id)
       .maybeSingle();
 
     if (existingError) {
@@ -45,8 +62,8 @@ export async function POST(req: NextRequest) {
     const { data: inserted, error: insertError } = await supabase
       .from('review_schedule')
       .insert({
-        session_id,
-        student_id,
+        session_id: sessionId,
+        student_id: student.id,
         review_stage: 1,
         next_review_at: firstReviewDate,
         is_completed: false,

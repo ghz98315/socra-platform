@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 
+import { clearParentAccessVerified } from '@/lib/auth/parent-access';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/database.types';
 import type { PhoneCodePurpose } from '@/lib/auth/phone-auth';
@@ -56,6 +57,7 @@ interface AuthContextType {
     phone: string;
     code: string;
     purpose: PhoneCodePurpose;
+    password?: string;
   }) => Promise<UserProfile | null>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
@@ -296,7 +298,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!bundle) {
         await ensureOwnProfile({
-          role: 'student',
+          role:
+            authUser.user_metadata?.role === 'parent' || authUser.user_metadata?.role === 'student'
+              ? authUser.user_metadata.role
+              : 'student',
           displayName:
             typeof authUser.user_metadata?.display_name === 'string'
               ? authUser.user_metadata.display_name
@@ -460,7 +465,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(data.user);
       await ensureOwnProfile({
-        role: 'student',
+        role: 'parent',
         displayName: name || phone || email.split('@')[0],
         phone,
       });
@@ -514,10 +519,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     phone,
     code,
     purpose,
+    password,
   }: {
     phone: string;
     code: string;
     purpose: PhoneCodePurpose;
+    password?: string;
   }) => {
     setLoading(true);
 
@@ -531,6 +538,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           phone,
           code,
           purpose,
+          password,
         }),
       });
 
@@ -614,6 +622,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     clearStoredActiveProfile(user?.id);
     writeActiveProfileCookie(null);
+    clearParentAccessVerified(user?.id);
     setUser(null);
     setProfile(null);
     setAccountProfile(null);

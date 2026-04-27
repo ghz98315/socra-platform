@@ -10,8 +10,13 @@ import { AvatarPicker } from '@/components/AvatarPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { defaultAvatarByRole } from '@/lib/avatar-options';
+import {
+  isPhoneCodeAuthEnabled,
+  PHONE_CODE_AUTH_DISABLED_MESSAGE,
+} from '@/lib/auth/phone-auth-config';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { buildAuthPageHref, readEntryParams, resolveEntryDestination } from '@/lib/navigation/entry-intent';
+import { resolveRoleAwareDestination } from '@/lib/navigation/role-home';
 import { cn } from '@/lib/utils';
 
 type RegisterMode = 'code' | 'password';
@@ -30,8 +35,9 @@ function RegisterPageV3Content() {
   const entryParams = readEntryParams(searchParams);
   const loginHref = buildAuthPageHref('/login', entryParams);
   const successDestination = resolveEntryDestination(entryParams);
+  const phoneCodeAuthEnabled = isPhoneCodeAuthEnabled();
 
-  const [mode, setMode] = useState<RegisterMode>('code');
+  const [mode, setMode] = useState<RegisterMode>('password');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -94,8 +100,13 @@ function RegisterPageV3Content() {
         throw new Error(data.error || '注册失败，请稍后重试。');
       }
 
-      await signIn(phone, password);
-      router.replace(successDestination);
+      const nextProfile = await signIn(phone, password);
+      if (nextProfile?.role === 'parent') {
+        router.replace('/select-profile');
+        return;
+      }
+
+      router.replace(resolveRoleAwareDestination(nextProfile, successDestination));
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请稍后重试。');
     } finally {
@@ -107,6 +118,10 @@ function RegisterPageV3Content() {
     setError('');
     setSuccess('');
     setDebugCode('');
+    if (!phoneCodeAuthEnabled) {
+      setError(PHONE_CODE_AUTH_DISABLED_MESSAGE);
+      return;
+    }
     setSendingCode(true);
 
     try {
@@ -133,15 +148,35 @@ function RegisterPageV3Content() {
     event.preventDefault();
     setError('');
     setSuccess('');
+    if (!phoneCodeAuthEnabled) {
+      setError(PHONE_CODE_AUTH_DISABLED_MESSAGE);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('两次输入的密码不一致。');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('密码长度至少 6 位。');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await verifyPhoneCode({
+      const nextProfile = await verifyPhoneCode({
         phone,
         code,
         purpose: 'register',
+        password,
       });
-      router.replace(successDestination);
+      if (nextProfile?.role === 'parent') {
+        router.replace('/select-profile');
+        return;
+      }
+
+      router.replace(resolveRoleAwareDestination(nextProfile, successDestination));
     } catch (err) {
       setError(err instanceof Error ? err.message : '验证码注册失败，请稍后重试。');
     } finally {
@@ -226,9 +261,14 @@ function RegisterPageV3Content() {
             <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl bg-warm-100/70 p-1">
               <button
                 type="button"
-                onClick={() => setMode('code')}
+                onClick={() => {
+                  if (phoneCodeAuthEnabled) {
+                    setMode('code');
+                  }
+                }}
+                disabled={!phoneCodeAuthEnabled}
                 className={cn(
-                  'rounded-2xl px-4 py-3 text-sm font-medium transition',
+                  'rounded-2xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
                   mode === 'code'
                     ? 'bg-white text-warm-900 shadow-sm'
                     : 'text-warm-600 hover:text-warm-900',
@@ -249,6 +289,12 @@ function RegisterPageV3Content() {
                 密码注册
               </button>
             </div>
+
+            {!phoneCodeAuthEnabled ? (
+              <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                手机验证码暂不可用。当前请先使用手机号加密码注册，验证码注册入口先保留为停用状态。
+              </div>
+            ) : null}
 
             {error ? (
               <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
@@ -355,6 +401,38 @@ function RegisterPageV3Content() {
                         {sendingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : '获取验证码'}
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="code-password" className="text-sm font-medium text-warm-800">
+                      家长密码
+                    </label>
+                    <Input
+                      id="code-password"
+                      type="password"
+                      placeholder="至少 6 位"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 rounded-2xl border-warm-200 bg-warm-50 text-base focus:border-warm-400 focus:ring-warm-400"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="code-confirm-password" className="text-sm font-medium text-warm-800">
+                      确认密码
+                    </label>
+                    <Input
+                      id="code-confirm-password"
+                      type="password"
+                      placeholder="再次输入密码"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 rounded-2xl border-warm-200 bg-warm-50 text-base focus:border-warm-400 focus:ring-warm-400"
+                    />
                   </div>
                 </div>
 

@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedParentProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 function getLatestWeekStart() {
@@ -23,24 +24,35 @@ function normalizeRpcRow<T>(data: T | T[] | null): T | null {
   return data ?? null;
 }
 
-async function getChildIdsForParent(parentId: string) {
-  const { data: familyGroup } = await supabase
-    .from('family_groups')
-    .select('id')
-    .eq('created_by', parentId)
-    .maybeSingle();
+async function getParentChildren(parentId: string) {
+  const { data: children, error } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_url, grade_level')
+    .eq('role', 'student')
+    .eq('parent_id', parentId)
+    .order('display_name', { ascending: true });
 
-  if (!familyGroup) {
-    return [];
+  if (error) {
+    throw error;
   }
 
-  const { data: familyMembers } = await supabase
-    .from('family_members')
-    .select('user_id')
-    .eq('family_id', familyGroup.id)
-    .eq('role', 'child');
+  return children ?? [];
+}
 
-  return (familyMembers ?? []).map((member: any) => member.user_id).filter(Boolean);
+async function getOwnedChild(parentId: string, childId: string) {
+  const { data: child, error } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_url, grade_level')
+    .eq('id', childId)
+    .eq('role', 'student')
+    .eq('parent_id', parentId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return child;
 }
 
 async function generateWeeklyReportFallback(parentId: string, childId: string, weekStart: string) {
@@ -78,12 +90,12 @@ async function generateWeeklyReportFallback(parentId: string, childId: string, w
 
   const totalMinutes = (usageLogs ?? []).reduce(
     (sum: number, row: { total_minutes?: number | null }) => sum + (row.total_minutes || 0),
-    0
+    0,
   );
   const totalErrors = (errorSessions ?? []).length;
   const masteredErrors = (errorSessions ?? []).filter((row: any) => row.status === 'mastered').length;
   const pendingErrors = (errorSessions ?? []).filter(
-    (row: any) => row.status === 'analyzing' || row.status === 'guided_learning'
+    (row: any) => row.status === 'analyzing' || row.status === 'guided_learning',
   ).length;
   const bySubject = (errorSessions ?? []).reduce((acc: Record<string, number>, row: any) => {
     const subject = row.subject || 'unknown';
@@ -114,11 +126,11 @@ async function generateWeeklyReportFallback(parentId: string, childId: string, w
         child_id: childId,
         week_start: start.toISOString().split('T')[0],
         week_end: end.toISOString().split('T')[0],
-        summary: `学习 ${totalMinutes} 分钟，处理 ${totalErrors} 道错题，掌握 ${masteredErrors} 道`,
+        summary: `本周学习 ${totalMinutes} 分钟，错题 ${totalErrors} 道，掌握 ${masteredErrors} 道`,
         report_data: reportData,
         status: 'generated',
       },
-      { onConflict: 'parent_id,child_id,week_start' }
+      { onConflict: 'parent_id,child_id,week_start' },
     )
     .select()
     .single();
@@ -132,35 +144,33 @@ async function generateWeeklyReportFallback(parentId: string, childId: string, w
 
 export async function GET(req: NextRequest) {
   try {
-    const parentId = req.nextUrl.searchParams.get('parent_id');
+    const parent = await getAuthenticatedParentProfile();
+    if (!parent) {
+      return NextResponse.json({ error: 'Only parents can view weekly reports' }, { status: 403 });
+    }
+
     const childId = req.nextUrl.searchParams.get('child_id');
     const reportId = req.nextUrl.searchParams.get('report_id');
-
-    if (!parentId) {
-      return NextResponse.json({ error: 'parent_id is required' }, { status: 400 });
-    }
 
     if (reportId) {
       const { data: report, error } = await supabase
         .from('weekly_reports')
         .select('*')
         .eq('id', reportId)
+        .eq('parent_id', parent.id)
         .maybeSingle();
 
       if (error || !report) {
         return NextResponse.json({ error: 'Report not found' }, { status: 404 });
       }
 
-      const { data: childProfile } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, grade_level')
-        .eq('id', report.child_id)
-        .maybeSingle();
+      const childProfile = await getOwnedChild(parent.id, report.child_id);
 
       await supabase
         .from('weekly_reports')
         .update({ viewed_at: new Date().toISOString(), status: 'viewed' })
-        .eq('id', reportId);
+        .eq('id', reportId)
+        .eq('parent_id', parent.id);
 
       return NextResponse.json({
         report: {
@@ -171,11 +181,16 @@ export async function GET(req: NextRequest) {
     }
 
     if (childId) {
+      const child = await getOwnedChild(parent.id, childId);
+      if (!child) {
+        return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+      }
+
       const { data: reports, error } = await supabase
         .from('weekly_reports')
         .select('*')
-        .eq('parent_id', parentId)
-        .eq('child_id', childId)
+        .eq('parent_id', parent.id)
+        .eq('child_id', child.id)
         .order('week_start', { ascending: false });
 
       if (error) {
@@ -186,27 +201,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ reports: reports ?? [] });
     }
 
-    const childIds = await getChildIdsForParent(parentId);
-    if (childIds.length === 0) {
+    const children = await getParentChildren(parent.id);
+    if (children.length === 0) {
       return NextResponse.json({
         reports: [],
         weekStart: getLatestWeekStart().toISOString().split('T')[0],
       });
     }
 
-    const [{ data: reports, error: reportsError }, { data: children, error: childrenError }] =
-      await Promise.all([
-        supabase
-          .from('weekly_reports')
-          .select('*')
-          .eq('parent_id', parentId)
-          .in('child_id', childIds)
-          .order('week_start', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url, grade_level')
-          .in('id', childIds),
-      ]);
+    const childIds = children.map((child) => child.id);
+
+    const { data: reports, error: reportsError } = await supabase
+      .from('weekly_reports')
+      .select('*')
+      .eq('parent_id', parent.id)
+      .in('child_id', childIds)
+      .order('week_start', { ascending: false });
 
     if (reportsError) {
       console.error('[weekly-reports] report list error:', reportsError);
@@ -216,11 +226,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (childrenError) {
-      console.error('[weekly-reports] profile list error:', childrenError);
-    }
-
-    const childMap = new Map((children ?? []).map((child: any) => [child.id, child]));
+    const childMap = new Map(children.map((child) => [child.id, child]));
     const reportsWithChildren = (reports ?? []).map((report: any) => ({
       ...report,
       child: childMap.get(report.child_id) ?? null,
@@ -238,20 +244,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { parent_id, child_id, week_start } = body;
+    const parent = await getAuthenticatedParentProfile();
+    if (!parent) {
+      return NextResponse.json({ error: 'Only parents can generate weekly reports' }, { status: 403 });
+    }
 
-    if (!parent_id || !child_id || !week_start) {
+    const body = await req.json();
+    const childId = typeof body.child_id === 'string' ? body.child_id : '';
+    const weekStart = typeof body.week_start === 'string' ? body.week_start : '';
+
+    if (!childId || !weekStart) {
       return NextResponse.json(
-        { error: 'parent_id, child_id, and week_start are required' },
-        { status: 400 }
+        { error: 'child_id and week_start are required' },
+        { status: 400 },
       );
     }
 
+    const child = await getOwnedChild(parent.id, childId);
+    if (!child) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
     const rpcResult = await supabase.rpc('generate_weekly_report', {
-      p_parent_id: parent_id,
-      p_child_id: child_id,
-      p_week_start: week_start,
+      p_parent_id: parent.id,
+      p_child_id: child.id,
+      p_week_start: weekStart,
     });
 
     if (!rpcResult.error) {
@@ -262,7 +279,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.error('[weekly-reports] generate rpc fallback:', rpcResult.error);
-    const report = await generateWeeklyReportFallback(parent_id, child_id, week_start);
+    const report = await generateWeeklyReportFallback(parent.id, child.id, weekStart);
 
     return NextResponse.json({ success: true, report });
   } catch (error: any) {

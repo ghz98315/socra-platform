@@ -26,6 +26,7 @@ const skipApp = String(env.AUTH_SMOKE_SKIP_APP || 'false').toLowerCase() === 'tr
 const phonePrefix = env.AUTH_SMOKE_PHONE_PREFIX || '139';
 let phoneCounter = 0;
 const verificationCodePattern = /^\d{6,8}$/;
+const phoneCodeDisabledMessage = '手机验证码暂不可用，请先使用手机号加密码登录或注册。';
 
 function nowPhone() {
   phoneCounter += 1;
@@ -112,6 +113,24 @@ async function requestJson(name, path, init = {}) {
   return payload;
 }
 
+async function requestJsonWithStatus(name, path, init = {}) {
+  const response = await fetch(new URL(path, baseUrl), init);
+  const text = await response.text();
+  let payload = null;
+
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = text;
+  }
+
+  return {
+    status: response.status,
+    ok: response.ok,
+    payload,
+  };
+}
+
 async function runAnonSignupProbe(phone) {
   const { createClient } = await importSupabaseClient();
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
@@ -169,7 +188,7 @@ async function runPasswordRegisterProbe(phone) {
 }
 
 async function runPhoneCodeProbe(phone) {
-  const sendPayload = await requestJson('phone code register send', '/api/auth/send-code', {
+  const registerSendResult = await requestJsonWithStatus('phone code register send', '/api/auth/send-code', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -179,6 +198,33 @@ async function runPhoneCodeProbe(phone) {
     }),
   });
 
+  if (registerSendResult.status === 503) {
+    if (registerSendResult.payload?.error !== phoneCodeDisabledMessage) {
+      fail('phone code register send returned unexpected disabled payload', registerSendResult);
+    }
+
+    const loginSendResult = await requestJsonWithStatus('phone code login send', '/api/auth/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone,
+        purpose: 'login',
+      }),
+    });
+
+    if (loginSendResult.status !== 503 || loginSendResult.payload?.error !== phoneCodeDisabledMessage) {
+      fail('phone code login send returned unexpected disabled payload', loginSendResult);
+    }
+
+    console.log(`PASS phone code disabled guard (${phone})`);
+    return;
+  }
+
+  if (!registerSendResult.ok) {
+    fail(`phone code register send failed with ${registerSendResult.status}`, registerSendResult.payload);
+  }
+
+  const sendPayload = registerSendResult.payload;
   if (!sendPayload?.success) {
     fail('phone code send returned unexpected payload', sendPayload);
   }
@@ -195,6 +241,7 @@ async function runPhoneCodeProbe(phone) {
       phone,
       purpose: 'register',
       code,
+      password: 'Passw0rd!',
     }),
   });
 

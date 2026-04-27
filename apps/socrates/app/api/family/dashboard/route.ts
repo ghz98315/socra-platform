@@ -1,9 +1,10 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedParentProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 function buildEmptySummary() {
@@ -29,36 +30,26 @@ function getWeekStartIso() {
   return monday.toISOString().split('T')[0];
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const parentId = req.nextUrl.searchParams.get('parent_id');
-
-    if (!parentId) {
-      return NextResponse.json({ error: 'parent_id is required' }, { status: 400 });
+    const parent = await getAuthenticatedParentProfile();
+    if (!parent) {
+      return NextResponse.json({ error: 'Only parents can view family dashboard' }, { status: 403 });
     }
 
-    const { data: familyGroup } = await supabase
-      .from('family_groups')
-      .select('id')
-      .eq('created_by', parentId)
-      .maybeSingle();
+    const { data: childrenProfiles, error: childrenError } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url, grade_level')
+      .eq('role', 'student')
+      .eq('parent_id', parent.id)
+      .order('display_name', { ascending: true });
 
-    if (!familyGroup) {
+    if (childrenError) {
+      console.error('[family/dashboard] children error:', childrenError);
       return NextResponse.json({ children: [], summary: buildEmptySummary() });
     }
 
-    const { data: familyMembers, error: membersError } = await supabase
-      .from('family_members')
-      .select('user_id')
-      .eq('family_id', familyGroup.id)
-      .eq('role', 'child');
-
-    if (membersError) {
-      console.error('[family/dashboard] members error:', membersError);
-      return NextResponse.json({ children: [], summary: buildEmptySummary() });
-    }
-
-    const childIds = (familyMembers ?? []).map((member: any) => member.user_id).filter(Boolean);
+    const childIds = (childrenProfiles ?? []).map((profile) => profile.id).filter(Boolean);
     if (childIds.length === 0) {
       return NextResponse.json({ children: [], summary: buildEmptySummary() });
     }
@@ -67,17 +58,12 @@ export async function GET(req: NextRequest) {
     const weekStart = getWeekStartIso();
 
     const [
-      profilesResult,
       pointsResult,
       errorsResult,
       todayUsageResult,
       weeklyUsageResult,
       masteryResult,
     ] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, grade_level')
-        .in('id', childIds),
       supabase
         .from('socra_points')
         .select('user_id, balance, level, streak_days')
@@ -108,7 +94,6 @@ export async function GET(req: NextRequest) {
     if (weeklyUsageResult.error) console.error('[family/dashboard] usage week error:', weeklyUsageResult.error);
     if (masteryResult.error) console.error('[family/dashboard] mastery error:', masteryResult.error);
 
-    const profiles = profilesResult.data ?? [];
     const points = new Map((pointsResult.data ?? []).map((row: any) => [row.user_id, row]));
     const errorsByChild = new Map<
       string,
@@ -133,7 +118,7 @@ export async function GET(req: NextRequest) {
     }
 
     const todayUsage = new Map(
-      (todayUsageResult.data ?? []).map((row: any) => [row.user_id, row.total_minutes ?? 0])
+      (todayUsageResult.data ?? []).map((row: any) => [row.user_id, row.total_minutes ?? 0]),
     );
     const weeklyUsage = new Map<string, number>();
     for (const row of weeklyUsageResult.data ?? []) {
@@ -149,7 +134,7 @@ export async function GET(req: NextRequest) {
       masteryByChild.set(row.user_id, current);
     }
 
-    const children = profiles.map((profile: any) => {
+    const children = (childrenProfiles ?? []).map((profile: any) => {
       const pointData = points.get(profile.id);
       const errorData = errorsByChild.get(profile.id) ?? {
         total: 0,

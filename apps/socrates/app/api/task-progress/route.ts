@@ -1,13 +1,31 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-function isTaskCompleted(task: any, progressCount: number, progressDuration: number) {
-  if (task.target_count > 0 && progressCount >= task.target_count) {
+type AuthenticatedActor = {
+  id: string;
+  role: 'parent' | 'student' | 'admin';
+};
+
+type ParentTask = {
+  id: string;
+  parent_id: string;
+  child_id: string;
+  title: string;
+  target_count: number | null;
+  target_duration: number | null;
+  reward_points: number | null;
+  status: string | null;
+  completed_at: string | null;
+};
+
+function isTaskCompleted(task: ParentTask, progressCount: number, progressDuration: number) {
+  if ((task.target_count ?? 0) > 0 && progressCount >= (task.target_count ?? 0)) {
     return true;
   }
 
@@ -18,27 +36,74 @@ function isTaskCompleted(task: any, progressCount: number, progressDuration: num
   return false;
 }
 
+async function getAuthorizedActor() {
+  const profile = await getAuthenticatedProfile();
+  if (!profile) {
+    return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) };
+  }
+  if (profile.role !== 'parent' && profile.role !== 'student') {
+    return { error: NextResponse.json({ error: 'Unsupported role' }, { status: 403 }) };
+  }
+
+  return { actor: profile as AuthenticatedActor };
+}
+
+async function getAuthorizedTask(taskId: string, actor: AuthenticatedActor) {
+  const { data: task, error } = await supabase
+    .from('parent_tasks')
+    .select('id, parent_id, child_id, title, target_count, target_duration, reward_points, status, completed_at')
+    .eq('id', taskId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!task) {
+    return { error: NextResponse.json({ error: 'Task not found' }, { status: 404 }) };
+  }
+
+  if (actor.role === 'parent' && task.parent_id !== actor.id) {
+    return { error: NextResponse.json({ error: 'Task not found' }, { status: 404 }) };
+  }
+
+  if (actor.role === 'student' && task.child_id !== actor.id) {
+    return { error: NextResponse.json({ error: 'Task not found' }, { status: 404 }) };
+  }
+
+  return { task: task as ParentTask };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { taskId, childId, progressCount, progressDuration, notes } = body;
+    const auth = await getAuthorizedActor();
+    if (auth.error) {
+      return auth.error;
+    }
 
-    if (!taskId || !childId) {
+    const body = await req.json();
+    const taskId = typeof body.taskId === 'string' ? body.taskId : '';
+    const progressCount = typeof body.progressCount === 'number' ? body.progressCount : undefined;
+    const progressDuration = typeof body.progressDuration === 'number' ? body.progressDuration : undefined;
+    const notes =
+      body.notes === null || typeof body.notes === 'string'
+        ? body.notes
+        : undefined;
+
+    if (!taskId) {
       return NextResponse.json(
-        { error: 'taskId and childId are required' },
-        { status: 400 }
+        { error: 'taskId is required' },
+        { status: 400 },
       );
     }
 
-    const { data: task, error: taskError } = await supabase
-      .from('parent_tasks')
-      .select('*')
-      .eq('id', taskId)
-      .single();
-
-    if (taskError || !task) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    const authorizedTask = await getAuthorizedTask(taskId, auth.actor);
+    if (authorizedTask.error) {
+      return authorizedTask.error;
     }
+
+    const task = authorizedTask.task;
+    const childId = task.child_id;
 
     const { data: existingProgress, error: progressError } = await supabase
       .from('task_completions')
@@ -124,7 +189,7 @@ export async function POST(req: NextRequest) {
         throw taskUpdateError;
       }
 
-      if (task.reward_points > 0 && completionId && !alreadyRewarded) {
+      if ((task.reward_points ?? 0) > 0 && completionId && !alreadyRewarded) {
         const addPointsResult = await supabase.rpc('add_points', {
           p_user_id: childId,
           p_amount: task.reward_points,
@@ -152,7 +217,7 @@ export async function POST(req: NextRequest) {
           throw rewardMarkError;
         }
 
-        rewardPoints = task.reward_points;
+        rewardPoints = task.reward_points ?? 0;
       }
     } else if (task.status === 'pending') {
       const { error: taskUpdateError } = await supabase
@@ -178,22 +243,30 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const taskId = searchParams.get('task_id');
-    const childId = searchParams.get('child_id');
+    const auth = await getAuthorizedActor();
+    if (auth.error) {
+      return auth.error;
+    }
 
-    if (!taskId || !childId) {
+    const taskId = req.nextUrl.searchParams.get('task_id');
+
+    if (!taskId) {
       return NextResponse.json(
-        { error: 'task_id and child_id are required' },
-        { status: 400 }
+        { error: 'task_id is required' },
+        { status: 400 },
       );
+    }
+
+    const authorizedTask = await getAuthorizedTask(taskId, auth.actor);
+    if (authorizedTask.error) {
+      return authorizedTask.error;
     }
 
     const { data: progress, error } = await supabase
       .from('task_completions')
       .select('*')
       .eq('task_id', taskId)
-      .eq('child_id', childId)
+      .eq('child_id', authorizedTask.task.child_id)
       .maybeSingle();
 
     if (error) {

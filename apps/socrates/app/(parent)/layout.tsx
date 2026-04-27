@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
+import { hasVerifiedParentAccess } from '@/lib/auth/parent-access';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { getRoleHome } from '@/lib/navigation/role-home';
 
@@ -34,6 +35,11 @@ export default function ParentLayout({
       return;
     }
 
+    if (!hasVerifiedParentAccess(user.id)) {
+      router.replace('/select-profile');
+      return;
+    }
+
     if (profile.id !== accountProfile.id) {
       void selectProfile(accountProfile.id).then(() => {
         router.replace('/tasks');
@@ -47,6 +53,7 @@ export default function ParentLayout({
     !accountProfile ||
     !profile ||
     accountProfile.role !== 'parent' ||
+    !hasVerifiedParentAccess(user.id) ||
     profile.role !== 'parent'
   ) {
     return (
