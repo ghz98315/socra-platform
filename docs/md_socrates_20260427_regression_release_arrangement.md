@@ -220,3 +220,43 @@ auth/profile 切片之所以可以继续进入发布准备：
   - 新 deployment URL / alias 上的 `smoke:socrates`
   - 新 deployment URL / alias 上的 `smoke:auth-phone`
   - 新 deployment URL / alias 上的 `socrates:check:auth-profile-regression`
+
+## 2026-04-27 生产部署结果
+
+- clean worktree commit:
+  - `8c64ef6 stabilize auth profile flow and regression coverage`
+- pushed to:
+  - `origin/main`
+- production deployment:
+  - `https://socra-socrates-7zb6j2g3i-ghz98315s-projects.vercel.app`
+- deployment status:
+  - `Ready`
+- aliases confirmed by `vercel inspect`:
+  - `https://socrates.socra.cn`
+  - `https://socra-platform.vercel.app`
+  - `https://socra-socrates-ghz98315s-projects.vercel.app`
+  - `https://socra-socrates-git-main-ghz98315s-projects.vercel.app`
+
+## 2026-04-27 线上验证现状
+
+- Deployment URL itself is not a usable anonymous smoke surface from this environment because Vercel authentication protection is enabled there.
+- Public alias verification is still blocked by this machine's external connectivity path:
+  - `curl.exe -I https://socra-platform.vercel.app`: timeout / could not connect
+  - `pnpm.cmd smoke:socrates` on the alias: fetch failures
+  - `pnpm.cmd smoke:auth-phone` on the alias: fetch failure after anon signup
+  - `pnpm.cmd socrates:check:auth-profile-regression` on the alias: fetch failure
+
+## Final release status
+
+- Code status:
+  - pushed
+- Production deployment status:
+  - ready
+- Local release validation:
+  - passed
+- External online validation from this machine:
+  - not completed due deployment protection + network-path instability
+- Practical conclusion:
+  - this release is deploy-finished but externally unverified from the current machine
+  - the remaining action is not more code work
+  - the remaining action is external verification from a reachable network or with a Vercel bypass/authenticated path

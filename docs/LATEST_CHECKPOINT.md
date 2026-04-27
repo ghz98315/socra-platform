@@ -314,6 +314,56 @@ Current conclusion after this step:
   - deploy it to `socra-socrates`
   - run the same smoke/regression checks against the new online deployment surface
 
+## Latest production update on 2026-04-27
+
+- Continued from the latest 2026-04-27 checkpoint and did not roll back to any earlier node.
+- Pushed commit:
+  - `8c64ef6 stabilize auth profile flow and regression coverage`
+- Production project:
+  - `socra-socrates`
+- Production deployment:
+  - `https://socra-socrates-7zb6j2g3i-ghz98315s-projects.vercel.app`
+- Aliases attached:
+  - `https://socrates.socra.cn`
+  - `https://socra-platform.vercel.app`
+  - `https://socra-socrates-ghz98315s-projects.vercel.app`
+  - `https://socra-socrates-git-main-ghz98315s-projects.vercel.app`
+
+### Validation completed before deployment
+
+- `pnpm.cmd install --no-frozen-lockfile`: passed in the clean release worktree
+- `pnpm.cmd --filter @socra/socrates exec tsc --noEmit`: passed
+- `pnpm.cmd --filter @socra/socrates build`: passed
+- `SMOKE_BASE_URL=http://127.0.0.1:3000 pnpm.cmd smoke:auth-phone`: passed
+- `SMOKE_BASE_URL=http://127.0.0.1:3000 pnpm.cmd socrates:check:auth-profile-regression`: passed
+
+### Online verification note on 2026-04-27
+
+- Verified via `vercel inspect` that deployment `socra-socrates-7zb6j2g3i-ghz98315s-projects.vercel.app` is `Ready` in production and the aliases above are attached.
+- Direct automated smoke against the deployment URL did not produce application-level results because the raw deployment URL is protected by Vercel authentication in this environment.
+- Automated smoke against the public alias also could not complete from this machine:
+  - `curl.exe -I https://socra-platform.vercel.app` timed out / could not connect from this machine during this session
+  - `pnpm.cmd smoke:socrates` against `https://socra-platform.vercel.app`: failed with network fetch failures
+  - `pnpm.cmd smoke:auth-phone` against `https://socra-platform.vercel.app`: failed with network fetch failure after anon signup
+  - `pnpm.cmd socrates:check:auth-profile-regression` against `https://socra-platform.vercel.app`: failed with network fetch failure
+- Current conclusion:
+  - production deployment is created and marked ready
+  - local clean-worktree validation passed
+  - this machine still does not provide a reliable external verification path for the public alias
+  - the remaining validation should be completed from a network path that can reliably reach the alias, or with an authenticated Vercel-bypass path for the deployment URL
+
+### Current next step after deployment
+
+1. Re-run online smoke/regression from a machine or network path that can reliably reach:
+   - `https://socra-platform.vercel.app`
+   - or an authenticated deployment URL path
+2. Complete browser-level manual acceptance for:
+   - parent login -> `/select-profile`
+   - parent password verification -> `/tasks`
+   - student profile switch / data isolation
+   - password change -> logout/login -> parent verification with the new password
+3. If the external checks pass, treat `8c64ef6` + deployment `7zb6j2g3i` as the new stable auth/profile checkpoint
+
 Suggested resume prompt:
 
 ```text
