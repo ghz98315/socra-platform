@@ -369,3 +369,122 @@ Suggested resume prompt:
 ```text
 请先读取 docs/LATEST_CHECKPOINT.md，然后基于其中的最新提交、部署状态和待测项继续，不要回退到更早的 checkpoint。
 ```
+
+## Latest production update on 2026-04-28 (parent signal guardian loop)
+
+- Continued from the latest 2026-04-27 checkpoint and did not roll back to any earlier node.
+- Important baseline correction for future resume:
+  - do not resume from the older `parent-signal-release-20260427` worktree based on `ef23866`
+  - the valid release baseline for this node is the clean worktree at:
+    - `D:\github\Socrates_ analysis\socra-platform-auth-release-20260427`
+  - that worktree was already aligned to:
+    - `a2df004 document auth profile production release status`
+- Pushed commit:
+  - `26c83f9 add parent signal guardian loop surfaces`
+- Current remote main:
+  - `26c83f9 (origin/main, origin/HEAD)`
+
+### Functional slice released in this node
+
+- Added structured guardian-facing diagnosis / rollup helpers:
+  - `apps/socrates/lib/error-loop/structured-outcome.ts`
+  - `apps/socrates/lib/error-loop/structured-rollup.ts`
+  - `apps/socrates/lib/error-loop/entry-gate.ts`
+  - `apps/socrates/lib/error-loop/guardian-checkin.ts`
+- Added unified parent-signal notification helper:
+  - `apps/socrates/lib/notifications/parent-signal.ts`
+- Added parent daily check-in API:
+  - `apps/socrates/app/api/parent-checkins/route.ts`
+- Updated parent / student surfaces to consume the new signal chain:
+  - `apps/socrates/app/api/parent/insights/route.ts`
+  - `apps/socrates/app/api/review/attempt/route.ts`
+  - `apps/socrates/app/api/student/stats/route.ts`
+  - `apps/socrates/app/api/reports/study/route.ts`
+  - `apps/socrates/app/(parent)/tasks/page.tsx`
+  - `apps/socrates/app/(student)/notifications/page.tsx`
+  - `apps/socrates/components/error-loop/ParentInsightControlPage.tsx`
+  - `apps/socrates/components/NotificationCenter.tsx`
+  - `apps/socrates/components/notifications/NotificationBell.tsx`
+  - `apps/socrates/components/MultiChildOverview.tsx`
+  - `apps/socrates/components/reports/ReportsDashboard.tsx`
+- Added required Supabase migrations for this slice:
+  - `supabase/migrations/20260427_add_structured_outcome_fields.sql`
+  - `supabase/migrations/20260427_add_parent_daily_checkins.sql`
+
+### Deployment completed on 2026-04-28
+
+- Production project:
+  - `socra-socrates`
+- Production deployment:
+  - `https://socra-socrates-h0h1dpd42-ghz98315s-projects.vercel.app`
+- Aliases attached and confirmed by `vercel inspect`:
+  - `https://socrates.socra.cn`
+  - `https://socra-platform.vercel.app`
+  - `https://socra-socrates-ghz98315s-projects.vercel.app`
+  - `https://socra-socrates-git-main-ghz98315s-projects.vercel.app`
+
+### Preconditions confirmed before deployment
+
+- User explicitly confirmed on 2026-04-28 that both required 2026-04-27 Supabase migrations had already been executed in the target environment.
+- The release was committed and pushed from the clean release worktree, not from the dirty main workspace.
+
+### Validation completed for this node
+
+- `pnpm.cmd check:node`: passed
+- `pnpm.cmd --filter @socra/socrates exec tsc --noEmit`: passed
+- `pnpm.cmd --filter @socra/socrates build`: passed
+- `curl.exe -I https://socra-platform.vercel.app`: reached the public alias successfully and returned `307 /login`
+- `vercel inspect socra-socrates-h0h1dpd42-ghz98315s-projects.vercel.app`: confirmed `Ready`
+- `SMOKE_BASE_URL=https://socra-platform.vercel.app pnpm.cmd socrates:check:auth-profile-regression`: passed
+- `SMOKE_BASE_URL=https://socra-platform.vercel.app pnpm.cmd smoke:auth-phone`: passed
+
+### Validation gaps / known results for this node
+
+- `SMOKE_BASE_URL=https://socra-platform.vercel.app pnpm.cmd smoke:socrates` was not fully green:
+  - passed:
+    - `points`
+    - `subscription`
+    - `feature-check`
+    - `coupon-validate`
+    - `dashboard-stats`
+    - `notifications`
+  - failed:
+    - `family` with `401 {"error":"Not authenticated"}`
+    - `family-dashboard` with `403 {"error":"Only parents can view family dashboard"}`
+- `SMOKE_BASE_URL=https://socra-platform.vercel.app pnpm.cmd smoke:transfer-evidence` did not complete:
+  - `error-session-create` returned `401 {"error":"Not authenticated"}`
+- Raw deployment URL remains Vercel-auth protected from this machine:
+  - `curl.exe -I https://socra-socrates-h0h1dpd42-ghz98315s-projects.vercel.app`
+  - returned `401 Unauthorized`
+
+### Current conclusion on 2026-04-28
+
+- The parent-signal guardian-loop slice is now:
+  - committed
+  - pushed to `origin/main`
+  - deployed to production
+  - validated on this machine for build, deploy readiness, auth/profile regression, and auth-phone regression
+- This node should now be treated as the latest stable engineering checkpoint for the released parent-signal slice.
+- The main remaining work is no longer deployment execution.
+- The main remaining work is:
+  - browser-level manual acceptance for the parent-signal chain
+  - interpretation / follow-up on the existing `smoke:socrates` family-auth failures
+  - interpretation / follow-up on the current `smoke:transfer-evidence` authentication failure
+
+### Immediate next manual acceptance focus
+
+1. Trigger a risky `review/attempt` and confirm parent-side `mastery_update` plus `parent_signal`.
+2. Open the parent insights surface and confirm `guardian_signal` reflects:
+   - `pendingReviewInterventionCount`
+   - `reviewInterventionRiskPersistingCount`
+3. Confirm event-style `parent_signal` does not pollute historical snapshot judgment for:
+   - yellow persistence
+   - upgrade
+   - recovery
+4. Confirm `parent_daily_checkins` read/write behavior and page rendering on the migrated production environment.
+
+### Suggested resume prompt
+
+```text
+请先读取 docs/LATEST_CHECKPOINT.md，并从 2026-04-28 的 latest production update 开始继续。当前最新线上节点是 commit 26c83f9 / deployment h0h1dpd42，下一步优先做 parent signal 手动验收，不要回退到基于 ef23866 的旧 worktree。
+```
