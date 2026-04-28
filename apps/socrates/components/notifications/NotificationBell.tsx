@@ -101,6 +101,13 @@ const notificationTypeConfig: Record<string, {
   },
 };
 
+notificationTypeConfig.parent_signal = {
+  label: '家长信号',
+  icon: AlertCircle,
+  color: 'text-amber-700',
+  bgColor: 'bg-amber-100',
+};
+
 interface Notification {
   id: string;
   user_id: string;
@@ -131,12 +138,34 @@ type MasteryRiskData = {
   intervention_feedback_note?: string | null;
 };
 
+type ParentSignalData = {
+  guardian_signal_label?: string | null;
+  top_blocker_label?: string | null;
+  stuck_stage_label?: string | null;
+  daily_checkin_status_label?: string | null;
+};
+
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
   return formatConversationInterventionStatus(data);
 }
 
 function transferAwareMasteryStatusLabel(data: MasteryRiskData | null | undefined) {
   return formatMasteryInterventionStatus(data);
+}
+
+function parentSignalStatusLabel(data: ParentSignalData | null | undefined) {
+  if (!data) {
+    return null;
+  }
+
+  const parts = [
+    data.guardian_signal_label,
+    data.daily_checkin_status_label,
+    data.top_blocker_label,
+    data.stuck_stage_label ? `卡在${data.stuck_stage_label}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 interface NotificationBellProps {
@@ -301,6 +330,11 @@ export function NotificationBell({ className, compact = false }: NotificationBel
                       ? (notification.data as MasteryRiskData | null)
                       : null;
                   const masteryRiskStatus = transferAwareMasteryStatusLabel(masteryRiskData);
+                  const parentSignalData =
+                    notification.type === 'parent_signal'
+                      ? (notification.data as ParentSignalData | null)
+                      : null;
+                  const parentSignalStatus = parentSignalStatusLabel(parentSignalData);
 
                   return (
                     <div
@@ -342,6 +376,9 @@ export function NotificationBell({ className, compact = false }: NotificationBel
                           ) : null}
                           {masteryRiskStatus ? (
                             <p className="mt-1 text-xs text-amber-700">{masteryRiskStatus}</p>
+                          ) : null}
+                          {parentSignalStatus ? (
+                            <p className="mt-1 text-xs text-amber-700">{parentSignalStatus}</p>
                           ) : null}
                           <p className="text-xs text-gray-400 mt-1">
                             {formatTime(notification.created_at)}

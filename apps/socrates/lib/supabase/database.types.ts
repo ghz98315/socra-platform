@@ -67,6 +67,13 @@ export interface Database {
           difficulty_rating: number | null;
           concept_tags: string[] | null;
           theme_used: 'junior' | 'senior' | null;
+          guardian_error_type: string | null;
+          guardian_root_cause_summary: string | null;
+          child_poka_yoke_action: string | null;
+          suggested_guardian_action: string | null;
+          false_error_gate: boolean | null;
+          analysis_mode: string | null;
+          stuck_stage: string | null;
           created_at: string;
         };
         Insert: {
@@ -79,6 +86,13 @@ export interface Database {
           difficulty_rating?: number | null;
           concept_tags?: string[] | null;
           theme_used?: 'junior' | 'senior' | null;
+          guardian_error_type?: string | null;
+          guardian_root_cause_summary?: string | null;
+          child_poka_yoke_action?: string | null;
+          suggested_guardian_action?: string | null;
+          false_error_gate?: boolean | null;
+          analysis_mode?: string | null;
+          stuck_stage?: string | null;
           created_at?: string;
         };
         Update: {
@@ -91,6 +105,13 @@ export interface Database {
           difficulty_rating?: number | null;
           concept_tags?: string[] | null;
           theme_used?: 'junior' | 'senior' | null;
+          guardian_error_type?: string | null;
+          guardian_root_cause_summary?: string | null;
+          child_poka_yoke_action?: string | null;
+          suggested_guardian_action?: string | null;
+          false_error_gate?: boolean | null;
+          analysis_mode?: string | null;
+          stuck_stage?: string | null;
           created_at?: string;
         };
       };

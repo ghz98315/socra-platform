@@ -5,7 +5,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -163,11 +164,60 @@ function compareTasks(left: Task, right: Task) {
   return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
 }
 
+type TaskInsight = {
+  selected_student: ChildInfo | null;
+  guardian_signal: {
+    level: 'green' | 'yellow' | 'red';
+    label: string;
+    reason: string;
+  };
+  daily_checkin_status: {
+    status: 'completed' | 'stuck' | 'unfinished';
+    status_label: string;
+    guardian_signal_label: string | null;
+    stuck_stage_label: string | null;
+    suggested_parent_prompt: string | null;
+    status_summary: string;
+  } | null;
+  suggested_parent_prompt: string;
+  top_blocker: {
+    label: string | null;
+    count: number;
+    root_cause_summary: string | null;
+    child_poka_yoke_action: string | null;
+    suggested_guardian_action: string | null;
+    false_error_gate: boolean;
+    stuck_stage_label: string | null;
+  } | null;
+  focus_summary: string;
+  stuck_stage_summary: Array<{
+    key: string;
+    label: string;
+    count: number;
+  }>;
+};
+
+function getSignalBadgeClassName(level: 'green' | 'yellow' | 'red') {
+  switch (level) {
+    case 'red':
+      return 'bg-red-100 text-red-700';
+    case 'yellow':
+      return 'bg-amber-100 text-amber-700';
+    default:
+      return 'bg-emerald-100 text-emerald-700';
+  }
+}
+
 export default function ParentTasksPage() {
   const { profile } = useAuth();
+  const searchParams = useSearchParams();
+  const childIdFromQuery = searchParams.get('child_id');
+  const initialChildFilterAppliedRef = useRef(false);
   const [students, setStudents] = useState<ChildInfo[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskInsight, setTaskInsight] = useState<TaskInsight | null>(null);
   const [loading, setLoading] = useState(true);
+  const [insightLoading, setInsightLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
@@ -212,6 +262,18 @@ export default function ParentTasksPage() {
     }
   }, [profile]);
 
+  useEffect(() => {
+    if (initialChildFilterAppliedRef.current || students.length === 0) {
+      return;
+    }
+
+    if (childIdFromQuery && students.some((student) => student.id === childIdFromQuery)) {
+      setSelectedChildId(childIdFromQuery);
+    }
+
+    initialChildFilterAppliedRef.current = true;
+  }, [childIdFromQuery, students]);
+
   // Load tasks
   useEffect(() => {
     const loadTasks = async () => {
@@ -233,6 +295,50 @@ export default function ParentTasksPage() {
 
     loadTasks();
   }, [profile?.id]);
+
+  const insightChildId = selectedChildId ?? students[0]?.id ?? null;
+
+  useEffect(() => {
+    if (!profile?.id || !insightChildId) {
+      setTaskInsight(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadTaskInsight = async () => {
+      try {
+        setInsightLoading(true);
+        const params = new URLSearchParams();
+        params.set('student_id', insightChildId);
+
+        const response = await fetch(`/api/parent/insights?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error('failed-to-load-parent-insight');
+        }
+
+        const result = await response.json();
+        if (!cancelled) {
+          setTaskInsight(result as TaskInsight);
+        }
+      } catch (error) {
+        console.error('Error loading parent insight:', error);
+        if (!cancelled) {
+          setTaskInsight(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setInsightLoading(false);
+        }
+      }
+    };
+
+    void loadTaskInsight();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [insightChildId, profile?.id]);
 
   // Create task
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -333,6 +439,15 @@ export default function ParentTasksPage() {
   const feedbackMissingReviewInterventions = reviewInterventionTasks.filter(
     (t) => t.status !== 'completed' && !t.completion_notes?.trim(),
   );
+  const taskInsightStudent =
+    students.find((student) => student.id === insightChildId) ?? taskInsight?.selected_student ?? null;
+  const taskInsightControlsUrl = taskInsightStudent?.id
+    ? `/controls?student_id=${taskInsightStudent.id}`
+    : '/controls';
+  const taskInsightConversationUrl = taskInsightStudent?.id
+    ? `/controls?focus=conversation&student_id=${taskInsightStudent.id}`
+    : '/controls?focus=conversation';
+  const allChildrenMode = selectedChildId === null && students.length > 1;
 
   // Calculate progress percentage
   const getProgressPercentage = (task: Task) => {
@@ -412,6 +527,124 @@ export default function ParentTasksPage() {
           </Card>
         ) : (
           <div className="space-y-6">
+            {(insightLoading || taskInsight) && (
+              <Card className="border-slate-200 bg-slate-50/80">
+                <CardContent className="p-4">
+                  {insightLoading && !taskInsight ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+                    </div>
+                  ) : taskInsight ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">
+                            {(taskInsightStudent?.display_name || '当前孩子') + ' 当前陪学信号'}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            {taskInsight.guardian_signal.reason}
+                          </div>
+                        </div>
+                        <Badge className={getSignalBadgeClassName(taskInsight.guardian_signal.level)}>
+                          {taskInsight.guardian_signal.label}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {taskInsight.daily_checkin_status ? (
+                          <Badge variant="outline" className="border-slate-200 text-slate-700">
+                            {taskInsight.daily_checkin_status.status_label}
+                          </Badge>
+                        ) : null}
+                        {taskInsight.top_blocker?.stuck_stage_label ? (
+                          <Badge variant="outline" className="border-slate-200 text-slate-700">
+                            卡在: {taskInsight.top_blocker.stuck_stage_label}
+                          </Badge>
+                        ) : null}
+                        {taskInsight.top_blocker?.false_error_gate ? (
+                          <Badge variant="outline" className="border-amber-200 text-amber-700">
+                            先确认是否真错题
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-slate-500">当前最大卡点</span>
+                          {taskInsight.top_blocker?.label ? (
+                            <Badge className="bg-red-100 text-red-700">
+                              {taskInsight.top_blocker.label}
+                            </Badge>
+                          ) : null}
+                          {taskInsight.top_blocker?.count ? (
+                            <span className="text-xs text-slate-500">
+                              最近重复 {taskInsight.top_blocker.count} 次
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-sm text-slate-700">
+                          {taskInsight.top_blocker?.root_cause_summary || taskInsight.focus_summary}
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="text-xs font-medium text-slate-500">家长动作</div>
+                            <div className="mt-1 text-sm text-slate-700">
+                              {taskInsight.top_blocker?.suggested_guardian_action ||
+                                taskInsight.daily_checkin_status?.suggested_parent_prompt ||
+                                taskInsight.suggested_parent_prompt}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-slate-50 p-3">
+                            <div className="text-xs font-medium text-slate-500">孩子动作</div>
+                            <div className="mt-1 text-sm text-slate-700">
+                              {taskInsight.top_blocker?.child_poka_yoke_action ||
+                                '当前先按任务推进，观察是否还能重复出现同类卡点。'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {taskInsight.stuck_stage_summary.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {taskInsight.stuck_stage_summary.slice(0, 3).map((item) => (
+                            <Badge
+                              key={item.key}
+                              variant="outline"
+                              className="border-slate-200 text-slate-700"
+                            >
+                              {item.label} {item.count}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {allChildrenMode ? (
+                        <div className="text-xs text-slate-500">
+                          当前任务列表显示全部孩子；这张信号卡基于
+                          {taskInsightStudent?.display_name || '默认孩子'}
+                          ，切换孩子后可查看对应卡点。
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => (window.location.href = taskInsightControlsUrl)}>
+                          进入陪学看板
+                        </Button>
+                        {allChildrenMode && taskInsightStudent?.id ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => setSelectedChildId(taskInsightStudent.id)}
+                          >
+                            只看该孩子任务
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
+
             {interventionTasks.length > 0 && (
               <Card className="border-amber-200 bg-amber-50/70">
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -428,7 +661,7 @@ export default function ParentTasksPage() {
                   <Button
                     variant="outline"
                     className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
-                    onClick={() => (window.location.href = '/controls?focus=conversation')}
+                    onClick={() => (window.location.href = taskInsightConversationUrl)}
                   >
                     查看风险闭环
                   </Button>

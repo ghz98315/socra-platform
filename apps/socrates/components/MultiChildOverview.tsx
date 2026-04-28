@@ -34,6 +34,13 @@ interface ChildStats {
   streak_days: number;
   last_active: string | null;
   weak_points: string[];
+  guardian_signal: {
+    level: 'green' | 'yellow' | 'red';
+    label: string;
+    reason: string;
+  } | null;
+  top_blocker_label: string | null;
+  top_blocker_summary: string | null;
 }
 
 interface MultiChildOverviewProps {
@@ -52,6 +59,17 @@ export function MultiChildOverview({
   const [children, setChildren] = useState<ChildStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const getSignalBadgeClassName = (level: 'green' | 'yellow' | 'red') => {
+    switch (level) {
+      case 'red':
+        return 'bg-red-100 text-red-700';
+      case 'yellow':
+        return 'bg-amber-100 text-amber-700';
+      default:
+        return 'bg-emerald-100 text-emerald-700';
+    }
+  };
 
   useEffect(() => {
     const fetchChildrenStats = async () => {
@@ -82,6 +100,9 @@ export function MultiChildOverview({
                   streak_days: 0,
                   last_active: null,
                   weak_points: [],
+                  guardian_signal: null,
+                  top_blocker_label: null,
+                  top_blocker_summary: null,
                 };
               }
               const statsData = await statsRes.json();
@@ -96,7 +117,13 @@ export function MultiChildOverview({
                 today_minutes: statsData.data?.today_minutes || 0,
                 streak_days: statsData.data?.streak_days || 0,
                 last_active: statsData.data?.last_active || null,
-                weak_points: statsData.data?.weak_points?.slice(0, 3) || [],
+                weak_points: ((statsData.data?.weak_points || []) as Array<{ tag: string }>)
+                  .slice(0, 3)
+                  .map((item) => item.tag),
+                guardian_signal: statsData.data?.guardian_signal || null,
+                top_blocker_label: statsData.data?.top_blocker?.label || null,
+                top_blocker_summary:
+                  statsData.data?.top_blocker?.root_cause_summary || statsData.data?.focus_summary || null,
               };
             } catch {
               return {
@@ -108,6 +135,9 @@ export function MultiChildOverview({
                 streak_days: 0,
                 last_active: null,
                 weak_points: [],
+                guardian_signal: null,
+                top_blocker_label: null,
+                top_blocker_summary: null,
               };
             }
           })
@@ -325,6 +355,11 @@ export function MultiChildOverview({
                         {child.streak_days}天
                       </Badge>
                     )}
+                    {child.guardian_signal ? (
+                      <Badge className={getSignalBadgeClassName(child.guardian_signal.level)}>
+                        {child.guardian_signal.label}
+                      </Badge>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
@@ -347,6 +382,16 @@ export function MultiChildOverview({
                       <span>薄弱点: {child.weak_points.join(', ')}</span>
                     </div>
                   )}
+                  {child.top_blocker_label || child.top_blocker_summary ? (
+                    <div className="mt-2 rounded-lg bg-warm-50 px-3 py-2 text-xs text-warm-700">
+                      <div className="font-medium text-warm-800">
+                        {child.top_blocker_label ? `当前最大卡点: ${child.top_blocker_label}` : '当前卡点摘要'}
+                      </div>
+                      {child.top_blocker_summary ? (
+                        <div className="mt-1 line-clamp-2">{child.top_blocker_summary}</div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* 掌握率进度 */}

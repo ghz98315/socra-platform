@@ -7,6 +7,8 @@ import {
   getStudyAssetModuleDisplayLabel,
   hasStudyAssetStructuredResult,
 } from '@/lib/study/bridges-v2';
+import { buildStructuredOutcomeRollup } from '@/lib/error-loop/structured-rollup';
+import { GUARDIAN_ERROR_TYPE_LABELS } from '@/lib/error-loop/structured-outcome';
 import { getAuthenticatedProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
@@ -19,6 +21,13 @@ interface ErrorSessionRow {
   subject: string;
   difficulty_rating: number | null;
   concept_tags: string[] | null;
+  guardian_error_type: string | null;
+  guardian_root_cause_summary: string | null;
+  child_poka_yoke_action: string | null;
+  suggested_guardian_action: string | null;
+  false_error_gate: boolean | null;
+  analysis_mode: string | null;
+  stuck_stage: string | null;
   created_at: string;
   status: string | null;
 }
@@ -181,6 +190,42 @@ function analyzeWeakPoints(errors: ErrorSessionRow[], studyAssets: StudyAssetRow
     .slice(0, 10);
 }
 
+function buildGuardianErrorBreakdown(errors: ErrorSessionRow[]) {
+  const counts = new Map<string, number>();
+
+  errors.forEach((error) => {
+    if (!error.guardian_error_type?.trim()) {
+      return;
+    }
+
+    counts.set(error.guardian_error_type, (counts.get(error.guardian_error_type) || 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .map(([key, count]) => ({
+      key,
+      label: GUARDIAN_ERROR_TYPE_LABELS[key as keyof typeof GUARDIAN_ERROR_TYPE_LABELS] || key,
+      count,
+    }))
+    .sort((left, right) => right.count - left.count);
+}
+
+function buildAnalysisModeBreakdown(errors: ErrorSessionRow[]) {
+  const counts = new Map<string, number>();
+
+  errors.forEach((error) => {
+    if (!error.analysis_mode?.trim()) {
+      return;
+    }
+
+    counts.set(error.analysis_mode, (counts.get(error.analysis_mode) || 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((left, right) => right.count - left.count);
+}
+
 function buildSubjectBreakdown(errors: ErrorSessionRow[], studyAssets: StudyAssetRow[]) {
   const counts = new Map<string, number>();
 
@@ -221,6 +266,7 @@ function getDefaultAnalysis(
   student: { display_name: string | null },
   stats: ReturnType<typeof calculateStats>,
   weakPoints: Array<{ tag: string; count: number }>,
+  guardianErrorBreakdown: BreakdownItem[],
   subjectBreakdown: BreakdownItem[],
   focusAssetSummary: ReturnType<typeof buildStudyAssetFocusSummary> | null,
 ) {
@@ -241,10 +287,18 @@ function getDefaultAnalysis(
           .map((item) => `${item.label}${item.count}次`)
           .join('、')}。`
       : '';
+  const guardianErrorLine =
+    guardianErrorBreakdown.length > 0
+      ? `最近更常见的卡点类型是${guardianErrorBreakdown
+          .slice(0, 3)
+          .map((item) => `${item.label}${item.count}次`)
+          .join('、')}。`
+      : '';
 
   return [
     `${student.display_name || '这位同学'}最近共沉淀了 ${stats.totalErrors} 条学习记录，完成分析 ${stats.mastered} 条，整体完成率 ${stats.masteryRate}%。`,
     `累计学习时长 ${stats.totalStudyMinutes} 分钟，日均 ${stats.avgDailyMinutes} 分钟。`,
+    guardianErrorLine,
     subjectLine,
     weakPointLine,
     focusLine,
@@ -258,6 +312,7 @@ async function generateAIAnalysis(
   student: { display_name: string | null; grade_level: number | null },
   stats: ReturnType<typeof calculateStats>,
   weakPoints: Array<{ tag: string; count: number }>,
+  guardianErrorBreakdown: BreakdownItem[],
   subjectBreakdown: BreakdownItem[],
   moduleBreakdown: BreakdownItem[],
   focusAssetSummary: ReturnType<typeof buildStudyAssetFocusSummary> | null,
@@ -265,7 +320,7 @@ async function generateAIAnalysis(
 ) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) {
-    return getDefaultAnalysis(student, stats, weakPoints, subjectBreakdown, focusAssetSummary);
+    return getDefaultAnalysis(student, stats, weakPoints, guardianErrorBreakdown, subjectBreakdown, focusAssetSummary);
   }
 
   try {
@@ -281,6 +336,10 @@ async function generateAIAnalysis(
       subjectBreakdown.length > 0
         ? subjectBreakdown.map((item) => `${item.label}${item.count}次`).join('、')
         : '暂无科目分布数据';
+    const guardianErrorText =
+      guardianErrorBreakdown.length > 0
+        ? guardianErrorBreakdown.map((item) => `${item.label}${item.count}次`).join('、')
+        : '暂无统一错因分类数据';
     const moduleText =
       moduleBreakdown.length > 0
         ? moduleBreakdown.slice(0, 5).map((item) => `${item.label}${item.count}次`).join('、')
@@ -307,6 +366,9 @@ ${moduleText}
 
 【重点关注】
 ${weakPointsText}
+
+【统一错因标签】
+${guardianErrorText}
 
 【单条记录聚焦】
 ${focusText}
@@ -351,10 +413,10 @@ ${focusText}
     const content = data?.choices?.[0]?.message?.content;
     return typeof content === 'string' && content.trim()
       ? content
-      : getDefaultAnalysis(student, stats, weakPoints, subjectBreakdown, focusAssetSummary);
+      : getDefaultAnalysis(student, stats, weakPoints, guardianErrorBreakdown, subjectBreakdown, focusAssetSummary);
   } catch (error) {
     console.error('[reports/study] AI analysis fallback:', error);
-    return getDefaultAnalysis(student, stats, weakPoints, subjectBreakdown, focusAssetSummary);
+    return getDefaultAnalysis(student, stats, weakPoints, guardianErrorBreakdown, subjectBreakdown, focusAssetSummary);
   }
 }
 
@@ -380,7 +442,9 @@ export async function POST(req: NextRequest) {
     const [errorStatsResult, sessionsResult, studyAssetsResult, focusAssetResult] = await Promise.all([
       (supabase as any)
         .from('error_sessions')
-        .select('id, subject, difficulty_rating, concept_tags, created_at, status')
+        .select(
+          'id, subject, difficulty_rating, concept_tags, guardian_error_type, guardian_root_cause_summary, child_poka_yoke_action, suggested_guardian_action, false_error_gate, analysis_mode, stuck_stage, created_at, status',
+        )
         .eq('student_id', studentId)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString()),
@@ -433,12 +497,18 @@ export async function POST(req: NextRequest) {
       : null;
     const stats = calculateStats(errors, studySessions, studyAssets, days);
     const weakPoints = analyzeWeakPoints(errors, studyAssets);
+    const guardianErrorBreakdown = buildGuardianErrorBreakdown(errors);
+    const analysisModeBreakdown = buildAnalysisModeBreakdown(errors);
+    const structuredRollup = buildStructuredOutcomeRollup(errors, {
+      openErrorCount: stats.totalErrors - stats.mastered,
+    });
     const subjectBreakdown = buildSubjectBreakdown(errors, studyAssets);
     const moduleBreakdown = buildModuleBreakdown(studyAssets);
     const aiAnalysis = await generateAIAnalysis(
       student,
       stats,
       weakPoints,
+      guardianErrorBreakdown,
       subjectBreakdown,
       moduleBreakdown,
       focusAssetSummary,
@@ -472,6 +542,15 @@ export async function POST(req: NextRequest) {
         report,
         stats,
         weakPoints,
+        guardianSignal: structuredRollup.guardian_signal,
+        topBlocker: structuredRollup.top_blocker,
+        focusSummary: structuredRollup.focus_summary,
+        stuckStageSummary: structuredRollup.stuck_stage_summary,
+        structuredDiagnosisCount: structuredRollup.structured_diagnosis_count,
+        falseErrorGateCount: structuredRollup.false_error_gate_count,
+        grade9ExamCount: structuredRollup.grade9_exam_count,
+        guardianErrorBreakdown,
+        analysisModeBreakdown,
         aiAnalysis,
         subjectBreakdown,
         moduleBreakdown,

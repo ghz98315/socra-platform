@@ -141,6 +141,23 @@ type ParentActionItem = {
   watch_fors?: string[];
 };
 
+type DiagnosisCardItem = {
+  session_id: string;
+  question_excerpt: string;
+  guardian_error_type: string | null;
+  guardian_error_type_label: string | null;
+  root_cause_summary: string | null;
+  child_poka_yoke_action: string | null;
+  suggested_guardian_action: string | null;
+  false_error_gate: boolean;
+  analysis_mode: string | null;
+  analysis_mode_label: string | null;
+  stuck_stage: string | null;
+  stuck_stage_label: string | null;
+  root_cause_statement: string | null;
+  created_at: string;
+};
+
 type InsightResponse = {
   students: StudentInfo[];
   selected_student: StudentInfo | null;
@@ -172,11 +189,54 @@ type InsightResponse = {
     intervention_focus_label: string;
     intervention_focus_summary: string;
   };
+  guardian_signal: {
+    level: 'green' | 'yellow' | 'red';
+    label: string;
+    reason: string;
+  };
+  daily_checkin_status: {
+    checkin_date: string;
+    status: 'completed' | 'stuck' | 'unfinished';
+    status_label: string;
+    note: string | null;
+    guardian_signal: 'green' | 'yellow' | 'red' | null;
+    guardian_signal_label: string | null;
+    top_blocker_label: string | null;
+    stuck_stage: string | null;
+    stuck_stage_label: string | null;
+    suggested_parent_prompt: string | null;
+    status_summary: string;
+    updated_at: string;
+  } | null;
+  suggested_parent_prompt: string;
+  top_blocker: {
+    key: string | null;
+    label: string | null;
+    count: number;
+    root_cause_summary: string | null;
+    child_poka_yoke_action: string | null;
+    suggested_guardian_action: string | null;
+    false_error_gate: boolean;
+    analysis_mode: string | null;
+    analysis_mode_label: string | null;
+    stuck_stage: string | null;
+    stuck_stage_label: string | null;
+  } | null;
+  focus_summary: string;
+  stuck_stage_summary: Array<{
+    key: string;
+    label: string;
+    count: number;
+  }>;
+  structured_diagnosis_count: number;
+  false_error_gate_count: number;
+  grade9_exam_count: number;
   root_cause_heatmap: RootCauseItem[];
   knowledge_hotspots: HotspotItem[];
   habit_hotspots: HotspotItem[];
   recent_risks: RecentRiskItem[];
   conversation_alerts: ConversationAlertItem[];
+  diagnosis_cards: DiagnosisCardItem[];
   intervention_summary: {
     total: number;
     pending: number;
@@ -277,6 +337,28 @@ function severityBadge(level: ConversationAlertItem['severity']) {
   }
 }
 
+function guardianSignalBadge(level: InsightResponse['guardian_signal']['level']) {
+  switch (level) {
+    case 'red':
+      return 'bg-red-100 text-red-700';
+    case 'yellow':
+      return 'bg-amber-100 text-amber-700';
+    default:
+      return 'bg-emerald-100 text-emerald-700';
+  }
+}
+
+function diagnosisStageBadge(level: DiagnosisCardItem['analysis_mode']) {
+  switch (level) {
+    case 'grade9_exam':
+      return 'bg-red-100 text-red-700';
+    case 'senior':
+      return 'bg-amber-100 text-amber-700';
+    default:
+      return 'bg-slate-100 text-slate-700';
+  }
+}
+
 function getInterventionTaskKey(item: { session_id: string; category: string }) {
   return `${item.session_id}:${item.category}`;
 }
@@ -292,6 +374,7 @@ export default function ParentInsightControlPage() {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [teenMode, setTeenMode] = useState<TeenModeState>(DEFAULT_TEEN_MODE);
   const [loading, setLoading] = useState(true);
+  const [savingDailyCheckinStatus, setSavingDailyCheckinStatus] = useState<string | null>(null);
   const [savingTeenMode, setSavingTeenMode] = useState(false);
   const [creatingTaskKeys, setCreatingTaskKeys] = useState<string[]>([]);
   const [createdTaskKeys, setCreatedTaskKeys] = useState<string[]>([]);
@@ -624,6 +707,40 @@ export default function ParentInsightControlPage() {
     }
   }
 
+  async function saveDailyCheckin(status: 'completed' | 'stuck' | 'unfinished') {
+    if (!selectedStudent || savingDailyCheckinStatus) {
+      return;
+    }
+
+    try {
+      setSavingDailyCheckinStatus(status);
+      const response = await fetch('/api/parent-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          student_id: selectedStudent.id,
+          status,
+          guardian_signal: insights?.guardian_signal,
+          top_blocker: insights?.top_blocker,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || '保存每日状态失败');
+      }
+
+      setInsightReloadToken((current) => current + 1);
+    } catch (saveError) {
+      console.error('[ParentInsightControlPage] Failed to save daily checkin:', saveError);
+      window.alert(saveError instanceof Error ? saveError.message : '保存每日状态失败');
+    } finally {
+      setSavingDailyCheckinStatus(null);
+    }
+  }
+
   async function createInterventionTask(alert: ConversationAlertItem) {
     if (!profile?.id || !selectedStudent) {
       return;
@@ -755,6 +872,9 @@ export default function ParentInsightControlPage() {
   const students = insights?.students ?? [];
   const selectedStudent =
     students.find((student) => student.id === selectedChildId) ?? insights?.selected_student ?? null;
+  const diagnosisCards = insights?.diagnosis_cards ?? [];
+  const featuredDiagnosisCard = diagnosisCards[0] ?? null;
+  const dailyCheckinStatus = insights?.daily_checkin_status ?? null;
   const activeReviewSessionId = linkedReviewSessionId ?? (focusSection === 'review' ? focusSessionId : null);
   const activeOutcomeTaskId = linkedOutcomeTaskId;
 
@@ -823,6 +943,182 @@ export default function ParentInsightControlPage() {
           </Card>
         ) : (
           <div className="space-y-6">
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                    <Shield className="h-4 w-4 text-warm-500" />
+                    今日状态
+                  </CardTitle>
+                  <CardDescription>先判断现在该不该优先介入，而不是先看所有图表。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  <Badge className={guardianSignalBadge(insights!.guardian_signal.level)}>
+                    {insights?.guardian_signal.label}
+                  </Badge>
+                  <p>{insights?.guardian_signal.reason}</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    <Badge className="bg-slate-100 text-slate-700">
+                      已有诊断 {insights?.structured_diagnosis_count ?? 0}
+                    </Badge>
+                    <Badge className="bg-slate-100 text-slate-700">
+                      假错题提示 {insights?.false_error_gate_count ?? 0}
+                    </Badge>
+                    {(insights?.grade9_exam_count ?? 0) > 0 ? (
+                      <Badge className="bg-red-100 text-red-700">
+                        初三专项 {insights?.grade9_exam_count}
+                      </Badge>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                    <Brain className="h-4 w-4 text-red-500" />
+                    本周最大问题
+                  </CardTitle>
+                  <CardDescription>用统一诊断结果替代家长自己猜卡点。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  {insights?.top_blocker ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {insights.top_blocker.label ? (
+                          <Badge className="bg-red-100 text-red-700">{insights.top_blocker.label}</Badge>
+                        ) : null}
+                        {insights.top_blocker.stuck_stage_label ? (
+                          <Badge className="bg-slate-100 text-slate-700">
+                            卡在: {insights.top_blocker.stuck_stage_label}
+                          </Badge>
+                        ) : null}
+                        {insights.top_blocker.false_error_gate ? (
+                          <Badge className="bg-sky-100 text-sky-700">先闭卷重做</Badge>
+                        ) : null}
+                      </div>
+                      <div className="font-semibold text-slate-900">
+                        {insights.top_blocker.root_cause_summary || '已识别到重复卡点'}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        最近重复出现 {insights.top_blocker.count} 次
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                      当前还没有形成稳定重复的结构化卡点。
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    现在该做什么
+                  </CardTitle>
+                  <CardDescription>先给动作，再展开热力图和风险明细。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-600">
+                  <p>{insights?.focus_summary}</p>
+                  {insights?.top_blocker?.suggested_guardian_action ? (
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 text-amber-800">
+                      家长动作: {insights.top_blocker.suggested_guardian_action}
+                    </div>
+                  ) : null}
+                  {insights?.top_blocker?.child_poka_yoke_action ? (
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 text-emerald-800">
+                      孩子动作: {insights.top_blocker.child_poka_yoke_action}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-warm-100 bg-white/90">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <CheckCircle2 className="h-5 w-5 text-warm-500" />
+                  每日三态 check-in
+                </CardTitle>
+                <CardDescription>家长每天只需要先点一个状态，系统再给出下一步陪学提示。</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={dailyCheckinStatus?.status === 'completed' ? 'default' : 'outline'}
+                    disabled={savingDailyCheckinStatus !== null}
+                    onClick={() => saveDailyCheckin('completed')}
+                  >
+                    {savingDailyCheckinStatus === 'completed' ? '保存中...' : '已完成'}
+                  </Button>
+                  <Button
+                    variant={dailyCheckinStatus?.status === 'stuck' ? 'default' : 'outline'}
+                    disabled={savingDailyCheckinStatus !== null}
+                    onClick={() => saveDailyCheckin('stuck')}
+                  >
+                    {savingDailyCheckinStatus === 'stuck' ? '保存中...' : '卡住了'}
+                  </Button>
+                  <Button
+                    variant={dailyCheckinStatus?.status === 'unfinished' ? 'default' : 'outline'}
+                    disabled={savingDailyCheckinStatus !== null}
+                    onClick={() => saveDailyCheckin('unfinished')}
+                  >
+                    {savingDailyCheckinStatus === 'unfinished' ? '保存中...' : '未完成'}
+                  </Button>
+                </div>
+
+                {dailyCheckinStatus ? (
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className="bg-slate-100 text-slate-700">{dailyCheckinStatus.status_label}</Badge>
+                      {dailyCheckinStatus.guardian_signal_label ? (
+                        <Badge className={guardianSignalBadge(dailyCheckinStatus.guardian_signal || 'green')}>
+                          {dailyCheckinStatus.guardian_signal_label}
+                        </Badge>
+                      ) : null}
+                      {dailyCheckinStatus.stuck_stage_label ? (
+                        <Badge className="bg-amber-100 text-amber-700">
+                          卡在: {dailyCheckinStatus.stuck_stage_label}
+                        </Badge>
+                      ) : null}
+                      <span className="text-xs text-slate-400">
+                        最近更新: {formatDateTime(dailyCheckinStatus.updated_at)}
+                      </span>
+                    </div>
+                    <div className="mt-2">{dailyCheckinStatus.status_summary}</div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                    今天还没有记录陪学状态，先点一下当前状态，系统会同步给出对应提示。
+                  </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-sm text-amber-900">
+                    <div className="font-semibold">家长提示话术</div>
+                    <div className="mt-2">
+                      {dailyCheckinStatus?.suggested_parent_prompt || insights?.suggested_parent_prompt}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-700">
+                    <div className="font-semibold text-slate-900">当前卡住位置</div>
+                    <div className="mt-2">
+                      {dailyCheckinStatus?.stuck_stage_label ||
+                        insights?.top_blocker?.stuck_stage_label ||
+                        '当前还没有明确的卡住阶段。'}
+                    </div>
+                    {insights?.top_blocker?.label ? (
+                      <div className="mt-2 text-xs text-slate-500">
+                        对应最大卡点: {insights.top_blocker.label}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <StatsRow>
               <StatCard
                 label="待处理错题"
@@ -923,6 +1219,138 @@ export default function ParentInsightControlPage() {
                     {insights?.summary_chain.intervention_focus_value_label || '当前无积压'}
                   </div>
                   <p>{insights?.summary_chain.intervention_focus_summary}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Brain className="h-5 w-5 text-warm-500" />
+                    统一诊断结果
+                  </CardTitle>
+                  <CardDescription>先看今天最大卡点，再决定这次陪练要纠什么、怎么纠。</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {featuredDiagnosisCard ? (
+                    <div className="rounded-3xl border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {featuredDiagnosisCard.guardian_error_type_label ? (
+                          <Badge className="bg-red-100 text-red-700">
+                            {featuredDiagnosisCard.guardian_error_type_label}
+                          </Badge>
+                        ) : null}
+                        {featuredDiagnosisCard.analysis_mode_label ? (
+                          <Badge className={diagnosisStageBadge(featuredDiagnosisCard.analysis_mode)}>
+                            {featuredDiagnosisCard.analysis_mode_label}
+                          </Badge>
+                        ) : null}
+                        {featuredDiagnosisCard.stuck_stage_label ? (
+                          <Badge className="bg-slate-100 text-slate-700">
+                            卡在: {featuredDiagnosisCard.stuck_stage_label}
+                          </Badge>
+                        ) : null}
+                        {featuredDiagnosisCard.false_error_gate ? (
+                          <Badge className="bg-sky-100 text-sky-700">先排查假错题</Badge>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-4">
+                        <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                          今日最大卡点
+                        </div>
+                        <div className="mt-2 text-lg font-semibold text-slate-900">
+                          {featuredDiagnosisCard.root_cause_summary || '已识别到结构化诊断，待补充根因摘要。'}
+                        </div>
+                        <div className="mt-2 text-sm text-slate-500">
+                          题目摘要: {featuredDiagnosisCard.question_excerpt || '暂无题目摘要'}
+                        </div>
+                        {featuredDiagnosisCard.root_cause_statement ? (
+                          <div className="mt-3 rounded-2xl bg-white/80 p-3 text-sm text-slate-600">
+                            学生当前表述: {featuredDiagnosisCard.root_cause_statement}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                          <div className="text-sm font-semibold text-emerald-900">孩子防呆动作</div>
+                          <div className="mt-2 text-sm text-emerald-800">
+                            {featuredDiagnosisCard.child_poka_yoke_action || '本题暂未生成防呆动作建议。'}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                          <div className="text-sm font-semibold text-amber-900">家长介入建议</div>
+                          <div className="mt-2 text-sm text-amber-800">
+                            {featuredDiagnosisCard.suggested_guardian_action || '本题暂未生成家长动作建议。'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 text-xs text-slate-400">
+                        最近更新: {formatDateTime(featuredDiagnosisCard.created_at)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                      暂时还没有可供家长直接使用的结构化诊断结果，先让孩子完成一轮错因分析和收口。
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-100 bg-white/90">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Sparkles className="h-5 w-5 text-warm-500" />
+                    诊断摘要列表
+                  </CardTitle>
+                  <CardDescription>按最近诊断倒序展示，便于家长快速看到连续卡点是否在重复。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {diagnosisCards.length > 1 ? (
+                    diagnosisCards.slice(1, 5).map((item) => (
+                      <div
+                        key={item.session_id}
+                        className="rounded-2xl border border-slate-100 p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.guardian_error_type_label ? (
+                            <Badge className="bg-slate-100 text-slate-700">{item.guardian_error_type_label}</Badge>
+                          ) : null}
+                          {item.analysis_mode_label ? (
+                            <Badge className={diagnosisStageBadge(item.analysis_mode)}>
+                              {item.analysis_mode_label}
+                            </Badge>
+                          ) : null}
+                          {item.false_error_gate ? (
+                            <Badge className="bg-sky-100 text-sky-700">闭卷重做优先</Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-slate-900">
+                          {item.root_cause_summary || item.question_excerpt || '已生成诊断结果'}
+                        </div>
+                        {item.stuck_stage_label ? (
+                          <div className="mt-1 text-xs text-slate-500">卡点阶段: {item.stuck_stage_label}</div>
+                        ) : null}
+                        {item.child_poka_yoke_action ? (
+                          <div className="mt-2 text-sm text-slate-600">孩子动作: {item.child_poka_yoke_action}</div>
+                        ) : null}
+                        {item.suggested_guardian_action ? (
+                          <div className="mt-1 text-sm text-slate-600">家长动作: {item.suggested_guardian_action}</div>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : diagnosisCards.length === 1 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                      除了当前重点题目，最近还没有新的结构化诊断摘要。
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                      还没有诊断摘要列表数据。
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

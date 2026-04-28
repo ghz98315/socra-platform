@@ -32,6 +32,13 @@ export interface ErrorSession {
   difficulty_rating: number | null; // AI 评估难度 (1-5)
   student_difficulty_rating: number | null; // 学生自评难度 (1-5)
   final_difficulty_rating: number | null; // 最终综合难度 (0.5步进，如3.5)
+  guardian_error_type?: string | null;
+  guardian_root_cause_summary?: string | null;
+  child_poka_yoke_action?: string | null;
+  suggested_guardian_action?: string | null;
+  false_error_gate?: boolean | null;
+  analysis_mode?: string | null;
+  stuck_stage?: string | null;
   created_at: string;
 }
 

@@ -12,6 +12,8 @@ Companion docs:
 - `docs/md_socrates_20260414_prompt_baseline_command.md`
 - `docs/md_socrates_20260414_chat_regression_command.md`
 - `docs/md_socrates_20260414_online_chat_regression_command.md`
+- `docs/md_socrates_20260414_unified_regression_baseline.md`
+- `docs/md_socrates_20260427_parent_signal_deploy_gate.md`
 
 ## 1. Preflight
 
@@ -95,6 +97,7 @@ Local helper commands for this machine:
 
 ```bash
 pnpm -C "D:\github\Socrates_ analysis\socra-platform" check:node
+pnpm socrates:validate:baseline
 pnpm socrates:check:prompt-baseline
 pnpm socrates:check:chat-regression
 pnpm socrates:check:online-chat-regression
@@ -115,6 +118,7 @@ Notes:
 - `pnpm socrates:check:prompt-baseline` is the fast structural gate for the first-turn scaffold baseline.
 - `pnpm socrates:check:chat-regression` is the fast helper-level gate for repeated-confusion, mock fallback, and `clear-history` rebuild behavior.
 - `pnpm socrates:check:online-chat-regression` is the current route-level online gate for the real `/api/chat` and `/api/chat/clear-history` endpoints on this machine.
+- `pnpm socrates:validate:baseline` is the current standard local baseline command. It auto-locates Node 22 and runs the full Socrates baseline chain even when the outer shell is on another Node major.
 - Use `pnpm socrates:status:local` to confirm local readiness instead of waiting on a long-running foreground start command.
 - Treat `HTTP=307` as healthy for the local Socrates app.
 - `HEALTH=yes` is the primary signal. If `STATE=healthy_port_stale_pid`, the app is still usable and the tracked PID is just stale or unavailable on that machine.
@@ -124,6 +128,8 @@ Notes:
   - `pnpm socrates:start:dev-local` is the fallback path for feature verification or manual acceptance on machines still blocked by Windows `spawn EPERM`.
 - Use `pnpm socrates:start:probe-local` only after both `pnpm socrates:start:local` and `pnpm socrates:start:dev-local` are blocked by the same Windows `spawn EPERM` class of failure. It is intended for build-like regression verification, not as the default daily loop.
 - On the current machine, prefer this local validation order before broader manual acceptance:
+  - `pnpm socrates:validate:baseline`
+- If you need to isolate failures, expand that command into:
   - `pnpm check:node`
   - `pnpm --filter @socra/socrates exec tsc --noEmit`
   - `pnpm socrates:check:prompt-baseline`

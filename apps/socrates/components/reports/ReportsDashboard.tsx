@@ -75,6 +75,26 @@ interface BreakdownItem {
   count: number;
 }
 
+interface GuardianSignal {
+  level: 'green' | 'yellow' | 'red';
+  label: string;
+  reason: string;
+}
+
+interface TopBlocker {
+  key: string | null;
+  label: string | null;
+  count: number;
+  root_cause_summary: string | null;
+  child_poka_yoke_action: string | null;
+  suggested_guardian_action: string | null;
+  false_error_gate: boolean;
+  analysis_mode: string | null;
+  analysis_mode_label: string | null;
+  stuck_stage: string | null;
+  stuck_stage_label: string | null;
+}
+
 interface Report {
   id: string;
   report_type: string;
@@ -148,6 +168,10 @@ export function ReportsDashboard() {
 
   const [reportStats, setReportStats] = useState<ReportStats | null>(null);
   const [weakPoints, setWeakPoints] = useState<WeakPoint[]>([]);
+  const [guardianSignal, setGuardianSignal] = useState<GuardianSignal | null>(null);
+  const [topBlocker, setTopBlocker] = useState<TopBlocker | null>(null);
+  const [focusSummary, setFocusSummary] = useState('');
+  const [stuckStageSummary, setStuckStageSummary] = useState<BreakdownItem[]>([]);
   const [subjectBreakdown, setSubjectBreakdown] = useState<BreakdownItem[]>([]);
   const [moduleBreakdown, setModuleBreakdown] = useState<BreakdownItem[]>([]);
   const [focusAsset, setFocusAsset] = useState<FocusAssetSummary | null>(null);
@@ -169,6 +193,16 @@ export function ReportsDashboard() {
     () => moduleBreakdown.reduce((sum, item) => sum + item.count, 0),
     [moduleBreakdown],
   );
+  const getSignalBadgeClassName = (level: GuardianSignal['level']) => {
+    switch (level) {
+      case 'red':
+        return 'bg-red-100 text-red-700';
+      case 'yellow':
+        return 'bg-amber-100 text-amber-700';
+      default:
+        return 'bg-emerald-100 text-emerald-700';
+    }
+  };
 
   const loadReportData = useCallback(async () => {
     if (!profile?.id) {
@@ -196,6 +230,10 @@ export function ReportsDashboard() {
       const result = await response.json();
       setReportStats((result?.data?.stats || null) as ReportStats | null);
       setWeakPoints((result?.data?.weakPoints || []) as WeakPoint[]);
+      setGuardianSignal((result?.data?.guardianSignal || null) as GuardianSignal | null);
+      setTopBlocker((result?.data?.topBlocker || null) as TopBlocker | null);
+      setFocusSummary(typeof result?.data?.focusSummary === 'string' ? result.data.focusSummary : '');
+      setStuckStageSummary((result?.data?.stuckStageSummary || []) as BreakdownItem[]);
       setSubjectBreakdown((result?.data?.subjectBreakdown || []) as BreakdownItem[]);
       setModuleBreakdown((result?.data?.moduleBreakdown || []) as BreakdownItem[]);
       setFocusAsset((result?.data?.focusAsset || null) as FocusAssetSummary | null);
@@ -212,6 +250,10 @@ export function ReportsDashboard() {
       console.error('[ReportsDashboard] Failed to load report data:', error);
       setReportStats(null);
       setWeakPoints([]);
+      setGuardianSignal(null);
+      setTopBlocker(null);
+      setFocusSummary('');
+      setStuckStageSummary([]);
       setSubjectBreakdown([]);
       setModuleBreakdown([]);
       setFocusAsset(null);
@@ -375,6 +417,99 @@ export function ReportsDashboard() {
                 </CardContent>
               </Card>
             ) : null}
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+              <Card className="border-warm-200/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-red-500" />
+                    本阶段最大卡点
+                  </CardTitle>
+                  <CardDescription>先看最大的重复问题，再决定后续练什么。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {topBlocker ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {topBlocker.label ? <Badge className="bg-red-100 text-red-700">{topBlocker.label}</Badge> : null}
+                        {topBlocker.analysis_mode_label ? (
+                          <Badge variant="outline">{topBlocker.analysis_mode_label}</Badge>
+                        ) : null}
+                        {topBlocker.stuck_stage_label ? (
+                          <Badge variant="outline">卡在: {topBlocker.stuck_stage_label}</Badge>
+                        ) : null}
+                        {topBlocker.false_error_gate ? (
+                          <Badge className="bg-sky-100 text-sky-700">先排查假错题</Badge>
+                        ) : null}
+                      </div>
+                      <div className="text-lg font-semibold text-warm-900">
+                        {topBlocker.root_cause_summary || '已识别到可重复追踪的结构化卡点。'}
+                      </div>
+                      <div className="text-sm text-warm-700">最近重复出现 {topBlocker.count} 次</div>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/70 px-4 py-5 text-sm text-warm-600">
+                      当前阶段还没有形成稳定重复的结构化卡点。
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-200/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-warm-500" />
+                    陪学信号
+                  </CardTitle>
+                  <CardDescription>把复杂统计先压缩成一个可执行状态。</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {guardianSignal ? (
+                    <>
+                      <Badge className={getSignalBadgeClassName(guardianSignal.level)}>
+                        {guardianSignal.label}
+                      </Badge>
+                      <div className="text-sm leading-6 text-warm-800">{guardianSignal.reason}</div>
+                      <div className="rounded-2xl bg-warm-50/80 px-4 py-3 text-sm text-warm-700">
+                        {focusSummary || '先围绕当前最大卡点做单点巩固，不要同时扩太多题。'}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/70 px-4 py-5 text-sm text-warm-600">
+                      当前阶段暂时没有形成明确的陪学信号。
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-warm-200/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-blue-500" />
+                    卡点阶段分布
+                  </CardTitle>
+                  <CardDescription>判断孩子更常卡在审题、起手、执行还是复述阶段。</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {stuckStageSummary.length > 0 ? (
+                    <div className="space-y-3">
+                      {stuckStageSummary.slice(0, 4).map((item) => (
+                        <div key={item.key} className="rounded-xl bg-warm-50/70 px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-medium text-warm-900">{item.label}</span>
+                            <Badge variant="secondary">{item.count} 次</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/70 px-4 py-5 text-sm text-warm-600">
+                      当前阶段还没有足够的阶段卡点分布数据。
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             <div
               ref={analysisAnimation.ref}

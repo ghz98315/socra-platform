@@ -4,6 +4,11 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { getRootCauseSubtypeOption, type RootCauseCategory, type RootCauseSubtype } from '@/lib/error-loop/taxonomy';
 import {
+  ANALYSIS_MODE_LABELS,
+  GUARDIAN_ERROR_TYPE_LABELS,
+  STUCK_STAGE_LABELS,
+} from '@/lib/error-loop/structured-outcome';
+import {
   HEAT_SCORE_MODEL,
   computeHeatScore,
   describeHeatLevel,
@@ -35,6 +40,15 @@ import {
   type VariantQuestionEvidenceRow,
 } from '@/lib/error-loop/variant-evidence';
 import {
+  buildDailyCheckinSummary,
+  buildSuggestedParentPrompt,
+  DAILY_CHECKIN_STATUS_LABELS,
+  getShanghaiDateKey,
+  GUARDIAN_SIGNAL_LABELS,
+  resolveStuckStageLabel,
+} from '@/lib/error-loop/guardian-checkin';
+import { buildStructuredOutcomeRollup } from '@/lib/error-loop/structured-rollup';
+import {
   getParentMasteryBalanceCopy,
   getParentOverdueReviewActionCopy,
   getParentPseudoMasteryActionCopy,
@@ -46,6 +60,12 @@ import {
   getParentSurfaceReflectionActionCopy,
   getParentTransferGapInsightCopy,
 } from '@/lib/error-loop/parent-insight-copy';
+import {
+  buildParentSignalNotificationDrafts,
+  isParentSignalSnapshotKind,
+  type ParentSignalNotificationData,
+  type ParentSignalNotificationContext,
+} from '@/lib/notifications/parent-signal';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,6 +90,13 @@ type ErrorSessionRow = {
   primary_root_cause_category: RootCauseCategory | null;
   primary_root_cause_subtype: RootCauseSubtype | null;
   primary_root_cause_statement: string | null;
+  guardian_error_type: string | null;
+  guardian_root_cause_summary: string | null;
+  child_poka_yoke_action: string | null;
+  suggested_guardian_action: string | null;
+  false_error_gate: boolean | null;
+  analysis_mode: string | null;
+  stuck_stage: string | null;
   created_at: string;
 };
 
@@ -83,6 +110,13 @@ type DiagnosisRow = {
   habit_tags: unknown;
   surface_labels: unknown;
   risk_flags: unknown;
+  guardian_error_type: string | null;
+  root_cause_summary: string | null;
+  child_poka_yoke_action: string | null;
+  suggested_guardian_action: string | null;
+  false_error_gate: boolean | null;
+  analysis_mode: string | null;
+  stuck_stage: string | null;
   updated_at: string;
   created_at: string;
 };
@@ -168,6 +202,17 @@ type ParentTaskRow = {
   task_completions: TaskCompletionRow[] | null;
 };
 
+type DailyCheckinRow = {
+  checkin_date: string;
+  status: string;
+  note: string | null;
+  guardian_signal: string | null;
+  top_blocker_label: string | null;
+  stuck_stage: string | null;
+  suggested_parent_prompt: string | null;
+  updated_at: string;
+};
+
 type InterventionTaskSnapshot = {
   task_id: string;
   session_id: string;
@@ -203,6 +248,98 @@ type ReflectionQualitySnapshot = {
   surface_only_risk: boolean;
   coach_signal: string | null;
 };
+
+type ExistingParentSignalNotificationRow = {
+  created_at: string;
+  data: ParentSignalNotificationData | null;
+};
+
+function getSignalDateKey(signalKey: string | null | undefined) {
+  const parts = String(signalKey || '').split(':');
+  return parts.length >= 3 ? parts[2] : null;
+}
+
+async function ensureParentSignalNotifications(
+  userId: string,
+  context: ParentSignalNotificationContext,
+) {
+  const { data: existingNotifications, error: existingError } = await supabaseAdmin
+    .from('notifications')
+    .select('created_at, data')
+    .eq('user_id', userId)
+    .eq('type', 'parent_signal')
+    .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (existingError) {
+    console.error('[parent/insights] Failed to load existing parent signal notifications:', existingError);
+    return;
+  }
+
+  const existingRows = (existingNotifications || []) as ExistingParentSignalNotificationRow[];
+  const studentSignalRows = existingRows.filter(
+    (item) =>
+      item.data?.student_id === context.studentId &&
+      isParentSignalSnapshotKind(item.data?.signal_kind),
+  );
+  const previousSignalLevel =
+    studentSignalRows[0]?.data?.guardian_signal_level || null;
+  const latestSignalByDay = new Map<string, ParentSignalNotificationData>();
+
+  studentSignalRows.forEach((item) => {
+    const dateKey = getSignalDateKey(item.data?.signal_key);
+    if (!dateKey || latestSignalByDay.has(dateKey) || !item.data) {
+      return;
+    }
+
+    latestSignalByDay.set(dateKey, item.data);
+  });
+
+  const recentGuardianSignalLevels = [...latestSignalByDay.values()]
+    .filter((item) => getSignalDateKey(item.signal_key) !== context.todayKey)
+    .map((item) => item.guardian_signal_level)
+    .filter(Boolean);
+  const drafts = buildParentSignalNotificationDrafts(context, {
+    previousGuardianSignalLevel: previousSignalLevel,
+    recentGuardianSignalLevels,
+  });
+
+  if (drafts.length === 0) {
+    return;
+  }
+
+  const existingSignalKeys = new Set(
+    existingRows
+      .map((item) => item.data?.signal_key)
+      .filter(Boolean),
+  );
+
+  const inserts = drafts
+    .filter((draft) => !existingSignalKeys.has(draft.signalKey))
+    .map((draft) => ({
+      user_id: userId,
+      type: 'parent_signal',
+      title: draft.title,
+      content: draft.content,
+      data: draft.data,
+      action_url: draft.actionUrl,
+      action_text: draft.actionText,
+      priority: draft.priority,
+    }));
+
+  if (inserts.length === 0) {
+    return;
+  }
+
+  const { error: insertError } = await supabaseAdmin
+    .from('notifications')
+    .insert(inserts);
+
+  if (insertError) {
+    console.error('[parent/insights] Failed to insert parent signal notifications:', insertError);
+  }
+}
 
 function normalizeStringList(value: unknown) {
   if (!Array.isArray(value)) {
@@ -351,6 +488,18 @@ function buildReviewTaskKey(sessionId: string, judgement: string) {
 
 function compareIsoDesc(left: string | null | undefined, right: string | null | undefined) {
   return new Date(right || 0).getTime() - new Date(left || 0).getTime();
+}
+
+function isMissingTableError(error: { code?: string; message?: string } | null | undefined, tableName: string) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    String(error.message || '').includes(tableName)
+  );
 }
 
 function pushIntoAggregate(
@@ -503,11 +652,25 @@ export async function GET(req: NextRequest) {
           intervention_focus_label: '暂无待跟进项',
           intervention_focus_summary: '当前没有待处理的复习补救任务。',
         },
+        guardian_signal: {
+          level: 'green',
+          label: '绿灯',
+          reason: '当前还没有孩子数据，暂时没有需要家长优先介入的事项。',
+        },
+        daily_checkin_status: null,
+        suggested_parent_prompt: '等孩子开始形成诊断记录后，再围绕当天最大卡点做每日 check-in。',
+        top_blocker: null,
+        focus_summary: '当前还没有形成可供家长执行的卡点摘要。',
+        stuck_stage_summary: [],
+        structured_diagnosis_count: 0,
+        false_error_gate_count: 0,
+        grade9_exam_count: 0,
         root_cause_heatmap: [],
         knowledge_hotspots: [],
         habit_hotspots: [],
         recent_risks: [],
         conversation_alerts: [],
+        diagnosis_cards: [],
         intervention_summary: {
           total: 0,
           pending: 0,
@@ -527,11 +690,12 @@ export async function GET(req: NextRequest) {
     const selectedStudent =
       childList.find((student) => student.id === requestedStudentId) ??
       childList[0];
+    const todayCheckinDate = getShanghaiDateKey();
 
     const { data: errorSessions, error: errorSessionsError } = await supabaseAdmin
       .from('error_sessions')
       .select(
-        'id, extracted_text, concept_tags, status, closure_state, primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement, created_at',
+        'id, extracted_text, concept_tags, status, closure_state, primary_root_cause_category, primary_root_cause_subtype, primary_root_cause_statement, guardian_error_type, guardian_root_cause_summary, child_poka_yoke_action, suggested_guardian_action, false_error_gate, analysis_mode, stuck_stage, created_at',
       )
       .eq('student_id', selectedStudent.id)
       .eq('subject', subject)
@@ -554,12 +718,13 @@ export async function GET(req: NextRequest) {
       variantPracticeLogsResult,
       chatMessagesResult,
       interventionTasksResult,
+      dailyCheckinResult,
     ] = await Promise.all([
       sessionIds.length > 0
           ? supabaseAdmin
             .from('error_diagnoses')
             .select(
-              'session_id, root_cause_category, root_cause_subtype, root_cause_statement, guided_reflection, knowledge_tags, habit_tags, surface_labels, risk_flags, updated_at, created_at',
+              'session_id, root_cause_category, root_cause_subtype, root_cause_statement, guided_reflection, knowledge_tags, habit_tags, surface_labels, risk_flags, guardian_error_type, root_cause_summary, child_poka_yoke_action, suggested_guardian_action, false_error_gate, analysis_mode, stuck_stage, updated_at, created_at',
             )
             .eq('student_id', selectedStudent.id)
             .in('session_id', sessionIds)
@@ -650,6 +815,15 @@ export async function GET(req: NextRequest) {
         .eq('child_id', selectedStudent.id)
         .in('task_type', ['conversation_intervention', 'review_intervention'])
         .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('parent_daily_checkins')
+        .select(
+          'checkin_date, status, note, guardian_signal, top_blocker_label, stuck_stage, suggested_parent_prompt, updated_at',
+        )
+        .eq('parent_id', parentUser.id)
+        .eq('student_id', selectedStudent.id)
+        .eq('checkin_date', todayCheckinDate)
+        .maybeSingle(),
     ]);
 
     if (diagnosesResult.error) {
@@ -687,6 +861,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to load intervention tasks' }, { status: 500 });
     }
 
+    if (dailyCheckinResult.error && !isMissingTableError(dailyCheckinResult.error, 'parent_daily_checkins')) {
+      console.error('[parent/insights] Failed to load daily checkin:', dailyCheckinResult.error);
+      return NextResponse.json({ error: 'Failed to load daily checkin' }, { status: 500 });
+    }
+
     const diagnoses = (diagnosesResult.data ?? []) as DiagnosisRow[];
     const reviewSchedules = (reviewSchedulesResult.data ?? []) as ReviewScheduleRow[];
     const reviewAttempts = (reviewAttemptsResult.data ?? []) as ReviewAttemptRow[];
@@ -694,6 +873,9 @@ export async function GET(req: NextRequest) {
     const variantPracticeLogs = (variantPracticeLogsResult.data ?? []) as VariantPracticeLogRow[];
     const chatMessages = (chatMessagesResult.data ?? []) as ChatMessageRow[];
     const interventionTasks = (interventionTasksResult.data ?? []) as ParentTaskRow[];
+    const dailyCheckin = isMissingTableError(dailyCheckinResult.error, 'parent_daily_checkins')
+      ? null
+      : ((dailyCheckinResult.data ?? null) as DailyCheckinRow | null);
 
     const reviewMap = new Map(reviewSchedules.map((review) => [review.session_id, review]));
     const attemptsBySession = new Map<string, ReviewAttemptRow[]>();
@@ -861,6 +1043,46 @@ export async function GET(req: NextRequest) {
 
     const knowledgeHotspots = buildHotspotList(knowledgeAggregates);
     const habitHotspots = buildHotspotList(habitAggregates);
+    const diagnosisCards = sessions
+      .map((session) => {
+        const diagnosis = diagnoses.find((item) => item.session_id === session.id);
+        const guardianErrorType = diagnosis?.guardian_error_type || session.guardian_error_type || null;
+        const analysisMode = diagnosis?.analysis_mode || session.analysis_mode || null;
+        const stuckStage = diagnosis?.stuck_stage || session.stuck_stage || null;
+
+        return {
+          session_id: session.id,
+          question_excerpt: excerpt(session.extracted_text, 52),
+          guardian_error_type: guardianErrorType,
+          guardian_error_type_label:
+            guardianErrorType && guardianErrorType in GUARDIAN_ERROR_TYPE_LABELS
+              ? GUARDIAN_ERROR_TYPE_LABELS[guardianErrorType as keyof typeof GUARDIAN_ERROR_TYPE_LABELS]
+              : null,
+          root_cause_summary: diagnosis?.root_cause_summary || session.guardian_root_cause_summary || null,
+          child_poka_yoke_action: diagnosis?.child_poka_yoke_action || session.child_poka_yoke_action || null,
+          suggested_guardian_action:
+            diagnosis?.suggested_guardian_action || session.suggested_guardian_action || null,
+          false_error_gate:
+            typeof diagnosis?.false_error_gate === 'boolean'
+              ? diagnosis.false_error_gate
+              : session.false_error_gate === true,
+          analysis_mode: analysisMode,
+          analysis_mode_label:
+            analysisMode && analysisMode in ANALYSIS_MODE_LABELS
+              ? ANALYSIS_MODE_LABELS[analysisMode as keyof typeof ANALYSIS_MODE_LABELS]
+              : null,
+          stuck_stage: stuckStage,
+          stuck_stage_label:
+            stuckStage && stuckStage in STUCK_STAGE_LABELS
+              ? STUCK_STAGE_LABELS[stuckStage as keyof typeof STUCK_STAGE_LABELS]
+              : null,
+          root_cause_statement: diagnosis?.root_cause_statement || session.primary_root_cause_statement || null,
+          created_at: diagnosis?.updated_at || diagnosis?.created_at || session.created_at,
+        };
+      })
+      .filter((item) => item.guardian_error_type || item.root_cause_summary || item.child_poka_yoke_action)
+      .sort((a, b) => compareIsoDesc(a.created_at, b.created_at))
+      .slice(0, 8);
 
     const rawRecentRisks = sessions
       .map((session) => {
@@ -1236,6 +1458,56 @@ export async function GET(req: NextRequest) {
     const pseudoMasteryRate = toPercent(pseudoMasteryCount, masterySignalTotal);
     const transferGapRate = toPercent(missingTransferEvidenceCount, openErrorsCount);
     const highSeverityConversationAlertCount = conversationAlerts.filter((item) => item.severity === 'high').length;
+    const structuredRollup = buildStructuredOutcomeRollup(diagnosisCards, {
+      pendingReviewCount,
+      overdueReviewCount,
+      pseudoMasteryCount,
+      highSeverityConversationAlertCount,
+      openErrorCount: openErrorsCount,
+      pendingReviewInterventionCount,
+      reviewInterventionRiskPersistingCount,
+    });
+    const suggestedParentPrompt = buildSuggestedParentPrompt({
+      status: 'stuck',
+      topBlockerLabel: structuredRollup.top_blocker?.label,
+      stuckStage: structuredRollup.top_blocker?.stuck_stage,
+      childPokaYokeAction: structuredRollup.top_blocker?.child_poka_yoke_action,
+      suggestedGuardianAction: structuredRollup.top_blocker?.suggested_guardian_action,
+      falseErrorGate: structuredRollup.top_blocker?.false_error_gate,
+    });
+    const dailyCheckinStatus =
+      dailyCheckin &&
+      dailyCheckin.status in DAILY_CHECKIN_STATUS_LABELS
+        ? {
+            checkin_date: dailyCheckin.checkin_date,
+            status: dailyCheckin.status,
+            status_label:
+              DAILY_CHECKIN_STATUS_LABELS[dailyCheckin.status as keyof typeof DAILY_CHECKIN_STATUS_LABELS],
+            note: dailyCheckin.note,
+            guardian_signal: dailyCheckin.guardian_signal,
+            guardian_signal_label:
+              dailyCheckin.guardian_signal &&
+              dailyCheckin.guardian_signal in GUARDIAN_SIGNAL_LABELS
+                ? GUARDIAN_SIGNAL_LABELS[
+                    dailyCheckin.guardian_signal as keyof typeof GUARDIAN_SIGNAL_LABELS
+                  ]
+                : null,
+            top_blocker_label: dailyCheckin.top_blocker_label,
+            stuck_stage: dailyCheckin.stuck_stage,
+            stuck_stage_label: resolveStuckStageLabel(dailyCheckin.stuck_stage),
+            suggested_parent_prompt: dailyCheckin.suggested_parent_prompt,
+            status_summary: buildDailyCheckinSummary({
+              status: dailyCheckin.status as keyof typeof DAILY_CHECKIN_STATUS_LABELS,
+              topBlockerLabel: dailyCheckin.top_blocker_label,
+              guardianSignal:
+                dailyCheckin.guardian_signal &&
+                dailyCheckin.guardian_signal in GUARDIAN_SIGNAL_LABELS
+                  ? (dailyCheckin.guardian_signal as keyof typeof GUARDIAN_SIGNAL_LABELS)
+                  : null,
+            }),
+            updated_at: dailyCheckin.updated_at,
+          }
+        : null;
     const masteryBalanceCopy = getParentMasteryBalanceCopy({
       masterySignalTotal,
       masteredClosedCount,
@@ -1382,6 +1654,34 @@ export async function GET(req: NextRequest) {
       })),
     ];
 
+    await ensureParentSignalNotifications(
+      parentUser.id,
+      {
+        studentId: selectedStudent.id,
+        studentName: selectedStudent.display_name,
+        todayKey: todayCheckinDate,
+        guardianSignal: structuredRollup.guardian_signal,
+        dailyCheckinStatus: dailyCheckinStatus
+          ? {
+              status: dailyCheckinStatus.status as 'completed' | 'stuck' | 'unfinished',
+              status_label: dailyCheckinStatus.status_label,
+              stuck_stage_label: dailyCheckinStatus.stuck_stage_label,
+              suggested_parent_prompt: dailyCheckinStatus.suggested_parent_prompt,
+            }
+          : null,
+        topBlocker: structuredRollup.top_blocker
+          ? {
+              key: structuredRollup.top_blocker.key,
+              label: structuredRollup.top_blocker.label,
+              count: structuredRollup.top_blocker.count,
+              stuck_stage_label: structuredRollup.top_blocker.stuck_stage_label,
+            }
+          : null,
+        suggestedParentPrompt: dailyCheckinStatus?.suggested_parent_prompt || suggestedParentPrompt,
+        focusSummary: structuredRollup.focus_summary,
+      },
+    );
+
     return NextResponse.json({
       students: childList,
       selected_student: selectedStudent,
@@ -1413,11 +1713,21 @@ export async function GET(req: NextRequest) {
         intervention_focus_label: interventionFocusLabel,
         intervention_focus_summary: interventionFocusSummary,
       },
+      guardian_signal: structuredRollup.guardian_signal,
+      daily_checkin_status: dailyCheckinStatus,
+      suggested_parent_prompt: dailyCheckinStatus?.suggested_parent_prompt || suggestedParentPrompt,
+      top_blocker: structuredRollup.top_blocker,
+      focus_summary: structuredRollup.focus_summary,
+      stuck_stage_summary: structuredRollup.stuck_stage_summary,
+      structured_diagnosis_count: structuredRollup.structured_diagnosis_count,
+      false_error_gate_count: structuredRollup.false_error_gate_count,
+      grade9_exam_count: structuredRollup.grade9_exam_count,
       root_cause_heatmap: rootCauseHeatmap.slice(0, 8),
       knowledge_hotspots: knowledgeHotspots,
       habit_hotspots: habitHotspots,
       recent_risks: recentRisks,
       conversation_alerts: conversationAlerts,
+      diagnosis_cards: diagnosisCards,
       intervention_summary: {
         total: interventionTaskSnapshots.length,
         pending: pendingInterventionCount,

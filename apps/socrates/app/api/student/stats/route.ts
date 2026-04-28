@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { buildStructuredOutcomeRollup } from '@/lib/error-loop/structured-rollup';
+import { GUARDIAN_ERROR_TYPE_LABELS } from '@/lib/error-loop/structured-outcome';
 import { getAuthenticatedProfile } from '@/lib/server/route-auth';
 
 const supabase = createClient(
@@ -64,7 +66,9 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       supabase
         .from('error_sessions')
-        .select('id, status, subject, created_at, concept_tags, theme_used')
+        .select(
+          'id, status, subject, created_at, concept_tags, theme_used, guardian_error_type, guardian_root_cause_summary, child_poka_yoke_action, suggested_guardian_action, false_error_gate, analysis_mode, stuck_stage',
+        )
         .eq('student_id', studentId)
         .order('created_at', { ascending: false }),
       supabase
@@ -154,6 +158,24 @@ export async function GET(req: NextRequest) {
       })
       .sort((left, right) => right.count - left.count)
       .slice(0, 10);
+    const guardianErrorCounts = new Map<string, number>();
+    const analysisModeCounts = new Map<string, number>();
+    const structuredRollup = buildStructuredOutcomeRollup(errorSessions, {
+      openErrorCount: totalErrors - masteredCount,
+    });
+
+    errorSessions.forEach((session) => {
+      if (typeof session.guardian_error_type === 'string' && session.guardian_error_type.trim()) {
+        guardianErrorCounts.set(
+          session.guardian_error_type,
+          (guardianErrorCounts.get(session.guardian_error_type) || 0) + 1,
+        );
+      }
+
+      if (typeof session.analysis_mode === 'string' && session.analysis_mode.trim()) {
+        analysisModeCounts.set(session.analysis_mode, (analysisModeCounts.get(session.analysis_mode) || 0) + 1);
+      }
+    });
 
     return NextResponse.json({
       data: {
@@ -162,6 +184,23 @@ export async function GET(req: NextRequest) {
         mastery_rate: masteryRate,
         heatmap_data: heatmapData,
         weak_points: weakPoints,
+        guardian_signal: structuredRollup.guardian_signal,
+        top_blocker: structuredRollup.top_blocker,
+        focus_summary: structuredRollup.focus_summary,
+        stuck_stage_summary: structuredRollup.stuck_stage_summary,
+        structured_diagnosis_count: structuredRollup.structured_diagnosis_count,
+        false_error_gate_count: structuredRollup.false_error_gate_count,
+        grade9_exam_count: structuredRollup.grade9_exam_count,
+        guardian_error_type_summary: Array.from(guardianErrorCounts.entries())
+          .map(([key, count]) => ({
+            key,
+            label: GUARDIAN_ERROR_TYPE_LABELS[key as keyof typeof GUARDIAN_ERROR_TYPE_LABELS] || key,
+            count,
+          }))
+          .sort((left, right) => right.count - left.count),
+        analysis_mode_summary: Array.from(analysisModeCounts.entries())
+          .map(([key, count]) => ({ key, count }))
+          .sort((left, right) => right.count - left.count),
         theme_stats: {
           junior: juniorCount,
           senior: seniorCount,

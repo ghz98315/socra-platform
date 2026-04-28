@@ -24,7 +24,9 @@ import {
   type VariantPracticeLogEvidenceRow,
   type VariantQuestionEvidenceRow,
 } from '@/lib/error-loop/variant-evidence';
+import { getShanghaiDateKey } from '@/lib/error-loop/guardian-checkin';
 import { buildMasteryRiskNotificationCopy } from '@/lib/notifications/intervention-status';
+import { buildReviewAttemptParentSignalDraft } from '@/lib/notifications/parent-signal';
 import {
   buildMissingMathErrorLoopMigrationResponse,
   isMissingMathErrorLoopMigrationError,
@@ -63,6 +65,11 @@ type ReviewAttemptEvidenceRow = {
 type VariantQuestionRow = VariantQuestionEvidenceRow;
 
 type VariantPracticeLogRow = VariantPracticeLogEvidenceRow;
+
+type ParentStudentNotificationContext = {
+  parentId: string;
+  studentName: string | null;
+};
 
 function toAttemptEvidence(input: {
   attemptMode: AttemptMode;
@@ -206,6 +213,25 @@ function getRootCauseContext(snapshot: RootCauseSnapshot) {
     categoryLabel,
     subtypeLabel,
     displayLabel: subtypeLabel || categoryLabel,
+  };
+}
+
+async function loadParentStudentNotificationContext(
+  studentId: string,
+): Promise<ParentStudentNotificationContext | null> {
+  const { data: student, error: studentError } = await supabase
+    .from('profiles')
+    .select('id, display_name, parent_id')
+    .eq('id', studentId)
+    .maybeSingle();
+
+  if (studentError || !student?.parent_id) {
+    return null;
+  }
+
+  return {
+    parentId: student.parent_id,
+    studentName: student.display_name,
   };
 }
 
@@ -398,19 +424,14 @@ async function sendParentRiskNotification({
   }
 
   try {
-    const { data: student, error: studentError } = await supabase
-      .from('profiles')
-      .select('id, display_name, parent_id')
-      .eq('id', studentId)
-      .maybeSingle();
-
-    if (studentError || !student?.parent_id) {
+    const notificationContext = await loadParentStudentNotificationContext(studentId);
+    if (!notificationContext) {
       return;
     }
 
     const rootCauseContext = getRootCauseContext(rootCause);
     const notificationCopy = buildMasteryRiskNotificationCopy({
-      studentName: student.display_name,
+      studentName: notificationContext.studentName,
       judgement,
       reason: normalizedReason,
       causeLabel: rootCauseContext.displayLabel,
@@ -423,7 +444,7 @@ async function sendParentRiskNotification({
     }
 
     await supabase.from('notifications').insert({
-      user_id: student.parent_id,
+      user_id: notificationContext.parentId,
       type: 'mastery_update',
       title: notificationCopy.title,
       content: notificationCopy.content,
@@ -445,6 +466,103 @@ async function sendParentRiskNotification({
     });
   } catch (error) {
     console.error('[review/attempt] Failed to create parent notification:', error);
+  }
+}
+
+async function sendImmediateParentSignalNotification({
+  studentId,
+  sessionId,
+  reviewId,
+  attemptId,
+  judgement,
+  reason,
+  rootCause,
+  interventionTaskId,
+  notificationSummary,
+}: {
+  studentId: string;
+  sessionId: string;
+  reviewId: string;
+  attemptId: string;
+  judgement: MasteryJudgement;
+  reason?: ReviewInterventionReason;
+  rootCause: RootCauseSnapshot;
+  interventionTaskId: string | null;
+  notificationSummary?: string | null;
+}) {
+  const normalizedReason = reason || 'mastery_risk';
+  if (
+    !['not_mastered', 'assisted_correct', 'explanation_gap', 'pseudo_mastery'].includes(judgement) &&
+    normalizedReason !== 'transfer_evidence_gap'
+  ) {
+    return;
+  }
+
+  try {
+    const notificationContext = await loadParentStudentNotificationContext(studentId);
+    if (!notificationContext) {
+      return;
+    }
+
+    const rootCauseContext = getRootCauseContext(rootCause);
+    const draft = buildReviewAttemptParentSignalDraft({
+      studentId,
+      studentName: notificationContext.studentName,
+      sessionId,
+      reviewId,
+      attemptId,
+      todayKey: getShanghaiDateKey(),
+      judgement,
+      reason: normalizedReason,
+      rootCauseLabel: rootCauseContext.displayLabel,
+      rootCauseStatement: rootCause.statement,
+      interventionTaskId,
+      notificationSummary,
+    });
+
+    if (!draft) {
+      return;
+    }
+
+    const { data: existingNotifications, error: existingError } = await supabase
+      .from('notifications')
+      .select('data')
+      .eq('user_id', notificationContext.parentId)
+      .eq('type', 'parent_signal')
+      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (existingError) {
+      console.error('[review/attempt] Failed to query existing parent signal notifications:', existingError);
+      return;
+    }
+
+    const hasDuplicate = (existingNotifications || []).some((item) => {
+      const data =
+        item && typeof item === 'object' && 'data' in item
+          ? (item.data as { signal_key?: string | null } | null)
+          : null;
+      return data?.signal_key === draft.signalKey;
+    });
+
+    if (hasDuplicate) {
+      return;
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: notificationContext.parentId,
+      type: 'parent_signal',
+      title: draft.title,
+      content: draft.content,
+      data: draft.data,
+      action_url: draft.actionUrl,
+      action_text: draft.actionText,
+      is_read: false,
+      priority: draft.priority,
+    });
+  } catch (error) {
+    console.error('[review/attempt] Failed to create immediate parent signal notification:', error);
   }
 }
 
@@ -761,6 +879,17 @@ export async function POST(req: NextRequest) {
       studentId: student.id,
       sessionId: review.session_id,
       reviewId: review_id,
+      judgement,
+      reason: interventionReason,
+      rootCause: rootCauseSnapshot,
+      interventionTaskId,
+      notificationSummary: requiresTransferEvidenceIntervention ? variantEvidence.parent_summary : interventionSummary,
+    });
+    await sendImmediateParentSignalNotification({
+      studentId: student.id,
+      sessionId: review.session_id,
+      reviewId: review_id,
+      attemptId: insertedAttempt.id,
       judgement,
       reason: interventionReason,
       rootCause: rootCauseSnapshot,

@@ -106,6 +106,13 @@ notificationTypeConfig.mastery_update = {
   bgColor: 'bg-amber-100',
 };
 
+notificationTypeConfig.parent_signal = {
+  label: '家长信号',
+  icon: AlertCircle,
+  color: 'text-amber-700',
+  bgColor: 'bg-amber-100',
+};
+
 interface Notification {
   id: string;
   user_id: string;
@@ -136,12 +143,34 @@ type MasteryRiskData = {
   intervention_task_title?: string | null;
 };
 
+type ParentSignalData = {
+  guardian_signal_label?: string | null;
+  top_blocker_label?: string | null;
+  stuck_stage_label?: string | null;
+  daily_checkin_status_label?: string | null;
+};
+
 function conversationRiskStatusLabel(data: ConversationRiskData | null | undefined) {
   return formatConversationInterventionStatus(data);
 }
 
 function masteryRiskStatusLabel(data: MasteryRiskData | null | undefined) {
   return formatMasteryInterventionStatus(data);
+}
+
+function parentSignalStatusLabel(data: ParentSignalData | null | undefined) {
+  if (!data) {
+    return null;
+  }
+
+  const parts = [
+    data.guardian_signal_label,
+    data.daily_checkin_status_label,
+    data.top_blocker_label,
+    data.stuck_stage_label ? `卡在${data.stuck_stage_label}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 function getMasteryRiskMeta(data: MasteryRiskData | null | undefined) {
@@ -274,6 +303,11 @@ export default function NotificationsPage() {
         : null;
     const masteryRiskStatus = masteryRiskStatusLabel(masteryRiskData);
     const masteryRiskMeta = notification.type === 'mastery_update' ? getMasteryRiskMeta(masteryRiskData) : null;
+    const parentSignalData =
+      notification.type === 'parent_signal'
+        ? (notification.data as ParentSignalData | null)
+        : null;
+    const parentSignalStatus = parentSignalStatusLabel(parentSignalData);
 
     return (
       <Card
@@ -332,6 +366,9 @@ export default function NotificationsPage() {
                 <p className={cn('text-sm mb-2', masteryRiskMeta?.statusClassName || 'text-amber-700')}>
                   {masteryRiskStatus}
                 </p>
+              ) : null}
+              {parentSignalStatus ? (
+                <p className="text-sm text-amber-700 mb-2">{parentSignalStatus}</p>
               ) : null}
               {conversationRiskData?.intervention_feedback_note ? (
                 <p className="text-xs text-gray-500 line-clamp-2 mb-2">
